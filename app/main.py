@@ -1,4 +1,6 @@
 
+from urllib.parse import quote
+
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -57,6 +59,10 @@ submitted_controls = {}
 approved_controls = {}
 rejected_controls = {}
 
+
+def control_key(framework_name: str, control_name: str) -> str:
+    return f"{framework_name}::{control_name}"
+
 scheduler_data = [
     ("Net Banking", "PCI DSS", "Implemented"),
     ("Mobile Banking", "DPSC", "Partial"),
@@ -78,6 +84,16 @@ def chatbot_answer(query):
 
     if "audit" in q:
         return "Audit evidence tracking is enabled across all frameworks."
+
+    if "reject" in q or "rejection" in q or "reason" in q:
+        if not rejected_controls:
+            return "No rejected evidences at the moment. Auditors can reject submitted controls with a mandatory reason."
+
+        lines = []
+        for key, info in list(rejected_controls.items())[:8]:
+            _framework, control = key.split("::", 1)
+            lines.append(f"{control} ({_framework}): {info['reason']}")
+        return "Rejected evidences and reasons — " + " | ".join(lines)
 
     return f"ECS AI processed query successfully: {query}"
 
@@ -117,7 +133,8 @@ def dashboard(
             "scheduler_data": scheduler_data,
             "role": role,
             "user": user,
-            "response": response
+            "response": response,
+            "rejected_controls": rejected_controls,
         }
     )
 
@@ -125,14 +142,22 @@ def dashboard(
 def chat(
     query: str = Form(...),
     role: str = Form(...),
-    user: str = Form(...)
+    user: str = Form(...),
+    framework_name: str = Form(""),
 ):
 
     response = chatbot_answer(query)
+    encoded = quote(response)
+
+    if framework_name:
+        return RedirectResponse(
+            url=f"/framework/{framework_name}?role={role}&user={user}&response={encoded}",
+            status_code=303,
+        )
 
     return RedirectResponse(
-        url=f"/dashboard?role={role}&user={user}&response={response}",
-        status_code=303
+        url=f"/dashboard?role={role}&user={user}&response={encoded}",
+        status_code=303,
     )
 
 @app.get("/framework/{framework_name}", response_class=HTMLResponse)
@@ -141,7 +166,8 @@ def framework_page(
     framework_name: str,
     role: str = "owner",
     user: str = "User",
-    response: str = ""
+    response: str = "",
+    notice: str = "",
 ):
     return templates.TemplateResponse(
         request=request,
@@ -153,9 +179,10 @@ def framework_page(
             "role": role,
             "user": user,
             "response": response,
+            "notice": notice,
             "submitted_controls": submitted_controls,
             "approved_controls": approved_controls,
-            "rejected_controls": rejected_controls
+            "rejected_controls": rejected_controls,
         }
     )
 
@@ -167,12 +194,16 @@ def submit(
     user: str = Form(...)
 ):
 
-    submitted_controls[control_name] = "Submitted To Auditor"
+    key = control_key(framework_name, control_name)
+    was_rejected = key in rejected_controls
+    if was_rejected:
+        del rejected_controls[key]
+    submitted_controls[key] = "Submitted To Auditor"
 
-    return RedirectResponse(
-        url=f"/framework/{framework_name}?role={role}&user={user}",
-        status_code=303
-    )
+    url = f"/framework/{framework_name}?role={role}&user={user}"
+    if was_rejected:
+        url += f"&notice={quote(f'Evidence resubmitted for {control_name}.')}"
+    return RedirectResponse(url=url, status_code=303)
 
 @app.post("/approve")
 def approve(
@@ -182,11 +213,14 @@ def approve(
     user: str = Form(...)
 ):
 
-    approved_controls[control_name] = "Approved"
+    key = control_key(framework_name, control_name)
+    approved_controls[key] = "Approved"
+    if key in rejected_controls:
+        del rejected_controls[key]
 
     return RedirectResponse(
         url=f"/framework/{framework_name}?role={role}&user={user}",
-        status_code=303
+        status_code=303,
     )
 
 @app.post("/reject")
@@ -195,15 +229,29 @@ def reject(
     framework_name: str = Form(...),
     role: str = Form(...),
     user: str = Form(...),
-    reject_reason: str = Form(...)
+    reject_reason: str = Form(...),
 ):
+    reason = reject_reason.strip()
+    key = control_key(framework_name, control_name)
 
-    rejected_controls[control_name] = reject_reason
+    if not reason:
+        notice = quote("Reject reason is required.")
+        return RedirectResponse(
+            url=f"/framework/{framework_name}?role={role}&user={user}&notice={notice}",
+            status_code=303,
+        )
 
-    if control_name in approved_controls:
-        del approved_controls[control_name]
+    rejected_controls[key] = {
+        "reason": reason,
+        "rejected_by": user,
+    }
+    if key in approved_controls:
+        del approved_controls[key]
+    if key in submitted_controls:
+        del submitted_controls[key]
 
+    notice = quote(f"Rejected {control_name}: {reason}")
     return RedirectResponse(
-        url=f"/framework/{framework_name}?role={role}&user={user}",
-        status_code=303
+        url=f"/framework/{framework_name}?role={role}&user={user}&notice={notice}",
+        status_code=303,
     )

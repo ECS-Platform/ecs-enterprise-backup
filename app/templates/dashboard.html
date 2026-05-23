@@ -73,6 +73,34 @@ Logout
 
 </div>
 
+{% if rejected_controls %}
+<div class="card shadow p-4 mt-4">
+
+<h2>Evidence Rejections</h2>
+
+<table class="table table-bordered table-sm">
+
+<tr>
+<th>Framework</th>
+<th>Control</th>
+<th>Reason</th>
+<th>Rejected By</th>
+</tr>
+
+{% for ckey, info in rejected_controls.items() %}
+<tr>
+<td>{{ ckey.split('::')[0] }}</td>
+<td>{{ ckey.split('::')[1] }}</td>
+<td>{{ info.reason }}</td>
+<td>{{ info.rejected_by }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+{% endif %}
+
 </div>
 
 </div>
@@ -87,7 +115,7 @@ Logout
 <input type="hidden" name="role" value="{{role}}">
 <input type="hidden" name="user" value="{{user}}">
 
-<input class="form-control mb-2" name="query" placeholder="Ask ECS about PCI DSS, DPSC, audit..." required>
+<input class="form-control mb-2" name="query" placeholder="Ask about rejections, PCI DSS, audit..." required>
 
 <button class="btn btn-dark w-100">
 Query
