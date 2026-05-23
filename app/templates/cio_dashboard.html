@@ -1,0 +1,271 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>CIO Evidence Analytics</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+.sidebar {height:100vh;background:#1a252f;}
+.sidebar a {margin-bottom:10px;}
+.kpi-card {border-left:4px solid #0d6efd;}
+.kpi-approved {border-left-color:#198754;}
+.kpi-submitted {border-left-color:#ffc107;}
+.kpi-pending {border-left-color:#6c757d;}
+.kpi-rejected {border-left-color:#dc3545;}
+.chat-popup {
+position:fixed;
+bottom:20px;
+right:20px;
+width:320px;
+background:white;
+padding:15px;
+border-radius:12px;
+box-shadow:0 0 15px rgba(0,0,0,0.3);
+z-index:999;
+}
+</style>
+</head>
+
+<body class="bg-light">
+
+<div class="container-fluid">
+<div class="row">
+
+<div class="col-md-2 sidebar text-white p-3">
+
+<h2>ECS CIO</h2>
+
+<a href="/dashboard/cio?role={{role}}&user={{user}}" class="btn btn-light w-100">
+Evidence Analytics
+</a>
+
+{% for framework in frameworks %}
+<a href="/framework/{{framework}}?role={{role}}&user={{user}}" class="btn btn-outline-light w-100">
+{{framework}}
+</a>
+{% endfor %}
+
+<a href="/logout" class="btn btn-danger w-100 mt-3">
+Logout
+</a>
+
+</div>
+
+<div class="col-md-10 p-4">
+
+<h1>CIO Evidence Analytics Dashboard</h1>
+<h5 class="text-muted">Logged in as: {{user}} — enterprise-wide evidence posture</h5>
+
+<div class="row g-3 mb-4">
+
+<div class="col-md-2">
+<div class="card shadow-sm kpi-card p-3">
+<div class="text-muted small">Total Controls</div>
+<div class="fs-3 fw-bold">{{analytics.totals.total}}</div>
+</div>
+</div>
+
+<div class="col-md-2">
+<div class="card shadow-sm kpi-card kpi-approved p-3">
+<div class="text-muted small">Approved</div>
+<div class="fs-3 fw-bold text-success">{{analytics.totals.approved}}</div>
+</div>
+</div>
+
+<div class="col-md-2">
+<div class="card shadow-sm kpi-card kpi-submitted p-3">
+<div class="text-muted small">Submitted</div>
+<div class="fs-3 fw-bold text-warning">{{analytics.totals.submitted}}</div>
+</div>
+</div>
+
+<div class="col-md-2">
+<div class="card shadow-sm kpi-card kpi-pending p-3">
+<div class="text-muted small">Pending</div>
+<div class="fs-3 fw-bold text-secondary">{{analytics.totals.pending}}</div>
+</div>
+</div>
+
+<div class="col-md-2">
+<div class="card shadow-sm kpi-card kpi-rejected p-3">
+<div class="text-muted small">Rejected</div>
+<div class="fs-3 fw-bold text-danger">{{analytics.totals.rejected}}</div>
+</div>
+</div>
+
+<div class="col-md-2">
+<div class="card shadow-sm kpi-card p-3 bg-primary text-white">
+<div class="small opacity-75">Compliance</div>
+<div class="fs-3 fw-bold">{{analytics.overall_compliance_pct}}%</div>
+</div>
+</div>
+
+</div>
+
+<div class="card shadow p-4 mb-4">
+
+<h2>Framework Compliance</h2>
+
+<table class="table table-bordered table-hover">
+
+<tr>
+<th>Framework</th>
+<th>Total</th>
+<th>Approved</th>
+<th>Submitted</th>
+<th>Pending</th>
+<th>Rejected</th>
+<th>Compliance</th>
+</tr>
+
+{% for fw in analytics.framework_stats %}
+<tr>
+<td><a href="/framework/{{fw.name}}?role={{role}}&user={{user}}">{{fw.name}}</a></td>
+<td>{{fw.total}}</td>
+<td><span class="badge bg-success">{{fw.approved}}</span></td>
+<td><span class="badge bg-warning text-dark">{{fw.submitted}}</span></td>
+<td><span class="badge bg-secondary">{{fw.pending}}</span></td>
+<td><span class="badge bg-danger">{{fw.rejected}}</span></td>
+<td>
+<div class="progress" style="height:22px;">
+<div class="progress-bar bg-success" style="width:{{fw.compliance_pct}}%">
+{{fw.compliance_pct}}%
+</div>
+</div>
+</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+<div class="card shadow p-4 mb-4">
+
+<h2>Application Scheduler Overview</h2>
+
+<table class="table table-bordered table-sm">
+
+<tr>
+<th>Application</th>
+<th>Framework</th>
+<th>Implementation Status</th>
+</tr>
+
+{% for row in scheduler_data %}
+<tr>
+<td>{{row[0]}}</td>
+<td>{{row[1]}}</td>
+<td>{{row[2]}}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+<div class="card shadow p-4 mb-4">
+
+<h2>Evidence Inventory</h2>
+
+<table class="table table-bordered table-striped table-sm">
+
+<tr>
+<th>Framework</th>
+<th>Control</th>
+<th>Evidence</th>
+<th>Status</th>
+<th>Reject Reason</th>
+</tr>
+
+{% for row in analytics.evidence_rows %}
+<tr>
+<td>{{row.framework}}</td>
+<td>{{row.control}}</td>
+<td>{{row.evidence}}</td>
+<td>
+{% if row.status == 'approved' %}
+<span class="badge bg-success">Approved</span>
+{% elif row.status == 'rejected' %}
+<span class="badge bg-danger">Rejected</span>
+{% elif row.status == 'submitted' %}
+<span class="badge bg-warning text-dark">Submitted</span>
+{% else %}
+<span class="badge bg-secondary">Pending</span>
+{% endif %}
+</td>
+<td>
+{% if row.reject_reason %}
+<small class="text-danger">{{row.reject_reason}}</small>
+{% else %}
+<span class="text-muted">—</span>
+{% endif %}
+</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+{% if rejected_controls %}
+<div class="card shadow p-4">
+
+<h2>Active Rejections</h2>
+
+<table class="table table-bordered table-sm">
+
+<tr>
+<th>Framework</th>
+<th>Control</th>
+<th>Reason</th>
+<th>Rejected By</th>
+</tr>
+
+{% for ckey, info in rejected_controls.items() %}
+<tr>
+<td>{{ ckey.split('::')[0] }}</td>
+<td>{{ ckey.split('::')[1] }}</td>
+<td>{{ info.reason }}</td>
+<td>{{ info.rejected_by }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+{% endif %}
+
+</div>
+
+</div>
+</div>
+
+<div class="chat-popup">
+
+<h5>ECS AI Chatbot</h5>
+
+<form method="post" action="/chat">
+
+<input type="hidden" name="role" value="{{role}}">
+<input type="hidden" name="user" value="{{user}}">
+
+<input class="form-control mb-2" name="query" placeholder="Ask about compliance, analytics..." required>
+
+<button class="btn btn-dark w-100">
+Query
+</button>
+
+</form>
+
+{% if response %}
+<div class="alert alert-info mt-3">
+{{response}}
+</div>
+{% endif %}
+
+</div>
+
+</body>
+</html>

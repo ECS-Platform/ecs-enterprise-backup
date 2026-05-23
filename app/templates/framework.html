@@ -38,9 +38,15 @@ z-index:999;
 </a>
 {% endfor %}
 
+{% if role == "cio" %}
+<a href="/dashboard/cio?role={{role}}&user={{user}}" class="btn btn-warning w-100 mt-3">
+Back to CIO Analytics
+</a>
+{% else %}
 <a href="/dashboard?role={{role}}&user={{user}}" class="btn btn-warning w-100 mt-3">
 Back Dashboard
 </a>
+{% endif %}
 
 <a href="/logout" class="btn btn-danger w-100 mt-2">
 Logout
@@ -162,6 +168,12 @@ Submit
 
 <td>
 <span class="text-muted small">Auditor reviews rejections</span>
+</td>
+
+{% elif role == "cio" %}
+
+<td colspan="2">
+<span class="text-muted small">Read-only — view analytics on CIO dashboard</span>
 </td>
 
 {% else %}
