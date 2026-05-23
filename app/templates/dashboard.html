@@ -1,0 +1,107 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>ECS Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+.sidebar {height:100vh;background:#17202a;}
+.sidebar a {margin-bottom:10px;}
+.chat-popup {
+position:fixed;
+bottom:20px;
+right:20px;
+width:320px;
+background:white;
+padding:15px;
+border-radius:12px;
+box-shadow:0 0 15px rgba(0,0,0,0.3);
+z-index:999;
+}
+</style>
+</head>
+
+<body class="bg-light">
+
+<div class="container-fluid">
+<div class="row">
+
+<div class="col-md-2 sidebar text-white p-3">
+
+<h2>Frameworks</h2>
+
+{% for framework in frameworks %}
+<a href="/framework/{{framework}}?role={{role}}&user={{user}}" class="btn btn-outline-light w-100">
+{{framework}}
+</a>
+{% endfor %}
+
+<a href="/logout" class="btn btn-danger w-100 mt-3">
+Logout
+</a>
+
+</div>
+
+<div class="col-md-10 p-4">
+
+<h1>{{role.upper()}} Dashboard</h1>
+
+<h5>Logged in as: {{user}}</h5>
+
+<div class="card shadow p-4">
+
+<h2>Scheduler Dashboard</h2>
+
+<table class="table table-bordered">
+
+<tr>
+<th>Application</th>
+<th>Framework</th>
+<th>Status</th>
+</tr>
+
+{% for row in scheduler_data %}
+<tr>
+<td>{{row[0]}}</td>
+<td>{{row[1]}}</td>
+<td>{{row[2]}}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+</div>
+
+<div class="chat-popup">
+
+<h5>ECS AI Chatbot</h5>
+
+<form method="post" action="/chat">
+
+<input type="hidden" name="role" value="{{role}}">
+<input type="hidden" name="user" value="{{user}}">
+
+<input class="form-control mb-2" name="query" placeholder="Ask ECS about PCI DSS, DPSC, audit..." required>
+
+<button class="btn btn-dark w-100">
+Query
+</button>
+
+</form>
+
+{% if response %}
+<div class="alert alert-info mt-3">
+{{response}}
+</div>
+{% endif %}
+
+</div>
+
+</body>
+</html>

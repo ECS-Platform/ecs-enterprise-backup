@@ -1,0 +1,239 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Framework Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+.sidebar {height:100vh;background:#17202a;}
+.sidebar a {margin-bottom:10px;}
+.chat-popup {
+position:fixed;
+bottom:20px;
+right:20px;
+width:320px;
+background:white;
+padding:15px;
+border-radius:12px;
+box-shadow:0 0 15px rgba(0,0,0,0.3);
+z-index:999;
+}
+</style>
+
+</head>
+
+<body class="bg-light">
+
+<div class="container-fluid">
+<div class="row">
+
+<div class="col-md-2 sidebar text-white p-3">
+
+<h2>Frameworks</h2>
+
+{% for framework in frameworks %}
+<a href="/framework/{{framework}}?role={{role}}&user={{user}}" class="btn btn-outline-light w-100">
+{{framework}}
+</a>
+{% endfor %}
+
+<a href="/dashboard?role={{role}}&user={{user}}" class="btn btn-warning w-100 mt-3">
+Back Dashboard
+</a>
+
+<a href="/logout" class="btn btn-danger w-100 mt-2">
+Logout
+</a>
+
+</div>
+
+<div class="col-md-10 p-4">
+
+<h1>{{framework_name}}</h1>
+
+<h5>Logged in as: {{user}}</h5>
+
+<div class="card shadow p-4">
+
+<table class="table table-bordered table-striped">
+
+<tr>
+<th>Control</th>
+<th>Evidence</th>
+<th>Status</th>
+<th>Action 1</th>
+<th>Action 2</th>
+</tr>
+
+{% for row in controls %}
+
+<tr>
+
+<td>{{row[0]}}</td>
+
+<td>{{row[1]}}</td>
+
+<td>
+
+{% if row[0] in approved_controls %}
+<span class="badge bg-success">
+Approved By Auditor
+</span>
+
+{% elif row[0] in rejected_controls %}
+<span class="badge bg-danger">
+Rejected By Auditor: {{rejected_controls[row[0]]}}
+</span>
+
+{% elif row[0] in submitted_controls %}
+<span class="badge bg-warning text-dark">
+Submitted To Auditor
+</span>
+
+{% else %}
+<span class="badge bg-secondary">
+Pending
+</span>
+{% endif %}
+
+</td>
+
+{% if role == "owner" %}
+
+<td>
+
+{% if row[0] in submitted_controls %}
+
+<button class="btn btn-primary btn-sm" disabled>
+Submitted
+</button>
+
+{% else %}
+
+<form method="post" action="/submit">
+
+<input type="hidden" name="control_name" value="{{row[0]}}">
+<input type="hidden" name="framework_name" value="{{framework_name}}">
+<input type="hidden" name="role" value="{{role}}">
+<input type="hidden" name="user" value="{{user}}">
+
+<button class="btn btn-primary btn-sm">
+Submit
+</button>
+
+</form>
+
+{% endif %}
+
+</td>
+
+<td>
+
+<form method="post" action="/reject">
+
+<input type="hidden" name="control_name" value="{{row[0]}}">
+<input type="hidden" name="framework_name" value="{{framework_name}}">
+<input type="hidden" name="role" value="{{role}}">
+<input type="hidden" name="user" value="{{user}}">
+
+<input class="form-control mb-1" name="reject_reason" placeholder="Reject reason" required>
+
+<button class="btn btn-danger btn-sm">
+Reject
+</button>
+
+</form>
+
+</td>
+
+{% else %}
+
+<td>
+
+{% if row[0] in approved_controls %}
+
+<button class="btn btn-success btn-sm" disabled>
+Approved
+</button>
+
+{% else %}
+
+<form method="post" action="/approve">
+
+<input type="hidden" name="control_name" value="{{row[0]}}">
+<input type="hidden" name="framework_name" value="{{framework_name}}">
+<input type="hidden" name="role" value="{{role}}">
+<input type="hidden" name="user" value="{{user}}">
+
+<button class="btn btn-success btn-sm">
+Approve
+</button>
+
+</form>
+
+{% endif %}
+
+</td>
+
+<td>
+
+<form method="post" action="/reject">
+
+<input type="hidden" name="control_name" value="{{row[0]}}">
+<input type="hidden" name="framework_name" value="{{framework_name}}">
+<input type="hidden" name="role" value="{{role}}">
+<input type="hidden" name="user" value="{{user}}">
+
+<input class="form-control mb-1" name="reject_reason" placeholder="Reject reason" required>
+
+<button class="btn btn-danger btn-sm">
+Reject
+</button>
+
+</form>
+
+</td>
+
+{% endif %}
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+</div>
+
+<div class="chat-popup">
+
+<h5>ECS AI Chatbot</h5>
+
+<form method="post" action="/chat">
+
+<input type="hidden" name="role" value="{{role}}">
+<input type="hidden" name="user" value="{{user}}">
+
+<input class="form-control mb-2" name="query" placeholder="Ask ECS..." required>
+
+<button class="btn btn-dark w-100">
+Query
+</button>
+
+</form>
+
+{% if response %}
+<div class="alert alert-info mt-3">
+{{response}}
+</div>
+{% endif %}
+
+</div>
+
+</body>
+</html>
