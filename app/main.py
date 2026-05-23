@@ -63,6 +63,80 @@ rejected_controls = {}
 def control_key(framework_name: str, control_name: str) -> str:
     return f"{framework_name}::{control_name}"
 
+
+def control_status(framework_name: str, control_name: str) -> str:
+    key = control_key(framework_name, control_name)
+    if key in approved_controls:
+        return "approved"
+    if key in rejected_controls:
+        return "rejected"
+    if key in submitted_controls:
+        return "submitted"
+    return "pending"
+
+
+def build_evidence_analytics():
+    totals = {
+        "total": 0,
+        "pending": 0,
+        "submitted": 0,
+        "approved": 0,
+        "rejected": 0,
+    }
+    framework_stats = []
+    evidence_rows = []
+
+    for framework_name, controls in frameworks.items():
+        fw = {
+            "name": framework_name,
+            "total": len(controls),
+            "pending": 0,
+            "submitted": 0,
+            "approved": 0,
+            "rejected": 0,
+        }
+
+        for control_name, evidence_name in controls:
+            status = control_status(framework_name, control_name)
+            totals["total"] += 1
+            totals[status] += 1
+            fw[status] += 1
+
+            reject_reason = ""
+            if status == "rejected":
+                reject_reason = rejected_controls[
+                    control_key(framework_name, control_name)
+                ]["reason"]
+
+            evidence_rows.append(
+                {
+                    "framework": framework_name,
+                    "control": control_name,
+                    "evidence": evidence_name,
+                    "status": status,
+                    "reject_reason": reject_reason,
+                }
+            )
+
+        fw["compliance_pct"] = (
+            round((fw["approved"] / fw["total"]) * 100, 1) if fw["total"] else 0.0
+        )
+        framework_stats.append(fw)
+
+    overall_compliance_pct = (
+        round((totals["approved"] / totals["total"]) * 100, 1)
+        if totals["total"]
+        else 0.0
+    )
+
+    return {
+        "totals": totals,
+        "overall_compliance_pct": overall_compliance_pct,
+        "framework_stats": framework_stats,
+        "evidence_rows": evidence_rows,
+    }
+
+
 scheduler_data = [
     ("Net Banking", "PCI DSS", "Implemented"),
     ("Mobile Banking", "DPSC", "Partial"),
@@ -95,6 +169,15 @@ def chatbot_answer(query):
             lines.append(f"{control} ({_framework}): {info['reason']}")
         return "Rejected evidences and reasons — " + " | ".join(lines)
 
+    if "analytics" in q or "compliance" in q or "cio" in q or "dashboard" in q:
+        stats = build_evidence_analytics()
+        t = stats["totals"]
+        return (
+            f"CIO Evidence Analytics: {t['approved']}/{t['total']} approved "
+            f"({stats['overall_compliance_pct']}% compliance). "
+            f"Pending {t['pending']}, submitted {t['submitted']}, rejected {t['rejected']}."
+        )
+
     return f"ECS AI processed query successfully: {query}"
 
 @app.get("/", response_class=HTMLResponse)
@@ -107,11 +190,17 @@ def login_page(request: Request):
 
 @app.post("/login")
 def login(role: str = Form(...)):
+    if role == "cio":
+        return RedirectResponse(
+            url="/dashboard/cio?role=cio&user=CIO",
+            status_code=303,
+        )
+
     user = "AppOwner" if role == "owner" else "Auditor"
 
     return RedirectResponse(
         url=f"/dashboard?role={role}&user={user}",
-        status_code=303
+        status_code=303,
     )
 
 @app.get("/logout")
@@ -138,6 +227,30 @@ def dashboard(
         }
     )
 
+
+@app.get("/dashboard/cio", response_class=HTMLResponse)
+def cio_dashboard(
+    request: Request,
+    role: str = "cio",
+    user: str = "CIO",
+    response: str = "",
+):
+    analytics = build_evidence_analytics()
+    return templates.TemplateResponse(
+        request=request,
+        name="cio_dashboard.html",
+        context={
+            "frameworks": frameworks.keys(),
+            "scheduler_data": scheduler_data,
+            "role": role,
+            "user": user,
+            "response": response,
+            "analytics": analytics,
+            "rejected_controls": rejected_controls,
+        },
+    )
+
+
 @app.post("/chat")
 def chat(
     query: str = Form(...),
@@ -148,6 +261,12 @@ def chat(
 
     response = chatbot_answer(query)
     encoded = quote(response)
+
+    if role == "cio":
+        return RedirectResponse(
+            url=f"/dashboard/cio?role={role}&user={user}&response={encoded}",
+            status_code=303,
+        )
 
     if framework_name:
         return RedirectResponse(
