@@ -1,0 +1,25 @@
+<!DOCTYPE html><html><head><title>Compliance Head Dashboard</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% set sidebar_brand = "ECS" %}
+{% set nav_active = "role_dashboard" %}
+{% include "partials/ecs_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Compliance Head Dashboard</h1>
+{% include "partials/enterprise_widgets.html" %}
+{% include "partials/leadership_work_queue.html" %}
+<div class="row g-3 mb-4">
+<div class="col-md-4"><div class="card p-3 border-warning"><small>Missing Evidence</small><h3>{{completeness.missing_count}}</h3></div></div>
+<div class="col-md-4"><div class="card p-3 border-danger"><small>Rejected</small><h3>{{analytics.totals.rejected}}</h3></div></div>
+<div class="col-md-4"><div class="card p-3 border-success"><small>Compliance</small><h3>{{analytics.overall_compliance_pct}}%</h3></div></div>
+</div>
+<h3>Audit Status Summary</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>
+<tr><td>Pending</td><td>{{analytics.totals.pending}}</td></tr>
+<tr><td>Submitted</td><td>{{analytics.totals.submitted}}</td></tr>
+<tr><td>Approved</td><td>{{analytics.totals.approved}}</td></tr>
+<tr><td>Rejected</td><td>{{analytics.totals.rejected}}</td></tr>
+</tbody></table></div>
+<h3>Top Risk Frameworks</h3>
+<ul class="ecs-paginated-list">{% for f in enterprise.top_risk_frameworks %}<li>{{f.name}} — {{f.compliance_pct}}%</li>{% endfor %}</ul>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

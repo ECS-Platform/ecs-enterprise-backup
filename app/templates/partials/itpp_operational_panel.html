@@ -1,0 +1,81 @@
+{% if itpp_operational is defined and itpp_operational %}
+<div class="ecs-itpp-panel mb-4">
+<div class="card shadow-sm border-0 ecs-module-banner p-3 mb-3">
+<h4 class="mb-1">ITPP — Operational Governance Validation</h4>
+<p class="text-muted mb-0 small">Information Technology Policies &amp; Procedures · DR · Backup · Change · Incident · Problem · Capacity · Availability</p>
+</div>
+<div class="row g-3 mb-3">
+<div class="col-md-3"><div class="card p-3 shadow-sm ecs-kpi-card"><small class="text-muted">DR Readiness</small><h4 class="mb-0 text-primary">{{ itpp_operational.kpis.dr_readiness_pct }}%</h4></div></div>
+<div class="col-md-3"><div class="card p-3 shadow-sm ecs-kpi-card"><small class="text-muted">Backup Success Rate</small><h4 class="mb-0 text-success">{{ itpp_operational.kpis.backup_success_rate }}%</h4></div></div>
+<div class="col-md-3"><div class="card p-3 shadow-sm ecs-kpi-card"><small class="text-muted">Incident SLA Breaches</small><h4 class="mb-0 text-danger">{{ itpp_operational.kpis.sla_breaches }}</h4></div></div>
+<div class="col-md-3"><div class="card p-3 shadow-sm ecs-kpi-card"><small class="text-muted">Validation Effectiveness</small><h4 class="mb-0">{{ itpp_operational.kpis.validation_effectiveness }}%</h4></div></div>
+</div>
+{% for domain in itpp_operational.domains %}
+<div class="card shadow-sm mb-3 ecs-itpp-domain">
+<div class="card-header d-flex justify-content-between align-items-center py-2">
+<div><span class="me-2">{{ domain.icon }}</span><strong>{{ domain.name }}</strong>
+<span class="badge bg-secondary ms-2">{{ domain.control_count }} controls</span>
+<span class="badge bg-success ms-1">{{ domain.maturity_pct }}% mature</span></div>
+<small class="text-muted">{{ domain.summary }}</small>
+</div>
+<div class="card-body p-0">
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm mb-0 ecs-itpp-table ecs-paginated-table">
+<thead><tr>
+<th>Control</th><th>Implementation Simulation</th><th>Status</th><th>Workflow</th><th>Actions</th>
+</tr></thead>
+<tbody>
+{% for row in domain.controls %}
+<tr class="{% if row.simulation.status in ['Failed','Breached','Unauthorized','Repeat detected','Saturation risk','Downtime event'] %}table-danger{% elif row.simulation.overdue %}table-warning{% endif %}">
+<td><strong>{{ row.control }}</strong><br><small class="text-muted">{{ row.control_id }}</small></td>
+<td>
+<small class="text-muted d-block">{{ row.simulation.simulation_type }}</small>
+{{ row.simulation.detail }}
+<br><small class="text-muted">Last run: {{ row.simulation.last_run }}</small>
+</td>
+<td>
+{% if row.simulation.status in ['Success','Healthy','Approved','Within SLA','Stable','Normal'] or '99.' in row.simulation.status %}
+<span class="badge bg-success ecs-val-badge">{{ row.simulation.status }}</span>
+{% elif row.simulation.overdue %}
+<span class="badge bg-warning text-dark ecs-val-badge">Overdue</span>
+{% else %}
+<span class="badge bg-danger ecs-val-badge">{{ row.simulation.status }}</span>
+{% endif %}
+</td>
+<td>
+{% if row.workflow_status == 'approved' %}<span class="badge bg-success">Approved</span>
+{% elif row.workflow_status == 'submitted' %}<span class="badge bg-warning text-dark">Pending Review</span>
+{% elif row.workflow_status == 'rejected' %}<span class="badge bg-danger">Rejected</span>
+{% else %}<span class="badge bg-secondary">Draft</span>{% endif %}
+</td>
+<td class="text-nowrap">
+{% for label, action in domain.actions %}
+<form method="post" action="/itpp/action" class="d-inline">
+<input type="hidden" name="action" value="{{ action }}">
+<input type="hidden" name="domain" value="{{ domain.name }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<button type="submit" class="btn btn-outline-primary btn-sm ecs-itpp-action-btn">{{ label }}</button>
+</form>
+{% endfor %}
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+{% endfor %}
+{% if itpp_operational.drill_log %}
+<div class="card shadow-sm p-3">
+<h6 class="text-muted">Recent Operational Actions</h6>
+<div class="enterprise-feed">
+{% for log in itpp_operational.drill_log %}
+<div class="border-bottom pb-2 mb-2"><strong>{{ log.action }}</strong> — {{ log.user }}<span class="chat-ts float-end">{{ log.timestamp }}</span><br><small>{{ log.message }}</small></div>
+{% endfor %}
+</div>
+</div>
+{% endif %}
+</div>
+{% endif %}

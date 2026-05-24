@@ -1,0 +1,70 @@
+{% from "partials/nav_badge.html" import nav_badge %}
+{% if page_workflow_items is defined and page_workflow_items %}
+<div class="card shadow-sm mb-4 ecs-workflow-card">
+<div class="d-flex justify-content-between align-items-center px-3 pt-3 pb-2 page-header">
+<div>
+<h2 class="h5 mb-1">Actionable Workflow Queue</h2>
+<p class="text-muted small mb-0">{{ page_workflow_title|default('Pending items requiring action on this module') }}</p>
+</div>
+<span class="badge bg-primary">{{ page_workflow_items|length }} items</span>
+</div>
+<div class="ecs-table-wrap ecs-paginated-wrap">
+<table class="table table-sm table-hover ecs-workflow-table mb-0 ecs-paginated-table">
+<thead>
+<tr>
+<th>Framework</th>
+<th>Control</th>
+<th>Evidence</th>
+<th>Application</th>
+<th>Pending With</th>
+<th>Status</th>
+<th>Aging</th>
+<th>Risk</th>
+<th>SLA</th>
+<th>Updated</th>
+<th class="ecs-sticky-actions">Actions</th>
+</tr>
+</thead>
+<tbody>
+{% for item in page_workflow_items %}
+<tr class="{% if item.workflow_code == 'approved' %}row-approved{% elif item.workflow_code == 'rejected' %}row-rejected{% elif item.workflow_code == 'submitted' %}row-pending{% elif item.priority in ['Critical','High'] %}row-warning{% endif %}" title="{{ item.auditor_comments[:120] }}">
+<td><span class="fw-semibold">{{ item.framework }}</span></td>
+<td><span class="d-block text-truncate ecs-cell-sm" style="max-width:140px" title="{{ item.control }}">{{ item.control_id }}</span><small class="text-muted ecs-cell-xs">{{ item.control[:40] }}{% if item.control|length > 40 %}…{% endif %}</small></td>
+<td><span class="d-block text-truncate ecs-cell-sm" style="max-width:120px" title="{{ item.evidence_name }}">{{ item.evidence_id }}</span></td>
+<td>{{ item.application }}</td>
+<td><small>{{ item.pending_with }}</small></td>
+<td><span class="badge ecs-badge-sm {% if item.workflow_code == 'approved' %}bg-success{% elif item.workflow_code == 'rejected' %}bg-danger{% elif item.workflow_code == 'submitted' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ item.lifecycle_state }}</span></td>
+<td>{{ item.aging_days }}d</td>
+<td><span class="badge ecs-badge-sm {% if item.risk_rating == 'Critical' %}bg-danger{% elif item.risk_rating == 'High' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ item.risk_rating }}</span></td>
+<td><span class="{{ item.sla_class }} fw-semibold ecs-cell-xs">{{ item.sla }}</span></td>
+<td><small class="ecs-cell-xs">{{ item.last_updated[:10] }}</small></td>
+<td class="ecs-sticky-actions">
+<div class="ecs-action-group">
+{% if role == 'owner' %}
+{% if item.workflow_code == 'rejected' %}
+<form method="post" action="/submit" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-warning btn-sm">Resubmit</button></form>
+{% elif item.workflow_code not in ('submitted','approved') %}
+<form method="post" action="/submit" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-primary btn-sm">Submit</button></form>
+{% endif %}
+{% elif role == 'auditor' and item.workflow_code == 'submitted' %}
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve</button></form>
+{% elif role in ('cio','vertical_head','compliance_head','functional_head') %}
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="review"><button class="btn btn-outline-primary btn-sm">Review</button></form>
+{% if role == 'cio' %}
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="approve_closure"><button class="btn btn-success btn-sm">Approve Closure</button></form>
+{% elif role == 'vertical_head' %}
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="approve"><button class="btn btn-success btn-sm">Approve</button></form>
+{% elif role == 'compliance_head' %}
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="reopen"><button class="btn btn-warning btn-sm">Reopen</button></form>
+{% endif %}
+{% endif %}
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">Review</a>
+</div>
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+{% endif %}

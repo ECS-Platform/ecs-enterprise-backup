@@ -1,0 +1,78 @@
+<div class="ecs-section-card mb-4">
+<div class="ecs-section-card-header">
+<div>
+<h2 class="ecs-section-card-title">Pending Actions Work Queue</h2>
+<p class="text-muted small mb-0">Consolidated across all frameworks — expand for full detail.</p>
+</div>
+<span class="badge bg-warning text-dark">{{ owner_work_queue|length }} open</span>
+</div>
+
+{% if notice %}
+<div class="alert alert-info py-2 mb-3">{{ notice }}</div>
+{% endif %}
+
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap">
+<table class="table ecs-table-modern ecs-paginated-table mb-0 ecs-workflow-table">
+<thead>
+<tr>
+<th>Framework</th>
+<th>Application</th>
+<th>Control</th>
+<th>Evidence</th>
+<th>Action</th>
+<th>Priority</th>
+<th>Aging</th>
+<th>Status</th>
+<th class="ecs-col-optional">Due</th>
+<th class="ecs-col-optional">Comments</th>
+<th class="ecs-col-optional">Submitted</th>
+<th class="ecs-col-optional">Expiry</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+{% for item in owner_work_queue %}
+<tr class="{% if item.workflow_code == 'approved' %}row-approved{% elif item.workflow_code == 'rejected' %}table-danger{% elif item.priority in ['Critical','High'] %}table-warning{% endif %}">
+<td><strong>{{ item.framework }}</strong></td>
+<td>{{ item.application }}</td>
+<td><strong>{{ item.control }}</strong><br><small class="text-muted">{{ item.control_id }}</small></td>
+<td><strong>{{ item.evidence_name }}</strong><br><code class="small">{{ item.mock_file }}</code></td>
+<td><span class="badge bg-secondary">{{ item.action_type }}</span></td>
+<td>
+{% if item.priority == 'Critical' %}<span class="ecs-severity-pill ecs-severity-critical">{{ item.priority }}</span>
+{% elif item.priority == 'High' %}<span class="ecs-severity-pill ecs-severity-high">{{ item.priority }}</span>
+{% else %}<span class="ecs-severity-pill ecs-severity-medium">{{ item.priority }}</span>{% endif %}
+</td>
+<td>{{ item.aging_days }}d</td>
+<td>
+{% if item.workflow_code == 'approved' %}<span class="badge bg-success">Approved</span>
+{% elif item.workflow_code == 'rejected' %}<span class="badge bg-danger">Rejected</span>
+{% elif item.workflow_code == 'submitted' %}<span class="badge bg-warning text-dark">Pending Review</span>
+{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}
+</td>
+<td class="ecs-col-optional">{{ item.due_date }}</td>
+<td class="ecs-col-optional"><small>{{ item.auditor_comments[:80] }}{% if item.auditor_comments|length > 80 %}…{% endif %}</small></td>
+<td class="ecs-col-optional"><small>{{ item.submitted_timestamp }}</small></td>
+<td class="ecs-col-optional"><small>{{ item.expiry_date }}</small></td>
+<td class="text-nowrap ecs-sticky-actions">
+<div class="ecs-action-group">
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">View</a>
+{% if item.workflow_code == 'approved' %}
+{% elif item.workflow_code == 'submitted' %}
+<button class="btn btn-outline-secondary btn-sm" disabled>Awaiting</button>
+{% elif item.workflow_code == 'rejected' %}
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-warning btn-sm">Resubmit</a>
+{% else %}
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-primary btn-sm">Submit</a>
+<form method="post" action="/workflow/cancel" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button class="btn btn-outline-secondary btn-sm">Cancel</button></form>
+{% endif %}
+</div>
+</td>
+</tr>
+{% else %}
+<tr><td colspan="13" class="text-center text-muted py-4">No pending actions — all observations closed or submitted.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>

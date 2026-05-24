@@ -1,0 +1,28 @@
+{% if module_view is defined and module_view.purpose %}
+<div class="card shadow-sm mb-4 border-0 ecs-module-banner">
+<div class="card-body py-3">
+<div class="row align-items-center">
+<div class="col-md-9">
+<h6 class="text-primary mb-1 text-uppercase" style="letter-spacing:.06em;font-size:.72rem">{{ module_view.module|replace('_',' ') }} Module</h6>
+<p class="mb-0 small text-muted">{{ module_view.purpose }}</p>
+</div>
+<div class="col-md-3 text-md-end">
+<span class="badge bg-light text-dark border">Specialized Capability</span>
+</div>
+</div>
+</div>
+</div>
+{% endif %}
+
+{% if module_view is defined and module_view.kpis %}
+<div class="row g-3 mb-4">
+{% for k in module_view.kpis %}
+<div class="col-md-3 col-6">
+<div class="ecs-kpi-modern ecs-kpi-{{ k.tone|default('primary') }}">
+<div class="ecs-kpi-label">{{ k.label }}</div>
+<div class="ecs-kpi-value">{{ k.value }}</div>
+</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}

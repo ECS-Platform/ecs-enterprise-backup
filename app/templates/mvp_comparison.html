@@ -1,0 +1,29 @@
+<!DOCTYPE html><html><head><title>App Comparison</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-comparison"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Application Compliance Comparison</h1>
+<p class="text-muted small">Maturity variance, control gaps, and risk heatmaps — analytics only, no submit workflow</p>
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="ecs-module-actions">
+{{ module_action('comparison','compare',role,user,'Compare Apps','btn-primary btn-sm') }}
+{{ module_action('comparison','export_gap',role,user,'Export Gap Analysis','btn-outline-primary btn-sm') }}
+{{ module_action('comparison','variance_report',role,user,'Variance Report','btn-outline-secondary btn-sm') }}
+</div>
+<h3 class="h6 text-uppercase text-muted">Compliance Heatmap (App × Framework)</h3>
+<div class="heatmap-grid mb-4">{% for h in module_view.heatmap %}
+<div class="heatmap-cell {% if h.pct >= 80 %}heat-high{% elif h.pct >= 60 %}heat-mid{% else %}heat-low{% endif %}">
+<div>{{ h.application[:10] }}</div><div>{{ h.framework[:8] }}</div><div>{{ h.pct }}%</div></div>
+{% endfor %}</div>
+<div class="row"><div class="col-md-6"><h3 class="h6">Application Maturity</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-cap-table table-sm bg-white ecs-paginated-table"><thead><tr><th>Application</th><th>Maturity</th><th>Risk</th></tr></thead><tbody>
+{% for a in module_view.rows %}<tr><td>{{ a.application }}</td><td>{{ a.compliance_pct }}%</td><td>{{ a.risk }}</td></tr>{% endfor %}
+</tbody></table></div></div><div class="col-md-6"><h3 class="h6">Variance Pairs</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-cap-table table-sm bg-white ecs-paginated-table"><thead><tr><th>Apps</th><th>Gap</th><th>Risk</th></tr></thead><tbody>
+{% for v in module_view.variance_rows %}<tr><td>{{ v.app_a }} vs {{ v.app_b }}</td><td>{{ v.variance }}%</td><td>{{ v.risk }}</td></tr>{% endfor %}
+</tbody></table></div></div></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html><html><head><title>Trends</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-trends"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Compliance Analytics & Trends</h1>
+<p class="text-muted small">Maturity, rejection, SLA, closure, and evidence aging analytics</p>
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+<div class="row g-3 mb-4">
+<div class="col-md-6"><div class="card p-3 shadow-sm"><h6 class="text-muted small text-uppercase">Maturity Trend</h6>
+<div class="trend-chart">{% for m in module_view.rows %}
+<div class="trend-bar" style="height:{{ m.compliance }}%;background:#198754"><span class="trend-bar-val">{{ m.compliance }}%</span><span class="trend-bar-label">{{ m.month[:3] }}</span></div>
+{% endfor %}</div></div></div>
+<div class="col-md-6"><div class="card p-3 shadow-sm"><h6 class="text-muted small text-uppercase">Closure vs Opened</h6>
+<div class="trend-chart">{% for m in module_view.rows %}
+<div class="trend-bar" style="height:{{ (m.closed / 60 * 100)|int }}%;background:#0d6efd"><span class="trend-bar-val">{{ m.closed }}</span><span class="trend-bar-label">{{ m.month[:3] }} C</span></div>
+<div class="trend-bar" style="height:{{ (m.opened / 60 * 100)|int }}%;background:#ffc107"><span class="trend-bar-val">{{ m.opened }}</span><span class="trend-bar-label">{{ m.month[:3] }} O</span></div>
+{% endfor %}</div></div></div>
+<div class="col-md-6"><div class="card p-3 shadow-sm"><h6 class="text-muted small text-uppercase">Rejection Rate Trend</h6>
+<div class="trend-chart">{% for r in module_view.rejection_trends %}
+<div class="trend-bar" style="height:{{ (r.rate_pct * 8)|int }}%;background:#dc3545"><span class="trend-bar-val">{{ r.rate_pct }}%</span><span class="trend-bar-label">{{ r.month[:3] }}</span></div>
+{% endfor %}</div></div></div>
+<div class="col-md-6"><div class="card p-3 shadow-sm"><h6 class="text-muted small text-uppercase">SLA On-Time %</h6>
+<div class="trend-chart">{% for s in module_view.sla_trends %}
+<div class="trend-bar" style="height:{{ s.on_time_pct }}%;background:#6610f2"><span class="trend-bar-val">{{ s.on_time_pct }}%</span><span class="trend-bar-label">{{ s.month[:3] }}</span></div>
+{% endfor %}</div></div></div>
+</div>
+<h3 class="h6 text-uppercase text-muted">Evidence Aging Distribution</h3>
+<div class="row g-2">{% for b in module_view.aging_buckets %}
+<div class="col-md-3"><div class="card p-2 text-center shadow-sm"><strong>{{ b.count }}</strong><br><small>{{ b.label }} ({{ b.pct }}%)</small>
+<div class="chart-bar mt-1" style="width:{{ b.pct }}%"></div></div></div>
+{% endfor %}</div>
+<p class="small text-muted mt-3">Avg days to close: {{ module_view.trends.avg_days_to_close }} · Closure rate: {{ module_view.trends.closure_rate_pct }}%</p>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

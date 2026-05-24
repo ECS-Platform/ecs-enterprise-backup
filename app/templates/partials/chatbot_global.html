@@ -1,0 +1,292 @@
+<div class="chat-popup ecs-chat-copilot ecs-chat-size-md" id="ecsChatCopilot" data-state="expanded">
+<button type="button" class="ecs-chat-fab" id="ecsChatFab" title="Open ECS AI Copilot" aria-label="Open copilot">
+<span class="ecs-chat-fab-icon">✦</span>
+<span class="badge bg-danger ecs-chat-fab-badge" id="ecsChatFabBadge" style="display:none">0</span>
+</button>
+
+<div class="ecs-chat-collapsed-bar" id="ecsChatCollapsedBar" role="button" tabindex="0" aria-label="Expand ECS AI Copilot">
+<span class="ecs-chat-logo-sm">✦</span>
+<span class="ecs-chat-collapsed-title">ECS AI Copilot</span>
+<span class="badge bg-warning text-dark ecs-chat-alert-badge" id="ecsChatAlertBadge" style="display:none">Alert</span>
+<span class="badge bg-primary ecs-chat-unread-badge" id="ecsChatUnreadBadge" style="display:none">0</span>
+<button type="button" class="ecs-chat-ctrl-btn ecs-chat-expand-btn" id="ecsChatExpandBtn" title="Expand">▲</button>
+</div>
+
+<div class="ecs-chat-panel" id="ecsChatPanel">
+<div class="ecs-chat-header">
+<div class="ecs-chat-header-main">
+<span class="ecs-chat-logo">✦</span>
+<div class="ecs-chat-header-text">
+<strong class="ecs-chat-title">ECS Operations Copilot</strong>
+<small class="chat-ts d-block">Governance &amp; operations intelligence</small>
+</div>
+<span class="badge bg-primary ecs-chat-role-badge ms-1">{{ role|replace('_',' ')|title }}</span>
+</div>
+<div class="ecs-chat-header-controls" role="toolbar" aria-label="Copilot controls">
+<div class="btn-group btn-group-sm ecs-chat-size-group" role="group" aria-label="Window size">
+<button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-size-btn" data-size="sm" title="Small">S</button>
+<button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-size-btn active" data-size="md" title="Medium">M</button>
+<button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-size-btn" data-size="lg" title="Large">L</button>
+</div>
+<button type="button" class="ecs-chat-ctrl-btn" id="ecsChatMinimizeBtn" title="Minimize">—</button>
+<button type="button" class="ecs-chat-ctrl-btn" id="ecsChatMaximizeBtn" title="Maximize">□</button>
+<button type="button" class="ecs-chat-ctrl-btn" id="ecsChatClearBtn" title="Clear visible chat">⌫</button>
+<button type="button" class="ecs-chat-ctrl-btn" id="ecsChatNewBtn" title="New conversation">↺</button>
+<button type="button" class="ecs-chat-ctrl-btn ecs-chat-close-btn" id="ecsChatCloseBtn" title="Close">×</button>
+</div>
+</div>
+
+<div class="ecs-chat-body" id="ecsChatBody">
+<div class="ecs-chat-history" id="ecsChatHistory">
+{% if chat_history is defined and chat_history %}
+{% for h in chat_history %}
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">{{ h.timestamp }} · You</small><div>{{ h.query }}</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>{{ h.response[:280] }}{% if h.response|length > 280 %}…{% endif %}</div></div>
+{% endfor %}
+{% endif %}
+</div>
+{% if chat_response_html is defined and chat_response_html %}
+<div class="ecs-chat-response ecs-chat-response-html alert alert-light border mt-2 mb-2" id="ecsChatLatest" style="font-size: 0.82rem; max-height: 420px; overflow-y: auto;">{{ chat_response_html|safe }}</div>
+{% elif response %}
+<div class="ecs-chat-response alert alert-light border mt-2 mb-2" id="ecsChatLatest" style="white-space: pre-wrap; font-size: 0.82rem; max-height: 320px; overflow-y: auto;">{{ response }}</div>
+{% endif %}
+<div class="ecs-chat-suggestions mb-2">
+<small class="text-muted d-block mb-1">Quick asks:</small>
+<div class="d-flex flex-wrap gap-1">
+<button type="button" class="btn btn-outline-danger btn-sm ecs-suggest-btn" data-q="Why is Net Banking down?">Net Banking outage</button>
+<button type="button" class="btn btn-outline-danger btn-sm ecs-suggest-btn" data-q="Why are UPI transactions failing?">UPI delays</button>
+<button type="button" class="btn btn-outline-secondary btn-sm ecs-suggest-btn" data-q="What is PCI DSS?">PCI DSS</button>
+<button type="button" class="btn btn-outline-secondary btn-sm ecs-suggest-btn" data-q="What is ITPP?">ITPP</button>
+<button type="button" class="btn btn-outline-secondary btn-sm ecs-suggest-btn" data-q="How many evidences are pending for me?">My pending</button>
+<button type="button" class="btn btn-outline-secondary btn-sm ecs-suggest-btn" data-q="Show high-risk controls">High risk</button>
+{% if role == 'auditor' %}
+<button type="button" class="btn btn-outline-secondary btn-sm ecs-suggest-btn" data-q="How many evidences await my approval?">Auditor queue</button>
+{% elif role == 'cio' %}
+<button type="button" class="btn btn-outline-secondary btn-sm ecs-suggest-btn" data-q="What is enterprise maturity?">Enterprise maturity</button>
+{% endif %}
+</div>
+</div>
+<form method="post" action="/chat" id="ecsChatForm">
+<input type="hidden" name="role" value="{{role}}">
+<input type="hidden" name="user" value="{{user}}">
+{% if framework_name is defined and framework_name %}
+<input type="hidden" name="framework_name" value="{{framework_name}}">
+{% endif %}
+<input class="form-control form-control-sm mb-2" name="query" id="ecsChatInput" placeholder="e.g. Why is Net Banking down? Show DR readiness" required autocomplete="off">
+<button class="btn btn-ecs-primary btn-primary w-100 btn-sm">Ask Copilot</button>
+</form>
+</div>
+<div class="ecs-chat-resize-handle" id="ecsChatResizeHandle" title="Drag to resize"></div>
+</div>
+</div>
+
+<script>
+(function(){
+  var user = {{ user|tojson }};
+  var role = {{ role|tojson }};
+  var storageKey = 'ecs_copilot_ui_' + String(user).replace(/\s/g,'_') + '_' + role;
+  var hasNewResponse = {% if response or (chat_response_html is defined and chat_response_html) %}true{% else %}false{% endif %};
+  var hasOutageAlert = {% if chat_response_html is defined and chat_response_html and 'Operations Intelligence' in chat_response_html %}true{% else %}false{% endif %};
+
+  var copilot = document.getElementById('ecsChatCopilot');
+  var panel = document.getElementById('ecsChatPanel');
+  var collapsedBar = document.getElementById('ecsChatCollapsedBar');
+  var fab = document.getElementById('ecsChatFab');
+  var body = document.getElementById('ecsChatBody');
+  var hist = document.getElementById('ecsChatHistory');
+  var latest = document.getElementById('ecsChatLatest');
+  var unreadBadge = document.getElementById('ecsChatUnreadBadge');
+  var fabBadge = document.getElementById('ecsChatFabBadge');
+  var alertBadge = document.getElementById('ecsChatAlertBadge');
+
+  function loadState() {
+    try { return JSON.parse(sessionStorage.getItem(storageKey) || '{}'); } catch(e) { return {}; }
+  }
+  function saveState(partial) {
+    var s = loadState();
+    Object.assign(s, partial);
+    sessionStorage.setItem(storageKey, JSON.stringify(s));
+  }
+
+  function setState(state) {
+    copilot.setAttribute('data-state', state);
+    saveState({ state: state });
+    if (state === 'expanded') {
+      saveState({ unread: 0 });
+      updateBadges(0, hasOutageAlert && state !== 'expanded');
+    }
+  }
+
+  function setSize(size) {
+    copilot.classList.remove('ecs-chat-size-sm','ecs-chat-size-md','ecs-chat-size-lg');
+    copilot.classList.add('ecs-chat-size-' + size);
+    document.querySelectorAll('.ecs-chat-size-btn').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-size') === size);
+    });
+    saveState({ size: size });
+  }
+
+  function updateBadges(unread, showAlert) {
+    var n = unread || 0;
+    [unreadBadge, fabBadge].forEach(function(el){
+      if (!el) return;
+      if (n > 0) { el.style.display = ''; el.textContent = n; }
+      else { el.style.display = 'none'; }
+    });
+    if (alertBadge) alertBadge.style.display = showAlert ? '' : 'none';
+  }
+
+  function saveScroll() {
+    saveState({
+      scrollHistory: hist ? hist.scrollTop : 0,
+      scrollLatest: latest ? latest.scrollTop : 0
+    });
+  }
+  function restoreScroll() {
+    var s = loadState();
+    if (hist && s.scrollHistory != null) hist.scrollTop = s.scrollHistory;
+    if (latest && s.scrollLatest != null) latest.scrollTop = s.scrollLatest;
+    else {
+      if (hist) hist.scrollTop = hist.scrollHeight;
+      if (latest) latest.scrollTop = latest.scrollHeight;
+    }
+  }
+
+  function bindSuggestButtons(root) {
+    (root || document).querySelectorAll('.ecs-suggest-btn, .ecs-outage-mode-btn').forEach(function(btn){
+      if (btn._ecsBound) return;
+      btn._ecsBound = true;
+      btn.addEventListener('click', function(){
+        var input = document.getElementById('ecsChatInput');
+        if (input) { input.value = btn.getAttribute('data-q'); document.getElementById('ecsChatForm').submit(); }
+      });
+    });
+  }
+
+  function clearVisibleChat() {
+    if (hist) hist.innerHTML = '';
+    if (latest) latest.remove();
+    saveState({ scrollHistory: 0, scrollLatest: 0, cleared: true });
+  }
+
+  function initFromStorage() {
+    var s = loadState();
+    var size = s.size || (window.innerWidth < 768 ? 'sm' : 'md');
+    setSize(size);
+    var state = s.state;
+    if (window.innerWidth < 768 && !s.state) state = 'minimized';
+    if (state === 'minimized') setState('minimized');
+    else if (state === 'closed') setState('closed');
+    else setState('expanded');
+    if (hasNewResponse && copilot.getAttribute('data-state') !== 'expanded') {
+      var unread = (s.unread || 0) + 1;
+      saveState({ unread: unread });
+      updateBadges(unread, hasOutageAlert);
+    } else if (hasOutageAlert && copilot.getAttribute('data-state') === 'minimized') {
+      updateBadges(s.unread || 0, true);
+    }
+    setTimeout(restoreScroll, 50);
+  }
+
+  document.getElementById('ecsChatMinimizeBtn').addEventListener('click', function(e){
+    e.stopPropagation(); saveScroll(); setState('minimized');
+  });
+  document.getElementById('ecsChatExpandBtn').addEventListener('click', function(e){
+    e.stopPropagation(); setState('expanded'); setTimeout(restoreScroll, 80);
+  });
+  collapsedBar.addEventListener('click', function(e){
+    if (e.target.closest('.ecs-chat-expand-btn')) return;
+    setState('expanded'); setTimeout(restoreScroll, 80);
+  });
+  collapsedBar.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setState('expanded'); }
+  });
+  fab.addEventListener('click', function(){ setState('expanded'); setTimeout(restoreScroll, 80); });
+
+  document.getElementById('ecsChatCloseBtn').addEventListener('click', function(e){
+    e.stopPropagation(); saveScroll(); setState('closed');
+  });
+  document.getElementById('ecsChatClearBtn').addEventListener('click', function(e){
+    e.stopPropagation(); clearVisibleChat();
+  });
+  document.getElementById('ecsChatNewBtn').addEventListener('click', function(e){
+    e.stopPropagation(); clearVisibleChat();
+    var input = document.getElementById('ecsChatInput');
+    if (input) input.value = '';
+    saveState({ unread: 0 }); updateBadges(0, false);
+  });
+
+  var maximized = false;
+  document.getElementById('ecsChatMaximizeBtn').addEventListener('click', function(e){
+    e.stopPropagation();
+    maximized = !maximized;
+    if (maximized) {
+      saveState({ prevSize: copilot.classList.contains('ecs-chat-size-sm') ? 'sm' : copilot.classList.contains('ecs-chat-size-lg') ? 'lg' : 'md' });
+      setSize('lg');
+      copilot.classList.add('ecs-chat-maximized');
+      this.textContent = '❐';
+      this.title = 'Restore size';
+    } else {
+      copilot.classList.remove('ecs-chat-maximized');
+      var ps = loadState().prevSize || 'md';
+      setSize(ps);
+      this.textContent = '□';
+      this.title = 'Maximize';
+    }
+  });
+
+  document.querySelectorAll('.ecs-chat-size-btn').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      maximized = false;
+      copilot.classList.remove('ecs-chat-maximized');
+      document.getElementById('ecsChatMaximizeBtn').textContent = '□';
+      setSize(btn.getAttribute('data-size'));
+    });
+  });
+
+  document.addEventListener('click', function(e){
+    if (!copilot.contains(e.target) && copilot.getAttribute('data-state') === 'expanded') {
+      copilot.classList.add('ecs-chat-dim');
+      setTimeout(function(){ copilot.classList.remove('ecs-chat-dim'); }, 1200);
+    }
+  });
+  copilot.addEventListener('click', function(e){ e.stopPropagation(); copilot.classList.remove('ecs-chat-dim'); });
+
+  if (hist) hist.addEventListener('scroll', function(){ saveState({ scrollHistory: hist.scrollTop }); });
+  if (latest) latest.addEventListener('scroll', function(){ saveState({ scrollLatest: latest.scrollTop }); });
+
+  var handle = document.getElementById('ecsChatResizeHandle');
+  if (handle) {
+    handle.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      var startX = e.clientX, startY = e.clientY;
+      var startW = copilot.offsetWidth, startH = panel.offsetHeight;
+      function onMove(ev) {
+        var w = Math.min(Math.max(startW + (startX - ev.clientX), 300), 640);
+        var h = Math.min(Math.max(startH + (startY - ev.clientY), 280), window.innerHeight * 0.9);
+        copilot.style.width = w + 'px';
+        panel.style.height = h + 'px';
+        saveState({ customWidth: w, customHeight: h });
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  bindSuggestButtons(document);
+  if (latest) bindSuggestButtons(latest);
+  initFromStorage();
+  if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+
+  if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+
+  var s = loadState();
+  if (s.customWidth) copilot.style.width = s.customWidth + 'px';
+  if (s.customHeight && panel) panel.style.height = s.customHeight + 'px';
+})();
+</script>

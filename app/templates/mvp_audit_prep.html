@@ -1,0 +1,33 @@
+<!DOCTYPE html><html><head><title>Audit Prep</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-audit"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Audit Readiness Cockpit</h1>
+<p class="text-muted small">Upcoming audits, readiness scoring, and auditor request tracking</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="row mb-4"><div class="col-md-3 text-center"><div class="readiness-score">{{ module_view.kpis[0].value }}</div><small class="text-muted">Readiness Score</small></div>
+<div class="col-md-9"><h3 class="h6 text-uppercase text-muted">Upcoming Audits</h3>
+{% for a in module_view.upcoming_audits %}
+<div class="audit-timeline-item"><strong>{{ a.framework }}</strong> — {{ a.date }} ({{ a.days_out }} days) · Auditor: {{ a.auditor }}
+<div class="chart-bar mt-1" style="width:{{ a.readiness }}%"></div><small>Readiness {{ a.readiness }}%</small></div>
+{% endfor %}</div></div>
+<h3 class="h6 text-uppercase text-muted">Pending Auditor Requests</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-cap-table table-sm bg-white mb-4 ecs-paginated-table"><thead><tr><th>Request</th><th>Framework</th><th>Due</th><th>Owner</th></tr></thead><tbody>
+{% for p in module_view.pending_auditor_requests %}<tr><td>{{ p.request }}</td><td>{{ p.framework }}</td><td>{{ p.due }}</td><td>{{ p.owner }}</td></tr>{% endfor %}
+</tbody></table></div>
+<h3 class="h6 text-uppercase text-muted">Missing Evidence Gaps</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-cap-table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Framework</th><th>Control</th><th>Priority</th><th>Actions</th></tr></thead><tbody>
+{% for c in module_view.rows %}
+<tr class="{% if c.priority=='High' %}table-warning{% endif %}"><td>{{ c.framework }}</td><td>{{ c.control|default(c.action) }}</td><td>{{ c.priority }}</td>
+<td>{{ module_action('audit_prep','close_gap',role,user,'Close Gap','btn-sm btn-success',c.control|default('')) }}
+{{ module_action('audit_prep','assign_owner',role,user,'Assign Owner','btn-sm btn-outline-primary',c.control|default('')) }}
+{{ module_action('audit_prep','upload_missing',role,user,'Upload Missing','btn-sm btn-outline-warning',c.control|default('')) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+<div class="mt-2">{{ module_action('audit_prep','mock_audit',role,user,'Start Mock Audit','btn-primary btn-sm') }}</div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

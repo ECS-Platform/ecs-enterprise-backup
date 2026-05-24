@@ -1,0 +1,28 @@
+<!DOCTYPE html><html><head><title>Governance Analytics</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-gov-analytics"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Governance Analytics</h1>
+<p class="text-muted small">Enterprise risk trends · observation trends · exception trends · framework maturity · SLA · repeat failures</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
+{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
+{{ grc_kpis(module_view.kpis) }}
+<div class="row g-3 mb-3">
+<div class="col-md-6"><div class="card shadow-sm p-3"><h6 class="text-muted">Monthly Observation Trends</h6>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm mb-0 ecs-paginated-table"><thead><tr><th>Month</th><th>Opened</th><th>Closed</th><th>Compliance</th></tr></thead>
+<tbody>{% for t in module_view.monthly_trends %}<tr><td>{{ t.month }}</td><td>{{ t.opened }}</td><td>{{ t.closed }}</td><td>{{ t.compliance }}%</td></tr>{% endfor %}</tbody></table></div></div></div>
+<div class="col-md-6"><div class="card shadow-sm p-3"><h6 class="text-muted">Exception Trends</h6>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm mb-0 ecs-paginated-table"><thead><tr><th>Month</th><th>Active</th><th>Expired</th></tr></thead>
+<tbody>{% for t in module_view.exception_trends %}<tr><td>{{ t.month }}</td><td>{{ t.active }}</td><td>{{ t.expired }}</td></tr>{% endfor %}</tbody></table></div></div></div>
+</div>
+<div class="card shadow-sm p-3 mb-3"><h6 class="text-muted">Control Effectiveness by Framework</h6>
+<div class="row g-2">{% for fw, pct in module_view.control_effectiveness.items() %}
+<div class="col-md-4 col-lg-3"><small>{{ fw }}</small><div class="progress" style="height:8px"><div class="progress-bar {% if pct >= 85 %}bg-success{% elif pct >= 70 %}bg-warning{% else %}bg-danger{% endif %}" style="width:{{ pct }}%"></div></div><small>{{ pct }}%</small></div>
+{% endfor %}</div></div>
+{% if module_view.repeat_failures %}<div class="card shadow-sm p-3"><h6 class="text-muted">Repeat Failures</h6>
+<ul class="small mb-0 ecs-paginated-list">{% for r in module_view.repeat_failures %}<li>{{ r.framework }} — {{ r.control[:40] }}: {{ r.reason }}</li>{% endfor %}</ul></div>{% endif %}
+<div class="mt-2">{{ module_action('governance_analytics','export_chart',role,user,'Export','btn-primary btn-sm') }} {{ module_action('governance_analytics','drill_down',role,user,'Drill Down','btn-outline-primary btn-sm') }}</div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

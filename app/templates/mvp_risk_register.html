@@ -1,0 +1,58 @@
+<!DOCTYPE html><html><head><title>Risk Register</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-enterprise-body ecs-cap-risk"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-main-content">
+{% from "partials/ecs_ux_macros.html" import page_header, zone_open, zone_close, accordion_section %}
+{{ page_header('Enterprise Risk Register', 'Cyber, operational, compliance, AppSec, cloud, DR, and third-party risk', user, role) }}
+{% if notice %}<div class="alert alert-success py-2">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
+{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
+{{ grc_kpis(module_view.kpis) }}
+
+{{ zone_open('middle', 'Risk Insights') }}
+<div class="row g-3 mb-3">
+<div class="col-md-6">
+<div class="ecs-section-card h-100">
+<h6 class="text-muted small text-uppercase mb-3">Top Risks</h6>
+<div class="ecs-priority-grid">
+{% for r in module_view.top_risks[:8] %}
+<div class="ecs-priority-card">
+<div class="ecs-priority-card-head">
+<div><strong class="ecs-priority-title">{{ r.risk_id }}</strong><div class="ecs-priority-meta">{{ r.title[:55] }}…</div></div>
+<span class="ecs-severity-pill ecs-severity-{% if r.residual_risk == 'Critical' %}critical{% elif r.residual_risk == 'High' %}high{% else %}medium{% endif %}">{{ r.residual_risk }}</span>
+</div>
+</div>
+{% endfor %}
+</div>
+</div>
+</div>
+<div class="col-md-6">
+<div class="ecs-section-card h-100">
+<h6 class="text-muted small text-uppercase mb-3">Business Unit Exposure</h6>
+<div class="ecs-heatmap-grid ecs-paginated-blocks">
+{% for bu in module_view.bu_exposure %}
+<div class="ecs-heatmap-tile ecs-heat-{% if bu.count > 5 %}high{% elif bu.count > 2 %}mid{% else %}low{% endif %}">
+<strong>{{ bu.unit }}</strong><br><span class="text-muted">{{ bu.count }} open risks</span>
+</div>
+{% endfor %}
+</div>
+</div>
+</div>
+</div>
+{{ zone_close() }}
+
+{{ zone_open('bottom', 'Risk Register') }}
+<div class="ecs-section-card">
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-grc-table ecs-paginated-table mb-0">
+<thead><tr><th>Risk ID</th><th>Title</th><th>Category</th><th>Application</th><th>Risk</th><th>Aging</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>{% for r in module_view.rows %}
+<tr class="{% if r.residual_risk in ['Critical','High'] %}table-danger{% endif %}">
+<td>{{ r.risk_id }}</td><td><strong>{{ r.title }}</strong><br><small class="text-muted ecs-col-optional">{{ r.description[:60] }}…</small></td>
+<td>{{ r.category }}</td><td>{{ r.application }}</td>
+<td><span class="ecs-severity-pill ecs-severity-{% if r.residual_risk == 'Critical' %}critical{% elif r.residual_risk == 'High' %}high{% else %}medium{% endif %}">{{ r.residual_risk }}</span></td>
+<td>{{ r.aging_days }}d</td><td>{{ r.status }}</td>
+<td class="text-nowrap">{% for a in module_view.actions[:4] %}{{ module_action('risk_register', a, role, user, a|replace('_',' ')|title, 'btn-outline-primary btn-sm', r.risk_id) }}{% endfor %}</td>
+</tr>{% endfor %}</tbody></table></div></div>
+{{ zone_close() }}
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

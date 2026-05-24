@@ -1,0 +1,27 @@
+<!DOCTYPE html><html><head><title>Functional Head Dashboard</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% set sidebar_brand = "ECS" %}
+{% set nav_active = "role_dashboard" %}
+{% include "partials/ecs_sidebar.html" %}
+<div class="col-md-10 p-4 page-header">
+<h1>Functional Head — Application Compliance</h1>
+<p class="text-muted">Business unit view for MD/CIO steering · {{user}}</p>
+{% include "partials/enterprise_widgets.html" %}
+{% include "partials/leadership_work_queue.html" %}
+<div class="row g-3 mb-4">
+<div class="col-md-3"><div class="card p-3 kpi shadow-sm"><small>Enterprise Compliance</small><h3>{{ enterprise.kpis.enterprise_compliance_pct }}%</h3></div></div>
+<div class="col-md-3"><div class="card p-3 kpi shadow-sm"><small>Open Observations</small><h3>{{ enterprise.kpis.open_observations }}</h3></div></div>
+<div class="col-md-3"><div class="card p-3 kpi shadow-sm"><small>Closed</small><h3 class="text-success">{{ enterprise.kpis.closed_observations }}</h3></div></div>
+<div class="col-md-3"><div class="card p-3 kpi shadow-sm"><small>Audit Readiness</small><h3>{{ enterprise.kpis.audit_readiness_pct }}%</h3></div></div>
+</div>
+<h3>Application Onboarding Progress</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-bordered bg-white mb-4 ecs-paginated-table"><thead><tr><th>Application</th><th>Progress</th><th>Frameworks</th><th>Status</th></tr></thead><tbody>
+{% for o in onboarding %}<tr><td>{{o.application}}</td><td><div class="progress"><div class="progress-bar" style="width:{{o.progress_pct}}%">{{o.progress_pct}}%</div></div></td><td>{{o.frameworks_mapped}}</td><td>{{o.status}}</td></tr>{% endfor %}
+</tbody></table></div>
+<h3>Application Comparison</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Application</th><th>Owner</th><th>Compliance</th><th>Risk</th></tr></thead><tbody>
+{% for a in comparison %}<tr><td>{{a.application}}</td><td>{{a.owner}}</td><td>{{a.compliance_pct}}%</td><td><span class="badge bg-{% if a.risk=='High' %}danger{% elif a.risk=='Medium' %}warning text-dark{% else %}success{% endif %}">{{a.risk}}</span></td></tr>{% endfor %}
+</tbody></table></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

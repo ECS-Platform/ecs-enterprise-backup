@@ -1,0 +1,31 @@
+<!DOCTYPE html><html><head><title>Completeness</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-completeness"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Coverage Gap Analysis</h1>
+<p class="text-muted small">Missing controls, incomplete applications, and audit readiness — gap remediation, not approval queue</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="row mb-4"><div class="col-md-3"><div class="readiness-ring"><span class="h4 mb-0">{{ module_view.kpis[2].value }}</span><small>Audit Ready</small></div></div>
+<div class="col-md-9"><div class="row g-2">{% for f in module_view.framework_rows %}
+<div class="col-md-4"><div class="card p-2 shadow-sm small"><strong>{{ f.framework }}</strong>
+<div class="chart-bar mt-1" style="width:{{ f.completeness_pct }}%"></div> {{ f.completeness_pct }}% · {{ f.gaps }} gaps</div></div>
+{% endfor %}</div></div></div>
+<h3 class="h6 text-uppercase text-muted">Missing Controls</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-cap-table table-bordered bg-white mb-4 ecs-paginated-table"><thead><tr><th>Framework</th><th>Control</th><th>Evidence Required</th><th>Actions</th></tr></thead><tbody>
+{% for m in module_view.rows %}
+<tr class="table-danger"><td>{{m.framework}}</td><td>{{m.control}}</td><td>{{m.evidence}}</td>
+<td>{{ module_action('completeness','assign_gap',role,user,'Assign Gap','btn-sm btn-warning',m.control) }}
+{% if role=='owner' %}{{ module_action('completeness','upload_missing',role,user,'Upload Missing','btn-sm btn-primary',m.control) }}{% endif %}
+{{ module_action('completeness','request_owner',role,user,'Request Owner','btn-sm btn-outline-secondary',m.control) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+<h3 class="h6 text-uppercase text-muted">Incomplete Applications</h3>
+<div class="row g-2">{% for a in module_view.application_rows %}
+{% if a.compliance_pct < 85 %}<div class="col-md-4"><div class="card p-2 shadow-sm small {% if a.compliance_pct < 70 %}border-danger{% endif %}">
+<strong>{{ a.application }}</strong> — {{ a.compliance_pct }}% · Risk: {{ a.risk }}</div></div>{% endif %}
+{% endfor %}</div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

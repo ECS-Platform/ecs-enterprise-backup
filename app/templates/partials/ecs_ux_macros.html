@@ -1,0 +1,68 @@
+{% macro kpi_card(label, value, hint='', tone='primary', icon='') %}
+<div class="col-md-4 col-lg-3 col-xl-2">
+<div class="ecs-kpi-modern ecs-kpi-{{ tone }}">
+{% if icon %}<span class="ecs-kpi-icon">{{ icon }}</span>{% endif %}
+<div class="ecs-kpi-label">{{ label }}</div>
+<div class="ecs-kpi-value">{{ value }}</div>
+{% if hint %}<div class="ecs-kpi-hint">{{ hint }}</div>{% endif %}
+</div>
+</div>
+{% endmacro %}
+
+{% macro page_header(title, subtitle='', user='', role='') %}
+<div class="ecs-page-header mb-4">
+<div class="ecs-page-header-main">
+<h1 class="ecs-page-title">{{ title }}</h1>
+{% if subtitle %}<p class="ecs-page-subtitle">{{ subtitle }}</p>{% endif %}
+</div>
+{% if user %}
+<div class="ecs-page-header-meta">
+<span class="ecs-user-chip">{{ user }}</span>
+{% if role %}<span class="ecs-role-chip">{{ role|replace('_',' ')|title }}</span>{% endif %}
+</div>
+{% endif %}
+</div>
+{% endmacro %}
+
+{% macro accordion_section(title, section_id, badge='', collapsed=true, tone='default') %}
+<div class="accordion ecs-accordion mb-3" id="acc-{{ section_id }}">
+<div class="accordion-item ecs-accordion-item ecs-accordion-{{ tone }}">
+<h2 class="accordion-header">
+<button class="accordion-button {% if collapsed %}collapsed{% endif %}" type="button"
+  data-bs-toggle="collapse" data-bs-target="#collapse-{{ section_id }}"
+  aria-expanded="{{ 'false' if collapsed else 'true' }}" aria-controls="collapse-{{ section_id }}">
+<span class="ecs-accordion-title">{{ title }}</span>
+{% if badge %}<span class="badge bg-secondary ms-2 ecs-accordion-badge">{{ badge }}</span>{% endif %}
+</button>
+</h2>
+<div id="collapse-{{ section_id }}" class="accordion-collapse collapse {% if not collapsed %}show{% endif %}"
+  data-bs-parent="#acc-{{ section_id }}">
+<div class="accordion-body ecs-accordion-body">
+{{ caller() }}
+</div>
+</div>
+</div>
+</div>
+{% endmacro %}
+
+{% macro priority_card(title, meta, badge, badge_tone='warning', actions='') %}
+<div class="ecs-priority-card">
+<div class="ecs-priority-card-head">
+<div>
+<strong class="ecs-priority-title">{{ title }}</strong>
+{% if meta %}<div class="ecs-priority-meta">{{ meta }}</div>{% endif %}
+</div>
+{% if badge %}<span class="badge bg-{{ badge_tone }} ecs-priority-badge">{{ badge }}</span>{% endif %}
+</div>
+{% if actions %}<div class="ecs-priority-actions">{{ actions|safe }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro zone_open(name, label='') %}
+<section class="ecs-zone ecs-zone-{{ name }}">
+{% if label %}<div class="ecs-zone-label">{{ label }}</div>{% endif %}
+{% endmacro %}
+
+{% macro zone_close() %}
+</section>
+{% endmacro %}

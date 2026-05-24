@@ -1,0 +1,21 @@
+<!DOCTYPE html><html><head><title>Exceptions / TD</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-exceptions"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Exceptions &amp; Technical Debt</h1>
+<p class="text-muted small">TD expiry, compensating controls, risk exceptions, and renewal workflow</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
+{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
+{{ grc_kpis(module_view.kpis) }}
+<div class="card shadow-sm"><div class="table-responsive ecs-paginated-wrap"><table class="table table-sm table-striped mb-0 ecs-grc-table ecs-paginated-table">
+<thead><tr><th>Exception ID</th><th>Control</th><th>Framework</th><th>Justification</th><th>Compensating Control</th><th>TD Expiry</th><th>Residual Risk</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>{% for e in module_view.rows %}
+<tr class="{% if e.expired %}table-danger{% elif e.residual_risk in ['Critical','High'] %}table-warning{% endif %}">
+<td>{{ e.exception_id }}</td><td><strong>{{ e.control }}</strong></td><td>{{ e.framework }}</td>
+<td><small>{{ e.justification[:55] }}…</small></td><td><small>{{ e.compensating_control }}</small></td>
+<td>{{ e.td_expiry }}</td><td><span class="badge bg-danger">{{ e.residual_risk }}</span></td>
+<td>{% if e.expired %}<span class="badge bg-danger">TD Expired</span>{% else %}<span class="badge bg-success">{{ e.status }}</span>{% endif %}</td>
+<td class="text-nowrap">{% for a in module_view.actions[:3] %}{{ module_action('exceptions_td', a, role, user, a|replace('_',' ')|title, 'btn-outline-primary btn-sm', e.exception_id) }}{% endfor %}</td>
+</tr>{% endfor %}</tbody></table></div></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

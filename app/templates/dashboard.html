@@ -4,132 +4,143 @@
 <head>
 <title>ECS Dashboard</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-<style>
-.sidebar {height:100vh;background:#17202a;}
-.sidebar a {margin-bottom:10px;}
-.chat-popup {
-position:fixed;
-bottom:20px;
-right:20px;
-width:320px;
-background:white;
-padding:15px;
-border-radius:12px;
-box-shadow:0 0 15px rgba(0,0,0,0.3);
-z-index:999;
-}
-</style>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include "partials/enterprise_theme.html" %}
 </head>
-
-<body class="bg-light">
+<body class="bg-light ecs-enterprise-body">
 
 <div class="container-fluid">
 <div class="row">
 
-<div class="col-md-2 sidebar text-white p-3">
+{% set sidebar_brand = "ECS" %}
+{% include "partials/ecs_sidebar.html" %}
 
-<h2>Frameworks</h2>
+<div class="col-md-10 ecs-main-content">
 
-{% for framework in frameworks %}
-<a href="/framework/{{framework}}?role={{role}}&user={{user}}" class="btn btn-outline-light w-100">
-{{framework}}
-</a>
-{% endfor %}
+<div class="ecs-page ecs-page-loading">
+<div class="row g-2 mb-3 ecs-skeleton"><div class="col"><div class="ecs-skeleton ecs-skeleton-kpi"></div></div><div class="col"><div class="ecs-skeleton ecs-skeleton-kpi"></div></div><div class="col"><div class="ecs-skeleton ecs-skeleton-kpi"></div></div></div>
 
-<a href="/logout" class="btn btn-danger w-100 mt-3">
-Logout
-</a>
+<div class="ecs-page-content">
+{% from "partials/ecs_ux_macros.html" import page_header, kpi_card, accordion_section, priority_card, zone_open, zone_close %}
 
+{{ page_header(role.upper() ~ ' Dashboard', 'Governance posture and prioritized actions', user, role) }}
+
+{# ── TOP: KPI summary ── #}
+{{ zone_open('top') }}
+<div class="row g-3">
+{% if role == 'owner' %}
+{% set pending_n = owner_work_queue|length %}
+{% set rejected_n = rejected_controls|length if rejected_controls else 0 %}
+{% set stale_n = namespace(n=0) %}
+{% for item in owner_work_queue %}{% if item.evidence_status == 'Expired' or item.evidence_status == 'Due for Refresh' %}{% set stale_n.n = stale_n.n + 1 %}{% endif %}{% endfor %}
+{{ kpi_card('Pending Actions', pending_n, 'Requires your review', 'warning') }}
+{{ kpi_card('Rejected Evidence', rejected_n, 'Resubmission needed', 'danger') }}
+{{ kpi_card('Expiring / Stale', stale_n.n, 'Renew before audit', 'teal') }}
+{% elif role == 'auditor' %}
+{% set queue_n = auditor_review_queue|length %}
+{% set high_n = namespace(n=0) %}
+{% for item in auditor_review_queue %}{% if item.risk_rating == 'Critical' or item.risk_rating == 'High' %}{% set high_n.n = high_n.n + 1 %}{% endif %}{% endfor %}
+{{ kpi_card('Pending Approvals', queue_n, 'Awaiting decision', 'primary') }}
+{{ kpi_card('High-Risk Reviews', high_n.n, 'Prioritize first', 'danger') }}
+{{ kpi_card('SLA Attention', high_n.n, 'Escalations flagged', 'warning') }}
+{% else %}
+{{ kpi_card('Scheduler Jobs', scheduler_data|length, 'Collection status', 'primary') }}
+{% if rejected_controls %}{{ kpi_card('Rejections', rejected_controls|length, 'Active gaps', 'danger') }}{% endif %}
+{% endif %}
 </div>
+{{ zone_close() }}
 
-<div class="col-md-10 p-4">
+{# ── MIDDLE: insights & priority cards ── #}
+{{ zone_open('middle', 'Prioritized Actions') }}
+{% if role == 'owner' and owner_work_queue %}
+<div class="ecs-priority-grid mb-3">
+{% for item in owner_work_queue[:6] %}
+<div class="ecs-priority-card">
+<div class="ecs-priority-card-head">
+<div>
+<strong class="ecs-priority-title">{{ item.framework }} · {{ item.control_id }}</strong>
+<div class="ecs-priority-meta">{{ item.application }} · {{ item.evidence_name[:40] }}</div>
+</div>
+<span class="ecs-severity-pill ecs-severity-{% if item.priority == 'Critical' %}critical{% elif item.priority == 'High' %}high{% else %}medium{% endif %}">{{ item.priority }}</span>
+</div>
+<div class="ecs-priority-actions">
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-primary btn-sm">Review</a>
+{% if item.workflow_code == 'rejected' %}
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-warning btn-sm">Resubmit</a>
+{% endif %}
+</div>
+</div>
+{% endfor %}
+</div>
+{% elif role == 'auditor' and auditor_review_queue %}
+<div class="ecs-priority-grid mb-3">
+{% for item in auditor_review_queue[:6] %}
+<div class="ecs-priority-card">
+<div class="ecs-priority-card-head">
+<div>
+<strong class="ecs-priority-title">{{ item.framework }} · {{ item.control[:35] }}</strong>
+<div class="ecs-priority-meta">{{ item.application }} · {{ item.aging_days }}d pending</div>
+</div>
+<span class="ecs-severity-pill ecs-severity-{% if item.risk_rating == 'Critical' %}critical{% elif item.risk_rating == 'High' %}high{% else %}medium{% endif %}">{{ item.risk_rating }}</span>
+</div>
+<div class="ecs-priority-actions">
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">Review</a>
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve</button></form>
+</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
 
-<h1>{{role.upper()}} Dashboard</h1>
+{% call accordion_section('Notifications & Activity Feed', 'dash-notifications', '', true) %}
+{% include "partials/enterprise_widgets.html" %}
+{% endcall %}
+{{ zone_close() }}
 
-<h5>Logged in as: {{user}}</h5>
+{# ── BOTTOM: detailed tables ── #}
+{{ zone_open('bottom', 'Detailed Records') }}
+{% if role == "owner" %}
+{% include "partials/owner_work_queue.html" %}
+{% elif role == "auditor" %}
+{% include "partials/auditor_review_queue.html" %}
+{% endif %}
 
-<div class="card shadow p-4">
-
-<h2>Scheduler Dashboard</h2>
-
-<table class="table table-bordered">
-
-<tr>
-<th>Application</th>
-<th>Framework</th>
-<th>Status</th>
-</tr>
-
+{% call accordion_section('Scheduler Dashboard', 'dash-scheduler', scheduler_data|length|string, true) %}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-paginated-table mb-0">
+<thead><tr><th>Application</th><th>Framework</th><th>Status</th><th class="ecs-col-optional">Owner</th><th class="ecs-col-optional">Last Pull</th></tr></thead>
+<tbody>
 {% for row in scheduler_data %}
-<tr>
-<td>{{row[0]}}</td>
-<td>{{row[1]}}</td>
-<td>{{row[2]}}</td>
-</tr>
+<tr><td>{{row[0]}}</td><td>{{row[1]}}</td><td>{{row[2]}}</td><td class="ecs-col-optional">{{row[3] if row|length > 3 else '—'}}</td><td class="ecs-col-optional"><small>{{row[4] if row|length > 4 else '—'}}</small></td></tr>
 {% endfor %}
-
+</tbody>
 </table>
-
 </div>
+{% endcall %}
 
-{% if rejected_controls %}
-<div class="card shadow p-4 mt-4">
-
-<h2>Evidence Rejections</h2>
-
-<table class="table table-bordered table-sm">
-
-<tr>
-<th>Framework</th>
-<th>Control</th>
-<th>Reason</th>
-<th>Rejected By</th>
-</tr>
-
+{% if rejected_controls and role != "auditor" %}
+{% call accordion_section('Evidence Rejections', 'dash-rejections', rejected_controls|length|string, true) %}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-paginated-table mb-0">
+<thead><tr><th>Framework</th><th>Control</th><th>Reason</th><th>Rejected By</th></tr></thead>
+<tbody>
 {% for ckey, info in rejected_controls.items() %}
-<tr>
-<td>{{ ckey.split('::')[0] }}</td>
-<td>{{ ckey.split('::')[1] }}</td>
-<td>{{ info.reason }}</td>
-<td>{{ info.rejected_by }}</td>
-</tr>
+<tr><td>{{ ckey.split('::')[0] }}</td><td>{{ ckey.split('::')[1] }}</td><td>{{ info.reason }}</td><td>{{ info.rejected_by }}</td></tr>
 {% endfor %}
-
+</tbody>
 </table>
-
 </div>
+{% endcall %}
 {% endif %}
+{{ zone_close() }}
+
+</div>{# ecs-page-content #}
+</div>{# ecs-page #}
 
 </div>
-
 </div>
 </div>
 
-<div class="chat-popup">
-
-<h5>ECS AI Chatbot</h5>
-
-<form method="post" action="/chat">
-
-<input type="hidden" name="role" value="{{role}}">
-<input type="hidden" name="user" value="{{user}}">
-
-<input class="form-control mb-2" name="query" placeholder="Ask about rejections, PCI DSS, audit..." required>
-
-<button class="btn btn-dark w-100">
-Query
-</button>
-
-</form>
-
-{% if response %}
-<div class="alert alert-info mt-3">
-{{response}}
-</div>
-{% endif %}
-
-</div>
-
+{% include "partials/chatbot_global.html" %}
 </body>
 </html>

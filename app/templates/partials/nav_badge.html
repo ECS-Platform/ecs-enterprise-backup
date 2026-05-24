@@ -1,0 +1,5 @@
+{% macro nav_badge(count, tooltip='') -%}
+{% if count and count > 0 %}
+<span class="ecs-nav-badge" title="{{ tooltip or (count ~ ' pending workflow action' ~ ('s' if count != 1 else '')) }}">{{ count }}</span>
+{% endif %}
+{%- endmacro %}

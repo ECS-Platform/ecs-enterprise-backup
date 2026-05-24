@@ -1,0 +1,21 @@
+<!DOCTYPE html><html><head><title>CMDB / Assets</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-cmdb"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>CMDB / Asset Inventory</h1>
+<p class="text-muted small">Enterprise asset governance — applications, servers, databases, cloud, and ownership mapping</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
+{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
+{{ grc_kpis(module_view.kpis) }}
+<div class="card shadow-sm"><div class="table-responsive ecs-paginated-wrap"><table class="table table-sm table-striped mb-0 ecs-grc-table ecs-paginated-table">
+<thead><tr><th>Asset ID</th><th>Name</th><th>Type</th><th>Env</th><th>Criticality</th><th>Owner</th><th>Risk</th><th>Internet</th><th>DR</th><th>Monitoring</th><th>Actions</th></tr></thead>
+<tbody>{% for a in module_view.rows %}
+<tr class="{% if a.risk_rating in ['Critical','High'] %}table-warning{% endif %}">
+<td>{{ a.asset_id }}</td><td><strong>{{ a.name }}</strong></td><td>{{ a.type }}</td><td>{{ a.environment }}</td>
+<td>{{ a.criticality }}</td><td>{{ a.owner }}</td><td><span class="badge bg-{% if a.risk_rating in ['Critical','High'] %}danger{% else %}secondary{% endif %}">{{ a.risk_rating }}</span></td>
+<td>{% if a.internet_facing %}Yes{% else %}No{% endif %}</td><td>{% if a.dr_covered %}✓{% else %}<span class="text-danger">✗</span>{% endif %}</td>
+<td>{% if a.monitoring_enabled %}✓{% else %}<span class="text-warning">✗</span>{% endif %}</td>
+<td class="text-nowrap">{{ module_action('cmdb', 'open_asset', role, user, 'Open', 'btn-outline-primary btn-sm', a.asset_id) }}</td>
+</tr>{% endfor %}</tbody></table></div></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

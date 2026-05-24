@@ -1,0 +1,57 @@
+<style>
+/* Module-specific enterprise capability UI — not workflow tables */
+.ecs-cap-scheduler .job-card { border-left: 4px solid #0d6efd; }
+.ecs-cap-scheduler .job-card.unhealthy { border-left-color: #dc3545; }
+.ecs-cap-scheduler .health-ring { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; background: conic-gradient(#198754 0 340deg, #e9ecef 340deg); }
+.ecs-cap-upload .batch-progress { height: 8px; border-radius: 4px; background: #e9ecef; overflow: hidden; }
+.ecs-cap-upload .batch-progress-bar { height: 100%; background: linear-gradient(90deg, #0d6efd, #6610f2); transition: width .3s; }
+.ecs-cap-health .risk-pill { display: inline-block; padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
+.ecs-cap-health .risk-critical { background: #f8d7da; color: #842029; }
+.ecs-cap-health .risk-high { background: #fff3cd; color: #664d03; }
+.ecs-cap-health .risk-medium { background: #cff4fc; color: #055160; }
+.ecs-cap-health .risk-low { background: #d1e7dd; color: #0f5132; }
+.ecs-cap-search .discovery-panel { background: #fff; border: 1px solid #e8ecef; border-radius: 10px; padding: 1rem; height: 100%; }
+.ecs-cap-search .match-score { font-size: 0.7rem; color: #6c757d; }
+.ecs-cap-search .semantic-tag { font-size: 0.65rem; background: #e7f1ff; color: #084298; padding: 0.15rem 0.4rem; border-radius: 4px; }
+.ecs-cap-completeness .readiness-ring { width: 100px; height: 100px; border-radius: 50%; border: 8px solid #198754; display: flex; align-items: center; justify-content: center; flex-direction: column; margin: auto; }
+.ecs-cap-reuse .savings-banner { background: linear-gradient(135deg, #198754 0%, #20c997 100%); color: #fff; border-radius: 10px; padding: 1rem 1.25rem; }
+.ecs-cap-lifecycle .lifecycle-lane { min-height: 120px; background: #f8f9fa; border-radius: 8px; padding: 0.5rem; border: 1px dashed #dee2e6; }
+.ecs-cap-lifecycle .lifecycle-chip { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 0.35rem 0.5rem; margin-bottom: 0.35rem; font-size: 0.75rem; }
+.ecs-cap-lifecycle .ecs-timeline { border-left: 3px solid #0d6efd; padding-left: 1rem; margin-left: 0.5rem; }
+.ecs-cap-lifecycle .ecs-timeline-item { position: relative; padding-bottom: 0.75rem; font-size: 0.8rem; }
+.ecs-cap-lifecycle .ecs-timeline-item::before { content: ''; position: absolute; left: -1.35rem; top: 0.25rem; width: 10px; height: 10px; border-radius: 50%; background: #0d6efd; }
+.ecs-cap-comparison .heatmap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; }
+.ecs-cap-comparison .heatmap-cell { text-align: center; padding: 0.5rem 0.25rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600; color: #fff; }
+.ecs-cap-comparison .heat-high { background: #198754; }
+.ecs-cap-comparison .heat-mid { background: #ffc107; color: #1a252f; }
+.ecs-cap-comparison .heat-low { background: #dc3545; }
+.ecs-cap-integrations .connector-group { margin-bottom: 1.25rem; }
+.ecs-cap-integrations .connector-card { border-left: 4px solid #6610f2; }
+.ecs-cap-integrations .connector-card.siem { border-left-color: #dc3545; }
+.ecs-cap-integrations .connector-card.cmdb { border-left-color: #0dcaf0; }
+.ecs-cap-integrations .connector-card.sharepoint { border-left-color: #198754; }
+.ecs-cap-integrations .connector-card.servicenow { border-left-color: #fd7e14; }
+.ecs-cap-enterprise .exec-kpi { text-align: center; padding: 1rem; border-radius: 10px; background: #fff; border: 1px solid #e8ecef; }
+.ecs-cap-enterprise .maturity-heat { display: flex; gap: 4px; flex-wrap: wrap; }
+.ecs-cap-enterprise .maturity-heat span { width: 28px; height: 28px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 700; color: #fff; }
+.ecs-cap-panindia .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.ecs-cap-panindia .zone-tile { border-radius: 8px; padding: 0.75rem; text-align: center; color: #fff; font-size: 0.8rem; }
+.ecs-cap-panindia .zone-tile.zone-high { background: linear-gradient(135deg, #dc3545, #b02a37); }
+.ecs-cap-panindia .zone-tile.zone-mid { background: linear-gradient(135deg, #ffc107, #e0a800); color: #1a252f; }
+.ecs-cap-panindia .zone-tile.zone-low { background: linear-gradient(135deg, #198754, #157347); }
+.ecs-cap-reports .report-card { transition: box-shadow .15s; cursor: default; }
+.ecs-cap-reports .report-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+.ecs-cap-audit .readiness-score { font-size: 2.5rem; font-weight: 700; color: #198754; line-height: 1; }
+.ecs-cap-audit .audit-timeline-item { border-left: 3px solid #ffc107; padding: 0.5rem 0 0.5rem 1rem; margin-bottom: 0.5rem; font-size: 0.85rem; }
+.ecs-cap-trends .trend-chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding: 0.5rem 0; }
+.ecs-cap-trends .trend-bar { flex: 1; min-width: 24px; border-radius: 4px 4px 0 0; position: relative; }
+.ecs-cap-trends .trend-bar-label { position: absolute; bottom: -1.25rem; left: 50%; transform: translateX(-50%); font-size: 0.6rem; white-space: nowrap; color: #6c757d; }
+.ecs-cap-trends .trend-bar-val { position: absolute; top: -1rem; left: 50%; transform: translateX(-50%); font-size: 0.65rem; font-weight: 600; }
+.ecs-cap-onboarding .stage-pipeline { display: flex; gap: 0; margin-bottom: 1.5rem; }
+.ecs-cap-onboarding .stage-step { flex: 1; text-align: center; padding: 0.75rem 0.5rem; background: #e9ecef; font-size: 0.75rem; position: relative; }
+.ecs-cap-onboarding .stage-step.active { background: #0d6efd; color: #fff; font-weight: 600; }
+.ecs-cap-onboarding .stage-step.done { background: #198754; color: #fff; }
+.ecs-cap-table { font-size: 0.82rem; }
+.ecs-cap-table thead { background: #f8f9fa; }
+.ecs-module-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
+</style>

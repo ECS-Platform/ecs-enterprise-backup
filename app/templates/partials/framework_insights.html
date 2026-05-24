@@ -1,0 +1,63 @@
+{% if fw_dashboard is defined and fw_dashboard.insights %}
+<div class="row g-3 mb-3">
+{% for section in fw_dashboard.insights %}
+<div class="col-md-6 col-xl-4">
+<div class="ecs-section-card h-100 ecs-fw-insight-card">
+<h6 class="text-muted small text-uppercase mb-3">{{ section['title'] }}</h6>
+
+{% if section['type'] == 'bars' %}
+{% for item in section['items'] %}
+<div class="ecs-insight-bar mb-2">
+<div class="ecs-insight-bar-label"><span>{{ item.name }}</span><strong>{{ item.score }}%</strong></div>
+<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill bg-{% if item.score >= 85 %}success{% elif item.score >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ item.score }}%"></div></div>
+</div>
+{% endfor %}
+
+{% elif section['type'] == 'heatmap' %}
+<div class="ecs-heatmap-grid">
+{% for item in section['items'] %}
+<div class="ecs-heatmap-tile ecs-heat-{% if item.risk == 'High' or item.risk == 'Critical' %}high{% elif item.risk == 'Medium' %}mid{% else %}low{% endif %}">
+<strong>{{ item.name }}</strong><br>
+<span class="text-muted">{{ item.score }}% · {{ item.risk|default('—') }}</span>
+</div>
+{% endfor %}
+</div>
+
+{% elif section['type'] == 'metrics' %}
+<div class="row g-2">
+{% for item in section['items'] %}
+<div class="col-4">
+<div class="ecs-kpi-modern ecs-kpi-{{ item.tone|default('primary') }} py-2 px-2">
+<div class="ecs-kpi-label" style="font-size:0.62rem">{{ item.label }}</div>
+<div class="ecs-kpi-value" style="font-size:1.2rem">{{ item.value }}</div>
+</div>
+</div>
+{% endfor %}
+</div>
+
+{% elif section['type'] == 'timeline' %}
+<ul class="list-unstyled mb-0 ecs-paginated-list">
+{% for item in section['items'] %}
+<li class="border-start border-3 ps-2 mb-2 ecs-fw-timeline-item border-{% if item.severity == 'Critical' %}danger{% elif item.severity == 'High' %}warning{% else %}secondary{% endif %}">
+<strong class="small">{{ item.label }}</strong><br>
+<span class="text-muted" style="font-size:0.72rem">{{ item.meta }}</span>
+</li>
+{% endfor %}
+</ul>
+
+{% else %}
+<ul class="list-unstyled mb-0 small">
+{% for item in section['items'] %}
+<li class="d-flex justify-content-between align-items-start border-bottom py-2">
+<div><strong>{{ item.label }}</strong><br><span class="text-muted">{{ item.meta }}</span></div>
+<span class="ecs-severity-pill ecs-severity-{% if item.severity == 'Critical' %}critical{% elif item.severity == 'High' %}high{% else %}medium{% endif %}">{{ item.severity }}</span>
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}

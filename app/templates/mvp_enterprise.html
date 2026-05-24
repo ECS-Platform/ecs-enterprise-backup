@@ -1,0 +1,29 @@
+<!DOCTYPE html><html><head><title>Enterprise</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-enterprise"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Enterprise Governance Overview</h1>
+<p class="text-muted small">Organization-wide KPIs, maturity heatmaps, and business-unit risk posture</p>
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="row g-2 mb-4">{% for bu in module_view.business_units %}
+<div class="col-md-4"><div class="exec-kpi"><h5>{{ bu.compliance_pct }}%</h5><strong>{{ bu.unit }}</strong><br>
+<span class="badge {% if bu.risk=='High' %}bg-danger{% elif bu.risk=='Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ bu.risk }}</span>
+<small class="d-block text-muted">{{ bu.open_gaps }} open gaps</small></div></div>
+{% endfor %}</div>
+<h3 class="h6 text-uppercase text-muted">Framework Maturity Heatmap</h3>
+<div class="maturity-heat mb-4">{% for m in module_view.maturity_heatmap %}
+<span style="background:{% if m.pct >= 85 %}#198754{% elif m.pct >= 75 %}#ffc107{% else %}#dc3545{% endif %}" title="{{ m.framework }}">{{ m.pct }}</span>
+{% endfor %}</div>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-cap-table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Framework</th><th>Maturity</th><th>Open Items</th><th>Risk</th><th>Actions</th></tr></thead><tbody>
+{% for r in module_view.rows %}
+<tr><td>{{ r.framework }}</td><td>{{ r.maturity_pct }}%</td><td>{{ r.open_items }}</td>
+<td><span class="badge {% if r.risk=='High' %}bg-danger{% elif r.risk=='Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ r.risk }}</span></td>
+<td><a href="/framework/{{ r.framework }}?role={{role}}&user={{user}}" class="btn btn-sm btn-outline-primary">Drill Down</a>
+{% if role in ('cio','compliance_head') %}{{ module_action('enterprise','view_gaps',role,user,'View Gap','btn-sm btn-outline-warning',r.framework) }}
+{{ module_action('enterprise','escalate_risk',role,user,'Escalate','btn-sm btn-outline-danger',r.framework) }}{% endif %}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

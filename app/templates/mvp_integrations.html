@@ -1,0 +1,27 @@
+<!DOCTYPE html><html><head><title>Integrations</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-integrations"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>External System Integrations</h1>
+<p class="text-muted small">SIEM, CMDB, ServiceNow, and SharePoint connector health — ingestion pipelines, not evidence approval</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+{% set groups = [('siem','SIEM Integrations'),('cmdb','CMDB Integrations'),('sharepoint','SharePoint'),('servicenow','ServiceNow')] %}
+{% for key, label in groups %}
+{% if module_view.grouped.get(key) %}
+<div class="connector-group"><h3 class="h6 text-uppercase text-muted">{{ label }}</h3>
+<div class="row g-3">{% for c in module_view.grouped[key] %}
+<div class="col-md-6"><div class="card connector-card {{ key }} shadow-sm p-3">
+<div class="d-flex justify-content-between"><strong>{{ c.name }}</strong>
+<span class="badge {% if c.api_status|default(c.api_health|default('Healthy')) in ('Healthy','Connected','Synced') %}bg-success{% else %}bg-danger{% endif %}">{{ c.api_status|default(c.api_health|default('Healthy')) }}</span></div>
+<small class="text-muted">{{ c.type }} · Sync: {{ c.sync_status|default(c.status) }}</small>
+<div class="row small mt-2"><div class="col-6">Last sync: {{ c.last_sync }}</div><div class="col-6">Records: {{ c.records_ingested|default(c.records) }}</div></div>
+<div class="mt-2">{{ module_action('integrations','test_connection',role,user,'Test','btn-sm btn-outline-primary',c.name) }}
+<form method="post" action="/mvp/integrations/sync" class="d-inline"><input type="hidden" name="connector" value="{{c.name}}"><input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}"><button class="btn btn-sm btn-success">Sync Now</button></form>
+{{ module_action('integrations','reconnect',role,user,'Reconnect','btn-sm btn-outline-warning',c.name) }}
+{{ module_action('integrations','view_logs',role,user,'Logs','btn-sm btn-outline-secondary',c.name) }}</div>
+</div></div>{% endfor %}</div></div>
+{% endif %}{% endfor %}
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

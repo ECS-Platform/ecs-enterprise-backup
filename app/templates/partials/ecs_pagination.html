@@ -1,0 +1,256 @@
+<script>
+(function(){
+  'use strict';
+  var DEFAULT = 10;
+  var THRESHOLD = 10;
+
+  function storageKey(id) { return 'ecs_pg_' + id; }
+
+  function loadPrefs(id) {
+    try { return JSON.parse(sessionStorage.getItem(storageKey(id)) || '{}'); } catch(e) { return {}; }
+  }
+  function savePrefs(id, data) {
+    try {
+      var cur = loadPrefs(id);
+      sessionStorage.setItem(storageKey(id), JSON.stringify(Object.assign(cur, data)));
+    } catch(e) {}
+  }
+
+  function isExcluded(el) {
+    var chat = el.closest('#ecsChatCopilot');
+    if (!chat) return false;
+    return !el.closest('.ecs-chat-response-html, .ecs-chat-history');
+  }
+
+  function ensureTableStructure(table) {
+    if (table.tBodies.length && table.querySelector('thead')) return;
+    var direct = Array.from(table.children).filter(function(n){ return n.tagName === 'TR'; });
+    if (direct.length && direct[0].querySelector('th')) {
+      var thead = document.createElement('thead');
+      thead.appendChild(direct[0]);
+      table.insertBefore(thead, table.firstChild);
+    }
+    if (!table.tBodies.length) {
+      var tbody = document.createElement('tbody');
+      Array.from(table.querySelectorAll(':scope > tr')).forEach(function(r){ tbody.appendChild(r); });
+      table.appendChild(tbody);
+    }
+  }
+
+  function ensureId(el, prefix) {
+    if (!el.id) el.id = prefix + Math.random().toString(36).slice(2, 9);
+    return el.id;
+  }
+
+  function collectGroups(tbody) {
+    var rows = Array.from(tbody.querySelectorAll('tr'));
+    if (!rows.length) return [];
+    var grouped = rows.some(function(r){ return r.dataset.ecsPageGroup; });
+    if (!grouped) return rows.map(function(r){ return { rows: [r], key: String(rows.indexOf(r)) }; });
+    var order = [];
+    var map = {};
+    rows.forEach(function(r){
+      var g = r.dataset.ecsPageGroup;
+      if (!map[g]) { map[g] = []; order.push(g); }
+      map[g].push(r);
+    });
+    return order.map(function(g){ return { rows: map[g], key: g }; });
+  }
+
+  function buildBar(host, id, state) {
+    var wrap = document.createElement('div');
+    wrap.className = 'ecs-pagination-bar';
+    wrap.setAttribute('data-ecs-pagination-for', id);
+
+    function render() {
+      var total = state.groups.length;
+      var size = state.pageSize;
+      var pages = Math.max(1, Math.ceil(total / size));
+      if (state.page > pages) state.page = pages;
+      var startIdx = (state.page - 1) * size;
+      var endIdx = Math.min(startIdx + size, total);
+      var from = total ? startIdx + 1 : 0;
+      var to = endIdx;
+
+      state.groups.forEach(function(g, i){
+        var show = i >= startIdx && i < endIdx;
+        g.rows.forEach(function(r){ r.style.display = show ? '' : 'none'; });
+      });
+
+      var summary = total
+        ? 'Showing ' + from + '–' + to + ' of ' + total + ' records'
+        : 'No records';
+
+      wrap.innerHTML =
+        '<div class="ecs-pagination-summary">' + summary + '</div>' +
+        '<div class="ecs-pagination-controls">' +
+          '<label class="ecs-pagination-size-label">Rows ' +
+            '<select class="form-select form-select-sm ecs-pagination-size d-inline-block w-auto">' +
+              [10,20,50].map(function(n){
+                return '<option value="'+n+'"'+(n===size?' selected':'')+'>'+n+'</option>';
+              }).join('') +
+            '</select></label>' +
+          '<div class="btn-group btn-group-sm ecs-pagination-nav" role="group">' +
+            '<button type="button" class="btn btn-outline-secondary ecs-pg-first" title="First page"'+(state.page<=1?' disabled':'')+'>&laquo;</button>' +
+            '<button type="button" class="btn btn-outline-secondary ecs-pg-prev" title="Previous"'+(state.page<=1?' disabled':'')+'>&lsaquo; Prev</button>' +
+            pageBtnHtml(state.page, pages) +
+            '<button type="button" class="btn btn-outline-secondary ecs-pg-next" title="Next"'+(state.page>=pages?' disabled':'')+'>Next &rsaquo;</button>' +
+            '<button type="button" class="btn btn-outline-secondary ecs-pg-last" title="Last page"'+(state.page>=pages?' disabled':'')+'>&raquo;</button>' +
+          '</div>' +
+          '<span class="ecs-pagination-jump">Page ' +
+            '<input type="number" class="form-control form-control-sm ecs-pg-jump-input d-inline-block" min="1" max="'+pages+'" value="'+state.page+'" style="width:3.2rem"> ' +
+            'of '+pages+
+          '</span>' +
+        '</div>';
+
+      wrap.querySelector('.ecs-pagination-size').addEventListener('change', function(e){
+        state.pageSize = parseInt(e.target.value, 10) || DEFAULT;
+        state.page = 1;
+        savePrefs(id, { pageSize: state.pageSize, page: state.page });
+        render();
+      });
+      wrap.querySelector('.ecs-pg-first').addEventListener('click', function(){ state.page = 1; savePrefs(id,{page:1}); render(); });
+      wrap.querySelector('.ecs-pg-prev').addEventListener('click', function(){ state.page = Math.max(1, state.page-1); savePrefs(id,{page:state.page}); render(); });
+      wrap.querySelector('.ecs-pg-next').addEventListener('click', function(){ state.page = Math.min(pages, state.page+1); savePrefs(id,{page:state.page}); render(); });
+      wrap.querySelector('.ecs-pg-last').addEventListener('click', function(){ state.page = pages; savePrefs(id,{page:pages}); render(); });
+      wrap.querySelector('.ecs-pg-jump-input').addEventListener('change', function(e){
+        var p = parseInt(e.target.value, 10);
+        if (p >= 1 && p <= pages) { state.page = p; savePrefs(id,{page:p}); render(); }
+      });
+      wrap.querySelectorAll('.ecs-pg-num').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          state.page = parseInt(btn.getAttribute('data-page'), 10);
+          savePrefs(id,{page:state.page});
+          render();
+        });
+      });
+    }
+
+    function pageBtnHtml(cur, pages) {
+      if (pages <= 1) return '';
+      var nums = [];
+      var set = {};
+      for (var p = Math.max(1, cur-2); p <= Math.min(pages, cur+2); p++) set[p]=1;
+      set[1]=1; set[pages]=1;
+      Object.keys(set).map(Number).sort(function(a,b){return a-b;}).forEach(function(p){
+        if (nums.length && p > nums[nums.length-1]+1) nums.push('…');
+        nums.push(p);
+      });
+      return nums.map(function(n){
+        if (n === '…') return '<span class="ecs-pg-ellipsis">…</span>';
+        var active = n === cur ? ' active' : '';
+        return '<button type="button" class="btn btn-outline-secondary ecs-pg-num'+active+'" data-page="'+n+'">'+n+'</button>';
+      }).join('');
+    }
+
+    render();
+    return wrap;
+  }
+
+  function attachBar(host, bar) {
+    if (host.nextElementSibling && host.nextElementSibling.classList.contains('ecs-pagination-bar')) return;
+    host.insertAdjacentElement('afterend', bar);
+  }
+
+  function initTable(table) {
+    if (table.dataset.ecsPaginationInit) return;
+    if (isExcluded(table)) return;
+    if (table.classList.contains('ecs-no-paginate')) return;
+    ensureTableStructure(table);
+    var tbody = table.tBodies[0];
+    if (!tbody) return;
+    var groups = collectGroups(tbody);
+    if (groups.length <= THRESHOLD) return;
+
+    table.dataset.ecsPaginationInit = '1';
+    var id = ensureId(table, 'ecs-tbl-');
+    var prefs = loadPrefs(id);
+    var state = {
+      groups: groups,
+      page: prefs.page || 1,
+      pageSize: prefs.pageSize || DEFAULT
+    };
+
+    table.classList.add('ecs-paginated-table');
+    var responsive = table.closest('.table-responsive') || table.closest('.ecs-table-wrap') || table.parentElement;
+    if (responsive && !responsive.classList.contains('ecs-paginated-wrap')) {
+      responsive.classList.add('ecs-paginated-wrap');
+    }
+
+    var bar = buildBar(table, id, state);
+    attachBar(responsive || table, bar);
+  }
+
+  function initCollection(host, itemSelector, prefix) {
+    if (host.dataset.ecsPaginationInit) return;
+    if (isExcluded(host)) return;
+    var items = Array.from(host.querySelectorAll(itemSelector));
+    if (items.length <= THRESHOLD) return;
+
+    host.dataset.ecsPaginationInit = '1';
+    var id = ensureId(host, prefix);
+    var prefs = loadPrefs(id);
+    var state = {
+      groups: items.map(function(el, i){ return { rows: [el], key: String(i) }; }),
+      page: prefs.page || 1,
+      pageSize: prefs.pageSize || DEFAULT
+    };
+    var bar = buildBar(host, id, state);
+    attachBar(host, bar);
+  }
+
+  function initList(list) {
+    initCollection(list, ':scope > li', 'ecs-list-');
+  }
+
+  function initBlocks(container) {
+    if (container.dataset.ecsPaginationInit) return;
+    if (isExcluded(container)) return;
+    var items = Array.from(container.children).filter(function(el){
+      return el.nodeType === 1
+        && !el.classList.contains('ecs-pagination-bar')
+        && el.tagName !== 'H6'
+        && !el.classList.contains('text-uppercase');
+    });
+    if (items.length <= THRESHOLD) return;
+
+    container.dataset.ecsPaginationInit = '1';
+    var id = ensureId(container, 'ecs-blk-');
+    var prefs = loadPrefs(id);
+    var state = {
+      groups: items.map(function(el, i){ return { rows: [el], key: String(i) }; }),
+      page: prefs.page || 1,
+      pageSize: prefs.pageSize || DEFAULT
+    };
+    var bar = buildBar(container, id, state);
+    attachBar(container, bar);
+  }
+
+  function boot() {
+    document.querySelectorAll('table').forEach(initTable);
+    document.querySelectorAll('ul.ecs-paginated-list, ol.ecs-paginated-list').forEach(initList);
+    document.querySelectorAll('.ecs-paginated-blocks').forEach(initBlocks);
+  }
+
+  var bootTimer;
+  function scheduleBoot() {
+    clearTimeout(bootTimer);
+    bootTimer = setTimeout(boot, 100);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+  if (typeof MutationObserver !== 'undefined') {
+    var observer = new MutationObserver(function(mutations){
+      var relevant = mutations.some(function(m){
+        return m.addedNodes.length || m.type === 'childList';
+      });
+      if (relevant) scheduleBoot();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  window.ecsRefreshPagination = boot;
+})();
+</script>

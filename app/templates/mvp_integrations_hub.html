@@ -1,0 +1,34 @@
+<!DOCTYPE html><html><head><title>Integrations Hub</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-enterprise-body ecs-cap-hub"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-main-content">
+{% from "partials/ecs_ux_macros.html" import page_header, zone_open, zone_close %}
+{{ page_header('Enterprise Integrations Hub', 'ServiceNow · SharePoint · Teams · Confluence · Jira · Prisma · Tripwire · SonarQube · Checkmarx', user, role) }}
+{% if notice %}<div class="alert alert-success py-2">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
+{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
+{{ grc_kpis(module_view.kpis) }}
+
+{{ zone_open('middle', 'Connector Status') }}
+{% set groups = [('servicenow','ServiceNow'),('sharepoint','SharePoint'),('collaboration','Teams / Confluence'),('jira','Jira'),('cloud','Prisma Cloud'),('tripwire','Tripwire'),('appsec','SonarQube / Checkmarx'),('siem','SIEM'),('cmdb','CMDB')] %}
+{% for key, label in groups %}{% if module_view.grouped.get(key) %}
+<div class="mb-4"><h6 class="ecs-zone-label">{{ label }}</h6>
+<div class="row g-3">{% for c in module_view.grouped[key] %}
+<div class="col-md-6 col-lg-4"><div class="ecs-connector-card">
+<div class="d-flex justify-content-between align-items-start mb-2">
+<div><span class="ecs-connector-health {% if c.sync_health == 'Healthy' %}ok{% else %}warn{% endif %}"></span><strong>{{ c.name }}</strong></div>
+<span class="badge {% if c.sync_health == 'Healthy' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ c.sync_health|default('Healthy') }}</span>
+</div>
+<small class="text-muted d-block mb-2">{{ c.type }} · Last sync: {{ c.last_sync }}</small>
+<div class="row small g-2 mb-2">
+<div class="col-6"><span class="text-muted">Records</span><br><strong>{{ c.records_pulled|default(c.records) }}</strong></div>
+<div class="col-6"><span class="text-muted">Mapped</span><br><strong>{{ c.mapped_controls|default(0) }}</strong></div>
+</div>
+{% if c.ingestion %}<div class="mb-2">{% for i in c.ingestion[:3] %}<span class="badge bg-light text-dark me-1">{{ i }}</span>{% endfor %}</div>{% endif %}
+<div class="d-flex flex-wrap gap-1">{{ module_action('integrations_hub','test_connection',role,user,'Test','btn-sm btn-outline-primary',c.name) }}
+<form method="post" action="/mvp/integrations-hub/sync" class="d-inline"><input type="hidden" name="connector" value="{{c.name}}"><input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}"><button class="btn btn-sm btn-success">Sync</button></form>
+{{ module_action('integrations_hub','view_logs',role,user,'Logs','btn-sm btn-outline-secondary',c.name) }}</div>
+</div></div>{% endfor %}</div></div>
+{% endif %}{% endfor %}
+{{ zone_close() }}
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

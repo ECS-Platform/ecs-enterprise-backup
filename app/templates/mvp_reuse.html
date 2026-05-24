@@ -1,0 +1,26 @@
+<!DOCTYPE html><html><head><title>Evidence Reuse</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-reuse"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Cross-Framework Evidence Reuse Engine</h1>
+<p class="text-muted small">Map once, satisfy multiple controls — duplicate reduction and audit effort savings</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="savings-banner mb-4"><div class="row"><div class="col-md-3"><h4>{{ module_view.kpis[0].value }}</h4><small>Reuse Rate</small></div>
+<div class="col-md-3"><h4>{{ module_view.kpis[2].value }}</h4><small>Duplicates Avoided</small></div>
+<div class="col-md-3"><h4>{{ module_view.kpis[3].value }}h</h4><small>Audit Effort Saved</small></div>
+<div class="col-md-3"><h4>{{ module_view.kpis[1].value }}</h4><small>Reuse Groups</small></div></div></div>
+<div class="row g-3">{% for g in module_view.rows %}
+<div class="col-md-6"><div class="card shadow-sm p-3">
+<div class="d-flex justify-content-between"><code>{{ g.group_id }}</code>
+<span class="badge {% if g.status=='Approved' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ g.status }}</span></div>
+<h6 class="mt-2">{{ g.filename }}</h6>
+<p class="small mb-1">{{ g.frameworks_mapped }} frameworks · {{ g.controls_linked }} controls · {{ g.duplicate_avoided }} dupes avoided</p>
+{% if g.linked_controls %}<div class="small text-muted mb-2">{% for l in g.linked_controls[:3] %}{{ l.framework }} → {{ l.control[:25] }}; {% endfor %}</div>{% endif %}
+{{ module_action('reuse','reuse_across',role,user,'Reuse Evidence','btn-sm btn-success',g.group_id) }}
+{{ module_action('reuse','link',role,user,'Link Framework','btn-sm btn-outline-primary',g.group_id) }}
+{{ module_action('reuse','approve_reuse',role,user,'Approve Mapping','btn-sm btn-outline-success',g.group_id) }}
+</div></div>{% endfor %}</div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

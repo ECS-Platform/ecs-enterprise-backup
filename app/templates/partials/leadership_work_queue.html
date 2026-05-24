@@ -1,0 +1,49 @@
+{% if leadership_queue is defined and leadership_queue %}
+<div class="ecs-section-card mb-4">
+<div class="ecs-section-card-header">
+<div>
+<h2 class="ecs-section-card-title">{{ leadership_title|default('Executive Workflow Queue') }}</h2>
+<p class="text-muted small mb-0">Escalations, SLA breaches, and leadership actions.</p>
+</div>
+<span class="badge bg-danger">{{ leadership_queue|length }} items</span>
+</div>
+<div class="ecs-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-workflow-table mb-0 ecs-paginated-table">
+<thead><tr>
+<th>Framework</th><th>Control</th><th>Application</th><th>Risk</th><th>Aging</th><th>SLA</th><th class="ecs-sticky-actions">Actions</th>
+</tr></thead>
+<tbody>
+{% for item in leadership_queue %}
+<tr class="{% if item.escalated %}row-rejected{% elif item.aging_days > 14 %}row-warning{% endif %}">
+<td>{{ item.framework }}</td>
+<td><small>{{ item.control_id }}</small></td>
+<td>{{ item.application }}</td>
+<td><span class="ecs-severity-pill ecs-severity-{% if item.risk_rating == 'Critical' %}critical{% else %}high{% endif %}">{{ item.risk_rating }}</span></td>
+<td>{{ item.aging_days }}d</td>
+<td><span class="{{ item.sla_class }}">{{ item.sla }}</span></td>
+<td class="ecs-sticky-actions">
+<div class="ecs-action-group">
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="review"><button class="btn btn-outline-primary btn-sm">Review</button></form>
+{% if role == 'cio' %}
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="escalate_governance"><button class="btn btn-outline-danger btn-sm">Escalate to Governance</button></form>
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve Closure</button></form>
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="send_back"><button class="btn btn-warning btn-sm">Send Back</button></form>
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="request_rca"><button class="btn btn-outline-secondary btn-sm">Request RCA</button></form>
+{% elif role == 'vertical_head' %}
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve</button></form>
+<form method="post" action="/reject" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><input type="hidden" name="reject_reason" value="Vertical Head rejected — remediation required."><button class="btn btn-danger btn-sm">Reject</button></form>
+<form method="post" action="/workflow/escalate" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button class="btn btn-outline-danger btn-sm">Escalate</button></form>
+{% elif role == 'compliance_head' %}
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve</button></form>
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="reopen"><button class="btn btn-warning btn-sm">Reopen</button></form>
+<form method="post" action="/workflow/escalate" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button class="btn btn-outline-danger btn-sm">Escalate</button></form>
+{% endif %}
+</div>
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+{% endif %}

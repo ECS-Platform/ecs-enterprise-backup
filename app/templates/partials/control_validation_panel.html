@@ -1,0 +1,49 @@
+{% if validation_summary is defined and validation_summary %}
+<div class="card shadow-sm mb-4 ecs-validation-panel">
+<div class="card-header py-2 d-flex justify-content-between align-items-center">
+<div>
+<strong>Advanced Control Validation</strong>
+<span class="badge bg-primary ms-2">{{ framework_name|default('Framework') }}</span>
+</div>
+<div>
+<span class="badge bg-success me-1">PASS {{ validation_summary.passed }}</span>
+<span class="badge bg-warning text-dark me-1">WARN {{ validation_summary.warned }}</span>
+<span class="badge bg-danger">FAIL {{ validation_summary.failed }}</span>
+</div>
+</div>
+<div class="card-body">
+<div class="row g-3 mb-3">
+<div class="col-md-4"><div class="card p-2 border-0 bg-light"><small class="text-muted">Control Effectiveness</small><h5 class="mb-0">{{ validation_summary.effectiveness_pct }}%</h5></div></div>
+<div class="col-md-4"><div class="card p-2 border-0 bg-light"><small class="text-muted">Total Checks</small><h5 class="mb-0">{{ validation_summary.total_checks }}</h5></div></div>
+<div class="col-md-4"><div class="card p-2 border-0 bg-light"><small class="text-muted">Failed Controls</small><h5 class="mb-0 text-danger">{{ validation_summary.failed_controls|length }}</h5></div></div>
+</div>
+<p class="small text-muted mb-2">Configuration · File-based · Policy mapping · Evidence reuse · SLA/TD · Implementation checks</p>
+<div class="table-responsive ecs-paginated-wrap" style="max-height: 320px; overflow-y: auto;">
+<table class="table table-sm table-bordered ecs-validation-table mb-0 ecs-paginated-table">
+<thead class="sticky-top bg-white"><tr>
+<th>Control</th><th>Check</th><th>Type</th><th>Result</th><th>Snapshot / Deviation</th>
+</tr></thead>
+<tbody>
+{% for v in control_validations|default([]) %}
+<tr>
+<td><small>{{ v.control_id }}</small><br>{{ v.control[:35] }}{% if v.control|length > 35 %}…{% endif %}</td>
+<td>{{ v.check_name[:40] }}{% if v.check_name|length > 40 %}…{% endif %}</td>
+<td><span class="badge bg-light text-dark ecs-val-type">{{ v.validation_type|replace('_',' ') }}</span></td>
+<td>
+{% if v.status == 'PASS' %}<span class="badge bg-success ecs-val-badge">PASS</span>
+{% elif v.status == 'WARN' %}<span class="badge bg-warning text-dark ecs-val-badge">WARN</span>
+{% else %}<span class="badge bg-danger ecs-val-badge">FAIL</span>{% endif %}
+</td>
+<td><small>{{ v.snapshot[:55] }}{% if v.snapshot|length > 55 %}…{% endif %}
+{% if v.deviation %}<br><span class="text-muted">{{ v.deviation[:60] }}{% if v.deviation|length > 60 %}…{% endif %}</span>{% endif %}</small></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% if validation_summary.failed_controls %}
+<div class="mt-2"><small class="text-danger"><strong>Failed controls:</strong> {{ validation_summary.failed_controls|join(', ') }}</small></div>
+{% endif %}
+</div>
+</div>
+{% endif %}

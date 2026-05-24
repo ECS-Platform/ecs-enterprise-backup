@@ -1,0 +1,52 @@
+<!DOCTYPE html><html><head><title>Search</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-search"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Enterprise Evidence Discovery</h1>
+<p class="text-muted small">Intelligent search, semantic matching, and reuse mapping — discovery only, no submit workflow</p>
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<form class="card p-3 mb-3 shadow-sm" method="get" action="/mvp/search">
+<input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}">
+<div class="row g-2 align-items-end">
+<div class="col-md-3"><label class="form-label small">Semantic / keyword</label><input name="q" value="{{q}}" class="form-control form-control-sm" placeholder="e.g. encryption firewall scan"></div>
+<div class="col-md-2"><label class="form-label small">Framework</label><select name="framework" class="form-select form-select-sm"><option value="">All</option>
+{% for fw in module_view.framework_filters %}<option value="{{fw}}" {% if framework==fw %}selected{% endif %}>{{fw}}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label class="form-label small">Application</label><input name="application" value="{{application}}" class="form-control form-control-sm"></div>
+<div class="col-md-2"><label class="form-label small">Owner</label><input name="owner" value="{{owner}}" class="form-control form-control-sm"></div>
+<div class="col-md-2"><button class="btn btn-primary btn-sm w-100">Discover</button></div></div></form>
+<div class="row g-3">
+<div class="col-md-8">
+<div class="discovery-panel">
+<h6 class="text-uppercase text-muted small">Search Results & Semantic Matches</h6>
+<ul class="list-unstyled ecs-paginated-list mb-0">
+{% for r in semantic_matches|default(results) %}
+<li class="border-bottom py-2">
+<div class="d-flex justify-content-between"><strong>{{ r.evidence[:45] }}</strong>
+{% if r.match_type %}<span class="semantic-tag">{{ r.match_type }}</span>{% endif %}</div>
+<small class="text-muted">{{ r.framework }} · {{ r.control[:40] }} · {{ r.application }}</small>
+{% if r.semantic_score %}<div class="match-score">Match confidence: {{ r.semantic_score }}%</div>{% endif %}
+<div class="mt-1">{{ module_action('search','open',role,user,'Open','btn-sm btn-outline-primary',r.evidence_id|default('')) }}
+{{ module_action('search','map_framework',role,user,'Map','btn-sm btn-outline-secondary',r.evidence_id|default('')) }}
+{{ module_action('search','reuse',role,user,'Reuse','btn-sm btn-outline-success',r.evidence_id|default('')) }}
+{{ module_action('search','compare',role,user,'Compare','btn-sm btn-outline-info',r.evidence_id|default('')) }}</div>
+</li>
+{% else %}<li class="text-muted small list-unstyled">Enter criteria to discover evidences across the enterprise catalogue.</li>{% endfor %}
+</ul>
+</div></div>
+<div class="col-md-4">
+<div class="discovery-panel mb-3"><h6 class="text-uppercase text-muted small">Reuse Suggestions</h6>
+<ul class="list-unstyled ecs-paginated-list mb-0">
+{% for s in reuse_suggestions|default([]) %}
+<li class="small border-bottom py-2"><strong>{{ s.filename[:30] }}</strong><br>
+{{ s.frameworks|join(', ') }} · {{ s.controls_count }} controls · ~{{ s.savings_hours }}h saved</li>
+{% endfor %}</ul></div>
+<div class="discovery-panel"><h6 class="text-uppercase text-muted small">Related Evidences</h6>
+<ul class="list-unstyled ecs-paginated-list mb-0">
+{% for r in related_evidences|default([]) %}
+<li class="small py-1">{{ r.evidence[:35] }} <span class="text-muted">({{ r.framework }})</span></li>
+{% else %}<li class="small text-muted">Run a search to see related artefacts</li>{% endfor %}
+</ul>
+</div></div></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

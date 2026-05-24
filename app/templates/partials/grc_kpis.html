@@ -1,0 +1,10 @@
+{% macro grc_kpis(kpis) %}
+<div class="row g-3 mb-3">{% for k in kpis %}
+<div class="col-md-4 col-lg-3 col-xl-2">
+<div class="ecs-kpi-modern ecs-kpi-{{ k.tone|default('primary') }}">
+<div class="ecs-kpi-label">{{ k.label }}</div>
+<div class="ecs-kpi-value">{{ k.value }}</div>
+</div>
+</div>
+{% endfor %}</div>
+{% endmacro %}

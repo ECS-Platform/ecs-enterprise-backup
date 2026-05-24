@@ -1,0 +1,28 @@
+<!DOCTYPE html><html><head><title>Onboarding</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-onboarding"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Application Onboarding</h1>
+<p class="text-muted small">New application registration, framework assignment, and ownership workflow</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="stage-pipeline mb-4">{% for stage in module_view.stages %}
+<div class="stage-step {% if loop.index == 2 %}active{% elif loop.index == 1 %}done{% endif %}">{{ stage }}</div>
+{% endfor %}</div>
+<form method="post" action="/mvp/onboarding" class="card p-3 mb-3 shadow-sm"><div class="row g-2 align-items-end">
+<div class="col-md-4"><label class="form-label small">New Application</label><input name="application" class="form-control form-control-sm" placeholder="e.g. Wealth Portal" required></div>
+<div class="col-md-2"><input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}">
+<button class="btn btn-primary btn-sm">Start Onboarding</button></div></div></form>
+<div class="row g-3">{% for r in module_view.rows %}
+<div class="col-md-6"><div class="card shadow-sm p-3">
+<div class="d-flex justify-content-between"><strong>{{ r.application }}</strong><span class="badge bg-secondary">{{ r.status }}</span></div>
+<p class="small text-muted mb-1">Stage: {{ r.stage }} · Owner: {{ r.owner|default('TBD') }}</p>
+<div class="batch-progress mb-2"><div class="batch-progress-bar" style="width:{{ r.progress_pct }}%"></div></div>
+<div class="small">{{ r.frameworks_mapped }} frameworks mapped · {{ r.pending_tasks }} pending tasks</div>
+<div class="mt-2">{{ module_action('onboarding','assign_framework',role,user,'Assign Framework','btn-sm btn-outline-primary',r.application) }}
+{{ module_action('onboarding','assign_owner',role,user,'Assign Owner','btn-sm btn-outline-secondary',r.application) }}
+{{ module_action('onboarding','complete_registration',role,user,'Complete Registration','btn-sm btn-success',r.application) }}</div>
+</div></div>{% endfor %}</div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

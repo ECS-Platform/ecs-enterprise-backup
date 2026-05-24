@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Evidence Review — {{ review.metadata.evidence_name }}</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+{% include "partials/enterprise_theme.html" %}
+<style>
+.ecs-review-preview { background: #1e2832; color: #e9ecef; font-family: ui-monospace, monospace; font-size: 0.78rem; padding: 1.25rem; border-radius: 8px; white-space: pre-wrap; min-height: 220px; }
+.ecs-review-meta dt { font-weight: 600; color: #495057; }
+.ecs-validation-card { border-left: 4px solid #0d6efd; }
+.ecs-validation-card.risk-critical { border-left-color: #dc3545; }
+.ecs-validation-card.risk-high { border-left-color: #ffc107; }
+.ecs-history-item { border-left: 3px solid #dee2e6; padding-left: 0.75rem; margin-bottom: 0.75rem; font-size: 0.85rem; }
+.ecs-locked-banner { background: #d1e7dd; border: 1px solid #198754; }
+</style>
+</head>
+<body class="bg-light">
+<div class="container-fluid"><div class="row">
+{% set sidebar_brand = "ECS" %}
+{% set show_back_dashboard = true %}
+{% include "partials/ecs_sidebar.html" %}
+<div class="col-md-10 p-4">
+<div class="d-flex justify-content-between align-items-start page-header mb-3">
+<div>
+<h1 class="h3 mb-1">Enterprise Evidence Review</h1>
+<p class="text-muted small mb-0">{{ review.metadata.framework }} · {{ review.control_id }} · {{ review.metadata.evidence_id }}</p>
+</div>
+<a href="/framework/{{ framework_name }}?role={{ role }}&user={{ user }}" class="btn btn-outline-secondary btn-sm">← Back to Framework</a>
+</div>
+{% if notice %}<div class="alert alert-info">{{ notice }}</div>{% endif %}
+{% if review.workflow.locked %}
+<div class="alert ecs-locked-banner py-2"><strong>Observation Closed — Auditor Approved</strong>
+{% if review.workflow.approved_by %} · Approved by {{ review.workflow.approved_by }} on {{ review.workflow.approved_at }}{% endif %}
+</div>
+{% endif %}
+{% if review.reject_reason and review.workflow.code == 'rejected' %}
+<div class="alert alert-danger py-2"><strong>Rejected By Auditor:</strong> {{ review.reject_reason }}</div>
+{% endif %}
+<div class="row g-3 mb-3">
+<div class="col-md-4"><span class="badge bg-secondary">{{ review.workflow.label }}</span>
+<span class="badge bg-light text-dark border ms-1">Role: {{ role }}</span></div>
+</div>
+<div class="row g-4">
+<div class="col-lg-5">
+<div class="card shadow-sm mb-3"><div class="card-header bg-white"><strong>Evidence Metadata</strong></div>
+<div class="card-body"><dl class="row small ecs-review-meta mb-0">
+<dt class="col-sm-5">Framework</dt><dd class="col-sm-7">{{ review.metadata.framework }}</dd>
+<dt class="col-sm-5">Control ID</dt><dd class="col-sm-7">{{ review.metadata.control_id }}</dd>
+<dt class="col-sm-5">Control Description</dt><dd class="col-sm-7">{{ review.control_description }}</dd>
+<dt class="col-sm-5">Evidence Name</dt><dd class="col-sm-7">{{ review.metadata.evidence_name }}</dd>
+<dt class="col-sm-5">Evidence ID</dt><dd class="col-sm-7"><code>{{ review.metadata.evidence_id }}</code></dd>
+<dt class="col-sm-5">Application</dt><dd class="col-sm-7">{{ review.metadata.application_name }}</dd>
+<dt class="col-sm-5">Upload Timestamp</dt><dd class="col-sm-7">{{ review.metadata.upload_timestamp }}</dd>
+<dt class="col-sm-5">Expiry Date</dt><dd class="col-sm-7">{{ review.metadata.expiry_date }}</dd>
+<dt class="col-sm-5">Source System</dt><dd class="col-sm-7">{{ review.metadata.source_system }}</dd>
+<dt class="col-sm-5">Submitted By</dt><dd class="col-sm-7">{{ review.metadata.submitted_by }}</dd>
+<dt class="col-sm-5">Evidence Version</dt><dd class="col-sm-7">{{ review.metadata.evidence_version }}</dd>
+<dt class="col-sm-5">Evidence Status</dt><dd class="col-sm-7">{{ review.metadata.evidence_status }}</dd>
+</dl></div></div>
+<div class="card shadow-sm ecs-validation-card {% if review.validation.risk_level in ('Critical','High') %}risk-{{ review.validation.risk_level|lower }}{% endif %}">
+<div class="card-header bg-white"><strong>Evidence Validation</strong></div>
+<div class="card-body small">
+<div class="row g-2">
+<div class="col-6">Completeness: <strong>{{ review.validation.completeness_score }}%</strong></div>
+<div class="col-6">Confidence: <strong>{{ review.validation.confidence_score }}%</strong></div>
+<div class="col-12">Expiry Health: {{ review.validation.expiry_health }}</div>
+<div class="col-12">Duplicate: {{ review.validation.duplicate_detection }}</div>
+<div class="col-12">Reuse: {{ review.validation.reuse_recommendation }}</div>
+<div class="col-12">Risk: <span class="badge {% if review.validation.risk_level=='Critical' %}bg-danger{% elif review.validation.risk_level=='High' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ review.validation.risk_level }}</span></div>
+</div></div></div>
+</div>
+<div class="col-lg-7">
+<div class="card shadow-sm mb-3"><div class="card-header bg-white d-flex justify-content-between">
+<strong>{{ review.preview.label }}</strong><code class="small">{{ review.evidence.mock_file }}</code></div>
+<div class="card-body p-0"><div class="ecs-review-preview">{{ review.preview.content }}</div></div></div>
+{% if role == 'owner' %}
+<div class="card shadow-sm mb-3"><div class="card-body">
+<h6 class="mb-3">App Owner Actions</h6>
+<div class="d-flex flex-wrap gap-2">
+{% if review.workflow.locked %}
+<button class="btn btn-secondary btn-sm" disabled>Submit To Auditor</button>
+<button class="btn btn-secondary btn-sm" disabled>Reject Internally</button>
+<button class="btn btn-secondary btn-sm" disabled>Save Draft</button>
+<button class="btn btn-secondary btn-sm" disabled>Cancel</button>
+{% elif review.workflow.code == 'submitted' %}
+<button class="btn btn-secondary btn-sm" disabled>Pending Auditor Review</button>
+<a href="/framework/{{ framework_name }}?role={{ role }}&user={{ user }}" class="btn btn-outline-secondary btn-sm">Return</a>
+{% else %}
+<form method="post" action="/evidence/review/submit" class="d-inline">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-primary btn-sm">Submit To Auditor</button></form>
+<button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#internalRejectModal">Reject Internally</button>
+<form method="post" action="/evidence/review/save-draft" class="d-inline">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="owner_note" value="Review in progress"><button class="btn btn-outline-primary btn-sm">Save Draft</button></form>
+<form method="post" action="/evidence/review/cancel" class="d-inline" onsubmit="return confirm('Cancel this draft observation?');">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-outline-secondary btn-sm">Cancel</button></form>
+{% endif %}
+</div></div></div>
+{% elif role == 'auditor' %}
+<div class="card shadow-sm mb-3"><div class="card-body">
+<h6 class="mb-3">Auditor Actions</h6>
+<div class="d-flex flex-wrap gap-2">
+{% if review.workflow.code == 'submitted' and not review.workflow.locked %}
+<form method="post" action="/evidence/review/approve" class="d-inline">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-success btn-sm">Approve Evidence</button></form>
+<button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#auditorRejectModal">Reject Evidence</button>
+<button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#clarifyModal">Request Clarification</button>
+{% elif review.workflow.locked %}
+<span class="badge bg-success">Observation Closed — Auditor Approved</span>
+{% else %}
+<span class="text-muted small">No auditor action — not in Pending Auditor Review queue.</span>
+{% endif %}
+</div></div></div>
+{% endif %}
+<div class="row g-3">
+<div class="col-md-6"><div class="card shadow-sm h-100"><div class="card-header bg-white"><strong>Workflow History</strong></div>
+<div class="card-body small">{% for h in review.workflow_history %}
+<div class="ecs-history-item"><strong>{{ h.action }}</strong> — {{ h.actor }} <span class="text-muted">({{ h.role }})</span><br>
+<small class="text-muted">{{ h.timestamp }}</small>{% if h.detail %}<br>{{ h.detail[:120] }}{% endif %}</div>
+{% else %}<span class="text-muted">No history yet.</span>{% endfor %}</div></div></div>
+<div class="col-md-6"><div class="card shadow-sm h-100"><div class="card-header bg-white"><strong>Reuse Mapping & Lineage</strong></div>
+<div class="card-body small">
+{% for m in review.reuse_mapping %}<div class="mb-1">{{ m.framework }} → {{ m.control[:40] }}</div>{% else %}<span class="text-muted">No cross-framework reuse linked.</span>{% endfor %}
+{% if review.owner_comments %}<hr><strong>App Owner Comments</strong>
+{% for c in review.owner_comments %}<div class="border-start ps-2 mt-1">{{ c.author }}: {{ c.text }}</div>{% endfor %}{% endif %}
+</div></div></div>
+</div>
+</div></div>
+</div></div></div>
+<div class="modal fade" id="internalRejectModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="/evidence/review/reject-internal"><div class="modal-header"><h5 class="modal-title">Reject Internally</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<label class="form-label">Internal reject reason</label>
+<textarea class="form-control" name="reject_reason" rows="3" required placeholder="Quality issue before submitting to auditor..."></textarea>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-danger">Reject Internally</button></div></form>
+</div></div></div>
+<div class="modal fade" id="auditorRejectModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="/evidence/review/reject"><div class="modal-header"><h5 class="modal-title">Reject Evidence</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<label class="form-label">Reject reason (required)</label>
+<select class="form-select form-select-sm mb-2" onchange="document.getElementById('rejReason').value=this.value"><option value="">— Select common reason —</option>
+{% for p in review.reject_presets %}<option value="{{ p }}">{{ p }}</option>{% endfor %}</select>
+<textarea class="form-control" id="rejReason" name="reject_reason" rows="3" required placeholder="Describe what is missing or incorrect..."></textarea>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Confirm Rejection</button></div></form>
+</div></div></div>
+<div class="modal fade" id="clarifyModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="/evidence/review/clarify"><div class="modal-header"><h5 class="modal-title">Request Clarification</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<textarea class="form-control" name="message" rows="3" required placeholder="What must the App Owner clarify?"></textarea>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning">Send Request</button></div></form>
+</div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include "partials/chatbot_global.html" %}
+</body></html>

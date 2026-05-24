@@ -1,0 +1,20 @@
+<!DOCTYPE html><html><head><title>Regulatory Mapping</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-regulatory"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Regulatory Mapping</h1>
+<p class="text-muted small">Cross-framework compliance normalization — PCI, ITPP, DPSC, RBI Cyber, ISO 27001, AppSec, CSITE, Baselining, VAPT</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
+{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
+{{ grc_kpis(module_view.kpis) }}
+<div class="card shadow-sm mb-3"><div class="table-responsive ecs-paginated-wrap"><table class="table table-sm mb-0 ecs-paginated-table">
+<thead><tr><th>Control Theme</th><th>Frameworks</th><th>Shared Evidence</th><th>Coverage</th><th>Actions</th></tr></thead>
+<tbody>{% for m in module_view.rows %}
+<tr><td><strong>{{ m.control_theme }}</strong></td>
+<td>{% for fw in m.frameworks %}<span class="badge bg-light text-dark me-1">{{ fw }}</span>{% endfor %}</td>
+<td>{{ m.shared_evidence }}</td><td><div class="progress" style="height:8px;width:80px"><div class="progress-bar bg-success" style="width:{{ m.coverage_pct }}%"></div></div> {{ m.coverage_pct }}%</td>
+<td>{{ module_action('regulatory_mapping', 'reuse_evidence', role, user, 'Reuse', 'btn-outline-primary btn-sm', m.control_theme) }}</td></tr>
+{% endfor %}</tbody></table></div></div>
+{% if module_view.missing_coverage %}<div class="alert alert-warning small"><strong>Missing coverage:</strong> {{ module_view.missing_coverage|join(' · ') }}</div>{% endif %}
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

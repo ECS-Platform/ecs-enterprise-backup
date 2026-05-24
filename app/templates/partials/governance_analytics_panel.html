@@ -1,0 +1,46 @@
+{% if governance_analytics is defined and governance_analytics and (role in ['cio','vertical_head','compliance_head','functional_head'] or show_governance|default(false)) %}
+<div class="ecs-governance-panel ecs-section-card mb-4">
+<div class="ecs-section-card-header">
+<h2 class="ecs-section-card-title">Enterprise Governance Analytics</h2>
+<span class="badge bg-secondary">Live</span>
+</div>
+<div class="card-body pt-0 px-0 pb-0">
+<div class="row g-3 mb-3">
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-primary"><div class="ecs-kpi-label">Audit Readiness</div><div class="ecs-kpi-value">{{ governance_analytics.audit_readiness_pct }}%</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-warning"><div class="ecs-kpi-label">Stale Evidence</div><div class="ecs-kpi-value">{{ governance_analytics.stale_evidence_pct }}%</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-danger"><div class="ecs-kpi-label">SLA Breaches</div><div class="ecs-kpi-value">{{ governance_analytics.sla_breaches }}</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-teal"><div class="ecs-kpi-label">Escalated</div><div class="ecs-kpi-value">{{ governance_analytics.escalated }}</div></div></div>
+{% if governance_analytics.operational_maturity.itpp_effectiveness is defined %}
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-primary"><div class="ecs-kpi-label">ITPP Effectiveness</div><div class="ecs-kpi-value">{{ governance_analytics.operational_maturity.itpp_effectiveness }}%</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-success"><div class="ecs-kpi-label">DR Readiness</div><div class="ecs-kpi-value">{{ governance_analytics.operational_maturity.dr_readiness }}%</div></div></div>
+{% endif %}
+</div>
+<div class="row g-3">
+<div class="col-md-6">
+<h6 class="text-muted small">Top Risky Controls</h6>
+<ul class="list-unstyled small mb-0">
+{% for r in governance_analytics.top_risky_controls[:5] %}
+<li class="mb-1"><span class="badge bg-danger ecs-val-badge">{{ r.risk }}</span> {{ r.framework }} — {{ r.control[:40] }} <span class="text-muted">({{ r.aging_days }}d)</span></li>
+{% endfor %}
+</ul>
+</div>
+<div class="col-md-6">
+<h6 class="text-muted small">Control Effectiveness by Framework</h6>
+<div class="row g-1">
+{% for fw, pct in governance_analytics.control_effectiveness.items() %}
+<div class="col-6"><small>{{ fw }}: <strong>{{ pct }}%</strong></small>
+<div class="progress" style="height:6px"><div class="progress-bar {% if pct >= 85 %}bg-success{% elif pct >= 70 %}bg-warning{% else %}bg-danger{% endif %}" style="width:{{ pct }}%"></div></div></div>
+{% endfor %}
+</div>
+</div>
+</div>
+{% if governance_analytics.most_reused_evidence %}
+<div class="mt-3"><h6 class="text-muted small">Most Reused Evidence (cross-framework)</h6>
+{% for r in governance_analytics.most_reused_evidence[:4] %}
+<span class="badge bg-info text-dark me-1 mb-1">{{ r.evidence_id }} → {{ r.frameworks|join(', ') }}</span>
+{% endfor %}
+</div>
+{% endif %}
+</div>
+</div>
+{% endif %}

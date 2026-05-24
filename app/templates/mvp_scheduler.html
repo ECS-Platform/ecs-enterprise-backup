@@ -1,0 +1,40 @@
+<!DOCTYPE html><html><head><title>Scheduler</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-scheduler"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<div class="page-header"><h1>Evidence Collection Scheduler</h1><p class="text-muted small mb-0">Automated pull jobs from SharePoint, ServiceNow, SIEM, and CMDB — operational scheduling, not approval workflow</p></div>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="row mb-4 align-items-center">
+<div class="col-auto"><div class="health-ring">{{ module_view.scheduler_health.uptime_pct }}%</div></div>
+<div class="col"><strong>Scheduler Health: {{ module_view.scheduler_health.status }}</strong>
+<p class="small text-muted mb-0">{{ module_view.scheduler_health.healthy_jobs }}/{{ module_view.scheduler_health.total_jobs }} jobs healthy · next global sync in 2h 14m</p></div>
+<div class="col-auto ecs-module-actions">
+{{ module_action('scheduler','run_now',role,user,'Run Now','btn-primary btn-sm') }}
+{{ module_action('scheduler','pause',role,user,'Pause','btn-outline-secondary btn-sm') }}
+{{ module_action('scheduler','resume',role,user,'Resume','btn-outline-secondary btn-sm') }}
+{{ module_action('scheduler','retry',role,user,'Retry Failed','btn-warning btn-sm') }}
+</div></div>
+<div class="row g-3 mb-4">
+{% for j in module_view.rows %}
+<div class="col-md-6 col-lg-4"><div class="card job-card shadow-sm p-3 h-100 {% if j.health != 'Healthy' %}unhealthy{% endif %}">
+<div class="d-flex justify-content-between"><code class="small">{{ j.job_id }}</code>
+<span class="badge {% if j.health=='Healthy' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ j.health }}</span></div>
+<h6 class="mt-2 mb-1">{{ j.source_system }}</h6>
+<small class="text-muted">{{ j.framework }} · {{ j.frequency }}</small>
+<div class="row mt-2 small"><div class="col-6"><span class="text-muted">Next run</span><br>{{ j.next_run }}</div>
+<div class="col-6"><span class="text-muted">Last run</span><br>{{ j.last_run }}</div></div>
+<div class="mt-2 small">Failed: {{ j.failed_collections }} · Retry: {{ j.retry_status }}</div>
+<div class="mt-2">{{ module_action('scheduler','run_now',role,user,'Run Now','btn-sm btn-outline-primary',j.job_id) }}
+{{ module_action('scheduler','retry',role,user,'Retry','btn-sm btn-outline-warning',j.job_id) }}</div>
+</div></div>
+{% endfor %}
+</div>
+<h3 class="h6 text-uppercase text-muted">Execution History</h3>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm ecs-cap-table bg-white ecs-paginated-table"><thead><tr><th>Timestamp</th><th>Status</th><th>Records</th><th>Duration</th><th>Triggered By</th></tr></thead><tbody>
+{% for h in module_view.execution_history %}<tr><td>{{h.timestamp}}</td><td>{{h.status}}</td><td>{{h.records}}</td><td>{{h.duration_sec}}s</td><td>{{h.triggered_by}}</td></tr>{% endfor %}
+</tbody></table></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html><html><head><title>Pan India</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-panindia"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Pan-India Regional Compliance</h1>
+<p class="text-muted small">Branch-level metrics, regional heatmaps, and zone-wise SLA breach tracking</p>
+{% if notice %}<div class="alert alert-info">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<h3 class="h6 text-uppercase text-muted">Regional Compliance Heatmap</h3>
+<div class="zone-grid mb-4">{% for z in module_view.zone_heatmap %}
+<div class="zone-tile {% if z.risk=='High' %}zone-high{% elif z.risk=='Medium' %}zone-mid{% else %}zone-low{% endif %}">
+<strong>{{ z.zone }}</strong><br>{{ z.score }}%<br><small>{{ z.risk }} risk</small></div>
+{% endfor %}</div>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-cap-table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Zone</th><th>Score</th><th>Branches</th><th>Apps</th><th>Open Obs.</th><th>SLA Breaches</th><th>Actions</th></tr></thead><tbody>
+{% for r in module_view.rows %}
+<tr><td>{{ r.zone }}</td><td>{{ r.compliance_pct }}%</td><td>{{ r.branches }}</td><td>{{ r.applications }}</td><td>{{ r.observations_open }}</td><td>{{ r.sla_breaches }}</td>
+<td>{{ module_action('pan_india','open_region',role,user,'Open Region','btn-sm btn-outline-primary',r.zone) }}
+{{ module_action('pan_india','escalate_zone',role,user,'Escalate Zone','btn-sm btn-outline-danger',r.zone) }}
+{{ module_action('pan_india','export_regional',role,user,'Export Report','btn-sm btn-outline-secondary',r.zone) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

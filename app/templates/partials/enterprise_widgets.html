@@ -1,0 +1,32 @@
+{% include "partials/role_metrics_strip.html" %}
+
+{% if notifications is defined and notifications %}
+<div class="row g-3">
+<div class="col-md-5">
+<h6 class="text-muted small text-uppercase mb-2">Notifications</h6>
+<div class="enterprise-feed">
+{% for n in notifications %}
+<div class="notification-item {{n.level}} mb-2">
+<span class="chat-ts">{{n.timestamp}}</span> — {{n.message}}
+</div>
+{% endfor %}
+</div>
+</div>
+<div class="col-md-7">
+<h6 class="text-muted small text-uppercase mb-2">Recent Activity</h6>
+<div class="enterprise-feed">
+{% for a in recent_activity %}
+<div class="border-bottom pb-2 mb-2 small">
+<strong>{{a.action}}</strong> · {{a.actor}}
+<span class="chat-ts float-end">{{a.timestamp}}</span>
+{% if a.framework %}<br><span class="text-muted">{{a.framework}}{% if a.control %} / {{a.control}}{% endif %}</span>{% endif %}
+</div>
+{% endfor %}
+</div>
+</div>
+</div>
+{% endif %}
+
+{% if show_framework_workflow|default(false) %}
+{% include "partials/page_workflow_queue.html" %}
+{% endif %}

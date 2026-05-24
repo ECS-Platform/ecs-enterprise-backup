@@ -1,0 +1,31 @@
+<!DOCTYPE html><html><head><title>Lifecycle</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-lifecycle"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Evidence Lifecycle Governance</h1>
+<p class="text-muted small">Draft → Active → Expiring → Archived → Retired — retention and renewal management</p>
+{% if notice %}<div class="alert alert-info">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="row g-2 mb-4">{% for state in ['Draft','Active','Expiring','Archived','Retired'] %}
+<div class="col"><div class="lifecycle-lane"><h6 class="small text-center">{{ state }} ({{ module_view.buckets[state] }})</h6>
+{% for item in module_view.bucket_items[state][:4] %}
+<div class="lifecycle-chip">{{ item.name[:22] }}<br><span class="text-muted">{{ item.expiry_date|default('—') }}</span></div>
+{% endfor %}</div></div>{% endfor %}</div>
+<div class="row"><div class="col-md-7">
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table ecs-cap-table table-sm table-bordered bg-white ecs-paginated-table"><thead><tr><th>State</th><th>Evidence</th><th>Uploaded</th><th>Expiry</th><th>Actions</th></tr></thead><tbody>
+{% for r in module_view.rows %}
+<tr><td><span class="badge bg-secondary">{{ r.lifecycle_state }}</span></td><td>{{ r.name[:30] }}</td><td>{{ r.upload_date }}</td><td>{{ r.expiry_date }}</td>
+<td>{% if role=='owner' %}{{ module_action('lifecycle','renew',role,user,'Renew','btn-sm btn-primary',r.evidence_id) }}{% endif %}
+{{ module_action('lifecycle','archive',role,user,'Archive','btn-sm btn-outline-secondary',r.evidence_id) }}
+{{ module_action('lifecycle','retire',role,user,'Retire','btn-sm btn-outline-dark',r.evidence_id) }}
+{{ module_action('lifecycle','extend_retention',role,user,'Extend','btn-sm btn-outline-info',r.evidence_id) }}</td></tr>
+{% endfor %}</tbody></table></div></div>
+<div class="col-md-5"><h6 class="text-uppercase text-muted small">Renewal Timeline</h6>
+<div class="ecs-timeline ecs-paginated-blocks">{% for e in module_view.timeline_events %}
+<div class="ecs-timeline-item"><strong>{{ e.name[:30] }}</strong><br>
+<small>{{ e.upload_date }} → expires {{ e.expiry_date }} · {{ e.state }}</small></div>
+{% endfor %}</div></div></div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

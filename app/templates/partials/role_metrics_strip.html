@@ -1,0 +1,23 @@
+{% if role_metrics and role_metrics.title %}
+<div class="card shadow-sm mb-4 border-primary border-opacity-25">
+<div class="card-body py-3">
+<div class="row align-items-center">
+<div class="col-md-8">
+<h6 class="text-primary mb-1">{{ role_metrics.title }}</h6>
+<p class="mb-0 small text-muted">{{ role_metrics.summary }}</p>
+</div>
+<div class="col-md-4 text-md-end">
+{% if role_metrics.pending_tasks is defined %}
+<span class="badge bg-warning text-dark me-1">Pending: {{ role_metrics.pending_tasks }}</span>
+{% endif %}
+{% if role_metrics.approvals_today is defined %}
+<span class="badge bg-success me-1">Today: {{ role_metrics.approvals_today }}</span>
+{% endif %}
+{% if role_metrics.enterprise_compliance is defined %}
+<span class="badge bg-primary">{{ role_metrics.enterprise_compliance }}% Compliance</span>
+{% endif %}
+</div>
+</div>
+</div>
+</div>
+{% endif %}

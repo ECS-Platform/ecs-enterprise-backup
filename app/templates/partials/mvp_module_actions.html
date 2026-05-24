@@ -1,0 +1,10 @@
+{% macro module_action(module, action, role, user, label, btn_class='btn-outline-primary btn-sm', item_id='') %}
+<form method="post" action="/mvp/module/action" class="d-inline">
+<input type="hidden" name="module" value="{{ module }}">
+<input type="hidden" name="action" value="{{ action }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+{% if item_id %}<input type="hidden" name="item_id" value="{{ item_id }}">{% endif %}
+<button class="btn {{ btn_class }}">{{ label }}</button>
+</form>
+{% endmacro %}

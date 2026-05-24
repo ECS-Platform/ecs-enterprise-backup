@@ -1,0 +1,35 @@
+<!DOCTYPE html><html><head><title>Bulk Upload</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-upload"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<h1>Bulk Evidence Import Center</h1>
+<p class="text-muted small">Batch onboarding with parser validation, duplicate detection, and framework auto-mapping</p>
+{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="ecs-module-actions">
+<form method="post" action="/mvp/upload/bulk" enctype="multipart/form-data" class="d-inline-flex gap-2 align-items-center">
+<input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}">
+<input type="file" name="files" multiple class="form-control form-control-sm" style="width:auto">
+<button class="btn btn-primary btn-sm">Upload Batch</button></form>
+{{ module_action('upload','validate',role,user,'Validate All','btn-outline-primary btn-sm') }}
+{{ module_action('upload','reprocess',role,user,'Reprocess Errors','btn-outline-warning btn-sm') }}
+</div>
+<div class="row g-3">
+{% for b in module_view.rows %}
+<div class="col-md-6"><div class="card shadow-sm p-3 h-100">
+<div class="d-flex justify-content-between"><code>{{ b.batch_id }}</code><span class="badge bg-secondary">{{ b.status }}</span></div>
+<p class="small text-muted mb-1">{{ b.uploaded_at }} · {{ b.uploaded_by|default('App Owner') }}</p>
+<div class="batch-progress mb-2"><div class="batch-progress-bar" style="width:{{ b.progress_pct|default(100) }}%"></div></div>
+<div class="row small g-2"><div class="col-4"><strong>{{ b.file_count }}</strong> files</div>
+<div class="col-4">Parsing: {{ b.parsing_status }}</div><div class="col-4">Dupes: {{ b.duplicate_count|default(0) }}</div>
+<div class="col-12">Framework mapping: {{ b.framework_mapping }}</div>
+<div class="col-12 text-danger">Parser errors: {{ b.error_count|default(0) }}</div></div>
+<div class="mt-2">{{ module_action('upload','validate',role,user,'Validate','btn-sm btn-outline-primary',b.batch_id) }}
+{{ module_action('upload','reprocess',role,user,'Reprocess','btn-sm btn-outline-warning',b.batch_id) }}
+{{ module_action('upload','approve_import',role,user,'Approve Import','btn-sm btn-success',b.batch_id) }}</div>
+</div></div>
+{% endfor %}
+</div>
+</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

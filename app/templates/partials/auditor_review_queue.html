@@ -1,0 +1,102 @@
+<div class="ecs-section-card mb-4">
+<div class="ecs-section-card-header">
+<div>
+<h2 class="ecs-section-card-title">Pending Auditor Reviews</h2>
+<p class="text-muted small mb-0">Submissions awaiting auditor decision across enterprise frameworks.</p>
+</div>
+<span class="badge bg-primary">{{ auditor_review_queue|length }} in queue</span>
+</div>
+
+{% if notice %}
+<div class="alert alert-info py-2 mb-3">{{ notice }}</div>
+{% endif %}
+
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap">
+<table class="table ecs-table-modern ecs-paginated-table mb-0 ecs-workflow-table">
+<thead>
+<tr>
+<th>Framework</th>
+<th>Application</th>
+<th>Control</th>
+<th>Evidence</th>
+<th>Risk</th>
+<th>Pending</th>
+<th class="ecs-col-optional">Owner</th>
+<th class="ecs-col-optional">Comments</th>
+<th class="ecs-col-optional">Health</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+{% for item in auditor_review_queue %}
+<tr class="{% if item.escalated %}table-danger{% elif item.risk_rating == 'High' %}table-warning{% endif %}">
+<td><strong>{{ item.framework }}</strong>{% if item.escalated %} <span class="badge bg-danger">Escalated</span>{% endif %}</td>
+<td>{{ item.application }}</td>
+<td><strong>{{ item.control }}</strong></td>
+<td><strong>{{ item.evidence_name }}</strong><br><code class="small">{{ item.mock_file }}</code></td>
+<td>
+{% if item.risk_rating == 'Critical' %}<span class="ecs-severity-pill ecs-severity-critical">{{ item.risk_rating }}</span>
+{% elif item.risk_rating == 'High' %}<span class="ecs-severity-pill ecs-severity-high">{{ item.risk_rating }}</span>
+{% else %}<span class="ecs-severity-pill ecs-severity-medium">{{ item.risk_rating }}</span>{% endif %}
+</td>
+<td>{{ item.aging_days }}d</td>
+<td class="ecs-col-optional">{{ item.app_owner }}</td>
+<td class="ecs-col-optional"><small>{{ item.auditor_comments[:80] }}{% if item.auditor_comments|length > 80 %}…{% endif %}</small></td>
+<td class="ecs-col-optional"><span class="badge bg-secondary">{{ item.evidence_health }}</span></td>
+<td class="text-nowrap ecs-sticky-actions">
+<div class="ecs-action-group">
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">View</a>
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve</button></form>
+<button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal{{ loop.index }}">Reject</button>
+<button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#clarifyModal{{ loop.index }}">Clarify</button>
+</div>
+
+<div class="modal fade" id="rejectModal{{ loop.index }}" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Reject: {{ item.control }}</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<form method="post" action="/reject">
+<div class="modal-body">
+<input type="hidden" name="control_name" value="{{ item.control }}">
+<input type="hidden" name="framework_name" value="{{ item.framework }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="return_to" value="dashboard">
+<label class="form-label">Reject reason (required)</label>
+<textarea class="form-control" name="reject_reason" rows="3" placeholder="Describe missing artefacts or gaps..." required></textarea>
+</div>
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+<button type="submit" class="btn btn-danger">Confirm Rejection</button>
+</div>
+</form>
+</div></div></div>
+
+<div class="modal fade" id="clarifyModal{{ loop.index }}" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Request Clarification</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<form method="post" action="/workflow/clarify">
+<div class="modal-body">
+<input type="hidden" name="control_name" value="{{ item.control }}">
+<input type="hidden" name="framework_name" value="{{ item.framework }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<label class="form-label">Clarification request</label>
+<textarea class="form-control" name="message" rows="3" placeholder="What does the App Owner need to clarify?" required></textarea>
+</div>
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+<button type="submit" class="btn btn-warning">Send to App Owner</button>
+</div>
+</form>
+</div></div></div>
+</td>
+</tr>
+{% else %}
+<tr><td colspan="10" class="text-center text-muted py-4">No submissions in auditor queue.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
