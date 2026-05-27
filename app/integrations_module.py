@@ -213,17 +213,169 @@ _connectors = [
 
 _sync_log: list[dict] = []
 
+_CONNECTOR_APP_MAP: dict[str, list[str]] = {
+    "ServiceNow GRC": ["Net Banking", "Mobile Banking", "Payments", "Card Platform", "Retail Banking"],
+    "ServiceNow CMDB": ["Net Banking", "UPI", "Treasury", "Core Banking", "CBS Oracle", "Payments DB"],
+    "SharePoint Evidence Library": ["Net Banking", "Mobile Banking", "Payments", "UPI", "Card Platform", "Treasury", "Wealth Portal", "Internet Banking"],
+    "Microsoft Teams Governance": ["Net Banking", "Mobile Banking", "Payments", "Treasury"],
+    "Confluence Governance Wiki": ["Net Banking", "Payments", "ITPP", "CSITE"],
+    "Jira Security Remediation": ["Mobile Banking", "Loan System", "UPI", "Internet Banking", "Wealth Portal"],
+    "Prisma Cloud CSPM": ["Net Banking", "Payments", "UPI Gateway", "Mobile Banking Edge"],
+    "Tripwire Enterprise": ["Net Banking", "Core Banking", "Treasury", "CBS Oracle"],
+    "SonarQube Enterprise": ["Mobile Banking", "Internet Banking", "Loan System", "Wealth Portal"],
+    "Checkmarx SAST": ["Mobile Banking", "Loan System", "Wealth Portal", "Payments"],
+    "Splunk Enterprise SIEM": ["Net Banking", "Payments", "UPI", "Card Platform", "Retail Banking"],
+    "BMC Helix CMDB": ["Treasury", "Oracle Core DB"],
+}
+
+_CONNECTOR_CHALLENGES: dict[str, list[dict]] = {
+    "Jira Security Remediation": [
+        {"application": "Loan System", "issue": "Project key LOAN-SEC not mapped — remediation tickets not syncing", "severity": "High", "status": "Open", "evidence_collection_ok": False},
+        {"application": "Mobile Banking", "issue": "Webhook auth token expired — 2 failed sync batches", "severity": "Medium", "status": "Resolved", "evidence_collection_ok": True},
+    ],
+    "BMC Helix CMDB": [
+        {"application": "Treasury", "issue": "Legacy asset class not in scope — relationship graph incomplete", "severity": "Critical", "status": "Open", "evidence_collection_ok": False},
+        {"application": "Oracle Core DB", "issue": "API rate limit exceeded — partial sync only", "severity": "High", "status": "Monitoring", "evidence_collection_ok": False},
+    ],
+    "Tripwire Enterprise": [
+        {"application": "Treasury", "issue": "Agent offline on 4 Windows hosts — CIS scan stale; drift controls blocked", "severity": "Critical", "status": "Open", "evidence_collection_ok": False},
+    ],
+    "GitHub Advanced Security": [],
+    "SonarQube Enterprise": [
+        {"application": "Loan System", "issue": "Quality gate project ID mismatch — SAST evidence not auto-imported", "severity": "High", "status": "Open", "evidence_collection_ok": False},
+    ],
+    "Prisma Cloud CSPM": [
+        {"application": "Payments", "issue": "Cloud account tag PAY-PROD missing — workload scope incomplete", "severity": "Medium", "status": "Resolved", "evidence_collection_ok": True},
+    ],
+    "SharePoint Evidence Library": [
+        {"application": "Wealth Portal", "issue": "Document library ACL — service account lacks read on /audit folder", "severity": "Medium", "status": "Open", "evidence_collection_ok": False},
+    ],
+}
+
+_BP_BY_CONNECTOR: dict[str, list[str]] = {
+    "SharePoint": ["Evidence Repository", "Policy Storage", "Audit Package Export", "Evidence Upload"],
+    "Jira": ["Remediation Tracking", "Observation Closure", "Sprint SLA Tracking", "Ticket Sync"],
+    "Prisma Cloud": ["CSPM Posture Import", "Cloud Risk Scoring", "Workload Control Mapping"],
+    "SonarQube": ["SAST Gate Validation", "Code Quality Evidence", "Observation Closure"],
+    "Checkmarx": ["SAST Finding Import", "OWASP Evidence Collection", "Observation Closure"],
+    "ServiceNow": ["Observation Closure", "Exception Tracking", "CAB Approval", "Audit Workflow Closure"],
+    "Tripwire": ["CIS Drift Detection", "Baseline Validation", "Integrity Monitoring"],
+    "Teams": ["Approval Workflow", "Executive Escalation Threads", "Audit Collaboration"],
+    "Confluence": ["SOP References", "Policy Attestation", "Governance Wiki Evidence"],
+    "Splunk": ["SIEM Use-Case Validation", "SOC Event Evidence"],
+    "CMDB": ["Asset Inventory Mapping", "Application Discovery", "Relationship Graph Sync"],
+}
+
+
+def _short_type(connector_type: str) -> str:
+    return connector_type.split()[0] if connector_type else "Other"
+
+
+def _enrich_connector(c: dict) -> dict:
+    out = c.copy()
+    apps = _CONNECTOR_APP_MAP.get(c["name"], ["Net Banking", "Mobile Banking"])
+    out["applications_connected"] = apps
+    out["application_count"] = len(apps)
+    challenges = _CONNECTOR_CHALLENGES.get(c["name"], [])
+    if not challenges and c.get("failed_syncs", 0) > 0:
+        challenges = [{
+            "application": apps[0],
+            "issue": f"Sync failure — {c['failed_syncs']} failed job(s) in last cycle",
+            "severity": "High",
+            "status": "Retry Pending",
+            "evidence_collection_ok": False,
+        }]
+    out["sync_challenges"] = challenges
+    st = _short_type(c.get("type", ""))
+    bp_key = next((k for k in _BP_BY_CONNECTOR if k in st or k in c.get("type", "")), "Evidence Collection")
+    out["business_processes"] = _BP_BY_CONNECTOR.get(bp_key, ["Evidence Collection", "Control Mapping"])
+    out["business_process_count"] = len(out["business_processes"])
+    ready = c.get("sync_health") == "Healthy" and not any(
+        ch.get("evidence_collection_ok") is False and ch.get("status") == "Open" for ch in challenges
+    )
+    out["evidence_collection_enabled"] = ready
+    out["evidence_collection_note"] = (
+        "Evidence pull verified — business processes active"
+        if ready else "Evidence collection blocked — resolve application-level sync issue"
+    )
+    return out
+
+
+def _build_hub_analytics(connectors: list[dict]) -> dict:
+    bars = []
+    for c in connectors:
+        label = _short_type(c.get("type", c["name"]))
+        if c["type"] == "SharePoint":
+            label = "SharePoint"
+        elif "ServiceNow" in c["name"]:
+            label = "ServiceNow" if "GRC" in c["name"] else "ServiceNow CMDB"
+        bars.append({
+            "connector": label,
+            "full_name": c["name"],
+            "application_count": c.get("application_count", 0),
+            "applications": c.get("applications_connected", []),
+        })
+    # dedupe bar labels by summing counts for same short label
+    merged: dict[str, dict] = {}
+    for b in bars:
+        k = b["connector"]
+        if k not in merged:
+            merged[k] = {**b, "applications": list(b["applications"])}
+        else:
+            merged[k]["application_count"] += b["application_count"]
+            merged[k]["applications"] = list(dict.fromkeys(merged[k]["applications"] + b["applications"]))
+    bar_chart = sorted(merged.values(), key=lambda x: -x["application_count"])
+
+    pie_slices = []
+    for c in connectors:
+        for bp in c.get("business_processes", []):
+            pie_slices.append({"connector": _short_type(c.get("type", "")), "process": bp, "count": 1})
+    process_totals: dict[str, int] = {}
+    for s in pie_slices:
+        key = f"{s['connector']}::{s['process']}"
+        process_totals[key] = process_totals.get(key, 0) + 1
+    pie_chart = [{"connector": k.split("::")[0], "process": k.split("::")[1], "count": v} for k, v in process_totals.items()]
+
+    app_process_matrix = []
+    for c in connectors:
+        for app in c.get("applications_connected", [])[:4]:
+            app_process_matrix.append({
+                "application": app,
+                "connector": _short_type(c.get("type", c["name"])),
+                "process_count": c.get("business_process_count", 2),
+            })
+
+    issue_rows = []
+    for c in connectors:
+        for ch in c.get("sync_challenges", []):
+            issue_rows.append({
+                "connector": c["name"],
+                "application": ch["application"],
+                "issue": ch["issue"],
+                "severity": ch["severity"],
+                "status": ch["status"],
+                "evidence_collection_ok": ch.get("evidence_collection_ok", c.get("evidence_collection_enabled", False)),
+            })
+
+    return {
+        "connector_application_bars": bar_chart,
+        "business_process_pie": pie_chart,
+        "application_process_matrix": app_process_matrix,
+        "sync_issue_rows": issue_rows,
+    }
+
 
 def get_integration_dashboard():
+    enriched = [_enrich_connector(c) for c in _connectors]
     grouped = {
         "servicenow": [], "sharepoint": [], "collaboration": [], "jira": [],
         "cloud": [], "tripwire": [], "appsec": [], "siem": [], "cmdb": [],
     }
-    for c in _connectors:
+    for c in enriched:
         cat = c.get("category", "servicenow")
-        grouped.setdefault(cat, []).append(c.copy())
+        grouped.setdefault(cat, []).append(c)
     return {
-        "connectors": [c.copy() for c in _connectors],
+        "connectors": enriched,
         "grouped": grouped,
         "sync_log": _sync_log[-10:],
     }
@@ -231,16 +383,19 @@ def get_integration_dashboard():
 
 def get_integrations_hub_dashboard():
     dash = get_integration_dashboard()
-    total_evidence = sum(c.get("imported_evidence", 0) for c in _connectors)
-    failed = sum(c.get("failed_syncs", 0) for c in _connectors)
+    connectors = dash["connectors"]
+    analytics = _build_hub_analytics(connectors)
+    total_evidence = sum(c.get("imported_evidence", 0) for c in connectors)
+    failed = sum(c.get("failed_syncs", 0) for c in connectors)
     return {
         **dash,
+        **analytics,
         "kpis": [
-            {"label": "Connectors", "value": len(_connectors), "tone": "primary"},
-            {"label": "Healthy", "value": len([c for c in _connectors if c.get("sync_health") == "Healthy"]), "tone": "success"},
+            {"label": "Connectors", "value": len(connectors), "tone": "primary"},
+            {"label": "Applications Connected", "value": sum(c.get("application_count", 0) for c in connectors), "tone": "success"},
             {"label": "Failed Syncs", "value": failed, "tone": "danger"},
             {"label": "Imported Evidence", "value": total_evidence, "tone": "info"},
-            {"label": "Mapped Controls", "value": sum(c.get("mapped_controls", 0) for c in _connectors), "tone": "primary"},
+            {"label": "Open Sync Issues", "value": len(analytics["sync_issue_rows"]), "tone": "warning"},
         ],
     }
 
@@ -258,6 +413,11 @@ def simulate_sync(connector_name: str):
             c["records_pulled"] = c.get("records", 0) + len(evidence_repository) % 50
             c["imported_evidence"] = c.get("imported_evidence", 0) + 3
             _sync_log.append({"connector": connector_name, "timestamp": now, "status": "Success", "records": 3})
+            try:
+                from app.ecs_logging import log_integration
+                log_integration(connector_name, action="sync", records=3)
+            except Exception:
+                pass
             return c
     return None
 

@@ -1,21 +1,42 @@
 <!DOCTYPE html><html><head><title>Cross-Tool Correlation</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-correlation"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Cross-Tool Governance Correlation</h1>
-<p class="text-muted small">ServiceNow → Jira → Prisma → ECS · Tripwire → Baselining · SonarQube → AppSec → VAPT</p>
+<div class="col-md-10 p-4 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Cross-Tool Governance Correlation</h1>
 {% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
 {% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
+{% from "partials/mvp_workspace_macros.html" import workspace_filters %}
 {{ grc_kpis(module_view.kpis) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading correlation chains…</p>
+
+<div class="ecs-section-card mb-3">
+<h6 class="text-muted small text-uppercase mb-2">Dependency Flow Graph — click nodes to expand</h6>
+<p class="small text-muted mb-2">Jira · ServiceNow · Prisma · ECS · CMDB · VAPT · AppSec · Tripwire · SharePoint</p>
+<div class="ecs-corr-graph" id="ecsCorrelationGraph"></div>
+</div>
+
+<div id="ecsCorrelationChains">
 {% for chain in module_view.chains %}
-<div class="card shadow-sm mb-3 {% if chain.severity == 'Critical' %}border-danger{% elif chain.status == 'Open' %}border-warning{% endif %}">
-<div class="card-header d-flex justify-content-between py-2"><div><strong>{{ chain.chain_id }}</strong> — {{ chain.title }}<br><small class="text-muted">Source: {{ chain.source_tool }} · {{ chain.source_record }}</small></div>
+<div class="card shadow-sm mb-3 {% if chain.severity == 'Critical' %}border-danger{% elif chain.status == 'Open' %}border-warning{% endif %}" data-ecs-filter-row data-filter-framework="{{ chain.framework }}" data-filter-application="{{ chain.application }}" data-filter-risk="{{ chain.severity }}" data-filter-status="{{ chain.status }}">
+<div class="card-header d-flex justify-content-between py-2"><div><strong>{{ chain.chain_id }}</strong> — {{ chain.title }}<br><small class="text-muted">{{ chain.application }} · {{ chain.framework }}</small></div>
 <span class="badge bg-{% if chain.severity == 'Critical' %}danger{% else %}warning text-dark{% endif %}">{{ chain.severity }}</span></div>
 <div class="card-body py-2"><div class="row g-2">{% for link in chain.links %}
 <div class="col-md-6"><div class="border rounded p-2 small"><strong>{{ link.tool }}</strong> — {{ link.record }}<br><span class="badge bg-secondary">{{ link.status }}</span></div></div>
 {% endfor %}</div>
-<div class="mt-2">{{ module_action('correlation','view_chain',role,user,'View Chain','btn-outline-primary btn-sm',chain.chain_id) }} {{ module_action('correlation','escalate',role,user,'Escalate','btn-outline-danger btn-sm',chain.chain_id) }}</div>
+<div class="mt-2">{{ module_action('correlation','view_chain',role,user,'View Chain','btn-outline-primary btn-sm',chain.chain_id) }}
+{{ module_action('correlation','escalate',role,user,'Escalate','btn-outline-danger btn-sm',chain.chain_id) }}</div>
 </div></div>
 {% endfor %}
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+</div>
+</div></div></div>
+<script>
+(function(){
+  var graph = {{ module_view.graph|default({})|tojson }};
+  var details = {{ module_view.node_details|default({})|tojson }};
+  if (window.ecsRenderCorrelationGraph) ecsRenderCorrelationGraph('ecsCorrelationGraph', graph, details);
+})();
+</script>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

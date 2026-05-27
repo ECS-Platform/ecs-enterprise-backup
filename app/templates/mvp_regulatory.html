@@ -1,20 +1,64 @@
 <!DOCTYPE html><html><head><title>Regulatory Mapping</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-regulatory"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Regulatory Mapping</h1>
-<p class="text-muted small">Cross-framework compliance normalization — PCI, ITPP, DPSC, RBI Cyber, ISO 27001, AppSec, CSITE, Baselining, VAPT</p>
+<div class="col-md-10 p-4 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Regulatory Mapping &amp; Coverage Traceability</h1>
 {% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
 {% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
+{% from "partials/mvp_workspace_macros.html" import workspace_filters %}
 {{ grc_kpis(module_view.kpis) }}
-<div class="card shadow-sm mb-3"><div class="table-responsive ecs-paginated-wrap"><table class="table table-sm mb-0 ecs-paginated-table">
-<thead><tr><th>Control Theme</th><th>Frameworks</th><th>Shared Evidence</th><th>Coverage</th><th>Actions</th></tr></thead>
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading regulatory mappings…</p>
+
+<div class="row g-2 mb-3">
+<div class="col-md-6"><div class="chart-card"><div class="chart-card-title">Coverage by Control Theme</div>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsRegCoverageChart"></div></div></div></div>
+<div class="col-md-6"><div class="chart-card"><div class="chart-card-title">Framework Overlap</div>
+<div class="ecs-heat-matrix" id="ecsRegOverlapGrid">{% for o in module_view.overlap|default([]) %}{% if loop.index <= 12 %}
+<div class="ecs-heat-cell tone-{% if o.coverage_pct >= 85 %}green{% elif o.coverage_pct >= 75 %}amber{% else %}red{% endif %} ecs-reg-drill" role="button" data-theme="{{ o.theme }}" title="{{ o.theme }} — {{ o.coverage_pct }}%">
+<strong>{{ o.theme|truncate(16, True, '') }}</strong><br>{{ o.coverage_pct }}%</div>
+{% endif %}{% endfor %}</div></div></div>
+</div>
+
+<div class="card shadow-sm mb-3"><div class="card-header py-2"><strong class="small">Control Lineage &amp; Shared Evidence</strong></div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm mb-0 ecs-paginated-table ecs-compact-table" data-ecs-std-table="regulatory-lineage"><thead><tr>
+<th>Source Framework</th><th>Target Framework</th><th>Control Theme</th><th>Reused Evidence</th><th>Reused Controls</th><th>Coverage</th><th>Gap</th><th>Status</th>
+</tr></thead><tbody>
+{% for ln in module_view.lineage|default([]) %}
+<tr data-ecs-filter-row data-filter-framework="{{ ln.source_framework }}" class="ecs-reg-line-drill" role="button">
+<td>{{ ln.source_framework }}</td><td>{{ ln.target_framework }}</td><td>{{ ln.control_theme }}</td>
+<td class="small">{{ ln.reused_evidence }}</td><td>{{ ln.reused_controls }}</td>
+<td>{{ ln.coverage_pct }}%</td><td class="text-danger">{{ ln.gap_pct }}%</td>
+<td><span class="badge bg-{% if ln.status=='Mapped' %}success{% else %}warning text-dark{% endif %}">{{ ln.status }}</span></td></tr>
+{% endfor %}
+</tbody></table></div></div>
+
+<div class="card shadow-sm mb-3"><div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm mb-0 ecs-paginated-table" data-ecs-std-table="regulatory-mapping"><thead><tr><th>Control Theme</th><th>Framework</th><th>Shared Evidence</th><th>Coverage</th><th>Status</th><th>Actions</th></tr></thead>
 <tbody>{% for m in module_view.rows %}
-<tr><td><strong>{{ m.control_theme }}</strong></td>
-<td>{% for fw in m.frameworks %}<span class="badge bg-light text-dark me-1">{{ fw }}</span>{% endfor %}</td>
-<td>{{ m.shared_evidence }}</td><td><div class="progress" style="height:8px;width:80px"><div class="progress-bar bg-success" style="width:{{ m.coverage_pct }}%"></div></div> {{ m.coverage_pct }}%</td>
+<tr data-ecs-filter-row data-filter-framework="{{ m.framework|default(m.frameworks[0] if m.frameworks else 'Enterprise-wide') }}" data-filter-status="{{ m.status|default('Mapped') }}">
+<td><strong>{{ m.control_theme }}</strong></td>
+<td><span class="badge bg-light text-dark">{{ m.framework|default(m.frameworks[0] if m.frameworks else '—') }}</span></td>
+<td>{{ m.shared_evidence }}</td><td><div class="progress d-inline-block align-middle" style="height:8px;width:80px"><div class="progress-bar bg-success" style="width:{{ m.coverage_pct }}%"></div></div> {{ m.coverage_pct }}%</td>
+<td>{{ m.status|default('Mapped') }}</td>
 <td>{{ module_action('regulatory_mapping', 'reuse_evidence', role, user, 'Reuse', 'btn-outline-primary btn-sm', m.control_theme) }}</td></tr>
 {% endfor %}</tbody></table></div></div>
 {% if module_view.missing_coverage %}<div class="alert alert-warning small"><strong>Missing coverage:</strong> {{ module_view.missing_coverage|join(' · ') }}</div>{% endif %}
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+</div></div></div>
+<script>
+(function(){
+  var cov = {{ module_view.coverage_chart|default([])|tojson }};
+  var lineage = {{ module_view.lineage|default([])|tojson }};
+  if (window.ecsRenderCompactBarChart) ecsRenderCompactBarChart('ecsRegCoverageChart', cov, {suffix:'%', defaultTone:'green'});
+  document.querySelectorAll('.ecs-reg-line-drill').forEach(function(row, i){
+    row.addEventListener('click', function(){
+      var ln = lineage[i]; if (!ln || !window.ecsShowExecDrillModal) return;
+      ecsShowExecDrillModal(ln.control_theme, '<p><strong>' + ln.source_framework + ' → ' + ln.target_framework + '</strong></p><p>Evidence: ' + ln.reused_evidence + '</p><p>Coverage: ' + ln.coverage_pct + '% · Gap: ' + ln.gap_pct + '%</p>');
+    });
+  });
+})();
+</script>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

@@ -10,9 +10,9 @@
 .ecs-fw-page { --ecs-fw-accent: {{ fw_dashboard.theme.accent }}; --ecs-fw-accent-soft: {{ fw_dashboard.theme.accent_soft }}; }
 .ecs-fw-page .ecs-page-title { color: var(--ecs-fw-accent); }
 .ecs-fw-page .ecs-fw-badge { background: var(--ecs-fw-accent-soft); color: var(--ecs-fw-accent); font-size:0.65rem;font-weight:700;padding:0.25rem 0.55rem;border-radius:999px;letter-spacing:0.06em; }
-.ecs-fw-page .ecs-kpi-modern::before { background: var(--ecs-fw-accent); }
+.ecs-fw-page .ecs-exec-kpi-primary::before { background: var(--ecs-fw-accent); }
+.ecs-fw-page .ecs-drill-module-btn.is-active { border-color: var(--ecs-fw-accent); color: var(--ecs-fw-accent); background: var(--ecs-fw-accent-soft); }
 .ecs-fw-page .ecs-section-card { border-top: 3px solid var(--ecs-fw-accent); }
-.ecs-fw-page .ecs-zone-label { color: var(--ecs-fw-accent); }
 </style>
 {% endif %}
 </head>
@@ -23,156 +23,50 @@
 {% include "partials/ecs_sidebar.html" %}
 <div class="col-md-10 ecs-main-content">
 
-<div class="ecs-page ecs-page-loaded ecs-page-content ecs-fw-page {{ fw_dashboard.theme.css_class if fw_dashboard is defined else '' }}">
-{% from "partials/ecs_ux_macros.html" import page_header, kpi_card, accordion_section, zone_open, zone_close %}
+<div class="ecs-page ecs-page-loading ecs-page-content ecs-fw-page {{ fw_dashboard.theme.css_class if fw_dashboard is defined else '' }}">
+{% from "partials/ecs_ux_macros.html" import role_label %}
 
-<div class="ecs-page-header mb-4">
+<div class="ecs-page-header mb-2">
 <div class="ecs-page-header-main">
-<div class="d-flex align-items-center gap-2 mb-1">
+<div class="d-flex align-items-center gap-2">
 <span class="ecs-fw-badge">{{ fw_dashboard.theme.icon if fw_dashboard is defined else 'FW' }}</span>
-<h1 class="ecs-page-title mb-0">{{ framework_name }}</h1>
+<h1 class="ecs-page-title mb-0 h4">{{ framework_name }}{% if framework_name == 'ITPP' %} Command Center{% endif %}{% if fw_app %} · {{ fw_app }}{% endif %}</h1>
 </div>
-<p class="ecs-page-subtitle">{{ fw_dashboard.tagline if fw_dashboard is defined else 'Framework controls and evidence workflow' }}</p>
 </div>
 <div class="ecs-page-header-meta">
 <span class="ecs-user-chip">{{ user }}</span>
-<span class="ecs-role-chip">{{ role|replace('_',' ')|title }}</span>
+<span class="ecs-role-chip">{{ role_label(role) }}</span>
 </div>
 </div>
 
-{% if notice %}<div class="alert alert-warning py-2 mb-3">{{ notice }}</div>{% endif %}
+{% if notice %}<div class="alert alert-warning py-2 mb-2">{{ notice }}</div>{% endif %}
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
 
-{{ zone_open('top') }}
-<div class="row g-3 mb-2">
-{% if fw_dashboard is defined %}
-{% for k in fw_dashboard.kpis %}
-{{ kpi_card(k.label, k.value, k.hint, k.tone) }}
-{% endfor %}
+{% if fw_app %}
+{% include "partials/framework_application_grid.html" %}
+{% elif framework_name == 'ITPP' and itpp_view and itpp_view not in ['', 'home'] %}
+{% include "partials/itpp_command_center.html" %}
 {% else %}
-{{ kpi_card('Controls', framework_control_count, 'In scope', 'primary') }}
-{{ kpi_card('Evidence', framework_evidence_count, 'Linked', 'teal') }}
-{% endif %}
-</div>
-{{ zone_close() }}
+<section class="ecs-zone ecs-zone-executive mb-2">
+{% include "partials/framework_executive_strip.html" %}
+</section>
 
-{{ zone_open('middle', fw_dashboard.middle_label if fw_dashboard is defined else 'Framework Insights') }}
-{% include "partials/framework_insights.html" %}
-
-{% if fw_dashboard is defined and fw_dashboard.show_itpp_panel %}
-{% call accordion_section('ITPP Operational Governance', 'fw-itpp', 'Live', false) %}
-{% include "partials/itpp_operational_panel.html" %}
-{% endcall %}
-{% endif %}
-
-{% if fw_dashboard is defined and fw_dashboard.show_validation %}
-{% call accordion_section('Control Validation Engine', 'fw-validation', (validation_summary.total_checks if validation_summary else 0)|string, true) %}
-{% include "partials/control_validation_panel.html" %}
-{% endcall %}
-{% endif %}
-
-{% if fw_dashboard is defined and fw_dashboard.show_governance_strip %}
-{% set show_governance = true %}
-{% include "partials/governance_analytics_panel.html" %}
-{% elif framework_name == 'ITPP' %}
-{% set show_governance = true %}
-{% include "partials/governance_analytics_panel.html" %}
-{% endif %}
-{{ zone_close() }}
-
-{% set wl = fw_dashboard.workflow_labels if fw_dashboard is defined else {} %}
-{{ zone_open('bottom', 'Detailed Records') }}
-<div class="ecs-section-card">
-<div class="ecs-section-card-header">
-<div>
-<h2 class="ecs-section-card-title">{{ wl.queue_title|default('Evidence Workflow Queue') }}</h2>
-<p class="text-muted small mb-0">{{ wl.queue_subtitle|default('Control and evidence workflow') }}</p>
-</div>
-<span class="badge bg-secondary">{{ framework_catalog_controls|length }} controls · {{ framework_evidence_count }} evidences</span>
-</div>
-<div class="table-responsive ecs-paginated-wrap ecs-table-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0">
-<thead>
-<tr>
-<th>Control</th><th>Evidence</th><th>Application</th><th>Status</th><th>Workflow</th>
-<th class="ecs-col-optional">Uploaded By</th><th class="ecs-col-optional">Reject Reason</th><th>Actions</th>
-</tr>
-</thead>
-<tbody>
-{% for ctrl in framework_catalog_controls %}
-{% set ckey = framework_name ~ '::' ~ ctrl.control %}
-{% set row_span = ctrl.evidences|length %}
-{% set ctrl_idx = loop.index %}
-{% set primary_ev = ctrl.evidences[0] %}
-{% for ev in ctrl.evidences %}
-<tr data-ecs-page-group="{{ ctrl_idx }}" class="{% if ckey in approved_controls %}row-approved{% elif ckey in rejected_controls %}table-danger{% elif ckey in submitted_controls %}table-warning{% endif %}">
-{% if loop.first %}
-<td rowspan="{{ row_span }}"><strong>{{ ctrl.control }}</strong><br><small class="text-muted">{{ ctrl.control_id }}</small></td>
-{% endif %}
-<td><strong>{{ ev.evidence_name }}</strong><br><code class="small">{{ ev.mock_file }}</code></td>
-<td>{{ ev.application_name }}</td>
-<td>{% if ev.evidence_status == 'Expired' %}<span class="badge bg-danger">{{ ev.evidence_status }}</span>
-{% elif ev.evidence_status == 'Due for Refresh' %}<span class="badge bg-warning text-dark">{{ ev.evidence_status }}</span>
-{% else %}<span class="badge bg-success">{{ ev.evidence_status }}</span>{% endif %}</td>
-{% if loop.first %}
-<td rowspan="{{ row_span }}">
-{% if ckey in approved_controls %}<span class="badge bg-success">Approved</span>
-{% elif ckey in rejected_controls %}<span class="badge bg-danger">Rejected</span>
-{% elif ckey in submitted_controls %}<span class="badge bg-warning text-dark">Pending Review</span>
-{% else %}<span class="badge bg-secondary">Draft</span>{% endif %}
-</td>
-<td rowspan="{{ row_span }}" class="ecs-col-optional">{{ ev.uploaded_by }}</td>
-<td rowspan="{{ row_span }}" class="ecs-col-optional">{% if ckey in rejected_controls %}<small class="text-danger">{{ rejected_controls[ckey].reason[:60] }}…</small>{% else %}—{% endif %}</td>
-<td rowspan="{{ row_span }}" class="text-nowrap ecs-sticky-actions">
-{% if role == "owner" %}
-{% if ckey in approved_controls %}
-<button class="btn btn-secondary btn-sm" disabled>Closed</button>
-{% elif ckey in submitted_controls %}
-<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">Review</a>
-{% elif ckey in rejected_controls %}
-<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-warning btn-sm">{{ wl.owner_resubmit|default('Resubmit') }}</a>
+<section class="ecs-zone ecs-zone-drill mb-2">
+{% if framework_name == 'ITPP' %}
+{% include "partials/itpp_command_center.html" %}
+<div class="mt-2">{% include "partials/framework_drill_panels.html" %}</div>
 {% else %}
-<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-primary btn-sm">{{ wl.owner_submit|default('Submit') }}</a>
+{% include "partials/framework_drill_panels.html" %}
 {% endif %}
-{% elif role == "auditor" %}
-{% if ckey in submitted_controls %}
-<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">Review</a>
-<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ ctrl.control }}"><input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button class="btn btn-success btn-sm">{{ wl.auditor_approve|default('Approve') }}</button></form>
-<button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal{{ ctrl_idx }}">{{ wl.auditor_reject|default('Reject') }}</button>
-{% else %}
-<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">View</a>
+</section>
 {% endif %}
-{% else %}
-<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">View</a>
-{% endif %}
-<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">Evidence</a>
-</td>
-{% endif %}
-</tr>
-{% endfor %}
-{% endfor %}
-</tbody>
-</table>
-</div>
-</div>
-
-{% for ctrl in framework_catalog_controls %}
-{% set ckey = framework_name ~ '::' ~ ctrl.control %}
-{% if role == 'auditor' and ckey in submitted_controls %}
-<div class="modal fade" id="rejectModal{{ loop.index }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-<div class="modal-header"><h5 class="modal-title">{{ wl.auditor_reject|default('Reject') }}: {{ ctrl.control }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<form method="post" action="/reject"><div class="modal-body">
-<input type="hidden" name="control_name" value="{{ ctrl.control }}"><input type="hidden" name="framework_name" value="{{ framework_name }}">
-<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
-<label class="form-label">Reject reason (required)</label>
-<textarea class="form-control" name="reject_reason" rows="3" required placeholder="Describe the gap..."></textarea>
-</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-danger">Confirm</button></div></form>
-</div></div></div>
-{% endif %}
-{% endfor %}
-{{ zone_close() }}
 
 </div>
 </div></div></div>
 {% include "partials/chatbot_global.html" %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include "partials/evidence_upload_modal.html" %}
 </body></html>

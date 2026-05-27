@@ -1,0 +1,5 @@
+{# Reusable compact chart shell — include via executive_charts_system.css/js #}
+{% from "partials/executive_chart_macros.html" import executive_chart_card %}
+{% macro compact_chart(title, chart_id='', subtitle='') %}
+{{ executive_chart_card(title, subtitle, chart_id) }}
+{% endmacro %}

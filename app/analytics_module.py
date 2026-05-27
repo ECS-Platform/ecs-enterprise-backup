@@ -77,17 +77,32 @@ def application_comparison():
     return display_application_rows(sorted(rows, key=lambda x: x["compliance_pct"]))
 
 
-def compliance_trends():
+def compliance_trends(filters: dict | None = None):
+    from app.governance_intelligence import build_contextual_trends
+
+    intel = build_contextual_trends(filters)
+    impl = intel["implementation_coverage"]
+    obs = intel["observations"]
+    rej = intel["rejection_rate"]
+    sla = intel["sla_compliance"]
+    aging = intel["evidence_aging"]
+
     stats = ecs_state.build_evidence_analytics()
     live = stats["framework_stats"]
+    monthly = []
+    for i, row in enumerate(impl["series"]):
+        o = obs["series"][i] if i < len(obs["series"]) else {}
+        monthly.append({**row, "opened": o.get("opened", 0), "closed": o.get("closed", 0)})
+
     return {
-        "monthly": ENTERPRISE_MONTHLY_TRENDS,
-        "aging_buckets": AUDIT_AGING_BUCKETS,
-        "rejection_trends": REJECTION_TRENDS,
-        "sla_trends": SLA_TRENDS,
+        "monthly": monthly,
+        "aging_buckets": aging["buckets"],
+        "rejection_trends": rej["series"],
+        "sla_trends": sla["series"],
         "maturity": display_framework_maturity(live),
-        "closure_rate_pct": 87.4,
-        "avg_days_to_close": 18.6,
+        "closure_rate_pct": obs["closure_rate_pct"],
+        "avg_days_to_close": obs["avg_days_to_close"],
+        "intel": intel,
     }
 
 
@@ -198,6 +213,8 @@ def _app_for(framework: str, control: str) -> str:
 
 
 def audit_preparation_checklist():
+    from app.operational_workflows import adjusted_missing_count, adjusted_readiness_pct, enrich_upcoming_audits
+
     comp = completeness_report()
     recommended = []
     for m in comp["missing"][:10]:
@@ -209,15 +226,16 @@ def audit_preparation_checklist():
                 "priority": "High",
             }
         )
+    base_audits = [
+        {"framework": "PCI DSS", "date": "2026-06-15", "auditor": "Deloitte", "days_out": 22, "readiness": 78},
+        {"framework": "DPSC", "date": "2026-07-08", "auditor": "KPMG", "days_out": 45, "readiness": 71},
+        {"framework": "CSITE", "date": "2026-08-20", "auditor": "Internal Audit", "days_out": 88, "readiness": 69},
+    ]
     return {
         "checklist": recommended,
-        "missing_controls": comp["missing_count"],
-        "ready_pct": ecs_state.build_evidence_analytics()["overall_compliance_pct"],
-        "upcoming_audits": [
-            {"framework": "PCI DSS", "date": "2026-06-15", "auditor": "Deloitte", "days_out": 22, "readiness": 78},
-            {"framework": "DPSC", "date": "2026-07-08", "auditor": "KPMG", "days_out": 45, "readiness": 71},
-            {"framework": "CSITE", "date": "2026-08-20", "auditor": "Internal Audit", "days_out": 88, "readiness": 69},
-        ],
+        "missing_controls": adjusted_missing_count(),
+        "ready_pct": adjusted_readiness_pct(),
+        "upcoming_audits": enrich_upcoming_audits(base_audits),
         "pending_auditor_requests": [
             {"request": "Firewall rule export — Net Banking", "framework": "PCI DSS", "due": "2026-05-28", "owner": "R. Mehta"},
             {"request": "Privileged access review Q2", "framework": "DPSC", "due": "2026-05-30", "owner": "A. Sharma"},

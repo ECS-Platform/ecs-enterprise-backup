@@ -1,34 +1,216 @@
-<!DOCTYPE html><html><head><title>Evidence Health</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Evidence Health</title>{% include "partials/mvp_styles.html" %}{% include "partials/executive_charts_system.html" %}
+<style>
+.ecs-health-detail-panel{position:fixed;top:0;right:-420px;width:400px;max-width:92vw;height:100vh;background:#fff;border-left:1px solid #e2e8f0;box-shadow:-4px 0 16px rgba(15,23,42,.08);z-index:1050;transition:right .25s ease;padding:.75rem;overflow-y:auto}
+.ecs-health-detail-panel.is-open{right:0}
+.ecs-health-row-highlight{outline:2px solid #3b6ea5;background:#f0f7ff!important}
+.ecs-health-table{font-size:.72rem}
+.ecs-health-table th,.ecs-health-table td{vertical-align:middle;padding:.25rem .35rem}
+</style></head>
 <body class="bg-light ecs-cap-health"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Evidence Health & Risk Scoring</h1>
-<p class="text-muted small">Quality governance — stale, expired, incomplete, and low-confidence artefacts</p>
-{% if notice %}<div class="alert alert-info">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Evidence Health &amp; Governance</h1>
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<div class="mb-3">{% for rd in module_view.risk_distribution %}
+{% set q = '?role=' ~ role ~ '&user=' ~ user|urlencode %}
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Enterprise evidence health — every record mapped to controls and observations.</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<div class="ecs-ws-metric-row mb-1">{% for rd in module_view.risk_distribution %}
 <span class="risk-pill {{ rd.class }}">{{ rd.label }}: {{ rd.count }}</span>{% endfor %}</div>
-<div class="row g-3 mb-4">
-<div class="col-md-3"><div class="card p-2 shadow-sm"><h6 class="small text-danger">Stale</h6>
-{% for r in module_view.categories.stale %}<div class="small border-bottom py-1">{{ r.evidence_name[:30] }} <span class="badge bg-warning text-dark">{{ r.health_score }}%</span></div>{% else %}<span class="small text-muted">None</span>{% endfor %}</div></div>
-<div class="col-md-3"><div class="card p-2 shadow-sm"><h6 class="small text-danger">Expired</h6>
-{% for r in module_view.categories.expired %}<div class="small border-bottom py-1">{{ r.evidence_name[:30] }}</div>{% else %}<span class="small text-muted">None flagged</span>{% endfor %}</div></div>
-<div class="col-md-3"><div class="card p-2 shadow-sm"><h6 class="small">Incomplete</h6>
-{% for r in module_view.categories.incomplete %}<div class="small border-bottom py-1">{{ r.evidence_name[:30] }}</div>{% endfor %}</div></div>
-<div class="col-md-3"><div class="card p-2 shadow-sm"><h6 class="small">High Risk</h6>
-{% for r in module_view.categories.risky %}<div class="small border-bottom py-1">{{ r.evidence_name[:30] }} <span class="badge bg-danger">{{ r.risk }}</span></div>{% endfor %}</div></div>
-</div>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-bordered bg-white ecs-paginated-table"><thead><tr><th>ID</th><th>Evidence</th><th>Issue</th><th>Risk</th><th>Score</th><th>Expiry</th><th>Actions</th></tr></thead><tbody>
-{% for r in module_view.rows %}
-<tr class="{% if r.risk=='Critical' %}table-danger{% elif r.risk=='High' %}table-warning{% endif %}">
-<td><code>{{ r.evidence_id }}</code></td><td>{{ r.evidence_name[:35] }}</td><td>{{ r.issue }}</td><td>{{ r.risk }}</td><td>{{ r.health_score }}%</td><td>{{ r.expiry_date }}</td>
-<td>{% if role=='owner' %}{{ module_action('evidence_health','replace',role,user,'Replace','btn-sm btn-outline-primary',r.evidence_id) }}
-{{ module_action('evidence_health','extend',role,user,'Extend','btn-sm btn-outline-secondary',r.evidence_id) }}{% endif %}
-{{ module_action('evidence_health','escalate_risk',role,user,'Escalate','btn-sm btn-outline-danger',r.evidence_id) }}
-{{ module_action('evidence_health','request_upload',role,user,'Request Upload','btn-sm btn-outline-warning',r.evidence_id) }}</td></tr>
+<div class="row g-2 mb-2">
+<div class="col-md-3"><div class="chart-card"><h6 class="chart-card-title mb-0">Rejection Trend</h6>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsHealthRejectionChart"></div></div></div></div>
+<div class="col-md-3"><div class="chart-card"><h6 class="chart-card-title mb-0">Stale Evidence Aging</h6>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsHealthStaleChart"></div></div></div></div>
+<div class="col-md-3"><h6 class="small text-muted mb-1">Top Framework Issues</h6>
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Framework</th><th>Issues</th><th>Score</th></tr></thead><tbody>
+{% for f in (module_view.framework_breakdown|default([], true))[:5] %}
+<tr><td><a href="/framework/{{ f.framework|urlencode }}{{ q }}" class="small">{{ f.framework }}</a></td><td>{{ (f.stale|default(0)) + (f.expired|default(0)) + (f.rejected|default(0)) }}</td><td>{{ f.health_score|default('—') }}%</td></tr>
 {% endfor %}
 </tbody></table></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+<div class="col-md-3"><h6 class="small text-muted mb-1">Application Health</h6>
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Application</th><th>Obs</th><th>Score</th></tr></thead><tbody>
+{% for a in (module_view.application_breakdown|default([], true))[:5] %}
+<tr><td>{{ a.application }}</td><td>{{ a.open_observations|default(0) }}</td><td>{{ a.avg_score }}%</td></tr>
+{% endfor %}
+</tbody></table></div>
+</div>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-executive-table ecs-health-table mb-0"><thead><tr>
+<th>Evidence ID</th><th>Name</th><th>Framework</th><th>Control</th><th>Observation</th><th>Issue</th><th>Risk</th><th>Score</th>
+</tr></thead><tbody>
+{% for r in (module_view.rows|default([], true))[:8] %}
+<tr><td><code class="small">{{ r.evidence_id }}</code></td><td>{{ r.evidence_name[:28] }}</td><td>{{ r.framework }}</td>
+<td class="small">{{ r.control_id }}</td><td class="small">{{ r.observation_id }}</td><td>{{ r.issue }}</td><td>{{ r.risk }}</td><td>{{ r.health_score }}%</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('queue', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-executive-table ecs-health-table mb-0" data-ecs-std-table="health-queue"><thead><tr>
+<th>Evidence ID</th><th>Evidence Name</th><th>Framework</th><th>Application</th><th>Control ID</th><th>Control Name</th>
+<th>Observation ID</th><th>Observation Summary</th><th>Owner</th><th>Issue</th><th>Risk</th><th>Score</th>
+<th>Workflow</th><th>Last Reviewed</th><th>Expiry</th><th>Details</th>
+</tr></thead><tbody>
+{% for r in module_view.rows %}
+<tr class="ecs-health-data-row {% if r.risk=='Critical' %}table-danger{% elif r.risk=='High' %}table-warning{% endif %}" id="row-{{ r.evidence_id }}"
+ data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application|default('') }}"
+ data-filter-risk="{{ r.risk }}" data-filter-owner="{{ r.owner|default('') }}" data-filter-status="{{ r.issue }}"
+ data-evidence='{{ r|tojson }}'>
+<td><code class="small">{{ r.evidence_id }}</code></td>
+<td>{{ r.evidence_name[:32] }}</td><td>{{ r.framework }}</td><td>{{ r.application|default('—') }}</td>
+<td><a href="/framework/{{ r.framework|urlencode }}{{ q }}" class="small">{{ r.control_id }}</a></td>
+<td class="small">{{ r.control_name[:30] }}</td>
+<td><a href="/mvp/search{{ q }}&framework={{ r.framework|urlencode }}" class="small">{{ r.observation_id }}</a></td>
+<td class="small">{{ r.observation_summary[:40] }}</td><td class="small">{{ r.owner|default('—') }}</td>
+<td>{{ r.issue }}</td><td><span class="badge bg-{% if r.risk in ['Critical','High'] %}danger{% elif r.risk=='Medium' %}warning text-dark{% else %}success{% endif %}">{{ r.risk }}</span></td>
+<td>{{ r.health_score }}%</td>
+<td><span class="badge bg-secondary">{{ r.validation_status|default('—') }}</span></td>
+<td class="small">{{ r.last_reviewed|default('—') }}</td>
+<td>{{ r.expiry_status|default(r.expiry_date) }}</td>
+<td class="text-nowrap">
+<button type="button" class="btn btn-sm btn-outline-primary ecs-health-detail-btn" data-evidence-id="{{ r.evidence_id }}">View</button>
+<a href="/framework/{{ r.framework|urlencode }}{{ q }}" class="btn btn-sm btn-link p-0">FW</a>
+</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{% for cat_id, cat_key in [('stale','stale'),('expired','expired')] %}
+{% if workspace.tabs|selectattr('id','equalto',cat_id)|list %}
+{{ workspace_pane(cat_id, false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-executive-table ecs-health-table mb-0" data-ecs-std-table="health-{{ cat_id }}"><thead><tr>
+<th>Evidence</th><th>Framework</th><th>Control</th><th>Observation</th><th>Owner</th><th>Score</th><th>Details</th>
+</tr></thead><tbody>
+{% for r in module_view.categories[cat_key] %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-owner="{{ r.owner|default('') }}">
+<td>{{ r.evidence_name[:35] }}</td><td>{{ r.framework|default('—') }}</td><td class="small">{{ r.control_id|default('—') }}</td>
+<td class="small">{{ r.observation_id|default('—') }}</td><td>{{ r.owner|default('—') }}</td><td>{{ r.health_score|default('—') }}%</td>
+<td><button type="button" class="btn btn-sm btn-link ecs-health-detail-btn" data-evidence-id="{{ r.evidence_id }}">View</button></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+{% endfor %}
+
+{% if workspace.tabs|selectattr('id','equalto','frameworks')|list %}
+{{ workspace_pane('frameworks', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="health-frameworks"><thead><tr>
+<th>Framework</th><th>Evidence Count</th><th>Mapped Controls</th><th>Linked Observations</th><th>Stale</th><th>Rejected</th><th>Health Score</th><th>Actions</th>
+</tr></thead><tbody>
+{% for f in module_view.framework_breakdown|default([]) %}
+<tr><td><strong>{{ f.framework }}</strong></td><td>{{ f.total|default(0) }}</td><td>{{ f.mapped_controls|default(0) }}</td>
+<td>{{ f.linked_observations|default(0) }}</td><td>{{ f.stale|default(0) }}</td><td>{{ f.rejected|default(0) }}</td><td>{{ f.health_score|default('—') }}%</td>
+<td><a href="/framework/{{ f.framework|urlencode }}{{ q }}" class="btn btn-sm btn-outline-primary">Dashboard</a>
+<a href="/mvp/evidence-health{{ q }}&framework={{ f.framework|urlencode }}&tab=queue" class="btn btn-sm btn-link">Filter</a></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{% if workspace.tabs|selectattr('id','equalto','analytics')|list %}
+{{ workspace_pane('analytics', false) }}
+<div class="row g-2">
+<div class="col-md-4"><h6 class="small text-muted">Framework Breakdown</h6>
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Framework</th><th>Stale</th><th>Expired</th><th>High Risk</th><th>Approval %</th></tr></thead><tbody>
+{% for f in module_view.framework_breakdown|default([]) %}<tr><td>{{ f.framework }}</td><td>{{ f.stale|default(0) }}</td><td>{{ f.expired|default(0) }}</td><td>{{ f.high_risk|default(0) }}</td><td>{{ f.approval_pct|default('—') }}%</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="col-md-4"><h6 class="small text-muted">Owner Breakdown</h6>
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Owner</th><th>Queue</th><th>Rejections</th><th>Critical</th></tr></thead><tbody>
+{% for o in module_view.owner_breakdown|default([]) %}<tr><td>{{ o.owner }}</td><td>{{ o.queue_size }}</td><td>{{ o.rejections }}</td><td>{{ o.critical }}</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="col-md-4"><h6 class="small text-muted">Application Breakdown</h6>
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Application</th><th>Issues</th><th>Observations</th><th>Avg Score</th></tr></thead><tbody>
+{% for a in module_view.application_breakdown|default([]) %}<tr><td>{{ a.application }}</td><td>{{ a.issues }}</td><td>{{ a.open_observations|default(0) }}</td><td>{{ a.avg_score }}%</td></tr>{% endfor %}
+</tbody></table></div></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+</div></div></div>
+
+<div class="ecs-health-detail-panel" id="ecsHealthDetailPanel">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<h6 class="mb-0">Observation &amp; Evidence Detail</h6>
+<button type="button" class="btn-close btn-sm" id="ecsHealthDetailClose"></button>
+</div>
+<div id="ecsHealthDetailBody"><p class="small text-muted">Select a row to view observation linkage, audit trail, and remediation status.</p></div>
+</div>
+
+{% include "partials/standard_filter_include.html" %}
+<script type="application/json" id="ecsHealthDeepLink">{{ health_deep_link|default({})|tojson }}</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var mv = {{ {'rejection_trends': module_view.rejection_trends|default([]), 'stale_aging': module_view.stale_aging|default([])}|tojson }};
+  if (window.ecsRenderCompactBarChart) {
+    ecsRenderCompactBarChart('ecsHealthRejectionChart', (mv.rejection_trends || []).map(function(t){ return {label:t.month, value:t.rate_pct, suffix:'%', tone:'orange'}; }), {maxHeight:56});
+    ecsRenderCompactBarChart('ecsHealthStaleChart', mv.stale_aging || [], {maxHeight:56, defaultTone:'red'});
+  }
+  var deep = {};
+  try { deep = JSON.parse(document.getElementById('ecsHealthDeepLink').textContent || '{}'); } catch(e) {}
+  if (deep.framework) {
+    var fwSel = document.querySelector('[data-filter-key="framework"]');
+    if (fwSel) fwSel.value = deep.framework;
+  }
+  if (deep.application) {
+    var appSel = document.querySelector('[data-filter-key="application"]');
+    if (appSel) appSel.value = deep.application;
+  }
+  if (deep.filter_issue) {
+    var stSel = document.querySelector('[data-filter-key="status"]');
+    if (stSel) stSel.value = deep.filter_issue;
+  }
+  if (deep.tab) {
+    var tabBtn = document.querySelector('[data-ecs-tab="' + deep.tab + '"]');
+    if (tabBtn) tabBtn.click();
+  }
+  if (window.ecsApplyStandardFilters) setTimeout(function(){ ecsApplyStandardFilters(); }, 80);
+  if (deep.highlight) {
+    setTimeout(function(){
+      var row = document.getElementById('row-' + deep.highlight);
+      if (row) { row.classList.add('ecs-health-row-highlight'); row.scrollIntoView({behavior:'smooth', block:'center'}); openDetail(row); }
+    }, 300);
+  }
+
+  var panel = document.getElementById('ecsHealthDetailPanel');
+  var body = document.getElementById('ecsHealthDetailBody');
+  function openDetail(row) {
+    var data = {};
+    try { data = JSON.parse(row.getAttribute('data-evidence') || '{}'); } catch(e) {}
+    if (!data.evidence_id) return;
+    var trail = (data.audit_trail || []).map(function(h){
+      return '<div class="small border-bottom py-1">' + h.timestamp + ' — <strong>' + h.action + '</strong> by ' + h.actor + '<br><span class="text-muted">' + (h.remarks || '') + '</span></div>';
+    }).join('') || '<span class="text-muted small">No audit trail entries.</span>';
+    body.innerHTML = '<p class="small mb-1"><strong>' + data.evidence_id + '</strong> — ' + data.evidence_name + '</p>'
+      + '<p class="small mb-1"><strong>Framework:</strong> ' + data.framework + ' · <strong>Application:</strong> ' + (data.application || '—') + '</p>'
+      + '<p class="small mb-1"><strong>Control:</strong> ' + data.control_id + ' — ' + (data.control_name || '') + '</p>'
+      + '<p class="small mb-1"><strong>Observation:</strong> ' + data.observation_id + '<br>' + (data.observation_summary || '') + '</p>'
+      + '<p class="small mb-1"><strong>Risk:</strong> ' + data.risk + ' · <strong>Remediation:</strong> ' + (data.remediation_status || 'Open') + '</p>'
+      + '<p class="small mb-2"><strong>Linked incidents:</strong> ' + ((data.linked_incidents || []).join(', ') || 'None') + '</p>'
+      + '<h6 class="small text-muted">Audit Trail</h6>' + trail
+      + '<div class="mt-2"><a href="/framework/' + encodeURIComponent(data.framework) + '?role={{ role }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-primary me-1">Framework Dashboard</a>'
+      + '<a href="/mvp/search?role={{ role }}&user={{ user|urlencode }}&framework=' + encodeURIComponent(data.framework) + '" class="btn btn-sm btn-outline-secondary">View Observation</a></div>';
+    panel.classList.add('is-open');
+  }
+  document.querySelectorAll('.ecs-health-detail-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var row = btn.closest('tr');
+      if (row) openDetail(row);
+    });
+  });
+  document.getElementById('ecsHealthDetailClose').addEventListener('click', function(){ panel.classList.remove('is-open'); });
+});
+</script>
+{% include "partials/chatbot_global.html" %}</body></html>

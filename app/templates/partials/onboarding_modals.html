@@ -1,0 +1,149 @@
+{# Onboarding wizard + pipeline drill-down modals #}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="modal fade" id="onboardWizardModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title">Application Onboarding Wizard</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<ul class="nav nav-pills nav-fill mb-2 small" id="onboardWizardSteps">
+<li class="nav-item"><button class="nav-link active" data-onboard-step="1">1. Application</button></li>
+<li class="nav-item"><button class="nav-link" data-onboard-step="2">2. Frameworks</button></li>
+<li class="nav-item"><button class="nav-link" data-onboard-step="3">3. Integrations</button></li>
+<li class="nav-item"><button class="nav-link" data-onboard-step="4">4. Summary</button></li>
+</ul>
+<div id="onboardWizardForm">
+<input type="hidden" id="onboardWizardRole" value="{{ role }}">
+<input type="hidden" id="onboardWizardUser" value="{{ user }}">
+<div class="onboard-wizard-pane" data-onboard-pane="1">
+<label class="form-label ecs-ws-filter-lbl">Application Name</label>
+<input type="text" id="onboardWizardAppName" class="form-control form-control-sm mb-2" list="ecsOnboardAppSuggestions" placeholder="Enter custom application name" required>
+<div class="row g-2">
+<div class="col-md-6"><label class="small">Business Unit</label>
+<select id="onboardWizardBU" class="form-select form-select-sm">
+{% for bu in module_view.business_units|default([]) %}<option>{{ bu }}</option>{% endfor %}
+</select></div>
+<div class="col-md-6"><label class="small">Owner</label>
+<input type="text" id="onboardWizardOwner" class="form-control form-control-sm" value="{{ user }}"></div>
+<div class="col-md-4"><label class="small">Criticality</label>
+<select id="onboardWizardCrit" class="form-select form-select-sm"><option>High</option><option selected>Medium</option><option>Low</option></select></div>
+<div class="col-md-4"><label class="small">Internet Facing</label>
+<select id="onboardWizardInet" class="form-select form-select-sm"><option>Yes</option><option>No</option></select></div>
+<div class="col-md-4"><label class="small">Hosting</label>
+<select id="onboardWizardHost" class="form-select form-select-sm"><option>Cloud</option><option>On-Prem</option><option>Hybrid</option></select></div>
+</div></div>
+<div class="onboard-wizard-pane d-none" data-onboard-pane="2">
+<label class="form-label ecs-ws-filter-lbl">Target Frameworks (all scanned during onboarding)</label>
+<div class="row g-1">{% for fw in module_view.onboarding_frameworks|default([]) %}
+<div class="col-md-4"><label class="small"><input type="checkbox" checked disabled class="me-1">{{ fw }}</label></div>
+{% endfor %}</div></div>
+<div class="onboard-wizard-pane d-none" data-onboard-pane="3">
+<label class="form-label ecs-ws-filter-lbl">Integration Mapping</label>
+<div class="row g-1">
+<div class="col-md-6"><label class="small"><input type="checkbox" checked class="me-1">ServiceNow CMDB</label></div>
+<div class="col-md-6"><label class="small"><input type="checkbox" checked class="me-1">SharePoint Evidence Library</label></div>
+<div class="col-md-6"><label class="small"><input type="checkbox" checked class="me-1">Prisma Cloud CSPM</label></div>
+<div class="col-md-6"><label class="small"><input type="checkbox" checked class="me-1">SonarQube Enterprise</label></div>
+<div class="col-md-6"><label class="small"><input type="checkbox" checked class="me-1">Checkmarx SAST</label></div>
+<div class="col-md-6"><label class="small"><input type="checkbox" checked class="me-1">Tripwire / CMDB</label></div>
+</div></div>
+<div class="onboard-wizard-pane d-none" data-onboard-pane="4">
+<div class="ecs-ws-metric-row mb-2">
+<span><strong>9</strong> frameworks</span>
+<span><strong>8</strong> evidence sources</span>
+<span><strong>~6s</strong> AI scan</span>
+<span><strong>Dynamic</strong> control mapping</span>
+</div>
+<p class="small text-muted mb-0">Launch simulated onboarding workflow with framework-level analysis.</p>
+</div>
+</div></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-outline-secondary btn-sm" id="onboardWizardPrev">Back</button>
+<button type="button" class="btn btn-primary btn-sm" id="onboardWizardNext">Next</button>
+<button type="button" class="btn btn-success btn-sm d-none" id="onboardWizardSubmit">Start Onboarding</button>
+</div></div></div></div>
+
+<div class="modal fade" id="pipelineDrillModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="pipelineDrillTitle">Pipeline Detail</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="pipelineDrillBody"></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+{{ module_action('onboarding','complete_registration',role,user,'Complete Registration','btn-success btn-sm') }}
+</div></div></div></div>
+
+<script type="application/json" id="onboardPipelineData">{{ module_view.pipelines|default([])|tojson }}</script>
+<script>
+(function(){
+  document.querySelectorAll('[data-onboard-wizard]').forEach(function(btn){
+    btn.addEventListener('click', function(e){ e.preventDefault(); new bootstrap.Modal(document.getElementById('onboardWizardModal')).show(); });
+  });
+  var step = 1;
+  var prev = document.getElementById('onboardWizardPrev');
+  var next = document.getElementById('onboardWizardNext');
+  var submit = document.getElementById('onboardWizardSubmit');
+  function showStep(n){
+    step = n;
+    document.querySelectorAll('.onboard-wizard-pane').forEach(function(p){
+      p.classList.toggle('d-none', p.getAttribute('data-onboard-pane') !== String(n));
+    });
+    document.querySelectorAll('#onboardWizardSteps .nav-link').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-onboard-step') === String(n));
+    });
+    if (prev) prev.classList.toggle('d-none', n === 1);
+    if (next) next.classList.toggle('d-none', n === 4);
+    if (submit) submit.classList.toggle('d-none', n !== 4);
+  }
+  document.querySelectorAll('[data-onboard-step]').forEach(function(b){
+    b.addEventListener('click', function(){ showStep(parseInt(b.getAttribute('data-onboard-step'), 10)); });
+  });
+  if (next) next.addEventListener('click', function(){ if (step < 4) showStep(step + 1); });
+  if (prev) prev.addEventListener('click', function(){ if (step > 1) showStep(step - 1); });
+
+  if (submit) submit.addEventListener('click', function(){
+    var name = document.getElementById('onboardWizardAppName');
+    if (!name || !name.value.trim()) { name?.focus(); return; }
+    var intake = document.getElementById('ecsOnboardAppName');
+    if (intake) intake.value = name.value.trim();
+    var fields = [
+      ['business_unit', 'onboardWizardBU'],
+      ['owner', 'onboardWizardOwner'],
+      ['criticality', 'onboardWizardCrit'],
+      ['internet_facing', 'onboardWizardInet'],
+      ['hosting', 'onboardWizardHost']
+    ];
+    fields.forEach(function(pair){
+      var src = document.getElementById(pair[1]);
+      var dst = document.querySelector('#ecsOnboardIntakeForm [name="' + pair[0] + '"]');
+      if (src && dst) dst.value = src.value;
+    });
+    bootstrap.Modal.getInstance(document.getElementById('onboardWizardModal'))?.hide();
+    document.getElementById('ecsOnboardStartBtn')?.click();
+  });
+
+  var pipelines = JSON.parse(document.getElementById('onboardPipelineData').textContent || '[]');
+  document.querySelectorAll('[data-pipeline-drill]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var idx = parseInt(btn.getAttribute('data-pipeline-drill'), 10);
+      var p = pipelines[idx];
+      if (!p) return;
+      document.getElementById('pipelineDrillTitle').textContent = p.application + ' — Pipeline ' + p.pipeline_id;
+      var html = '<div class="ecs-ws-metric-row mb-2">';
+      html += '<span><strong>' + p.controls_onboarded + '</strong> controls</span>';
+      html += '<span><strong>' + p.evidence_sources + '</strong> sources</span>';
+      html += '<span><strong>' + p.compliance_readiness_pct + '%</strong> readiness</span>';
+      html += '<span><strong>' + p.pending_gaps + '</strong> gaps</span></div>';
+      html += '<h6 class="small text-uppercase text-muted">Ingestion Stages</h6><table class="table table-sm table-bordered mb-2"><thead><tr><th>Stage</th><th>Status</th><th>Items</th></tr></thead><tbody>';
+      p.stages.forEach(function(s){ html += '<tr><td>' + s.stage + '</td><td>' + s.status + '</td><td>' + s.items + '</td></tr>'; });
+      html += '</tbody></table>';
+      html += '<h6 class="small text-uppercase text-muted">Integrations</h6><p class="small">' + p.integrations.join(', ') + '</p>';
+      if (p.failed_mappings && p.failed_mappings.length) {
+        html += '<h6 class="small text-uppercase text-muted">Failed Mappings</h6><ul class="small text-danger">';
+        p.failed_mappings.forEach(function(f){ html += '<li>' + f.mapping + ' — ' + f.reason + '</li>'; });
+        html += '</ul>';
+      }
+      html += '<h6 class="small text-uppercase text-muted">Pending Actions</h6><ul class="small">';
+      p.pending_actions.forEach(function(a){ html += '<li>' + a + '</li>'; });
+      html += '</ul>';
+      document.getElementById('pipelineDrillBody').innerHTML = html;
+      new bootstrap.Modal(document.getElementById('pipelineDrillModal')).show();
+    });
+  });
+})();
+</script>

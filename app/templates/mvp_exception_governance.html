@@ -1,0 +1,119 @@
+<!DOCTYPE html><html><head><title>Exception Governance</title>{% include "partials/mvp_styles.html" %}{% include "partials/executive_charts_system.html" %}</head>
+<body class="bg-light ecs-cap-exception-gov"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Exception Governance Dashboard</h1>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Enterprise exception &amp; TD governance — approval state persisted across sessions.</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<div class="row g-2 mb-2">
+<div class="col-md-6"><div class="chart-card"><h6 class="chart-card-title mb-0">Exceptions by Framework</h6>
+<div id="ecsExceptionFwChart"></div></div></div>
+<div class="col-md-6"><h6 class="small text-muted">Workflow State Summary</h6>
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>State</th><th>Count</th></tr></thead><tbody>
+{% set states = ['Approved','Rejected','Under Review','Submitted','Draft','Expired','Closed'] %}
+{% for st in states %}
+{% set cnt = module_view.rows|selectattr('status','equalto',st)|list|length %}
+<tr><td><span class="badge bg-{% if st=='Approved' %}success{% elif st=='Rejected' %}danger{% elif st=='Expired' %}dark{% elif st in ['Under Review','Submitted'] %}warning text-dark{% else %}secondary{% endif %}">{{ st }}</span></td><td>{{ cnt }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('approved_recent', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="exc-approved-recent"><thead><tr>
+<th>ID</th><th>Control</th><th>Framework</th><th>Application</th><th>Approved By</th><th>Date</th><th>TD Expiry</th><th>Status</th>
+</tr></thead><tbody>
+{% for e in (module_view.approved_recent|default([], true)) %}
+<tr data-ecs-filter-row data-filter-framework="{{ e.framework }}" data-filter-application="{{ e.application|default('') }}" data-filter-status="{{ e.status }}">
+<td>{{ e.exception_id }}</td><td class="small">{{ e.control[:40] }}</td><td>{{ e.framework }}</td><td>{{ e.application|default('—') }}</td>
+<td class="small">{{ e.approved_by|default('—') }}</td><td class="small">{{ e.approved_at|default('—') }}</td><td>{{ e.td_expiry }}</td>
+<td><span class="badge bg-success">{{ e.status }}</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('rejected_recent', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="exc-rejected-recent"><thead><tr>
+<th>ID</th><th>Control</th><th>Framework</th><th>Rejected By</th><th>Reason</th><th>Date</th><th>Resubmissions</th>
+</tr></thead><tbody>
+{% for e in (module_view.rejected_recent|default([], true)) %}
+<tr data-ecs-filter-row data-filter-framework="{{ e.framework }}" data-filter-status="{{ e.status }}">
+<td>{{ e.exception_id }}</td><td class="small">{{ e.control[:40] }}</td><td>{{ e.framework }}</td>
+<td class="small">{{ e.rejected_by|default('—') }}</td><td class="small">{{ e.rejection_reason|default('—')|truncate(55, True) }}</td>
+<td class="small">{{ e.rejected_at|default('—') }}</td><td>{{ e.resubmission_count|default(0) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('expiring', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="exc-expiring"><thead><tr>
+<th>ID</th><th>Control</th><th>Framework</th><th>Application</th><th>Owner</th><th>TD Expiry</th><th>Risk</th><th>Actions</th>
+</tr></thead><tbody>
+{% for e in (module_view.expiring_month|default([], true)) %}
+<tr class="table-warning" data-ecs-filter-row data-filter-framework="{{ e.framework }}" data-filter-application="{{ e.application|default('') }}" data-filter-risk="{{ e.residual_risk }}">
+<td>{{ e.exception_id }}</td><td class="small">{{ e.control[:40] }}</td><td>{{ e.framework }}</td><td>{{ e.application|default('—') }}</td>
+<td class="small">{{ e.owner|default('—') }}</td><td>{{ e.td_expiry }}</td>
+<td><span class="badge bg-danger">{{ e.residual_risk }}</span></td>
+<td class="text-nowrap">{% for a in module_view.actions[:2] %}{{ module_action('exception_governance', a, role, user, a|replace('_',' ')|title, 'btn-sm btn-outline-primary', e.exception_id) }}{% endfor %}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('pending_cab', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="exc-pending-cab"><thead><tr>
+<th>ID</th><th>Control</th><th>Framework</th><th>Application</th><th>Owner</th><th>Renewal Status</th><th>Status</th><th>Actions</th>
+</tr></thead><tbody>
+{% for e in (module_view.pending_cab|default([], true)) %}
+<tr data-ecs-filter-row data-filter-framework="{{ e.framework }}" data-filter-application="{{ e.application|default('') }}" data-filter-status="{{ e.status }}">
+<td>{{ e.exception_id }}</td><td class="small">{{ e.control[:40] }}</td><td>{{ e.framework }}</td><td>{{ e.application|default('—') }}</td>
+<td class="small">{{ e.owner|default('—') }}</td><td>{{ e.renewal_status|default('Pending') }}</td>
+<td><span class="badge bg-warning text-dark">{{ e.status }}</span></td>
+<td class="text-nowrap">{% for a in module_view.actions[:3] %}{{ module_action('exception_governance', a, role, user, a|replace('_',' ')|title, 'btn-sm btn-outline-primary', e.exception_id) }}{% endfor %}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('all_exceptions', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="exc-all"><thead><tr>
+<th>ID</th><th>Control</th><th>Framework</th><th>Application</th><th>Owner</th><th>TD Expiry</th><th>Risk</th><th>Status</th><th>Audit Trail</th>
+</tr></thead><tbody>
+{% for e in module_view.rows %}
+<tr class="{% if e.expired %}table-danger{% elif e.residual_risk in ['Critical','High'] %}table-warning{% endif %}" data-ecs-filter-row data-filter-framework="{{ e.framework }}" data-filter-application="{{ e.application|default('') }}" data-filter-risk="{{ e.residual_risk }}" data-filter-status="{{ e.status }}" data-filter-owner="{{ e.owner|default('') }}">
+<td>{{ e.exception_id }}</td><td class="small">{{ e.control[:35] }}</td><td>{{ e.framework }}</td><td>{{ e.application|default('—') }}</td>
+<td class="small">{{ e.owner|default('—') }}</td><td>{{ e.td_expiry }}</td>
+<td><span class="badge bg-danger">{{ e.residual_risk }}</span></td>
+<td><span class="badge bg-{% if e.status=='Approved' %}success{% elif e.status=='Rejected' %}danger{% elif e.status=='Expired' %}dark{% elif e.status in ['Under Review','Submitted'] %}warning text-dark{% elif e.status=='Draft' %}secondary{% else %}info{% endif %}">{{ e.status }}</span></td>
+<td><button type="button" class="btn btn-sm btn-link p-0" data-bs-toggle="collapse" data-bs-target="#exc-trail-{{ loop.index }}">View Audit Trail</button></td></tr>
+<tr class="collapse" id="exc-trail-{{ loop.index }}"><td colspan="9" class="small bg-light">
+{% if e.approved_by %}Approved by {{ e.approved_by }} at {{ e.approved_at|default('—') }}. {% endif %}
+{% if e.rejected_by %}Rejected by {{ e.rejected_by }}: {{ e.rejection_reason|default('—')|truncate(80, True) }}. {% endif %}
+{% if e.audit_trail %}History: {% for h in e.audit_trail %}{{ h.action }} ({{ h.actor }}, {{ h.timestamp }}){% if not loop.last %} · {% endif %}{% endfor %}{% else %}No actions recorded yet.{% endif %}
+</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% include "partials/standard_filter_include.html" %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var bars = {{ module_view.by_framework|default([])|tojson }};
+  if (window.ecsRenderHorizontalBars && bars.length) {
+    ecsRenderHorizontalBars('ecsExceptionFwChart', bars.map(function(b){ return {label: b.framework, value: b.count, tone: 'navy'}; }));
+  }
+});
+</script>
+{% include "partials/chatbot_global.html" %}</body></html>

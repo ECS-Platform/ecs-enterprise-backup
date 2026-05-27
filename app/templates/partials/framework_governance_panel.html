@@ -1,0 +1,68 @@
+{# Framework-scoped governance analytics with full context #}
+{% if fw_dashboard is defined and fw_dashboard.governance_context %}
+{% set gc = fw_dashboard.governance_context %}
+{% set ar = gc.audit_readiness %}
+{% set ce = gc.control_effectiveness %}
+<div class="ecs-governance-panel ecs-section-card mb-2">
+<div class="ecs-section-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+<h2 class="ecs-section-card-title h6 mb-0">{{ framework_name }} Governance Context</h2>
+<span class="badge bg-secondary">{{ gc.scope.context_label }}</span>
+</div>
+<div class="card-body pt-2 px-0 pb-0">
+
+<div class="ecs-gov-definitions small text-muted mb-2 p-2 bg-light rounded">
+<strong>Definitions:</strong>
+Open Findings = individual observations ({{ gc.definitions.open_findings[:80] }}…).
+Failed Controls = governance controls whose validation failed ({{ gc.failed_controls_count }} in scope).
+Validation Checks = automated runs; one control may produce multiple PASS/WARN/FAIL checks.
+</div>
+
+<h6 class="small text-muted mb-1">{{ ar.label }}</h6>
+<div class="row g-2 mb-2">
+<div class="col-md-3"><div class="ecs-kpi-modern ecs-kpi-primary py-2"><div class="ecs-kpi-label">Weighted Average</div><div class="ecs-kpi-value">{{ ar.weighted_pct }}%</div><small class="text-muted">{{ gc.scope.application_count }} applications</small></div></div>
+{% for a in ar.by_application %}
+<div class="col-md-3"><div class="ecs-kpi-modern ecs-kpi-success py-2"><div class="ecs-kpi-label">{{ a.application }}</div><div class="ecs-kpi-value">{{ a.pct }}%</div></div></div>
+{% endfor %}
+</div>
+
+<h6 class="small text-muted mb-1">{{ ce.label }}</h6>
+<div class="row g-2 mb-2">
+<div class="col-md-3"><div class="ecs-kpi-modern ecs-kpi-teal py-2"><div class="ecs-kpi-label">Framework Average</div><div class="ecs-kpi-value">{{ ce.average_pct }}%</div></div></div>
+{% for a in ce.by_application %}
+<div class="col-md-3"><div class="ecs-kpi-modern ecs-kpi-primary py-2"><div class="ecs-kpi-label">{{ a.application }}</div><div class="ecs-kpi-value">{{ a.pct }}%</div></div></div>
+{% endfor %}
+</div>
+
+<h6 class="small text-muted mb-1">Top Contributors to {{ framework_name }} Risk</h6>
+<div class="table-responsive mb-2">
+<table class="table table-sm table-bordered mb-0"><thead><tr><th>Application</th><th>Findings</th><th>Failed Controls</th><th>SLA Breaches</th><th>Stale Evidence</th><th>Compliance</th></tr></thead><tbody>
+{% for r in gc.risk_contributors %}
+<tr><td><strong>{{ r.application }}</strong></td><td>{{ r.findings }}</td><td>{{ r.failed_controls }}</td><td>{{ r.sla_breaches }}</td><td>{{ r.stale_evidence }}</td><td>{{ r.compliance_pct }}%</td></tr>
+{% endfor %}
+</tbody></table></div>
+
+{% if gc.trends_context.series %}
+<h6 class="small text-muted mb-1">{{ gc.trends_context.label }}</h6>
+<p class="small text-muted mb-1">Applications: {{ gc.trends_context.application_scope }} · Period: {{ gc.trends_context.date_scope }}</p>
+<div class="row g-1 mb-2">
+{% for t in gc.trends_context.series %}
+<div class="col-3">
+<div class="ecs-kpi-modern ecs-kpi-primary py-1 px-2">
+<div class="ecs-kpi-label" style="font-size:0.58rem">{{ t.month }} · {{ framework_name }}</div>
+<div class="ecs-kpi-value" style="font-size:1rem">
+{% if t.sast_pass_pct is defined %}{{ t.sast_pass_pct }}% SAST
+{% elif t.exploitability_score is defined %}Exploit {{ t.exploitability_score }}
+{% elif t.mfa_compliance_pct is defined %}{{ t.mfa_compliance_pct }}% MFA
+{% elif t.hardened_server_pct is defined %}{{ t.hardened_server_pct }}% hardened
+{% elif t.dr_success_pct is defined %}{{ t.dr_success_pct }}% DR
+{% else %}
+{% for k,v in t.items() if k != 'month' %}{{ v }}{% if 'pct' in k %}%{% endif %} {% endfor %}
+{% endif %}
+</div>
+</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+</div></div>
+{% endif %}

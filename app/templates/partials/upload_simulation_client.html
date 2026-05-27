@@ -1,0 +1,119 @@
+{# Bulk upload simulation — progress, validation, dynamic KPI refresh #}
+<script>
+(function(){
+  if (window.__ecsUploadSimInit) return;
+  window.__ecsUploadSimInit = true;
+
+  function filterFramework() {
+    var sel = document.querySelector('[data-ecs-workspace-filters] [data-filter-key="framework"]');
+    if (!sel || sel.value.indexOf('All ') === 0) return 'PCI DSS';
+    return sel.value;
+  }
+  function filterApplication() {
+    var sel = document.querySelector('[data-ecs-workspace-filters] [data-filter-key="application"]');
+    if (!sel || sel.value.indexOf('All ') === 0) return 'Net Banking';
+    return sel.value;
+  }
+
+  function showProgress(steps, onDone) {
+    var wrap = document.getElementById('ecsUploadProgressWrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'ecsUploadProgressWrap';
+      wrap.className = 'chart-card mb-2 p-2';
+      wrap.innerHTML = '<div class="chart-card-title small mb-1">Upload simulation</div><div class="progress mb-1" style="height:6px"><div class="progress-bar bg-teal" id="ecsUploadProgressBar" style="width:0%"></div></div><p class="ecs-exec-desc-muted mb-0" id="ecsUploadProgressMsg">Starting…</p>';
+      var form = document.querySelector('form[action="/mvp/upload/bulk"]');
+      if (form) form.parentNode.insertBefore(wrap, form);
+    }
+    wrap.style.display = '';
+    var bar = document.getElementById('ecsUploadProgressBar');
+    var msg = document.getElementById('ecsUploadProgressMsg');
+    var i = 0;
+    function next() {
+      if (i >= steps.length) { if (onDone) onDone(); return; }
+      var s = steps[i++];
+      if (bar) bar.style.width = s.pct + '%';
+      if (msg) msg.textContent = s.text;
+      setTimeout(next, 420);
+    }
+    next();
+  }
+
+  function appendToDataset(files, user) {
+    var el = document.getElementById('ecsOperationsDataset');
+    if (!el) return;
+    var ds;
+    try { ds = JSON.parse(el.textContent || '{}'); } catch (e) { return; }
+    var fw = filterFramework();
+    var app = filterApplication();
+    var now = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    var batchId = 'SESSION-LIVE-' + Date.now();
+    files.forEach(function(f, idx) {
+      ds.records.uploads.unshift({
+        batch_id: batchId,
+        filename: f.name,
+        framework: fw,
+        application: app,
+        owner: user || 'User',
+        risk: 'Low',
+        status: idx === 0 ? 'Validating' : 'Approved',
+        evidence_type: 'Bulk Upload',
+        control_id: 'AUTO-MAP-' + (idx + 1),
+        uploaded_at: now,
+        uploaded_by: user || 'User',
+        mapped_controls: 'AUTO-MAP',
+        error_count: 0,
+        progress_pct: 100,
+        session_upload: true
+      });
+    });
+    var batch = {
+      batch_id: batchId,
+      framework: fw,
+      application: app,
+      owner: user || 'User',
+      risk: 'Low',
+      status: 'Validating',
+      uploaded_by: user || 'User',
+      uploaded_at: now,
+      file_count: files.length,
+      error_count: 0,
+      progress_pct: 85
+    };
+    ds.records.batches.unshift(batch);
+    el.textContent = JSON.stringify(ds);
+    if (window.ecsApplyOperationsFilters) window.ecsApplyOperationsFilters();
+  }
+
+  document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (!form || form.getAttribute('action') !== '/mvp/upload/bulk') return;
+    var input = form.querySelector('input[type="file"]');
+    if (!input || !input.files || !input.files.length) return;
+    e.preventDefault();
+    var userEl = form.querySelector('input[name="user"]');
+    var user = userEl ? userEl.value : 'User';
+    var files = Array.prototype.slice.call(input.files);
+    var steps = [
+      { pct: 15, text: 'Uploading ' + files.length + ' file(s)…' },
+      { pct: 35, text: 'Framework mapping → ' + filterFramework() },
+      { pct: 55, text: 'Application mapping → ' + filterApplication() },
+      { pct: 72, text: 'Evidence extraction & hash validation…' },
+      { pct: 88, text: 'Control auto-mapping in progress…' },
+      { pct: 100, text: 'Upload complete — refreshing dashboard…' }
+    ];
+    showProgress(steps, function() {
+      appendToDataset(files, user);
+      var fd = new FormData(form);
+      if (!fd.get('framework')) fd.append('framework', filterFramework());
+      if (!fd.get('application')) fd.append('application', filterApplication());
+      fetch('/mvp/upload/bulk', { method: 'POST', body: fd }).then(function() {
+        setTimeout(function() {
+          var msg = document.getElementById('ecsUploadProgressMsg');
+          if (msg) msg.textContent = 'Saved to evidence repository · KPIs and history updated.';
+        }, 300);
+      }).catch(function(){});
+    });
+  });
+})();
+</script>

@@ -1,0 +1,309 @@
+{# Global Operations filter engine — KPIs, tables, charts, pagination #}
+<script>
+(function(){
+  if (window.__ecsOpsFilterInit) return;
+  window.__ecsOpsFilterInit = true;
+
+  var PAGE_SIZE = 10;
+  function getPageSize() { return window.__ecsTablePageSize || PAGE_SIZE; }
+  var dataset = null;
+  var pageState = {};
+
+  function loadDataset() {
+    var el = document.getElementById('ecsOperationsDataset');
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch (e) { return null; }
+  }
+
+  function filterVals() {
+    var vals = {};
+    document.querySelectorAll('[data-ecs-workspace-filters] .ecs-ws-filter').forEach(function(sel){
+      vals[sel.getAttribute('data-filter-key')] = sel.value;
+    });
+    return vals;
+  }
+
+  function matchRow(r, v) {
+    if (v.framework && v.framework.indexOf('All ') !== 0 && r.framework !== v.framework) return false;
+    if (v.application && v.application.indexOf('All ') !== 0 && r.application !== v.application) return false;
+    if (v.owner && v.owner.indexOf('All ') !== 0 && r.owner !== v.owner) return false;
+    if (v.risk && v.risk.indexOf('All ') !== 0) {
+      if (v.risk === 'High') { if (r.risk !== 'High' && r.risk !== 'Critical') return false; }
+      else if (r.risk !== v.risk) return false;
+    }
+    if (v.status && v.status.indexOf('All ') !== 0) {
+      var candidates = [r.status, r.health, r.sync_status, r.stage, r.api_health].filter(Boolean);
+      var hit = candidates.some(function(st) {
+        return String(st).toLowerCase().indexOf(v.status.toLowerCase()) !== -1;
+      });
+      if (!hit) return false;
+    }
+    return true;
+  }
+
+  function filterList(rows, v) {
+    return (rows || []).filter(function(r) { return matchRow(r, v); });
+  }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function renderKpis(kpis) {
+    document.querySelectorAll('[data-ecs-ops-kpi]').forEach(function(el) {
+      var key = el.getAttribute('data-ecs-ops-kpi');
+      if (kpis[key] !== undefined) {
+        if (el.classList.contains('ecs-exec-kpi') || el.querySelector('.ecs-exec-kpi-val')) {
+          var valEl = el.querySelector('.ecs-exec-kpi-val') || el;
+          valEl.textContent = kpis[key];
+        } else {
+          el.textContent = kpis[key];
+        }
+      }
+    });
+    document.querySelectorAll('#ecsIntegKpiStrip [data-integ-kpi]').forEach(function(el) {
+      var lbl = el.getAttribute('data-integ-kpi');
+      if (kpis[lbl] !== undefined && el.querySelector('.ecs-exec-kpi-val')) {
+        el.querySelector('.ecs-exec-kpi-val').textContent = kpis[lbl];
+      }
+    });
+  }
+
+  function paginateHtml(tableId, total, page) {
+    var ps = getPageSize();
+    var pages = Math.max(1, Math.ceil(total / ps));
+    if (total <= ps) return '';
+    return '<div class="ecs-ops-pager d-flex align-items-center gap-2 mt-1 mb-0 small" data-pager-for="' + tableId + '">' +
+      '<button type="button" class="btn btn-outline-secondary btn-sm py-0 ecs-ops-pg-prev" data-table="' + tableId + '" ' + (page <= 1 ? 'disabled' : '') + '>&lsaquo; Prev</button>' +
+      '<span>Page ' + page + ' of ' + pages + ' (' + total + ' rows)</span>' +
+      '<button type="button" class="btn btn-outline-secondary btn-sm py-0 ecs-ops-pg-next" data-table="' + tableId + '" ' + (page >= pages ? 'disabled' : '') + '>Next &rsaquo;</button></div>';
+  }
+
+  function renderTable(tableId, rows, rowFn) {
+    var tables = document.querySelectorAll('[data-ecs-ops-table="' + tableId + '"]');
+    if (!tables.length) return;
+    pageState[tableId] = pageState[tableId] || 1;
+    var page = pageState[tableId];
+    var ps = getPageSize();
+    var pages = Math.max(1, Math.ceil(rows.length / ps));
+    if (page > pages) page = pageState[tableId] = pages;
+    var slice = rows.slice((page - 1) * ps, page * ps);
+    var html = slice.length ? slice.map(rowFn).join('') : '<tr><td colspan="12" class="text-muted small text-center py-2">No records match the current filters.</td></tr>';
+    tables.forEach(function(table) {
+      var tb = table.querySelector('tbody');
+      if (tb) tb.innerHTML = html;
+    });
+    document.querySelectorAll('[data-pager-for="' + tableId + '"]').forEach(function(el) { el.remove(); });
+    var lastWrap = tables[tables.length - 1].closest('.ecs-ops-table-wrap') || tables[tables.length - 1].closest('.table-responsive');
+    if (lastWrap && rows.length > ps) {
+      lastWrap.insertAdjacentHTML('beforeend', paginateHtml(tableId, rows.length, page));
+    }
+    if (window.ecsEnhanceExecutiveTables) window.ecsEnhanceExecutiveTables();
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+  }
+
+  function applyScheduler(v) {
+    var rec = dataset.records || {};
+    var jobs = filterList(rec.jobs, v);
+    var scans = filterList(rec.application_scans, v);
+    var cron = filterList(rec.cron_runs, v);
+    var failures = filterList(rec.failures, v);
+    var evidenceTotal = scans.reduce(function(a, r) { return a + (r.evidence_collected || 0); }, 0);
+    var validated = jobs.reduce(function(a, r) { return a + (r.controls_validated || 0); }, 0);
+    var failedCount = jobs.filter(function(r) { return r.status === 'Failed' || r.status === 'Partial' || r.status === 'Delayed'; }).length;
+    renderKpis({
+      'Apps Scanned': scans.length,
+      'Evidence Collected': evidenceTotal,
+      'Auto-Validated': validated,
+      'Failed Collections': failedCount,
+      'Yesterday Apps Scanned': scans.length,
+      'Yesterday Evidence': evidenceTotal,
+      'Yesterday Validated': validated,
+      'Yesterday Failed': failedCount,
+    });
+    renderTable('sched-jobs', jobs, function(r) {
+      var bc = r.health === 'Healthy' ? 'success' : 'warning text-dark';
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-risk="' + esc(r.risk) + '" data-filter-status="' + esc(r.status) + '" data-filter-owner="' + esc(r.owner) + '">' +
+        '<td><code class="small">' + esc(r.job_id) + '</code></td><td class="small">' + esc(r.source_system) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.frequency) + '</td>' +
+        '<td><span class="badge bg-' + bc + '">' + esc(r.health) + '</span></td><td class="small">' + esc(r.last_run) + '</td><td>' + esc(r.records || r.evidence_collected) + '</td><td></td></tr>';
+    });
+    renderTable('sched-scans', scans, function(s) {
+      var bc = s.health === 'Healthy' ? 'success' : (s.health === 'Attention' ? 'warning text-dark' : 'danger');
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(s.framework) + '" data-filter-application="' + esc(s.application) + '" data-filter-risk="' + esc(s.risk) + '" data-filter-status="' + esc(s.health) + '" data-filter-owner="' + esc(s.owner) + '">' +
+        '<td><strong>' + esc(s.application) + '</strong></td><td>' + esc(s.framework) + '</td><td>' + s.evidence_collected + '</td><td>' + s.controls_passed + '</td>' +
+        '<td>' + s.controls_pending + '</td><td>' + s.missing_evidence + '</td><td>' + esc(s.risk) + '</td><td class="small">' + esc(s.last_scan) + '</td>' +
+        '<td><span class="badge bg-' + bc + '">' + esc(s.health) + '</span></td><td></td></tr>';
+    });
+    renderTable('sched-cron', cron, function(c) {
+      var bc = c.health === 'Success' ? 'success' : (c.health === 'Partial' ? 'warning text-dark' : 'danger');
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(c.framework) + '" data-filter-application="' + esc(c.application) + '" data-filter-risk="' + esc(c.risk) + '" data-filter-status="' + esc(c.health) + '">' +
+        '<td><button type="button" class="btn btn-link btn-sm p-0">+</button></td>' +
+        '<td><code class="small">' + esc(c.run_id) + '</code><br>' + esc(c.label) + '</td><td class="small">' + esc(c.timestamp) + '</td><td>' + c.duration_sec + 's</td>' +
+        '<td>' + c.applications_scanned + '</td><td>' + c.evidence_collected + '</td><td>' + c.controls_validated + '</td><td>' + c.failures + '</td><td>' + (c.retry_count || 0) + '</td>' +
+        '<td><span class="badge bg-' + bc + '">' + esc(c.health) + '</span></td></tr>';
+    });
+    renderTable('sched-failures', failures, function(f) {
+      var bc = f.severity === 'High' ? 'danger' : 'warning text-dark';
+      return '<tr class="' + (f.severity === 'High' ? 'table-danger' : 'table-warning') + '" data-ecs-filter-row data-filter-framework="' + esc(f.framework) + '" data-filter-application="' + esc(f.application) + '" data-filter-status="' + esc(f.status) + '" data-filter-owner="' + esc(f.owner) + '">' +
+        '<td>' + esc(f.failure_id) + '</td><td><strong>' + esc(f.source) + '</strong><br><span class="small">' + esc(f.type) + '</span></td>' +
+        '<td class="small">' + esc(f.description) + '</td><td><span class="badge bg-' + bc + '">' + esc(f.severity) + '</span></td>' +
+        '<td class="small">' + esc(f.impact) + '</td><td class="small">' + esc(f.affected_applications) + '</td><td class="small">' + esc(f.remediation) + '</td><td>' + esc(f.retry_status) + '</td><td></td></tr>';
+    });
+    var cronOverview = document.getElementById('ecsSchedCronOverview');
+    var cronChart = document.getElementById('ecsSchedCronChart');
+    if (cronChart && window.ecsRenderCompactBarChart) {
+      window.ecsRenderCompactBarChart(cronChart, cron.slice(0, 8).map(function(c) {
+        return { label: (c.label || c.run_id || 'Job').split(' ')[0], value: c.evidence_collected || 0, tone: 'teal', tooltip: c.label + ': ' + (c.evidence_collected || 0) + ' evidence' };
+      }), { maxHeight: 64 });
+    }
+    if (cronOverview) {
+      cronOverview.innerHTML = cron.slice(0, 6).map(function(c) {
+        var bc = c.health === 'Success' ? 'success' : (c.health === 'Partial' ? 'warning text-dark' : 'danger');
+        return '<div class="ecs-cron-row row g-1 align-items-center"><div class="col-md-3"><strong>' + esc(c.label) + '</strong></div>' +
+          '<div class="col-md-2 small">' + c.duration_sec + 's</div><div class="col-md-2 small">' + c.applications_scanned + ' apps</div>' +
+          '<div class="col-md-2 small">' + c.evidence_collected + ' evid</div><div class="col-md-1 small">' + c.controls_validated + ' ctrl</div>' +
+          '<div class="col-md-1 small text-danger">' + c.failures + ' fail</div>' +
+          '<div class="col-md-1"><span class="badge bg-' + bc + '">' + esc(c.health) + '</span></div></div>';
+      }).join('') || '<p class="small text-muted mb-0">No cron runs match filters.</p>';
+    }
+    var sum = document.getElementById('ecsOpsFilterSummary');
+    if (sum) sum.textContent = 'Showing ' + jobs.length + ' scheduler jobs · ' + scans.length + ' application scans · ' + failures.length + ' failures (filtered).';
+  }
+
+  function applyUpload(v) {
+    var rec = dataset.records || {};
+    var uploads = filterList(rec.uploads, v);
+    var batches = filterList(rec.batches, v);
+    var approved = uploads.filter(function(r) { return r.status === 'Approved'; }).length;
+    var rejected = uploads.filter(function(r) { return r.status === 'Rejected'; }).length;
+    var validating = uploads.filter(function(r) { return r.status === 'Validating'; }).length;
+    renderKpis({
+      'Active Batches': batches.length,
+      'Files Ingested': uploads.length,
+      'Duplicates Flagged': rejected,
+      'Ingestion Errors': uploads.reduce(function(a, r) { return a + (r.error_count || 0); }, 0),
+      'Approved Uploads': approved,
+      'Rejected Evidence': rejected,
+      'Validating Now': validating,
+      'Approval Rate': uploads.length ? Math.round((approved / uploads.length) * 100) + '%' : '0%',
+    });
+    renderTable('upload-batches', batches, function(b) {
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(b.framework) + '" data-filter-application="' + esc(b.application) + '" data-filter-status="' + esc(b.status) + '" data-filter-owner="' + esc(b.owner) + '" data-filter-risk="' + esc(b.risk) + '">' +
+        '<td><code class="small">' + esc(b.batch_id) + '</code></td><td>' + esc(b.status) + '</td><td>' + b.file_count + '</td><td>' + (b.progress_pct || 100) + '%</td><td>' + b.error_count + '</td>' +
+        '<td>' + esc(b.framework) + '</td><td class="small">' + esc(b.uploaded_by) + '</td><td class="small">' + esc(b.uploaded_at) + '</td><td></td></tr>';
+    });
+    renderTable('upload-tracker', uploads, function(u) {
+      var bc = u.status === 'Approved' ? 'success' : (u.status === 'Rejected' ? 'danger' : 'warning text-dark');
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(u.framework) + '" data-filter-application="' + esc(u.application) + '" data-filter-status="' + esc(u.status) + '" data-filter-owner="' + esc(u.owner) + '" data-filter-risk="' + esc(u.risk) + '">' +
+        '<td class="small">' + esc(u.filename) + '</td><td>' + esc(u.framework) + '</td><td>' + esc(u.application) + '</td>' +
+        '<td class="small">' + esc(u.uploaded_by) + '</td><td><span class="badge bg-' + bc + '">' + esc(u.status) + '</span></td>' +
+        '<td class="small">' + esc(u.uploaded_at) + '</td></tr>';
+    });
+    var trend = document.getElementById('ecsUploadTrendBars');
+    if (trend) {
+      var byFw = {};
+      uploads.forEach(function(u) { byFw[u.framework] = (byFw[u.framework] || 0) + 1; });
+      var keys = Object.keys(byFw).sort(function(a, b) { return byFw[b] - byFw[a]; }).slice(0, 8);
+      if (window.ecsRenderCompactBarChart) {
+        window.ecsRenderCompactBarChart(trend, keys.map(function(k) {
+          return { label: k, value: byFw[k], tone: 'teal' };
+        }), { maxHeight: 64 });
+      } else {
+        var max = Math.max.apply(null, keys.map(function(k) { return byFw[k]; }).concat([1]));
+        trend.innerHTML = keys.map(function(k) {
+          var h = Math.round((byFw[k] / max) * 64);
+          return '<div class="ecs-bar-col"><span class="ecs-bar-val">' + byFw[k] + '</span><div class="ecs-bar-fill tone-teal" style="height:' + Math.max(3, h) + 'px"></div><span class="ecs-bar-lbl">' + esc(k) + '</span></div>';
+        }).join('') || '<span class="small text-muted">No upload data for filters.</span>';
+      }
+    }
+    var sum = document.getElementById('ecsOpsFilterSummary');
+    if (sum) sum.textContent = 'Showing ' + uploads.length + ' upload records · ' + batches.length + ' batches · ' + approved + ' approved · ' + rejected + ' rejected (filtered).';
+  }
+
+  function applyOnboarding(v) {
+    var rec = dataset.records || {};
+    var apps = filterList(rec.applications, v);
+    var avgReadiness = apps.length ? Math.round(apps.reduce(function(a, r) { return a + (r.readiness_pct || 0); }, 0) / apps.length) : 0;
+    renderKpis({
+      'Applications': apps.length,
+      'Accepting Evidence': apps.filter(function(r) { return r.status === 'Completed'; }).length,
+      'Observation Closures': apps.reduce(function(a, r) { return a + (r.controls_implemented || 0); }, 0),
+      'Avg Compliance Adherence': avgReadiness + '%',
+      'Failed / Stalled': apps.filter(function(r) { return r.status === 'Failed Discovery'; }).length,
+      'Discovered Controls': apps.reduce(function(a, r) { return a + (r.controls_discovered || 0); }, 0),
+      'Missing Controls': apps.reduce(function(a, r) { return a + (r.controls_missing || 0); }, 0),
+    });
+    renderTable('onboard-apps', apps, function(r) {
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-risk="' + esc(r.risk) + '" data-filter-status="' + esc(r.status) + '" data-filter-owner="' + esc(r.owner) + '">' +
+        '<td><strong>' + esc(r.application) + '</strong></td><td>' + esc(r.stage || r.status) + '</td><td>' + esc(r.status) + '</td><td>' + r.progress_pct + '%</td>' +
+        '<td>' + r.frameworks_mapped + '</td><td class="small">' + esc(r.owner) + '</td><td></td></tr>';
+    });
+    renderTable('onboard-pipeline', apps, function(r) {
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-status="' + esc(r.status) + '" data-filter-owner="' + esc(r.owner) + '">' +
+        '<td><code class="small">' + esc(r.pipeline_id) + '</code></td><td><strong>' + esc(r.application) + '</strong></td><td class="small">' + esc(r.owner) + '</td>' +
+        '<td>' + esc(r.framework) + '</td><td>' + r.readiness_pct + '%</td><td>' + r.controls_discovered + '</td><td>' + r.controls_missing + '</td><td></td></tr>';
+    });
+    renderTable('onboard-metrics', apps.filter(function(r) { return r.status === 'Completed' || r.readiness_pct >= 70; }), function(r) {
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-owner="' + esc(r.owner) + '">' +
+        '<td><strong>' + esc(r.application) + '</strong></td><td class="small">' + esc(r.owner) + '</td><td>' + r.readiness_pct + '%</td>' +
+        '<td>' + r.controls_implemented + '</td><td>' + r.readiness_pct + '%</td><td>' + r.frameworks_mapped + '</td><td>' + r.controls_missing + '</td>' +
+        '<td><span class="badge bg-' + (r.status === 'Completed' ? 'success' : 'warning text-dark') + '">' + esc(r.status) + '</span></td></tr>';
+    });
+    renderTable('onboard-challenges', apps.filter(function(r) { return r.status === 'Failed Discovery' || r.progress_pct < 50; }), function(r) {
+      return '<tr class="table-danger" data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-owner="' + esc(r.owner) + '">' +
+        '<td><strong>' + esc(r.application) + '</strong></td><td>' + esc(r.stage) + '</td><td class="small">' + esc(r.framework) + ' mapping gap</td>' +
+        '<td class="small">' + esc(r.owner) + '</td><td>' + (100 - r.progress_pct) + 'd</td><td>' + r.progress_pct + '%</td><td><span class="badge bg-danger">Blocked</span></td></tr>';
+    });
+    var sum = document.getElementById('ecsOpsFilterSummary');
+    if (sum) sum.textContent = 'Showing ' + apps.length + ' onboarding records · avg readiness ' + avgReadiness + '% (filtered).';
+  }
+
+  function applyIntegrations(v) {
+    if (typeof window.ecsApplyIntegrationsFromOps === 'function') {
+      window.ecsApplyIntegrationsFromOps(v);
+    }
+    var rec = dataset.records || {};
+    var events = filterList(rec.events, v);
+    renderTable('integ-logs', events, function(e) {
+      var bc = e.level === 'Error' ? 'danger' : (e.level === 'Warning' ? 'warning text-dark' : 'secondary');
+      return '<tr class="' + (e.level === 'Error' ? 'table-danger' : (e.level === 'Warning' ? 'table-warning' : '')) + '" data-ecs-filter-row data-filter-framework="' + esc(e.framework) + '" data-filter-application="' + esc(e.application) + '" data-filter-owner="' + esc(e.owner) + '" data-filter-risk="' + esc(e.risk) + '" data-filter-status="' + esc(e.health || e.outcome) + '">' +
+        '<td class="small">' + esc(e.timestamp) + '</td><td><span class="badge bg-light text-dark">' + esc(e.framework) + '</span></td><td><strong>' + esc(e.connector) + '</strong></td><td>' + esc(e.application) + '</td>' +
+        '<td class="small">' + esc(e.owner) + '</td><td><span class="badge bg-' + bc + '">' + esc(e.level) + '</span></td>' +
+        '<td class="small">' + esc(e.message) + '</td><td>' + esc(e.outcome) + '</td></tr>';
+    });
+    var sum = document.getElementById('ecsOpsFilterSummary');
+    if (sum && !document.getElementById('ecsIntegFilterSummary')) {
+      sum.textContent = 'Showing ' + events.length + ' integration events (filtered).';
+    }
+  }
+
+  function applyAll() {
+    if (!dataset) return;
+    var v = filterVals();
+    if (dataset.module === 'scheduler') applyScheduler(v);
+    else if (dataset.module === 'upload') applyUpload(v);
+    else if (dataset.module === 'onboarding') applyOnboarding(v);
+    else if (dataset.module === 'integrations') applyIntegrations(v);
+  }
+
+  window.ecsApplyOperationsFilters = function() {
+    if (!dataset) dataset = loadDataset();
+    pageState = {};
+    applyAll();
+  };
+
+  document.addEventListener('click', function(e) {
+    var prev = e.target.closest('.ecs-ops-pg-prev');
+    var next = e.target.closest('.ecs-ops-pg-next');
+    if (prev || next) {
+      var tid = (prev || next).getAttribute('data-table');
+      pageState[tid] = pageState[tid] || 1;
+      pageState[tid] += prev ? -1 : 1;
+      applyAll();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    dataset = loadDataset();
+    if (dataset) applyAll();
+  });
+})();
+</script>

@@ -1,28 +1,109 @@
 <!DOCTYPE html><html><head><title>Onboarding</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-onboarding"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Application Onboarding</h1>
-<p class="text-muted small">New application registration, framework assignment, and ownership workflow</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Application Onboarding</h1>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<div class="stage-pipeline mb-4">{% for stage in module_view.stages %}
-<div class="stage-step {% if loop.index == 2 %}active{% elif loop.index == 1 %}done{% endif %}">{{ stage }}</div>
-{% endfor %}</div>
-<form method="post" action="/mvp/onboarding" class="card p-3 mb-3 shadow-sm"><div class="row g-2 align-items-end">
-<div class="col-md-4"><label class="form-label small">New Application</label><input name="application" class="form-control form-control-sm" placeholder="e.g. Wealth Portal" required></div>
-<div class="col-md-2"><input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}">
-<button class="btn btn-primary btn-sm">Start Onboarding</button></div></div></form>
-<div class="row g-3">{% for r in module_view.rows %}
-<div class="col-md-6"><div class="card shadow-sm p-3">
-<div class="d-flex justify-content-between"><strong>{{ r.application }}</strong><span class="badge bg-secondary">{{ r.status }}</span></div>
-<p class="small text-muted mb-1">Stage: {{ r.stage }} · Owner: {{ r.owner|default('TBD') }}</p>
-<div class="batch-progress mb-2"><div class="batch-progress-bar" style="width:{{ r.progress_pct }}%"></div></div>
-<div class="small">{{ r.frameworks_mapped }} frameworks mapped · {{ r.pending_tasks }} pending tasks</div>
-<div class="mt-2">{{ module_action('onboarding','assign_framework',role,user,'Assign Framework','btn-sm btn-outline-primary',r.application) }}
-{{ module_action('onboarding','assign_owner',role,user,'Assign Owner','btn-sm btn-outline-secondary',r.application) }}
-{{ module_action('onboarding','complete_registration',role,user,'Complete Registration','btn-sm btn-success',r.application) }}</div>
-</div></div>{% endfor %}</div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="small text-muted mb-2" id="ecsOpsFilterSummary">Loading filtered onboarding data…</p>
+<div class="d-flex flex-wrap gap-2 mb-2">
+<button type="button" class="btn btn-outline-primary btn-sm" data-ecs-tab-switch="applications">Applications</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-ecs-tab-switch="pipeline">Pipeline</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-ecs-tab-switch="post_onboarding">Post-Onboarding</button>
+</div>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+{% include "partials/onboarding_simulator.html" %}
+<div class="ecs-ws-metric-row mb-2">{% for stage in module_view.stages %}<span class="ecs-timeline-badge">{{ stage }}</span>{% endfor %}</div>
+{% if module_view.pipelines|default([])|length %}
+<h6 class="small text-muted text-uppercase mb-1">Recent Onboarding Summary</h6>
+<div class="ecs-ws-metric-row">
+<span><strong>{{ module_view.pipelines[0].controls_onboarded }}</strong> controls onboarded</span>
+<span><strong>{{ module_view.pipelines[0].evidence_sources }}</strong> evidence sources</span>
+<span><strong>{{ module_view.pipelines[0].compliance_readiness_pct }}%</strong> readiness</span>
+</div>{% endif %}
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('applications', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-compact-table mb-0" data-ecs-ops-table="onboard-apps"><thead><tr>
+<th>Application</th><th>Stage</th><th>Status</th><th>Progress</th><th>Frameworks</th><th>Owner</th><th>Actions</th>
+</tr></thead><tbody>
+{% for r in module_view.rows[0:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework|default('') }}" data-filter-application="{{ r.application }}" data-filter-status="{{ r.status }}" data-filter-owner="{{ r.owner|default('') }}" data-filter-risk="{{ r.risk|default('') }}">
+<td><strong>{{ r.application }}</strong></td><td>{{ r.stage }}</td><td>{{ r.status }}</td><td>{{ r.progress_pct }}%</td><td>{{ r.frameworks_mapped }}</td>
+<td class="small">{{ r.owner|default('TBD') }}</td>
+<td>{{ module_action('onboarding','assign_framework',role,user,'Framework','btn-sm btn-outline-primary',r.application) }}
+{{ module_action('onboarding','assign_owner',role,user,'Owner','btn-sm btn-outline-secondary',r.application) }}
+{{ module_action('onboarding','complete_registration',role,user,'Complete','btn-sm btn-success',r.application) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('pipeline', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-compact-table mb-0" data-ecs-ops-table="onboard-pipeline"><thead><tr>
+<th>Pipeline</th><th>Application</th><th>Owner</th><th>Framework</th><th>Readiness</th><th>Discovered</th><th>Missing</th><th></th>
+</tr></thead><tbody>
+{% for p in module_view.rows[0:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ p.framework|default('') }}" data-filter-application="{{ p.application }}" data-filter-status="{{ p.status }}" data-filter-owner="{{ p.owner|default('') }}">
+<td><code class="small">{{ p.pipeline_id|default('PIPE-' ~ loop.index) }}</code></td>
+<td><strong>{{ p.application }}</strong></td><td class="small">{{ p.owner|default('TBD') }}</td>
+<td>{{ p.framework|default('—') }}</td>
+<td>{{ p.readiness_pct|default(p.progress_pct) }}%</td><td>{{ p.controls_discovered|default('—') }}</td><td>{{ p.controls_missing|default(p.pending_tasks|default('—')) }}</td>
+<td><button type="button" class="btn btn-link btn-sm p-0" data-pipeline-drill="{{ loop.index0 }}">View</button></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('post_onboarding', false) }}
+<h6 class="small text-uppercase text-muted mb-1">Post-Onboarding Governance Outcomes</h6>
+<p class="small text-muted mb-2">Applications that completed onboarding — evidence collection acceptance, observation closures, audit compliance adherence</p>
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view mb-3">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-compact-table mb-0" data-ecs-ops-table="onboard-metrics"><thead><tr>
+<th>Application</th><th>Owner</th><th>Evidence Acceptance</th><th>Obs Closures</th><th>Audit Adherence</th><th>Integrations</th><th>Pending Evidence</th><th>Status</th>
+</tr></thead><tbody>
+{% for m in (module_view.post_onboarding_metrics|default([], true))[0:10] %}
+<tr class="{% if m.accepting_evidence %}table-success{% elif not m.onboarding_complete %}table-warning{% endif %}">
+<td><strong>{{ m.application }}</strong></td>
+<td class="small">{{ m.owner }}</td>
+<td>{{ m.evidence_collection_acceptance_pct }}%</td>
+<td>{{ m.observation_closures_count }}</td>
+<td>{{ m.audit_compliance_adherence_pct }}%</td>
+<td>{{ m.integrations_live }}</td>
+<td>{{ m.pending_evidence_requests }}</td>
+<td>{% if m.accepting_evidence %}<span class="badge bg-success">Accepting Evidence</span>{% elif m.onboarding_complete %}<span class="badge bg-warning text-dark">Partial</span>{% else %}<span class="badge bg-secondary">Onboarding</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+<h6 class="small text-uppercase text-muted mb-1">Onboarding Challenges — Failed / Stalled</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-compact-table mb-0" data-ecs-ops-table="onboard-challenges"><thead><tr>
+<th>Application</th><th>Stage Failed</th><th>Blocker</th><th>Owner</th><th>Days Stuck</th><th>Progress</th><th>Retry</th>
+</tr></thead><tbody>
+{% for c in (module_view.onboarding_challenges|default([], true))[0:10] %}
+<tr class="table-danger">
+<td><strong>{{ c.application }}</strong></td>
+<td>{{ c.stage_failed }}</td>
+<td class="small">{{ c.blocker }}</td>
+<td class="small">{{ c.owner }}</td>
+<td>{{ c.days_stuck }}d</td>
+<td>{{ c.progress_pct }}%</td>
+<td><span class="badge {% if c.retry_status == 'Blocked' %}bg-danger{% elif c.retry_status == 'Escalated' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ c.retry_status }}</span></td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% if module_view.operations_dataset is defined %}
+<script type="application/json" id="ecsOperationsDataset">{{ module_view.operations_dataset|tojson }}</script>
+{% include "partials/operations_filter_client.html" %}
+{% endif %}
+{% include "partials/onboarding_modals.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

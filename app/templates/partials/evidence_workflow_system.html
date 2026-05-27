@@ -1,0 +1,175 @@
+{# Global evidence approval/submission workflow — toasts, counters, button states #}
+<style>
+.ecs-wf-counter-strip{display:flex;flex-wrap:wrap;gap:.45rem;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.45rem .55rem}
+.ecs-wf-counter{flex:1 1 100px;text-align:center;padding:.25rem .4rem;border-radius:6px;background:#f8fafc;border:1px solid #e2e8f0}
+.ecs-wf-counter-val{font-size:1.05rem;font-weight:700;line-height:1.2;color:#0f172a}
+.ecs-wf-counter-lbl{font-size:.58rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;font-weight:600}
+.ecs-wf-counter-success .ecs-wf-counter-val{color:#15803d}
+.ecs-wf-counter-warning .ecs-wf-counter-val{color:#b45309}
+.ecs-wf-counter-danger .ecs-wf-counter-val{color:#b91c1c}
+.ecs-wf-analytics-row{display:flex;flex-wrap:wrap;gap:.4rem}
+.ecs-wf-analytic-card{flex:1 1 120px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:.35rem .5rem;min-width:110px}
+.ecs-wf-analytic-val{font-size:.9rem;font-weight:700;color:#0f172a}
+.ecs-wf-analytic-lbl{font-size:.58rem;text-transform:uppercase;color:#64748b;font-weight:600}
+.ecs-wf-analytic-hint{font-size:.55rem;color:#94a3b8}
+.ecs-wf-status-chip{font-size:.58rem;font-weight:700;padding:.15em .45em;border-radius:4px;letter-spacing:.03em;display:inline-block}
+.ecs-wf-chip-success{background:#dcfce7;color:#166534;border:1px solid #86efac}
+.ecs-wf-chip-danger{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.ecs-wf-chip-warning{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+.ecs-wf-chip-secondary{background:#f1f5f9;color:#475569;border:1px solid #cbd5e1}
+.ecs-wf-chip-info{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc}
+.ecs-wf-chip-dark{background:#e2e8f0;color:#334155}
+.ecs-wf-timeline{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem;font-size:.62rem;color:#64748b}
+.ecs-wf-tl-step{padding:.12rem .35rem;border-radius:4px;background:#f1f5f9;color:#94a3b8}
+.ecs-wf-tl-step.is-done{background:#ecfdf5;color:#047857;font-weight:600}
+.ecs-wf-tl-step.is-active{background:#fef3c7;color:#b45309;font-weight:700;outline:1px solid #fcd34d}
+.ecs-wf-tl-step.ecs-wf-tl-danger.is-active{background:#fee2e2;color:#b91c1c}
+.ecs-wf-tl-arrow{color:#cbd5e1;font-size:.55rem}
+.ecs-wf-queue-pills{display:flex;flex-wrap:wrap;gap:.35rem}
+.ecs-wf-queue-pill{font-size:.62rem;padding:.2rem .45rem;border-radius:999px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569}
+.ecs-wf-queue-pill strong{color:#0f172a;margin-left:.15rem}
+.ecs-wf-obs-meta code{font-size:.62rem}
+.ecs-wf-toast{position:fixed;bottom:20px;right:20px;z-index:2100;min-width:300px;max-width:380px;background:#fff;border-radius:8px;box-shadow:0 8px 28px rgba(15,23,42,.15);padding:.65rem .75rem;display:none;border-left:4px solid #22c55e}
+.ecs-wf-toast.is-visible{display:block}
+.ecs-wf-toast.is-warning{border-left-color:#f59e0b}
+.ecs-wf-toast.is-danger{border-left-color:#ef4444}
+.ecs-wf-toast-title{font-size:.78rem;font-weight:700;margin-bottom:.15rem;color:#0f172a}
+.ecs-wf-toast-body{font-size:.68rem;color:#475569;margin:0}
+.ecs-wf-actions-completed .btn-primary[data-wf-action="approve"],
+.ecs-wf-actions-completed .btn-success[data-wf-action="approve"],
+.ecs-wf-actions-completed .btn-primary[data-wf-action="submit"],
+.ecs-wf-row-approved .ecs-wf-action-approve,
+.ecs-wf-row-approved .ecs-wf-action-submit,
+.ecs-wf-row-approved .ecs-wf-action-reject{pointer-events:none;opacity:.45}
+</style>
+
+<div class="ecs-wf-toast" id="ecsWorkflowToast" role="status" aria-live="polite">
+<div class="ecs-wf-toast-title" id="ecsWorkflowToastTitle"></div>
+<p class="ecs-wf-toast-body" id="ecsWorkflowToastBody"></p>
+</div>
+
+<script type="application/json" id="ecsWorkflowSummaryData">{% if evidence_workflow is defined %}{{ evidence_workflow.summary|tojson }}{% else %}{}{% endif %}</script>
+
+<script>
+(function(){
+  if (window.__ecsWorkflowSystemInit) return;
+  window.__ecsWorkflowSystemInit = true;
+
+  function showWorkflowToast(opts) {
+    var el = document.getElementById('ecsWorkflowToast');
+    var title = document.getElementById('ecsWorkflowToastTitle');
+    var body = document.getElementById('ecsWorkflowToastBody');
+    if (!el || !title) return;
+    title.textContent = opts.title || 'Workflow Updated';
+    if (body) body.textContent = opts.body || '';
+    el.classList.remove('is-warning', 'is-danger');
+    if (opts.type === 'warning') el.classList.add('is-warning');
+    if (opts.type === 'danger') el.classList.add('is-danger');
+    el.classList.add('is-visible');
+    setTimeout(function(){ el.classList.remove('is-visible'); }, 6000);
+  }
+  window.ecsShowWorkflowToast = showWorkflowToast;
+
+  function parseNoticeToast() {
+    var params = new URLSearchParams(window.location.search);
+    var toast = params.get('toast');
+    var notice = params.get('notice');
+    if (toast === 'approved') {
+      showWorkflowToast({
+        type: 'success',
+        title: '✓ Evidence Approved Successfully',
+        body: 'Observation ' + (params.get('obs_id') || '') + ' closed.'
+      });
+    } else if (toast === 'rejected') {
+      showWorkflowToast({ type: 'warning', title: '⚠ Evidence Rejected', body: notice || 'Re-upload requested from App Owner.' });
+    } else if (toast === 'submitted') {
+      showWorkflowToast({ type: 'success', title: '✓ Evidence Submitted To Auditor', body: 'Awaiting auditor review.' });
+    } else if (toast === 'reupload') {
+      showWorkflowToast({ type: 'warning', title: 'Re-upload Requested', body: notice || 'Returned to App Owner queue.' });
+    } else if (toast === 'exception_ok') {
+      showWorkflowToast({ type: 'success', title: '✓ Exception Raised Successfully', body: notice || 'Exception routed to approver workflow.' });
+    } else if (toast === 'exception_fail') {
+      showWorkflowToast({ type: 'danger', title: '⚠ Failed to Raise Exception', body: notice || 'Please retry or contact admin.' });
+    } else if (toast === 'uploaded') {
+      showWorkflowToast({ type: 'success', title: '✓ Evidence Uploaded Successfully', body: notice || 'Dashboard metrics updated.' });
+      setTimeout(refreshCounters, 400);
+    } else if (toast === 'scheduler_ok') {
+      showWorkflowToast({ type: 'success', title: '✓ Scheduler Run Completed', body: notice || 'Observations scanned and dashboard refreshed.' });
+      setTimeout(refreshCounters, 400);
+    } else if (toast === 'scheduler_retry_ok') {
+      showWorkflowToast({ type: 'success', title: '✓ Observation Reprocessed Successfully', body: notice || 'Removed from failed queue.' });
+    } else if (toast === 'scheduler_retry_fail') {
+      showWorkflowToast({ type: 'warning', title: '⚠ Retry Failed', body: notice || 'View execution logs.' });
+    } else if (toast === 'export_ok') {
+      showWorkflowToast({ type: 'success', title: '✓ Report Generated Successfully', body: 'Download started.' });
+    } else if (notice && /approved|submitted|rejected|re-upload|exception|upload|scheduler|report/i.test(notice)) {
+      var type = /reject|re-upload/i.test(notice) ? 'warning' : 'success';
+      showWorkflowToast({ type: type, title: 'Workflow Updated', body: decodeURIComponent(notice.replace(/\+/g, ' ')) });
+    }
+  }
+
+  function refreshCounters() {
+    var role = new URLSearchParams(window.location.search).get('role') || 'owner';
+    var user = new URLSearchParams(window.location.search).get('user') || 'User';
+    fetch('/api/evidence-workflow/summary?role=' + encodeURIComponent(role) + '&user=' + encodeURIComponent(user))
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        if (!data || !data.counters) return;
+        data.counters.forEach(function(c) {
+          var key = c.label.toLowerCase().replace(/\s+/g, '_');
+          document.querySelectorAll('[data-ecs-wf-count="' + key + '"]').forEach(function(el){ el.textContent = c.value; });
+        });
+        document.dispatchEvent(new CustomEvent('ecsWorkflowCountsUpdated', { detail: data }));
+        if (data.pending_review != null) {
+          document.querySelectorAll('[data-queue-id="pending"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.pending_review; });
+        }
+        if (data.approved != null) {
+          document.querySelectorAll('[data-queue-id="approved"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.approved; });
+        }
+        if (data.rejected != null) {
+          document.querySelectorAll('[data-queue-id="rejected"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.rejected; });
+        }
+        if (data.submitted != null) {
+          document.querySelectorAll('[data-queue-id="submitted"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.submitted; });
+        }
+        if (data.draft != null) {
+          document.querySelectorAll('[data-queue-id="draft"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.draft; });
+        }
+        if (data.reupload_requested != null) {
+          document.querySelectorAll('[data-queue-id="reupload"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.reupload_requested; });
+        }
+      }).catch(function(){});
+  }
+
+  function applyRowStates() {
+    document.querySelectorAll('[data-ckey]').forEach(function(row) {
+      var ckey = row.getAttribute('data-ckey');
+      if (!ckey) return;
+      if (row.classList.contains('row-approved') || row.querySelector('.ecs-wf-chip-success')) {
+        row.classList.add('ecs-wf-row-approved');
+        row.querySelectorAll('.ecs-wf-action-approve,.ecs-wf-action-submit,.ecs-wf-action-reject').forEach(function(btn){
+          btn.disabled = true;
+        });
+      }
+    });
+  }
+
+  document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (!form || form.tagName !== 'FORM') return;
+    var action = (form.getAttribute('action') || '').toLowerCase();
+    if (action.indexOf('/approve') >= 0) {
+      setTimeout(refreshCounters, 800);
+    } else if (action.indexOf('/reject') >= 0 || action.indexOf('/submit') >= 0 || action.indexOf('request-reupload') >= 0) {
+      setTimeout(refreshCounters, 800);
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ parseNoticeToast(); applyRowStates(); refreshCounters(); });
+  } else {
+    parseNoticeToast(); applyRowStates(); refreshCounters();
+  }
+  window.ecsRefreshWorkflowCounters = refreshCounters;
+})();
+</script>

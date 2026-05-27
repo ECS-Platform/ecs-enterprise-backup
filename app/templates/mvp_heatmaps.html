@@ -1,36 +1,74 @@
 <!DOCTYPE html><html><head><title>Executive Heatmaps</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-enterprise-body ecs-cap-heatmaps"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 ecs-main-content">
+<div class="col-md-10 ecs-main-content ecs-workspace-main">
 {% from "partials/ecs_ux_macros.html" import page_header, zone_open, zone_close %}
-{{ page_header('Executive Heatmaps', 'Framework, application, BU, regional, SLA, and maturity visibility for leadership', user, role) }}
+{% from "partials/mvp_workspace_macros.html" import workspace_filters %}
+{{ page_header('Executive Heatmaps', 'Month / quarter / year evidence density, compliance, observations, and risk concentration', user, role) }}
 {% if notice %}<div class="alert alert-success py-2">{{notice}}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
 {% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
 {{ grc_kpis(module_view.kpis) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading executive heatmaps…</p>
 
-{{ zone_open('middle', 'Executive Risk Heatmaps') }}
+{{ zone_open('top', 'Period Heatmaps') }}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2 ecs-gran-toggle">
+<span class="small text-muted">View:</span>
+<div class="btn-group btn-group-sm" id="ecsPeriodHeatToggle">
+<button type="button" class="btn btn-outline-secondary active" data-period="month">Month-wise</button>
+<button type="button" class="btn btn-outline-secondary" data-period="quarter">Quarter-wise</button>
+<button type="button" class="btn btn-outline-secondary" data-period="year">Year-wise</button>
+</div>
+</div>
+<div class="ecs-heat-legend" id="ecsPeriodHeatLegend"></div>
+<div class="ecs-section-card mb-3">
+<h6 class="text-muted small text-uppercase mb-2">Compliance · Evidence Volume · Observation Density · Risk Concentration</h6>
+<div class="ecs-heat-matrix" id="ecsPeriodHeatGrid"></div>
+</div>
+{{ zone_close() }}
+
+{{ zone_open('middle', 'Framework & Application Risk') }}
 <div class="row g-3">
-<div class="col-md-6"><div class="ecs-section-card"><h6 class="text-muted small text-uppercase mb-3">Framework Risk</h6>
-<div class="ecs-paginated-blocks">{% for h in module_view.framework_heatmap %}
-<div class="ecs-insight-bar mb-2">
-<div class="ecs-insight-bar-label"><span>{{ h.name }}</span><strong>{{ h.score }}%</strong></div>
-<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill bg-{% if h.score < 75 %}danger{% elif h.score < 85 %}warning{% else %}success{% endif %}" style="width:{{ h.score }}%"></div></div>
-</div>{% endfor %}</div></div></div>
-<div class="col-md-6"><div class="ecs-section-card"><h6 class="text-muted small text-uppercase mb-3">Application Risk</h6>
-<div class="ecs-heatmap-grid ecs-paginated-blocks">{% for h in module_view.application_heatmap %}
-<div class="ecs-heatmap-tile ecs-heat-{% if h.risk in ['Critical','High'] %}high{% elif h.score < 80 %}mid{% else %}low{% endif %}">
-<strong>{{ h.name }}</strong><br><span class="ecs-severity-pill ecs-severity-{% if h.risk in ['Critical','High'] %}critical{% else %}medium{% endif %}">{{ h.risk }}</span> · {{ h.score }}%
-</div>{% endfor %}</div></div></div>
-<div class="col-md-6"><div class="ecs-section-card"><h6 class="text-muted small text-uppercase mb-3">Business Unit</h6>
-<div class="ecs-heatmap-grid ecs-paginated-blocks">{% for h in module_view.business_unit_heatmap %}
+<div class="col-md-6"><div class="ecs-section-card"><h6 class="text-muted small text-uppercase mb-2">Framework Risk</h6>
+<div id="ecsHeatmapFwBars">{% for h in module_view.framework_heatmap %}
+<div class="ecs-insight-bar mb-1"><div class="ecs-insight-bar-label"><span>{{ h.name }}</span><strong>{{ h.score }}%</strong></div>
+<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-{% if h.score < 75 %}danger{% elif h.score < 85 %}warning{% else %}success{% endif %}" style="width:{{ h.score }}%"></div></div></div>
+{% endfor %}</div></div></div>
+<div class="col-md-6"><div class="ecs-section-card"><h6 class="text-muted small text-uppercase mb-2">Application Risk</h6>
+<div class="ecs-heatmap-grid ecs-paginated-blocks" id="ecsHeatmapAppGrid">{% for h in module_view.application_heatmap %}
+<div class="ecs-heatmap-tile ecs-heat-{% if h.risk in ['Critical','High'] %}high{% elif h.score < 80 %}mid{% else %}low{% endif %} ecs-heat-drill" role="button" data-app="{{ h.name }}">
+<strong>{{ h.name }}</strong><br>{{ h.score }}% · {{ h.risk }}</div>
+{% endfor %}</div></div></div>
+</div>
+{{ zone_close() }}
+
+{{ zone_open('bottom', 'Regional & BU') }}
+<div class="row g-3">
+<div class="col-md-6"><div class="ecs-section-card"><h6 class="text-muted small text-uppercase mb-2">Business Unit</h6>
+<div class="ecs-heatmap-grid">{% for h in module_view.business_unit_heatmap %}
 <div class="ecs-heatmap-tile ecs-heat-mid"><strong>{{ h.unit }}</strong><br>{{ h.score }}% · {{ h.gaps }} gaps</div>
 {% endfor %}</div></div></div>
-<div class="col-md-6"><div class="ecs-section-card"><h6 class="text-muted small text-uppercase mb-3">Regional (Pan India)</h6>
-<div class="ecs-heatmap-grid ecs-paginated-blocks">{% for h in module_view.regional_heatmap %}
+<div class="col-md-6"><div class="ecs-section-card"><h6 class="text-muted small text-uppercase mb-2">Regional (Pan India)</h6>
+<div class="ecs-heatmap-grid" id="ecsHeatmapRegGrid">{% for h in module_view.regional_heatmap %}
 <div class="ecs-heatmap-tile ecs-heat-{% if h.score < 75 %}high{% elif h.score < 85 %}mid{% else %}low{% endif %}"><strong>{{ h.region }}</strong><br>{{ h.score }}% · {{ h.observations }} obs</div>
 {% endfor %}</div></div></div>
 </div>
-<div class="mt-3">{{ module_action('executive_heatmaps', 'drill_down', role, user, 'Drill Down', 'btn-primary btn-sm') }} {{ module_action('executive_heatmaps', 'escalate_risk', role, user, 'Escalate Risk', 'btn-outline-danger btn-sm') }}</div>
+<div class="mt-2">{{ module_action('executive_heatmaps', 'drill_down', role, user, 'Export Pack', 'btn-primary btn-sm') }}</div>
 {{ zone_close() }}
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+</div></div></div>
+<script>
+(function(){
+  var periodData = {{ module_view.period_heatmaps|default({})|tojson }};
+  function setPeriod(p) {
+    document.querySelectorAll('#ecsPeriodHeatToggle [data-period]').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-period')===p); });
+    if (window.ecsSwitchPeriodHeatmap) ecsSwitchPeriodHeatmap(p, periodData);
+  }
+  document.querySelectorAll('#ecsPeriodHeatToggle [data-period]').forEach(function(b){
+    b.addEventListener('click', function(){ setPeriod(b.getAttribute('data-period')); });
+  });
+  setPeriod('month');
+})();
+</script>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

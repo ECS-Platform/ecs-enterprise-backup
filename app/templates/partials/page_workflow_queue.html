@@ -42,7 +42,7 @@
 <div class="ecs-action-group">
 {% if role == 'owner' %}
 {% if item.workflow_code == 'rejected' %}
-<form method="post" action="/submit" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-warning btn-sm">Resubmit</button></form>
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-warning btn-sm">Review Rejection</a>
 {% elif item.workflow_code not in ('submitted','approved') %}
 <form method="post" action="/submit" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-primary btn-sm">Submit</button></form>
 {% endif %}

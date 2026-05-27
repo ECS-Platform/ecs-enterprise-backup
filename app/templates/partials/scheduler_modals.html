@@ -1,0 +1,176 @@
+{# Scheduler action modals — Run Now, Pause, Resume, Retry, App drill-down #}
+{% from "partials/mvp_module_actions.html" import module_action %}
+
+<div class="modal fade" id="schedRunModal" tabindex="-1" aria-labelledby="schedRunModalLabel" aria-hidden="true">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="schedRunModalLabel">Run Evidence Collection Now</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label ecs-ws-filter-lbl">Applications</label>
+<select class="form-select form-select-sm" id="schedRunApps" multiple size="4">
+{% for s in module_view.application_scans %}<option selected>{{ s.application }}</option>{% endfor %}
+</select></div>
+<div class="col-md-6"><label class="form-label ecs-ws-filter-lbl">Frameworks</label>
+<select class="form-select form-select-sm" id="schedRunFw" multiple size="4">
+<option selected>PCI DSS</option><option selected>DPSC</option><option selected>ITPP</option>
+<option>AppSec</option><option>CSITE</option><option>VAPT</option>
+</select></div></div>
+<p class="small text-muted mb-2">Estimated runtime: <strong id="schedRunEta">~18 minutes</strong> · Expected evidence: <strong>~386 files</strong></p>
+<div class="ecs-sched-log d-none" id="schedRunLog"></div>
+<div class="progress d-none mb-2" id="schedRunProgress" style="height:6px"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
+</div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+<button type="button" class="btn btn-primary btn-sm" id="schedRunStart">Start Collection</button>
+<form method="post" action="/mvp/scheduler/run" id="schedRunForm" class="d-none">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+</form></div></div></div></div>
+
+<div class="modal fade" id="schedPauseModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title">Pause Scheduler</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body small">Pause all non-critical evidence collection jobs? Critical PCI DSS and audit-window pulls will continue.</div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+<form method="post" action="/mvp/scheduler/pause" class="d-inline"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button type="submit" class="btn btn-warning btn-sm">Confirm Pause</button></form>
+</div></div></div></div>
+
+<div class="modal fade" id="schedResumeModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title">Resume Scheduler</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body small">Resume all paused scheduler jobs and restore full collection cadence?</div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+<form method="post" action="/mvp/scheduler/resume" class="d-inline"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button type="submit" class="btn btn-success btn-sm">Resume Jobs</button></form>
+</div></div></div></div>
+
+<div class="modal fade" id="schedRetryModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title">Retry Failed Collections</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body p-2">
+<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead><tr><th>Failure</th><th>Severity</th><th>Impact</th><th>Action</th></tr></thead><tbody>
+{% for f in module_view.scheduler_failures %}
+<tr><td class="small"><strong>{{ f.source }}</strong><br>{{ f.description|truncate(60, True, '…') }}</td>
+<td><span class="badge {% if f.severity=='High' %}bg-danger{% elif f.severity=='Medium' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ f.severity }}</span></td>
+<td class="small">{{ f.impact }}</td>
+<td>{{ module_action('scheduler','retry',role,user,'Retry','btn-sm btn-warning',f.failure_id) }}</td></tr>
+{% endfor %}
+</tbody></table></div></div></div></div></div>
+
+<div class="modal fade" id="schedAppDrillModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="schedAppDrillTitle">Scan Details</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="schedAppDrillBody"></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+{{ module_action('scheduler','run_now',role,user,'Re-scan Application','btn-primary btn-sm') }}
+</div></div></div></div>
+
+<div class="modal fade" id="schedRunLogModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="schedRunLogTitle">Execution Logs</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body"><pre class="small mb-0 ecs-sched-log" id="schedRunLogBody"></pre></div>
+</div></div></div>
+
+<script type="application/json" id="schedAppScanData">{{ module_view.application_scans|tojson }}</script>
+<script type="application/json" id="schedRunHistoryData">{{ module_view.execution_history|tojson }}</script>
+<script>
+(function(){
+  var scanData = JSON.parse(document.getElementById('schedAppScanData').textContent || '[]');
+  var runHistory = JSON.parse(document.getElementById('schedRunHistoryData').textContent || '[]');
+
+  document.querySelectorAll('[data-sched-run]').forEach(function(btn){
+    btn.addEventListener('click', function(e){ e.preventDefault(); new bootstrap.Modal(document.getElementById('schedRunModal')).show(); });
+  });
+  document.querySelectorAll('[data-sched-pause]').forEach(function(btn){
+    btn.addEventListener('click', function(e){ e.preventDefault(); new bootstrap.Modal(document.getElementById('schedPauseModal')).show(); });
+  });
+  document.querySelectorAll('[data-sched-resume]').forEach(function(btn){
+    btn.addEventListener('click', function(e){ e.preventDefault(); new bootstrap.Modal(document.getElementById('schedResumeModal')).show(); });
+  });
+  document.querySelectorAll('[data-sched-retry]').forEach(function(btn){
+    btn.addEventListener('click', function(e){ e.preventDefault(); new bootstrap.Modal(document.getElementById('schedRetryModal')).show(); });
+  });
+
+  var startBtn = document.getElementById('schedRunStart');
+  if (startBtn) startBtn.addEventListener('click', function(){
+    var log = document.getElementById('schedRunLog');
+    var bar = document.getElementById('schedRunProgress');
+    var inner = bar ? bar.querySelector('.progress-bar') : null;
+    log.classList.remove('d-none'); bar.classList.remove('d-none');
+    startBtn.disabled = true;
+    var lines = [
+      ['[02:00:01] Initializing collection orchestrator…', ''],
+      ['[02:00:03] Connecting SharePoint evidence library…', 'log-ok'],
+      ['[02:00:06] Pulling ServiceNow GRC control mappings…', 'log-ok'],
+      ['[02:00:12] Scanning Net Banking — PCI DSS controls…', 'log-ok'],
+      ['[02:00:18] Mobile Banking AppSec gate — SonarQube linked', 'log-warn'],
+      ['[02:00:24] Auto-validating 317 controls…', 'log-ok'],
+      ['[02:00:30] Collection complete — 386 evidence files ingested', 'log-ok']
+    ];
+    log.innerHTML = '';
+    var step = 0;
+    function tick(){
+      if (step >= lines.length) {
+        setTimeout(function(){ document.getElementById('schedRunForm').submit(); }, 400);
+        return;
+      }
+      var p = document.createElement('div');
+      p.className = lines[step][1];
+      p.textContent = lines[step][0];
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+      if (inner) inner.style.width = Math.round(((step + 1) / lines.length) * 100) + '%';
+      step++;
+      setTimeout(tick, 450);
+    }
+    tick();
+  });
+
+  document.querySelectorAll('[data-sched-app-drill]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var idx = parseInt(btn.getAttribute('data-sched-app-drill'), 10);
+      var s = scanData[idx];
+      if (!s) return;
+      document.getElementById('schedAppDrillTitle').textContent = s.application + ' — ' + s.framework + ' Scan Output';
+      var d = s.drill_down;
+      var html = '';
+      function section(title, items, cls){
+        html += '<div class="ecs-drill-section"><h6>' + title + '</h6><ul>';
+        items.forEach(function(i){ html += '<li class="' + (cls||'') + '">' + i + '</li>'; });
+        html += '</ul></div>';
+      }
+      section('Evidence Collected', d.collected, 'text-success');
+      section('Missing Evidence', d.missing, 'text-danger');
+      section('Failed Integrations', d.failed_integrations, 'text-warning');
+      section('Controls Validated', d.validated, '');
+      section('Controls Pending Review', d.pending, '');
+      section('Recommendations', d.recommendations, 'text-primary');
+      document.getElementById('schedAppDrillBody').innerHTML = html;
+      new bootstrap.Modal(document.getElementById('schedAppDrillModal')).show();
+    });
+  });
+
+  document.querySelectorAll('[data-sched-run-log]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var idx = parseInt(btn.getAttribute('data-sched-run-log'), 10);
+      var h = runHistory[idx];
+      if (!h) return;
+      document.getElementById('schedRunLogTitle').textContent = h.run_id + ' — Execution Log';
+      var lines = (h.log_preview || []).join('\n');
+      lines += '\n[' + h.completed + '] Status: ' + h.status + ' — ' + h.evidence_count + ' evidence files';
+      document.getElementById('schedRunLogBody').textContent = lines;
+      new bootstrap.Modal(document.getElementById('schedRunLogModal')).show();
+    });
+  });
+
+  document.querySelectorAll('[data-sched-export]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var runId = btn.getAttribute('data-sched-export');
+      var blob = new Blob(['ECS Scheduler Run Summary\nRun ID: ' + runId + '\nExported: ' + new Date().toISOString()], {type: 'text/plain'});
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = runId + '_summary.txt';
+      a.click();
+    });
+  });
+})();
+</script>

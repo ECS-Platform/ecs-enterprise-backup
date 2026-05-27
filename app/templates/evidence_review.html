@@ -20,13 +20,19 @@
 {% set show_back_dashboard = true %}
 {% include "partials/ecs_sidebar.html" %}
 <div class="col-md-10 p-4">
+{% from "partials/ecs_ux_macros.html" import role_label %}
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_timeline, workflow_status_chip, workflow_observation_meta %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
 <div class="d-flex justify-content-between align-items-start page-header mb-3">
 <div>
 <h1 class="h3 mb-1">Enterprise Evidence Review</h1>
 <p class="text-muted small mb-0">{{ review.metadata.framework }} · {{ review.control_id }} · {{ review.metadata.evidence_id }}</p>
+{% if review.workflow_visual is defined %}{{ workflow_observation_meta(review.workflow_visual, review.metadata.application_name, role) }}{% endif %}
+{% if review.workflow_visual is defined %}{{ workflow_timeline(review.workflow_visual.timeline) }}{% endif %}
 </div>
 <a href="/framework/{{ framework_name }}?role={{ role }}&user={{ user }}" class="btn btn-outline-secondary btn-sm">← Back to Framework</a>
 </div>
+{% if review.workflow_visual is defined %}<div class="mb-2">{{ workflow_status_chip(review.workflow_visual, role) }}</div>{% endif %}
 {% if notice %}<div class="alert alert-info">{{ notice }}</div>{% endif %}
 {% if review.workflow.locked %}
 <div class="alert ecs-locked-banner py-2"><strong>Observation Closed — Auditor Approved</strong>
@@ -34,11 +40,15 @@
 </div>
 {% endif %}
 {% if review.reject_reason and review.workflow.code == 'rejected' %}
-<div class="alert alert-danger py-2"><strong>Rejected By Auditor:</strong> {{ review.reject_reason }}</div>
+<div class="alert alert-danger py-2">
+<strong>Rejected by Auditor</strong>
+<p class="mb-1 small">{{ review.reject_reason }}</p>
+{% if review.resubmission_stage_label %}<span class="badge bg-dark">{{ review.resubmission_stage_label }}</span>{% endif %}
+</div>
 {% endif %}
 <div class="row g-3 mb-3">
 <div class="col-md-4"><span class="badge bg-secondary">{{ review.workflow.label }}</span>
-<span class="badge bg-light text-dark border ms-1">Role: {{ role }}</span></div>
+<span class="badge bg-light text-dark border ms-1">{{ role_label(role) }}</span></div>
 </div>
 <div class="row g-4">
 <div class="col-lg-5">
@@ -55,6 +65,13 @@
 <dt class="col-sm-5">Source System</dt><dd class="col-sm-7">{{ review.metadata.source_system }}</dd>
 <dt class="col-sm-5">Submitted By</dt><dd class="col-sm-7">{{ review.metadata.submitted_by }}</dd>
 <dt class="col-sm-5">Evidence Version</dt><dd class="col-sm-7">{{ review.metadata.evidence_version }}</dd>
+<dt class="col-sm-5">Evidence Type</dt><dd class="col-sm-7">{{ review.metadata.evidence_type|default('Document') }}</dd>
+<dt class="col-sm-5">Observation ID</dt><dd class="col-sm-7"><code>{{ review.metadata.observation_id|default('—') }}</code></dd>
+<dt class="col-sm-5">Observation Status</dt><dd class="col-sm-7">{% if review.observation_closed %}<span class="ecs-wf-status-chip ecs-wf-chip-success">Closed</span>{% else %}<span class="ecs-wf-status-chip ecs-wf-chip-warning">{{ review.metadata.observation_status|default('Open') }}</span>{% endif %}</dd>
+<dt class="col-sm-5">Audit Cycle</dt><dd class="col-sm-7">{{ review.metadata.audit_cycle|default('Q2 2026') }}</dd>
+<dt class="col-sm-5">Reviewer</dt><dd class="col-sm-7">{{ review.metadata.reviewer|default('—') }}</dd>
+<dt class="col-sm-5">Review Timestamp</dt><dd class="col-sm-7">{{ review.metadata.review_timestamp|default('—') }}</dd>
+<dt class="col-sm-5">Attached File</dt><dd class="col-sm-7"><code>{{ review.evidence.mock_file }}</code></dd>
 <dt class="col-sm-5">Evidence Status</dt><dd class="col-sm-7">{{ review.metadata.evidence_status }}</dd>
 </dl></div></div>
 <div class="card shadow-sm ecs-validation-card {% if review.validation.risk_level in ('Critical','High') %}risk-{{ review.validation.risk_level|lower }}{% endif %}">
@@ -75,21 +92,41 @@
 <div class="card-body p-0"><div class="ecs-review-preview">{{ review.preview.content }}</div></div></div>
 {% if role == 'owner' %}
 <div class="card shadow-sm mb-3"><div class="card-body">
-<h6 class="mb-3">App Owner Actions</h6>
+<h6 class="mb-3">Workflow Actions</h6>
 <div class="d-flex flex-wrap gap-2">
 {% if review.workflow.locked %}
-<button class="btn btn-secondary btn-sm" disabled>Submit To Auditor</button>
-<button class="btn btn-secondary btn-sm" disabled>Reject Internally</button>
-<button class="btn btn-secondary btn-sm" disabled>Save Draft</button>
-<button class="btn btn-secondary btn-sm" disabled>Cancel</button>
+<button class="btn btn-secondary btn-sm" disabled>Observation Closed</button>
 {% elif review.workflow.code == 'submitted' %}
+<span class="ecs-wf-status-chip ecs-wf-chip-warning">SENT TO AUDITOR</span>
 <button class="btn btn-secondary btn-sm" disabled>Pending Auditor Review</button>
-<a href="/framework/{{ framework_name }}?role={{ role }}&user={{ user }}" class="btn btn-outline-secondary btn-sm">Return</a>
+<a href="/framework/{{ framework_name }}?role={{ role }}&user={{ user }}" class="btn btn-outline-secondary btn-sm">Track Approval Status</a>
+{% elif review.workflow.code == 'rejected' %}
+<button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#viewRejectModal">View Rejection Reason</button>
+<form method="post" action="/evidence/review/request-resubmission" class="d-inline">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-warning btn-sm">Request Team Resubmission</button></form>
+<form method="post" action="/evidence/review/upload-revised" class="d-inline">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-outline-primary btn-sm">Upload Revised Evidence</button></form>
+<form method="post" action="/evidence/review/reevaluate" class="d-inline">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-outline-secondary btn-sm">Re-evaluate Evidence</button></form>
+{% if review.can_resubmit_to_auditor %}
+<form method="post" action="/evidence/review/submit" class="d-inline">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-success btn-sm">Resubmit to Auditor</button></form>
+{% else %}
+<button class="btn btn-success btn-sm" disabled title="Complete resubmission steps first">Resubmit to Auditor</button>
+{% endif %}
 {% else %}
 <form method="post" action="/evidence/review/submit" class="d-inline">
 <input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
 <input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
-<button class="btn btn-primary btn-sm">Submit To Auditor</button></form>
+<button class="btn btn-primary btn-sm">Submit to Auditor</button></form>
 <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#internalRejectModal">Reject Internally</button>
 <form method="post" action="/evidence/review/save-draft" class="d-inline">
 <input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
@@ -103,19 +140,46 @@
 </div></div></div>
 {% elif role == 'auditor' %}
 <div class="card shadow-sm mb-3"><div class="card-body">
-<h6 class="mb-3">Auditor Actions</h6>
+<h6 class="mb-3">Auditor Actions — Governance &amp; Review</h6>
 <div class="d-flex flex-wrap gap-2">
-{% if review.workflow.code == 'submitted' and not review.workflow.locked %}
+{% if not review.workflow.locked and review.workflow.code not in ('approved', 'cancelled') %}
 <form method="post" action="/evidence/review/approve" class="d-inline">
 <input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
 <input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
-<button class="btn btn-success btn-sm">Approve Evidence</button></form>
-<button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#auditorRejectModal">Reject Evidence</button>
-<button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#clarifyModal">Request Clarification</button>
+<button class="btn btn-success btn-sm ecs-wf-action-approve" data-wf-action="approve">Approve Evidence</button></form>
+<button type="button" class="btn btn-danger btn-sm ecs-wf-action-reject" data-bs-toggle="modal" data-bs-target="#auditorRejectModal" data-wf-action="reject">Reject Evidence</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#auditorCommentModal">Add Review Comments</button>
+<button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#reuploadModal">Request Re-upload</button>
+<a href="/mvp/workflow/assign-owner?role={{ role|urlencode }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ review.control|urlencode }}&return_module=framework" class="btn btn-outline-primary btn-sm">Assign Owner</a>
+<a href="/mvp/workflow/assign-owner?role={{ role|urlencode }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ review.control|urlencode }}&return_module=framework" class="btn btn-outline-secondary btn-sm">Reassign Owner</a>
+<a href="/mvp/exceptions?role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-outline-dark btn-sm">Raise Exception</a>
+<button type="button" class="btn btn-outline-dark btn-sm" data-ecs-raise-exception
+  data-framework="{{ framework_name }}" data-application="{{ review.metadata.application_name }}"
+  data-control="{{ review.control }}" data-control-id="{{ review.control_id }}"
+  data-observation-id="{{ review.observation_id }}" data-evidence-id="{{ review.evidence_id }}"
+  data-role="{{ role }}" data-user="{{ user }}">Quick Raise</button>
+<a href="/mvp/audit-prep?role={{ role }}&user={{ user|urlencode }}" class="btn btn-outline-danger btn-sm">Escalate</a>
+<a href="/framework/{{ framework_name }}?role={{ role }}&user={{ user|urlencode }}&fw_tab=findings" class="btn btn-outline-info btn-sm">View Observation</a>
+<a href="/framework/{{ framework_name }}?role={{ role }}&user={{ user|urlencode }}&fw_tab=evidence" class="btn btn-outline-secondary btn-sm">Open Evidence Repository</a>
 {% elif review.workflow.locked %}
-<span class="badge bg-success">Observation Closed — Auditor Approved</span>
+<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
+<button class="btn btn-success btn-sm" disabled>Approve Evidence</button>
+<button class="btn btn-secondary btn-sm" disabled>Reject Evidence</button>
+{% if review.can_close_observation %}
+<form method="post" action="/evidence/review/close-observation" class="d-inline" id="close-obs">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="observation_id" value="{{ review.observation_id }}">
+<button class="btn btn-outline-success btn-sm">Close Observation</button></form>
+{% elif review.observation_closed %}
+<span class="ecs-wf-status-chip ecs-wf-chip-success">Observation Closed</span>
+{% endif %}
+{% elif review.workflow.code == 'rejected' %}
+<span class="ecs-wf-status-chip ecs-wf-chip-danger">RE-UPLOAD REQUIRED</span>
+<span class="text-muted small">Awaiting App Owner re-upload.</span>
 {% else %}
 <span class="text-muted small">No auditor action — not in Pending Auditor Review queue.</span>
+<a href="/mvp/workflow/assign-owner?role={{ role|urlencode }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ review.control|urlencode }}&return_module=framework" class="btn btn-outline-primary btn-sm">Assign Owner</a>
 {% endif %}
 </div></div></div>
 {% endif %}
@@ -134,6 +198,10 @@
 </div>
 </div></div>
 </div></div></div>
+<div class="modal fade" id="viewRejectModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Rejection Reason</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body"><p class="mb-0">{{ review.reject_reason }}</p></div>
+</div></div></div>
 <div class="modal fade" id="internalRejectModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
 <form method="post" action="/evidence/review/reject-internal"><div class="modal-header"><h5 class="modal-title">Reject Internally</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body">
@@ -144,7 +212,7 @@
 </div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button class="btn btn-danger">Reject Internally</button></div></form>
 </div></div></div>
 <div class="modal fade" id="auditorRejectModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-<form method="post" action="/evidence/review/reject"><div class="modal-header"><h5 class="modal-title">Reject Evidence</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<form method="post" action="/evidence/review/reject" id="rejectForm"><div class="modal-header"><h5 class="modal-title">Reject Evidence</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body">
 <input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
 <input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
@@ -154,14 +222,49 @@
 <textarea class="form-control" id="rejReason" name="reject_reason" rows="3" required placeholder="Describe what is missing or incorrect..."></textarea>
 </div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Confirm Rejection</button></div></form>
 </div></div></div>
-<div class="modal fade" id="clarifyModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-<form method="post" action="/evidence/review/clarify"><div class="modal-header"><h5 class="modal-title">Request Clarification</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal fade" id="auditorCommentModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="/evidence/review/clarify" id="comments"><div class="modal-header"><h5 class="modal-title">Add Audit Comment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body">
 <input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
 <input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
-<textarea class="form-control" name="message" rows="3" required placeholder="What must the App Owner clarify?"></textarea>
-</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning">Send Request</button></div></form>
+<textarea class="form-control" name="message" rows="3" required placeholder="Transfer review notes or clarification request for App Owner..."></textarea>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning">Send</button></div></form>
+</div></div></div>
+<div class="modal fade" id="reuploadModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="/evidence/review/request-reupload"><div class="modal-header"><h5 class="modal-title">Request Re-upload</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ review.control }}">
+<input type="hidden" name="evidence_id" value="{{ review.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<p class="small text-muted">Evidence will return to the App Owner queue. Status: <strong>Re-upload Requested by Auditor</strong>. You will not upload directly.</p>
+<textarea class="form-control" name="message" rows="3" placeholder="Describe what must be re-uploaded and why..."></textarea>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning">Request Re-upload</button></div></form>
 </div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function(){
+  var h = (window.location.hash || '').replace('#', '');
+  if (h === 'reject') {
+    var m = document.getElementById('auditorRejectModal');
+    if (m && window.bootstrap) {
+      var inst = bootstrap.Modal.getOrCreateInstance(m);
+      m.addEventListener('hidden.bs.modal', function(){ history.replaceState(null, '', window.location.pathname + window.location.search); }, { once: true });
+      inst.show();
+    }
+  } else if (h === 'comments') {
+    var c = document.getElementById('auditorCommentModal');
+    if (c && window.bootstrap) bootstrap.Modal.getOrCreateInstance(c).show();
+  } else if (h === 'close-obs') {
+    var el = document.getElementById('close-obs');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  document.querySelectorAll('.modal').forEach(function(modal){
+    modal.addEventListener('hidden.bs.modal', function(){
+      document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.remove(); });
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('padding-right');
+    });
+  });
+})();
+</script>
 {% include "partials/chatbot_global.html" %}
 </body></html>

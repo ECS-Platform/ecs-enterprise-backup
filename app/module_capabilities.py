@@ -14,7 +14,16 @@ from app.analytics_module import (
     lifecycle_timeline,
 )
 from app.demo_metrics import REUSE_METRICS, onboarding_progress, BUSINESS_UNITS
-from app.evidence_repository import evidence_repository, get_health_dashboard, get_reuse_graph, upload_tracker
+from app.governance_mock_data import (
+    OWNERS,
+    audit_prep_enrichment,
+    comparison_enrichment,
+    completeness_enrichment,
+    health_enrichment,
+    lifecycle_enrichment,
+    search_defaults,
+)
+from app.evidence_repository import get_health_dashboard
 from app.framework_catalog import FRAMEWORK_CATALOG, get_all_evidence_records
 from app.integrations_module import get_integration_dashboard
 from app.reporting_module import list_reports
@@ -36,8 +45,9 @@ MODULE_PURPOSES = {
     "pan_india": "Regional and branch-level compliance visibility with zone risk and SLA breach tracking.",
     "reports": "Audit-ready export center — regulator packs, scheduled reports, and export history.",
     "audit_prep": "Audit readiness cockpit — upcoming audits, missing controls, and mock-audit preparation.",
-    "trends": "Historical compliance analytics — maturity, closure, rejection, SLA, and evidence aging trends.",
+    "trends": "Historical compliance analytics — control implementation coverage, observation closure, auditor rejection, remediation SLA, and evidence aging.",
     "onboarding": "Application onboarding workflow — framework assignment, ownership, and registration stages.",
+    "framework_admin": "Framework administration — ingest new compliance frameworks, control normalization, reuse intelligence, and activation.",
     "risk_register": "Enterprise risk governance — inherent/residual risk, treatment, regulatory impact, and risk aging.",
     "exceptions_td": "Technical debt and exception workflow — compensating controls, TD expiry, renewal, and approval.",
     "cmdb": "CMDB and asset inventory — applications, servers, cloud assets, ownership, and compliance mapping.",
@@ -45,7 +55,9 @@ MODULE_PURPOSES = {
     "executive_heatmaps": "CIO/MD executive visibility — framework, application, BU, regional, and SLA heatmaps.",
     "integrations_hub": "Enterprise integration orchestration — ServiceNow, Jira, Prisma, Tripwire, SonarQube, and more.",
     "correlation": "Cross-tool governance correlation — incident-to-remediation-to-control failure chains.",
-    "governance_analytics": "AI-driven governance analytics — risk trends, exceptions, maturity, SLA, and repeat failures.",
+    "governance_analytics": "Enterprise governance intelligence — audit readiness, rejection patterns, remediation SLA, evidence freshness, and application risk posture.",
+    "evidence_approval": "Evidence approval analytics — approved, rejected, pending validation, stale evidence, quality scorecards, and reviewer workload.",
+    "exception_governance": "Exception governance dashboard — TD lifecycle, approval persistence, expiring exceptions, and CAB pending queue.",
 }
 
 
@@ -53,7 +65,7 @@ def _ts() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def get_module_capability(module: str, role: str = "owner") -> dict:
+def get_module_capability(module: str, role: str = "owner", analytics_filters: dict | None = None) -> dict:
     builders = {
         "scheduler": _scheduler_view,
         "upload": _upload_view,
@@ -70,6 +82,7 @@ def get_module_capability(module: str, role: str = "owner") -> dict:
         "audit_prep": _audit_prep_view,
         "trends": _trends_view,
         "onboarding": _onboarding_view,
+        "framework_admin": _framework_admin_view,
         "risk_register": _risk_register_view,
         "exceptions_td": _exceptions_view,
         "cmdb": _cmdb_view,
@@ -78,11 +91,16 @@ def get_module_capability(module: str, role: str = "owner") -> dict:
         "integrations_hub": _integrations_hub_view,
         "correlation": _correlation_view,
         "governance_analytics": _governance_analytics_view,
+        "evidence_approval": _evidence_approval_view,
+        "exception_governance": _exception_governance_view,
     }
     fn = builders.get(module)
     if not fn:
         return {"purpose": "", "kpis": [], "rows": [], "role": role}
-    view = fn(role)
+    if module in ("trends", "governance_analytics", "audit_prep"):
+        view = fn(role, analytics_filters)
+    else:
+        view = fn(role)
     view["purpose"] = MODULE_PURPOSES.get(module, "")
     view["module"] = module
     view["role"] = role
@@ -90,357 +108,285 @@ def get_module_capability(module: str, role: str = "owner") -> dict:
 
 
 def _scheduler_view(role: str) -> dict:
+    from app.operations_mock_data import build_operations_dataset
+    from app.scheduler_intelligence import build_scheduler_intelligence
+    from app.scheduler_module import is_scheduler_paused
+
+    ops = build_operations_dataset("scheduler", role)
     dash = get_scheduler_dashboard()
-    jobs = []
-    for i, job in enumerate(dash["status"]["jobs"]):
-        health = "Healthy" if job["status"] == "Synced" else "Attention"
-        jobs.append({
-            **job,
-            "job_id": f"SCH-JOB-{i+1:03d}",
-            "next_run": "2026-05-24 14:00 UTC" if job["status"] == "Synced" else "2026-05-24 08:00 UTC",
-            "frequency": "Every 6 hours",
-            "health": health,
-            "failed_collections": 0 if job["status"] == "Synced" else 2,
-            "retry_status": "—" if job["status"] == "Synced" else "Pending retry",
-            "source_system": job["source"],
-            "paused": False,
-        })
-    failed = [j for j in jobs if j["health"] != "Healthy"]
-    healthy_pct = round((len(jobs) - len(failed)) / max(len(jobs), 1) * 100, 1)
+    intel = build_scheduler_intelligence(paused=is_scheduler_paused())
+    jobs = ops["records"]["jobs"]
+    failed_jobs = ops["records"]["failures"]
+    failed = [j for j in jobs if j.get("status") in ("Failed", "Partial", "Delayed")]
+    ys = intel["yesterday_summary"]
+    ys = {
+        **ys,
+        "applications_scanned": len(ops["records"]["application_scans"]),
+        "evidence_collected": sum(s["evidence_collected"] for s in ops["records"]["application_scans"]),
+        "controls_auto_validated": sum(j["controls_validated"] for j in jobs),
+        "failed_collections": len(failed),
+    }
     return {
         "kpis": [
-            {"label": "Jobs Running", "value": len([j for j in jobs if not j.get("paused")]), "tone": "primary"},
-            {"label": "Jobs Failed", "value": len(failed), "tone": "danger"},
-            {"label": "Auto-Collected", "value": dash["status"]["records_last_pull"], "tone": "success"},
-            {"label": "Scheduler Uptime", "value": f"{dash['status']['success_rate_pct']}%", "tone": "info"},
+            {"label": "Apps Scanned", "value": len(ops["records"]["application_scans"]), "tone": "primary"},
+            {"label": "Evidence Collected", "value": sum(s["evidence_collected"] for s in ops["records"]["application_scans"][:50]), "tone": "success"},
+            {"label": "Auto-Validated", "value": sum(j["controls_validated"] for j in jobs[:50]), "tone": "info"},
+            {"label": "Failed Collections", "value": len(failed), "tone": "danger"},
         ],
-        "scheduler_health": {"status": "Operational" if healthy_pct >= 90 else "Degraded", "uptime_pct": dash["status"]["success_rate_pct"], "healthy_jobs": len(jobs) - len(failed), "total_jobs": len(jobs)},
-        "rows": jobs,
-        "failed_jobs": failed,
-        "execution_history": dash["execution_history"][:8],
+        "operations_dataset": ops,
+        "scheduler_health": {
+            "status": "Paused" if intel["paused"] else "Operational",
+            "uptime_pct": dash["status"]["success_rate_pct"],
+            "healthy_jobs": len(jobs) - len(failed),
+            "total_jobs": len(jobs),
+            "live_status": intel["live_status"],
+        },
+        "rows": jobs[:20],
+        "failed_jobs": failed[:30],
+        "execution_history": intel["run_history"],
+        "yesterday_summary": ys,
+        "cron_timeline": ops["records"]["cron_runs"][:12],
+        "application_scans": ops["records"]["application_scans"],
+        "scheduler_failures": failed_jobs[:30],
+        "upcoming_plan": intel["upcoming_plan"],
+        "compliance_impact": intel["compliance_impact"],
+        "integration_health": intel["integration_health"],
+        "paused": intel["paused"],
         "actions": _actions_for(role, scheduler=True),
     }
 
 
 def _upload_view(role: str) -> dict:
-    batches = {}
-    for u in upload_tracker:
-        batch_id = u.get("batch_id", "BATCH-001")
-        batches.setdefault(batch_id, {"batch_id": batch_id, "files": [], "status": "Parsing", "errors": 0, "duplicates": 0})
-        batches[batch_id]["files"].append(u)
-    if not batches:
-        batches["BATCH-DEMO-001"] = {
-            "batch_id": "BATCH-DEMO-001",
-            "uploaded_at": "2026-05-23 18:30 UTC",
-            "file_count": 12,
-            "status": "Validated",
-            "framework_mapping": "PCI DSS, DPSC",
-            "parsing_status": "Complete",
-            "duplicate_count": 1,
-            "error_count": 0,
-            "uploaded_by": "R. Mehta (App Owner)",
-        }
-        batches["BATCH-DEMO-002"] = {
-            "batch_id": "BATCH-DEMO-002",
-            "uploaded_at": "2026-05-24 09:15 UTC",
-            "file_count": 8,
-            "status": "Pending Validation",
-            "framework_mapping": "Auto-detect in progress",
-            "parsing_status": "In Progress",
-            "duplicate_count": 0,
-            "error_count": 2,
-            "uploaded_by": "A. Sharma (App Owner)",
-        }
-    batch_list = list(batches.values()) if batches else []
-    if batch_list and "file_count" not in batch_list[0]:
-        batch_list = [
-            {
-                "batch_id": "BATCH-DEMO-001",
-                "uploaded_at": "2026-05-23 18:30 UTC",
-                "file_count": len(evidence_repository) or 12,
-                "status": "Validated",
-                "framework_mapping": "PCI DSS, OS Baselining",
-                "parsing_status": "Complete",
-                "duplicate_count": 1,
-                "error_count": 0,
-                "uploaded_by": "R. Mehta (App Owner)",
-                "progress_pct": 100,
-            }
-        ]
-    for b in batch_list:
-        if "progress_pct" not in b:
-            b["progress_pct"] = 100 if b.get("status") == "Validated" else (65 if b.get("parsing_status") == "In Progress" else 85)
+    from app.operations_mock_data import build_operations_dataset
+    from app.operational_mock_data import MOCK_UPLOAD_SAMPLES
+
+    ops = build_operations_dataset("upload", role)
+    uploads = ops["records"]["uploads"]
+    batch_list = ops["records"]["batches"]
     return {
         "kpis": [
             {"label": "Active Batches", "value": len(batch_list), "tone": "primary"},
-            {"label": "Files Ingested", "value": sum(b.get("file_count", 0) for b in batch_list), "tone": "success"},
-            {"label": "Duplicates Flagged", "value": sum(b.get("duplicate_count", 0) for b in batch_list), "tone": "warning"},
-            {"label": "Ingestion Errors", "value": sum(b.get("error_count", 0) for b in batch_list), "tone": "danger"},
+            {"label": "Files Ingested", "value": len(uploads), "tone": "success"},
+            {"label": "Duplicates Flagged", "value": sum(1 for u in uploads if u["status"] == "Rejected"), "tone": "warning"},
+            {"label": "Ingestion Errors", "value": sum(u.get("error_count", 0) for u in uploads), "tone": "danger"},
         ],
+        "operations_dataset": ops,
         "rows": batch_list,
-        "recent_uploads": list(reversed(evidence_repository[-10:])),
+        "tracker_rows": uploads,
+        "recent_uploads": uploads[:10],
+        "mock_samples": MOCK_UPLOAD_SAMPLES,
         "actions": _actions_for(role, upload=True),
     }
 
 
 def _health_view(role: str) -> dict:
-    health = get_health_dashboard()
-    all_ev = get_all_evidence_records()
-    rows = []
-    for ev in all_ev:
-        risk = "Low"
-        issue = "Current"
-        if ev.get("evidence_status") == "Expired":
-            risk, issue = "Critical", "Expired"
-        elif ev.get("evidence_status") == "Due for Refresh":
-            risk, issue = "High", "Expiring Soon"
-        elif ev.get("audit_status") in ("Pending", "Rejected"):
-            risk, issue = "Medium", "Incomplete Metadata"
-        elif not ev.get("comments"):
-            risk, issue = "Medium", "Low Confidence"
-        aging = aging_days_from(ev.get("upload_timestamp", ""), 10)
-        if aging > 60 and risk == "Low":
-            risk, issue = "Medium", "Stale"
-        rows.append({
-            "evidence_id": ev.get("evidence_id"),
-            "evidence_name": ev.get("evidence_name"),
-            "framework": ev.get("framework"),
-            "application": ev.get("application_name"),
-            "risk": risk,
-            "issue": issue,
-            "health_score": 95 if risk == "Low" else (72 if risk == "Medium" else (55 if risk == "High" else 30)),
-            "expiry_date": ev.get("expiry_date"),
-            "missing_metadata": not ev.get("reviewer"),
-        })
-    rows.sort(key=lambda x: {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}[x["risk"]])
-    expired = sum(1 for r in rows if r["issue"] == "Expired")
-    stale = sum(1 for r in rows if r["issue"] == "Stale")
-    expiring = sum(1 for r in rows if r["issue"] == "Expiring Soon")
-    incomplete = sum(1 for r in rows if r["issue"] == "Incomplete Metadata")
-    risky = sum(1 for r in rows if r["risk"] in ("Critical", "High"))
-    avg_score = round(sum(r["health_score"] for r in rows[:50]) / max(len(rows[:50]), 1), 1)
-    return {
-        "kpis": [
-            {"label": "Health Score", "value": f"{avg_score}%", "tone": "success"},
-            {"label": "Critical / High Risk", "value": risky, "tone": "danger"},
-            {"label": "Stale Evidence", "value": stale, "tone": "warning"},
-            {"label": "Expiring This Month", "value": expiring, "tone": "info"},
-        ],
-        "risk_distribution": [
-            {"label": "Critical", "count": sum(1 for r in rows if r["risk"] == "Critical"), "class": "risk-critical"},
-            {"label": "High", "count": sum(1 for r in rows if r["risk"] == "High"), "class": "risk-high"},
-            {"label": "Medium", "count": sum(1 for r in rows if r["risk"] == "Medium"), "class": "risk-medium"},
-            {"label": "Low", "count": sum(1 for r in rows if r["risk"] == "Low"), "class": "risk-low"},
-        ],
-        "categories": {
-            "stale": [r for r in rows if r["issue"] == "Stale"][:8],
-            "expired": [r for r in rows if r["issue"] == "Expired"][:8],
-            "incomplete": [r for r in rows if r["issue"] == "Incomplete Metadata"][:8],
-            "risky": [r for r in rows if r["risk"] in ("Critical", "High")][:8],
-        },
-        "rows": rows[:30],
-        "integrity": health,
-        "actions": _actions_for(role, health=True),
-    }
+    from app.evidence_health_engine import build_evidence_health_view
+    from app.standard_filter_engine import build_standard_dataset
+
+    view = build_evidence_health_view(role)
+    view["standard_dataset"] = build_standard_dataset("evidence_health", role)
+    view["actions"] = _actions_for(role, health=True)
+    view["integrity"] = get_health_dashboard()
+    return view
 
 
 def _search_view(role: str) -> dict:
+    from app.standard_filter_engine import build_standard_dataset
+
     discovery = build_search_discovery()
+    defaults = search_defaults()
+    results = discovery["results"] or defaults["default_results"]
+    semantic = discovery["semantic_matches"] or defaults["default_results"][:12]
+    std = build_standard_dataset("search", role)
     return {
         "kpis": [
             {"label": "Indexed Artefacts", "value": discovery["total_indexed"], "tone": "primary"},
             {"label": "Frameworks Mapped", "value": len(FRAMEWORK_CATALOG), "tone": "info"},
             {"label": "Reuse Suggestions", "value": len(discovery["reuse_suggestions"]), "tone": "success"},
-            {"label": "Semantic Matches", "value": len(discovery["semantic_matches"]), "tone": "secondary"},
+            {"label": "Search Results", "value": len(results), "tone": "secondary"},
         ],
-        "rows": [],
+        "rows": results,
         "discovery": discovery,
         "framework_filters": discovery["framework_filters"],
+        "default_results": defaults["default_results"],
+        "control_lookup": defaults["control_lookup"],
+        "findings": defaults["findings"],
+        "semantic_matches": semantic,
+        "reuse_suggestions": discovery["reuse_suggestions"],
+        "standard_dataset": std,
         "actions": _actions_for(role, search=True),
     }
 
 
 def _completeness_view(role: str) -> dict:
-    comp = completeness_report()
-    stats = ecs_state.build_evidence_analytics()
-    fw_rows = []
-    for fw in stats["framework_stats"]:
-        pct = round((fw["approved"] / fw["total"]) * 100, 1) if fw["total"] else 0
-        fw_rows.append({
-            "framework": fw["name"],
-            "completeness_pct": pct,
-            "approved": fw["approved"],
-            "total": fw["total"],
-            "gaps": fw["pending"] + fw["rejected"],
-        })
-    app_rows = application_comparison()
-    audit_readiness = round(100 - (comp["missing_count"] / max(sum(fw["total"] for fw in stats["framework_stats"]), 1) * 100), 1)
+    from app.governance_completeness_engine import build_completeness_dashboard, build_completeness_dataset
+
+    dash = build_completeness_dashboard(role=role)
+    dataset = build_completeness_dataset(role)
     return {
-        "kpis": [
-            {"label": "Framework Completeness", "value": f"{round(sum(r['completeness_pct'] for r in fw_rows)/len(fw_rows),1)}%", "tone": "primary"},
-            {"label": "Missing Controls", "value": comp["missing_count"], "tone": "danger"},
-            {"label": "Audit Readiness", "value": f"{audit_readiness}%", "tone": "success"},
-            {"label": "Incomplete Apps", "value": len([a for a in app_rows if a["compliance_pct"] < 80]), "tone": "warning"},
-        ],
-        "rows": comp["missing"][:20],
-        "incomplete": comp["incomplete"][:15],
-        "framework_rows": fw_rows,
-        "application_rows": app_rows,
+        "kpis": dash["kpis"],
+        "completeness_dataset": dataset,
+        "completeness_pct": dash.get("completeness_pct"),
+        "detail_rows": dash["detail_rows"],
+        "framework_summaries": dash["framework_summaries"],
+        "framework_rows": dash["framework_summaries"],
+        "application_readiness": dash["detail_rows"],
+        "control_rows": dash["detail_rows"],
+        "rows": dash["gap_rows"],
+        "missing_evidence_rows": dash["missing_evidence_rows"],
+        "upload_kpis": dash["upload_kpis"],
+        "incomplete": [r for r in dash["detail_rows"] if r["readiness_pct"] < 80],
         "actions": _actions_for(role, completeness=True),
     }
 
 
 def _reuse_view(role: str) -> dict:
-    reuse = get_reuse_graph()
-    candidates = []
-    for g in reuse.get("groups", []):
-        candidates.append({
-            "group_id": g["group_id"],
-            "filename": g["filename"],
-            "frameworks_mapped": len({l["framework"] for l in g["linked_controls"]}),
-            "controls_linked": len(g["linked_controls"]),
-            "duplicate_avoided": len(g["linked_controls"]) - 1,
-            "status": "Approved" if len(g["linked_controls"]) > 2 else "Candidate",
-            "linked_controls": g["linked_controls"],
-        })
+    from app.enterprise_mock_service import build_reuse_mappings
+    from app.standard_filter_engine import build_standard_dataset
+
+    reuse_data = build_reuse_mappings(120)
+    std = build_standard_dataset("reuse", role)
+    candidates = reuse_data["rows"]
+    pending = reuse_data["pending_rows"]
+    fw_breakdown: dict[str, dict] = {}
+    for r in candidates:
+        fw = r["source_framework"]
+        bucket = fw_breakdown.setdefault(fw, {"framework": fw, "reuse_groups": 0, "controls_linked": 0, "pending": 0, "approved": 0})
+        bucket["reuse_groups"] += 1
+        bucket["controls_linked"] += r.get("controls_linked", 1)
+        if r.get("status") == "Approved":
+            bucket["approved"] += 1
+        else:
+            bucket["pending"] += 1
     return {
         "kpis": [
-            {"label": "Reuse %", "value": "34.5%", "tone": "success"},
-            {"label": "Reuse Groups", "value": REUSE_METRICS["total_reuse_groups"], "tone": "primary"},
-            {"label": "Duplicates Avoided", "value": sum(c["duplicate_avoided"] for c in candidates), "tone": "info"},
-            {"label": "Hours Saved", "value": REUSE_METRICS["top_saving_hours"], "tone": "secondary"},
+            {"label": "Reuse Groups", "value": len(candidates), "tone": "primary"},
+            {"label": "Mapped Controls", "value": sum(c["controls_linked"] for c in candidates), "tone": "success"},
+            {"label": "Pending Approval", "value": len(pending), "tone": "warning"},
+            {"label": "Hours Saved", "value": REUSE_METRICS["top_saving_hours"], "tone": "teal"},
         ],
         "rows": candidates,
+        "pending_rows": pending,
+        "candidates": reuse_data["candidates"],
+        "workbench": reuse_data["workbench"],
+        "framework_breakdown": list(fw_breakdown.values()),
+        "standard_dataset": std,
         "actions": _actions_for(role, reuse=True),
     }
 
 
 def _lifecycle_view(role: str) -> dict:
-    timeline = lifecycle_timeline()
-    buckets = {"Draft": [], "Active": [], "Expiring": [], "Archived": [], "Retired": []}
-    for ev in get_all_evidence_records():
-        st = ev.get("evidence_status", "Current")
-        if st == "Expired":
-            bucket = "Retired"
-        elif st == "Due for Refresh":
-            bucket = "Expiring"
-        elif ev.get("audit_status") == "Approved":
-            bucket = "Active"
-        elif ev.get("audit_status") in ("Pending", "Submitted"):
-            bucket = "Draft"
-        else:
-            bucket = "Active"
-        buckets[bucket].append({
-            "evidence_id": ev.get("evidence_id"),
-            "name": ev.get("evidence_name"),
-            "framework": ev.get("framework"),
-            "upload_date": ev.get("upload_timestamp", "")[:10],
-            "expiry_date": ev.get("expiry_date"),
-            "state": bucket,
-        })
-    rows = []
-    for state, items in buckets.items():
-        for item in items[:8]:
-            item["lifecycle_state"] = state
-            rows.append(item)
-    timeline_events = []
-    for ev in rows[:6]:
-        timeline_events.append({
-            "evidence_id": ev.get("evidence_id"),
-            "name": ev.get("name"),
-            "upload_date": ev.get("upload_date"),
-            "expiry_date": ev.get("expiry_date"),
-            "state": ev.get("lifecycle_state"),
-            "event": f"State: {ev.get('lifecycle_state')}",
-        })
+    from app.governance_lifecycle_engine import build_lifecycle_dashboard, build_lifecycle_dataset
+
+    dash = build_lifecycle_dashboard(role=role)
+    dataset = build_lifecycle_dataset(role)
     return {
-        "kpis": [
-            {"label": "Active", "value": len(buckets["Active"]), "tone": "success"},
-            {"label": "Expiring", "value": len(buckets["Expiring"]), "tone": "warning"},
-            {"label": "Draft", "value": len(buckets["Draft"]), "tone": "info"},
-            {"label": "Retired", "value": len(buckets["Retired"]), "tone": "secondary"},
-        ],
-        "rows": rows[:25],
-        "timeline": timeline[:10],
-        "timeline_events": timeline_events,
-        "buckets": {k: len(v) for k, v in buckets.items()},
-        "bucket_items": buckets,
+        "kpis": dash["kpis"],
+        "lifecycle_dataset": dataset,
+        "controls": dash["controls"],
+        "evidence_rows": dash["evidence"],
+        "observations": dash["observations"],
+        "remediations": dash["remediations"],
+        "audits": dash["audits"],
+        "exceptions": dash["exceptions"],
+        "timelines": dash["timelines"],
+        "charts": dash["charts"],
+        "rows": dash["controls"],
         "actions": _actions_for(role, lifecycle=True),
     }
 
 
 def _comparison_view(role: str) -> dict:
-    apps = application_comparison()
-    rows = []
-    for i, a in enumerate(apps):
-        for j, b in enumerate(apps):
-            if i < j:
-                variance = abs(a["compliance_pct"] - b["compliance_pct"])
-                if variance >= 5:
-                    rows.append({
-                        "app_a": a["application"],
-                        "app_b": b["application"],
-                        "maturity_a": a["compliance_pct"],
-                        "maturity_b": b["compliance_pct"],
-                        "variance": round(variance, 1),
-                        "risk": "High" if variance > 12 else "Medium",
-                    })
-    heatmap = []
-    for a in apps:
-        for fw, fw_data in a.get("frameworks", {}).items():
-            pct = round((fw_data["approved"] / fw_data["total"]) * 100, 0) if fw_data["total"] else 0
-            heatmap.append({"application": a["application"], "framework": fw, "pct": int(pct)})
+    from app.comparison_engine import build_comparison_dashboard, build_comparison_dataset
+    from app.role_filter_scope import apply_role_scope, apps_for_role
+
+    dash = build_comparison_dashboard()
+    dataset = build_comparison_dataset(role)
+    readiness = apply_role_scope(dash["readiness_matrix"], role)
+    allowed = apps_for_role(role)
+    if allowed:
+        pairs = [p for p in dash["comparison_pairs"] if p.get("app_a") in allowed or p.get("app_b") in allowed]
+    else:
+        pairs = dash["comparison_pairs"]
+    if not pairs:
+        pairs = dash["comparison_pairs"][:12]
+    cards = apply_role_scope(dash["heatmap_cards"], role)
+    if not cards:
+        cards = dash["heatmap_cards"][:8]
+    rankings = sorted(readiness, key=lambda r: -r["readiness_pct"])
     return {
-        "kpis": [
-            {"label": "Applications", "value": len(apps), "tone": "primary"},
-            {"label": "High Variance Pairs", "value": len([r for r in rows if r["risk"] == "High"]), "tone": "danger"},
-            {"label": "Avg Maturity", "value": f"{round(sum(a['compliance_pct'] for a in apps)/len(apps),1)}%", "tone": "success"},
-            {"label": "Elevated Risk Apps", "value": len([a for a in apps if a.get("risk") in ("High", "Critical", "Elevated")]), "tone": "warning"},
-        ],
-        "rows": apps,
-        "variance_rows": rows[:12],
-        "heatmap": heatmap[:24],
+        "kpis": dash["kpis"],
+        "comparison_pairs": pairs,
+        "heatmap_cards": cards,
+        "readiness_matrix": readiness,
+        "trends": dash["trends"],
+        "comparison_dataset": dataset,
+        "pair_rows": pairs,
+        "rankings": rankings,
+        "variance_rows": pairs,
+        "heatmap": [{"application": c["application"], "framework": c["framework"], "pct": c["readiness_pct"], "tone": c["tone"]} for c in cards],
+        "rows": rankings,
         "actions": _actions_for(role, comparison=True),
     }
 
 
 def _integrations_view(role: str) -> dict:
-    dash = get_integration_dashboard()
+    from app.integration_health_engine import build_integration_health_dashboard
+    from app.integrations_module import get_integrations_hub_dashboard
+    from app.operations_mock_data import build_operations_dataset
+    from app.operational_mock_data import build_integration_sync_jobs
+
+    ops = build_operations_dataset("integrations", role)
+    dash = build_integration_health_dashboard()
+    hub = get_integrations_hub_dashboard()
     rows = []
-    for c in dash["connectors"]:
+    for c in hub["connectors"]:
         rows.append({
             **c,
             "pipeline": c.get("name", "Connector"),
             "last_sync": c.get("last_sync", "2026-05-24 06:00 UTC"),
-            "records_ingested": c.get("records", 128),
+            "records_ingested": c.get("records_pulled", c.get("records", 128)),
             "api_health": "Healthy" if c.get("api_status", c["status"]) in ("Healthy", "Connected", "Synced") else "Degraded",
             "sync_status": c.get("sync_status", c["status"]),
         })
+    event_logs = list(ops["records"]["events"])
     return {
-        "kpis": [
-            {"label": "Connectors", "value": len(rows), "tone": "primary"},
-            {"label": "Healthy APIs", "value": len([r for r in rows if r["api_health"] == "Healthy"]), "tone": "success"},
-            {"label": "Degraded", "value": len([r for r in rows if r["api_health"] != "Healthy"]), "tone": "danger"},
-            {"label": "Records Ingested", "value": sum(r.get("records_ingested", 0) for r in rows), "tone": "info"},
-        ],
+        "kpis": dash["kpis"],
+        "operations_dataset": ops,
+        "health_rows": dash["health_rows"],
+        "all_health_rows": dash["all_health_rows"],
+        "connector_usage_bars": dash["connector_usage_bars"],
+        "health_distribution": dash["health_distribution"],
+        "framework_dependencies": dash["framework_dependencies"],
         "rows": rows,
-        "grouped": dash.get("grouped", {}),
+        "sync_jobs": build_integration_sync_jobs(rows),
+        "event_logs": event_logs,
+        "grouped": hub.get("grouped", {}),
+        "sync_issue_rows": hub.get("sync_issue_rows", []),
         "actions": _actions_for(role, integrations=True),
     }
 
 
 def _enterprise_view(role: str) -> dict:
+    from app.executive_analytics_engine import build_banking_bu_analytics, build_bu_chart_series
+    from app.standard_filter_engine import build_standard_dataset
+
     ent = enterprise_dashboard()
     stats = ecs_state.build_evidence_analytics()
+    std = build_standard_dataset("enterprise", role)
+    bu_analytics = build_banking_bu_analytics(role)
     rows = []
     for fw in stats["framework_stats"]:
         rows.append({
             "framework": fw["name"],
+            "application": "All Applications",
             "maturity_pct": fw["compliance_pct"],
             "approved": fw["approved"],
             "total": fw["total"],
             "risk": "High" if fw["compliance_pct"] < 70 else ("Medium" if fw["compliance_pct"] < 85 else "Low"),
             "open_items": fw["pending"] + fw["submitted"] + fw["rejected"],
+            "owner": OWNERS[hash(fw["name"]) % len(OWNERS)],
+            "status": "Monitoring",
         })
     return {
         "kpis": [
@@ -451,21 +397,31 @@ def _enterprise_view(role: str) -> dict:
         ],
         "rows": rows,
         "business_units": BUSINESS_UNITS,
+        "banking_bu_analytics": bu_analytics,
+        "bu_charts": build_bu_chart_series(bu_analytics),
         "enterprise": ent,
         "maturity_heatmap": [{"framework": r["framework"], "pct": r["maturity_pct"]} for r in rows],
+        "standard_dataset": std,
         "actions": _actions_for(role, enterprise=True),
     }
 
 
 def _pan_india_view(role: str) -> dict:
+    from app.enterprise_mock_service import build_pan_india_posture
+    from app.executive_analytics_engine import enhance_pan_india_regions
+    from app.standard_filter_engine import build_standard_dataset
+
+    posture = build_pan_india_posture()
+    std = build_standard_dataset("pan_india", role)
+    enhanced = enhance_pan_india_regions(posture["regions"], posture["framework_matrix"])
     rows = []
-    for r in ecs_state.PAN_INDIA_REGIONS:
+    for r in enhanced:
         rows.append({
             **r,
             "zone": r["region"],
-            "sla_breaches": max(1, r["observations_open"] // 8),
+            "sla_breaches": r["sla_breaches"],
             "compliance_pct": r["score"],
-            "risk_level": "High" if r["score"] < 85 else "Medium" if r["score"] < 90 else "Low",
+            "risk_level": r["risk_level"],
         })
     return {
         "kpis": [
@@ -475,13 +431,23 @@ def _pan_india_view(role: str) -> dict:
             {"label": "SLA Breaches", "value": sum(r["sla_breaches"] for r in rows), "tone": "danger"},
         ],
         "rows": rows,
-        "zone_heatmap": [{"zone": r["zone"], "score": r["compliance_pct"], "risk": r["risk_level"]} for r in rows],
+        "framework_matrix": posture["framework_matrix"],
+        "zone_heatmap": [
+            {"zone": r["zone"], "score": r["compliance_pct"], "risk": r["risk_level"], "pci": r.get("pci_readiness"), "critical_obs": r.get("critical_observations", 0)}
+            for r in rows
+        ],
+        "standard_dataset": std,
         "actions": _actions_for(role, pan_india=True),
     }
 
 
 def _reports_view(role: str) -> dict:
+    from app.standard_filter_engine import build_standard_dataset
+    from app.reporting_module import list_report_history
+
     reports = list_reports()
+    history = list_report_history()
+    std = build_standard_dataset("reports", role)
     rows = []
     for r in reports:
         rows.append({
@@ -489,6 +455,11 @@ def _reports_view(role: str) -> dict:
             "generated_at": r.get("generated_at", "2026-05-20 14:00 UTC"),
             "format": r.get("format", "PDF"),
             "schedule": r.get("schedule", "On-demand"),
+            "framework": r.get("framework", "Enterprise-wide"),
+            "application": r.get("application", "All Applications"),
+            "owner": r.get("owner", OWNERS[0]),
+            "risk": r.get("risk", "Low"),
+            "status": r.get("status", "Generated"),
         })
     return {
         "kpis": [
@@ -498,151 +469,277 @@ def _reports_view(role: str) -> dict:
             {"label": "Pending", "value": len([r for r in rows if r.get("status") != "Generated"]), "tone": "warning"},
         ],
         "rows": rows,
+        "history_rows": history,
+        "observation_rows": std.get("records", {}).get("observations", []),
+        "standard_dataset": std,
         "actions": _actions_for(role, reports=True),
     }
 
 
-def _audit_prep_view(role: str) -> dict:
-    prep = audit_preparation_checklist()
-    rows = prep.get("checklist", [])[:20]
-    return {
-        "kpis": [
-            {"label": "Readiness Score", "value": f"{prep['ready_pct']}%", "tone": "success"},
-            {"label": "Missing Controls", "value": prep["missing_controls"], "tone": "danger"},
-            {"label": "Upcoming Audits", "value": len(prep.get("upcoming_audits", [])), "tone": "primary"},
-            {"label": "Auditor Requests", "value": len(prep.get("pending_auditor_requests", [])), "tone": "warning"},
-        ],
-        "rows": rows,
-        "upcoming_audits": prep.get("upcoming_audits", []),
-        "pending_auditor_requests": prep.get("pending_auditor_requests", []),
-        "actions": _actions_for(role, audit_prep=True),
-    }
+def _audit_prep_view(role: str, filters: dict | None = None) -> dict:
+    from app.audit_prep_data import build_audit_prep_view
+    from app.executive_analytics_engine import build_audit_prep_heatmaps
+    from app.standard_filter_engine import build_standard_dataset
+
+    view = build_audit_prep_view(role, filters)
+    view["standard_dataset"] = build_standard_dataset("audit_prep", role, filters)
+    view["audit_heatmaps"] = build_audit_prep_heatmaps(filters)
+    view["actions"] = _actions_for(role, audit_prep=True)
+    return view
 
 
-def _trends_view(role: str) -> dict:
-    trends = compliance_trends()
-    monthly = trends.get("monthly", [])
-    return {
-        "kpis": [
-            {"label": "Avg Closure Days", "value": trends.get("avg_days_to_close", 18), "tone": "primary"},
-            {"label": "Latest Compliance", "value": f"{monthly[-1].get('compliance', 79)}%" if monthly else "—", "tone": "success"},
-            {"label": "Rejection Rate", "value": f"{trends.get('rejection_trends', [{}])[-1].get('rate_pct', 4.2)}%", "tone": "warning"},
-            {"label": "SLA On-Time", "value": f"{trends.get('sla_trends', [{}])[-1].get('on_time_pct', 91)}%", "tone": "info"},
-        ],
-        "rows": monthly,
-        "trends": trends,
-        "rejection_trends": trends.get("rejection_trends", []),
-        "sla_trends": trends.get("sla_trends", []),
-        "aging_buckets": trends.get("aging_buckets", []),
-        "actions": _actions_for(role, trends=True),
-    }
+def _trends_view(role: str, filters: dict | None = None) -> dict:
+    from app.executive_analytics_engine import build_granularity_trends
+    from app.governance_intelligence import build_trends_module_view
+
+    view = build_trends_module_view(role, filters)
+    view["granularity_trends"] = build_granularity_trends(filters)
+    view["actions"] = _actions_for(role, trends=True)
+    return view
 
 
 def _onboarding_view(role: str) -> dict:
-    progress = onboarding_progress()
+    from app.onboarding_engine import ALL_FRAMEWORKS, recent_onboarding_suggestions
+    from app.operations_mock_data import build_operations_dataset
+    from app.operational_mock_data import build_onboarding_pipelines, build_post_onboarding_metrics, build_onboarding_challenges
+
+    ops = build_operations_dataset("onboarding", role)
+    onboard_rows = ops["records"]["applications"]
     rows = []
-    for i, p in enumerate(progress):
+    for r in onboard_rows:
         rows.append({
-            **p,
-            "stage": "Registration Complete" if p["progress_pct"] >= 90 else ("Framework Mapping" if p["progress_pct"] >= 70 else "Initial Setup"),
-            "owner": ecs_state.BANKING_APPLICATIONS[i % len(ecs_state.BANKING_APPLICATIONS)] if i < len(ecs_state.BANKING_APPLICATIONS) else "TBD",
-            "pending_tasks": max(0, 5 - p["frameworks_mapped"]),
+            "application": r["application"],
+            "stage": r["stage"],
+            "status": r["status"],
+            "progress_pct": r["progress_pct"],
+            "frameworks_mapped": r["frameworks_mapped"],
+            "owner": r["owner"],
+            "framework": r["framework"],
+            "risk": r["risk"],
+            "pending_tasks": r["controls_missing"],
+            "pipeline_id": r.get("pipeline_id", ""),
+            "controls_discovered": r.get("controls_discovered", 0),
+            "controls_implemented": r.get("controls_implemented", 0),
+            "controls_missing": r.get("controls_missing", 0),
+            "readiness_pct": r.get("readiness_pct", r.get("progress_pct", 0)),
         })
+    post_metrics = build_post_onboarding_metrics(rows[:20])
+    challenges = build_onboarding_challenges(rows[:20])
+    accepting = [m for m in post_metrics if m.get("accepting_evidence")]
+    suggestions = recent_onboarding_suggestions(ecs_state.onboarded_applications)
     return {
         "kpis": [
             {"label": "Applications", "value": len(rows), "tone": "primary"},
-            {"label": "Production Ready", "value": len([r for r in rows if r["status"] == "Production"]), "tone": "success"},
-            {"label": "In Progress", "value": len([r for r in rows if r["status"] != "Production"]), "tone": "warning"},
-            {"label": "Pending Tasks", "value": sum(r["pending_tasks"] for r in rows), "tone": "info"},
+            {"label": "Accepting Evidence", "value": len(accepting), "tone": "success"},
+            {"label": "Observation Closures", "value": sum(m["observation_closures_count"] for m in post_metrics), "tone": "info"},
+            {"label": "Avg Compliance Adherence", "value": f"{round(sum(m['audit_compliance_adherence_pct'] for m in post_metrics) / max(len(post_metrics), 1), 1)}%", "tone": "primary"},
+            {"label": "Failed / Stalled", "value": len(challenges), "tone": "danger"},
         ],
+        "operations_dataset": ops,
         "rows": rows,
+        "pipelines": build_onboarding_pipelines(rows[:30]),
+        "post_onboarding_metrics": post_metrics,
+        "onboarding_challenges": challenges,
         "stages": ["Initial Setup", "Framework Mapping", "Owner Assignment", "Registration Complete"],
+        "onboarding_apps": suggestions,
+        "onboarding_frameworks": ALL_FRAMEWORKS,
+        "business_units": [u["unit"] for u in BUSINESS_UNITS],
         "actions": _actions_for(role, onboarding=True),
+    }
+
+
+def _framework_admin_view(role: str) -> dict:
+    from app.framework_onboarding_engine import build_admin_dashboard
+
+    dash = build_admin_dashboard(role)
+    return {
+        **dash,
+        "rows": dash["frameworks"],
+        "purpose": MODULE_PURPOSES["framework_admin"],
+        "role": role,
+        "actions": _actions_for(role, framework_admin=True),
     }
 
 
 def _risk_register_view(role: str) -> dict:
     from app.enterprise_grc import build_risk_register
+    from app.standard_filter_engine import build_standard_dataset
+
     data = build_risk_register(role)
-    return {**data, "actions": _actions_for(role, risk=True)}
+    std = build_standard_dataset("risk_register", role)
+    scoped = std["records"].get("risks", data["rows"])
+    return {**data, "rows": scoped, "standard_dataset": std, "actions": _actions_for(role, risk=True)}
 
 
 def _exceptions_view(role: str) -> dict:
     from app.enterprise_grc import build_exceptions_td
+    from app.standard_filter_engine import build_standard_dataset
+
     data = build_exceptions_td(role)
-    return {**data, "actions": _actions_for(role, exception=True)}
+    std = build_standard_dataset("exceptions_td", role)
+    return {**data, "standard_dataset": std, "actions": _actions_for(role, exception=True)}
 
 
 def _cmdb_view(role: str) -> dict:
     from app.enterprise_grc import build_cmdb_inventory
+    from app.standard_filter_engine import build_standard_dataset
+
     data = build_cmdb_inventory(role)
-    return {**data, "actions": _actions_for(role, cmdb=True)}
+    std = build_standard_dataset("cmdb", role)
+    return {**data, "standard_dataset": std, "actions": _actions_for(role, cmdb=True)}
 
 
 def _regulatory_view(role: str) -> dict:
-    from app.enterprise_grc import build_regulatory_mapping
-    data = build_regulatory_mapping(role)
-    return {**data, "rows": data["mappings"], "actions": _actions_for(role, regulatory=True)}
+    from app.executive_analytics_engine import build_regulatory_traceability
+    from app.standard_filter_engine import build_standard_dataset
+
+    data = build_regulatory_traceability()
+    std = build_standard_dataset("regulatory_mapping", role)
+    rows = std["records"].get("mappings", data["mappings"])
+    return {**data, "rows": rows, "standard_dataset": std, "actions": _actions_for(role, regulatory=True)}
 
 
 def _heatmaps_view(role: str) -> dict:
     from app.enterprise_grc import build_executive_heatmaps
-    return build_executive_heatmaps(role)
+    from app.executive_analytics_engine import build_period_heatmaps
+    from app.standard_filter_engine import build_standard_dataset
+
+    data = build_executive_heatmaps(role)
+    std = build_standard_dataset("executive_heatmaps", role)
+    rec = std["records"]
+    if rec.get("application_heatmap"):
+        data["application_heatmap"] = [{"name": r["application"], "score": r["score"], "risk": r["risk"]} for r in rec["application_heatmap"]]
+    if rec.get("regional_heatmap"):
+        data["regional_heatmap"] = [{"region": r["region"], "score": r["score"], "observations": r.get("observations", 0)} for r in rec["regional_heatmap"]]
+    data["period_heatmaps"] = {
+        "month": build_period_heatmaps("month"),
+        "quarter": build_period_heatmaps("quarter"),
+        "year": build_period_heatmaps("year"),
+    }
+    data["standard_dataset"] = std
+    data["actions"] = _actions_for(role, heatmaps=True)
+    return data
 
 
 def _integrations_hub_view(role: str) -> dict:
-    from app.integrations_module import get_integrations_hub_dashboard
-    dash = get_integrations_hub_dashboard()
-    rows = [{**c, "records_ingested": c.get("records_pulled", c.get("records", 0))} for c in dash["connectors"]]
-    return {**dash, "rows": rows, "grouped": dash["grouped"], "actions": _actions_for(role, hub=True)}
+    from app.integration_hub_executive_engine import build_integration_hub_executive_view
+    view = build_integration_hub_executive_view(role)
+    view["actions"] = _actions_for(role, hub=True)
+    return view
 
 
 def _correlation_view(role: str) -> dict:
     from app.correlation_engine import build_correlation_dashboard
-    return build_correlation_dashboard(role)
+    from app.executive_analytics_engine import build_correlation_graph
+    from app.standard_filter_engine import build_standard_dataset
+
+    data = build_correlation_dashboard(role)
+    graph = build_correlation_graph(role)
+    std = build_standard_dataset("correlation", role)
+    data["chains"] = std["records"].get("chains", data.get("chains", []))
+    data["graph"] = graph
+    data["node_details"] = graph["node_details"]
+    data["standard_dataset"] = std
+    data["actions"] = _actions_for(role, correlation=True)
+    return data
 
 
-def _governance_analytics_view(role: str) -> dict:
-    from app.enterprise_grc import build_governance_analytics_module
-    return build_governance_analytics_module(role)
+def _exception_governance_view(role: str) -> dict:
+    from app.exception_state_engine import build_governance_dashboard
+    from app.standard_filter_engine import build_standard_dataset
+
+    view = build_governance_dashboard(role)
+    view["standard_dataset"] = build_standard_dataset("exception_governance", role)
+    view["actions"] = _actions_for(role, exception=True)
+    return view
+
+
+def _evidence_approval_view(role: str) -> dict:
+    from app.evidence_approval_engine import build_evidence_approval_view
+    from app.standard_filter_engine import build_standard_dataset
+
+    view = build_evidence_approval_view(role)
+    view["standard_dataset"] = build_standard_dataset("evidence_approval", role)
+    view["actions"] = _actions_for(role, evidence_approval=True)
+    return view
+
+
+def _governance_analytics_view(role: str, filters: dict | None = None) -> dict:
+    from app.governance_intelligence import build_governance_intel_view
+
+    view = build_governance_intel_view(role, filters)
+    view["actions"] = _actions_for(role, gov_analytics=True)
+    return view
 
 
 def _actions_for(role: str, **flags) -> list[str]:
     """Return action keys allowed for role on this module type."""
+    from app.role_permissions import filter_actions_for_role, is_auditor, is_executive_readonly
+
+    r = role
     if flags.get("scheduler"):
-        return ["run_now", "pause", "resume", "retry", "change_frequency"] if role in ("owner", "auditor", "cio", "compliance_head") else ["run_now"]
+        base = ["run_now", "pause", "resume", "retry", "change_frequency"] if r in ("owner", "auditor", "cio", "compliance_head") else ["run_now"]
+        return filter_actions_for_role(r, base)
     if flags.get("upload"):
-        return ["upload_batch", "validate", "reprocess", "approve_import", "reject_import"] if role == "owner" else ["validate", "approve_import", "reject_import"]
+        return filter_actions_for_role(r, ["upload_batch", "validate", "reprocess", "approve_import", "reject_import"])
     if flags.get("health"):
-        return ["replace", "extend", "escalate_risk", "request_upload"] if role == "owner" else ["escalate_risk", "request_upload"]
+        if is_auditor(r):
+            return ["escalate_risk", "request_reupload", "assign_owner", "reassign", "approve", "reject"]
+        if is_executive_readonly(r):
+            return ["escalate_risk", "drill_down"]
+        return ["replace", "extend", "escalate_risk", "request_upload"]
     if flags.get("search"):
         return ["open", "map_framework", "reuse", "compare"]
     if flags.get("completeness"):
-        return ["assign_gap", "upload_missing", "request_owner"] if role in ("owner", "compliance_head") else ["assign_gap", "request_owner"]
+        if is_auditor(r):
+            return ["assign_gap", "request_owner", "request_reupload", "reassign", "escalate", "approve", "reject"]
+        return filter_actions_for_role(r, ["assign_gap", "upload_missing", "request_owner"])
     if flags.get("reuse"):
+        if is_auditor(r):
+            return ["approve_reuse", "reject_reuse", "link", "compare"]
         return ["reuse_across", "link", "approve_reuse", "reject_reuse"]
     if flags.get("lifecycle"):
-        return ["renew", "archive", "retire", "extend_retention"] if role == "owner" else ["archive", "extend_retention"]
+        if is_auditor(r):
+            return ["assign_owner", "reassign", "escalate", "view_trail"]
+        return filter_actions_for_role(r, ["renew", "archive", "retire", "extend_retention"])
     if flags.get("comparison"):
         return ["compare", "export_gap", "variance_report"]
     if flags.get("integrations"):
         return ["test_connection", "sync_now", "reconnect", "view_logs"]
     if flags.get("enterprise"):
-        return ["drill_down", "view_gaps", "escalate_risk"] if role in ("cio", "vertical_head", "compliance_head") else ["drill_down"]
+        return ["drill_down", "view_gaps", "escalate_risk"] if r in ("cio", "vertical_head", "compliance_head") else ["drill_down"]
     if flags.get("pan_india"):
         return ["open_region", "escalate_zone", "export_regional"]
     if flags.get("reports"):
         return ["generate", "export_pdf", "export_excel", "schedule"]
     if flags.get("audit_prep"):
-        return ["close_gap", "upload_missing", "assign_owner", "mock_audit"]
+        if is_auditor(r):
+            return ["assign_owner", "reassign", "escalate", "request_reupload", "mock_audit", "approve", "reject"]
+        return filter_actions_for_role(r, ["close_gap", "upload_missing", "assign_owner", "mock_audit", "generate_package"])
     if flags.get("trends"):
         return ["export_chart", "drill_down"]
     if flags.get("onboarding"):
-        return ["start", "assign_framework", "assign_owner", "complete_registration"]
+        return filter_actions_for_role(r, ["start", "assign_framework", "assign_owner", "complete_registration"])
+    if flags.get("framework_admin"):
+        if is_auditor(r):
+            return ["review", "approve", "map", "export_pdf", "export_excel"]
+        if r in ("cio", "compliance_head", "enterprise_admin", "admin"):
+            return ["import", "map", "review", "approve", "activate", "export_pdf", "export_excel", "export_csv"]
+        return ["reuse", "upload_new", "compare"]
     if flags.get("risk"):
-        return ["accept_risk", "escalate_risk", "mitigate_risk", "assign_owner", "request_exception", "link_control"]
+        if is_auditor(r):
+            return ["escalate_risk", "assign_owner", "reassign", "link_control", "link_observation"]
+        return filter_actions_for_role(r, ["accept_risk", "escalate_risk", "mitigate_risk", "assign_owner", "request_exception", "link_control"])
     if flags.get("exception"):
+        if is_auditor(r):
+            return ["approve_exception", "reject_exception", "escalate_expired_td", "close_exception"]
         return ["approve_exception", "reject_exception", "extend_td", "escalate_expired_td", "renew_exception"]
+    if flags.get("evidence_approval"):
+        if is_auditor(r):
+            return ["view_trail", "export_summary", "drill_down", "approve", "reject", "request_reupload", "assign_owner", "escalate"]
+        if r == "owner":
+            return ["view_trail", "resubmit", "drill_down"]
+        return ["view_trail", "export_summary", "drill_down", "escalate_stale"]
     if flags.get("cmdb"):
         return ["open_asset", "view_controls", "view_risks", "view_evidence"]
     if flags.get("regulatory"):
@@ -652,6 +749,8 @@ def _actions_for(role: str, **flags) -> list[str]:
     if flags.get("hub"):
         return ["sync_now", "test_connection", "view_logs", "retry_failed_sync"]
     if flags.get("correlation"):
+        if is_auditor(r):
+            return ["view_chain", "escalate", "assign_owner", "link_control"]
         return ["view_chain", "escalate", "link_control"]
     if flags.get("gov_analytics"):
         return ["export_chart", "drill_down", "view_trends"]
@@ -663,7 +762,7 @@ def module_counter_rows(module: str, role: str) -> int:
     view = get_module_capability(module, role)
     rows = view.get("rows", [])
     if module == "completeness":
-        return len(rows) + len(view.get("incomplete", []))
+        return len(rows) + len(view.get("missing_evidence_rows", [])) + len(view.get("incomplete", []))
     if module == "comparison":
         return len(view.get("variance_rows", [])) + len([r for r in rows if r.get("risk") in ("High", "Critical", "Elevated")])
     if module == "search":
@@ -671,7 +770,11 @@ def module_counter_rows(module: str, role: str) -> int:
     if module == "risk_register":
         return len([r for r in view.get("rows", []) if r.get("status") in ("Open", "Escalated")])
     if module == "exceptions_td":
-        return len(view.get("expired", [])) + len([r for r in view.get("rows", []) if r.get("residual_risk") in ("Critical", "High")])
+        return len([r for r in view.get("rows", []) if r.get("status") in ("Submitted", "Under Review", "Draft")]) + len(view.get("expired", []))
+    if module == "evidence_approval":
+        return len(view.get("pending_rows", [])) + len(view.get("stale_rows", []))
+    if module == "exception_governance":
+        return len(view.get("pending_cab", [])) + len(view.get("expiring_month", []))
     if module == "cmdb":
         return len([r for r in view.get("rows", []) if r.get("risk_rating") in ("Critical", "High") or not r.get("monitoring_enabled")])
     if module == "integrations_hub":

@@ -1,0 +1,75 @@
+<!DOCTYPE html><html><head><title>Mock Audit</title>{% include "partials/mvp_styles.html" %}{% include "partials/workflow_styles.html" %}</head>
+<body class="bg-light ecs-cap-audit"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<div class="ecs-workflow-header"><a href="{{ return_url }}" class="small text-muted">&larr; Back to Audit Prep</a>
+<h1 class="h3 mt-1">{{ workflow_title }}</h1>
+<p class="text-muted small mb-0">{{ audit_scope }}</p></div>
+{% if notice %}<div class="alert alert-success">{{ notice }}</div>{% endif %}
+<div class="row g-3 mb-4">
+<div class="col-md-2"><div class="card shadow-sm text-center p-3"><div class="h2 mb-0 text-primary">{{ audit_readiness_pct }}%</div><small class="text-muted">Readiness</small></div></div>
+<div class="col-md-2"><div class="card shadow-sm text-center p-3"><div class="h4 mb-0">{{ controls_sampled }}</div><small class="text-muted">Controls Sampled</small></div></div>
+<div class="col-md-2"><div class="card shadow-sm text-center p-3"><div class="h4 mb-0 text-success">{{ evidences_available }}</div><small class="text-muted">Evidence OK</small></div></div>
+<div class="col-md-2"><div class="card shadow-sm text-center p-3"><div class="h4 mb-0 text-danger">{{ evidences_missing }}</div><small class="text-muted">Missing</small></div></div>
+<div class="col-md-2"><div class="card shadow-sm text-center p-3"><div class="h4 mb-0 text-warning">{{ failed_controls|default(0) }}</div><small class="text-muted">Failed Controls</small></div></div>
+<div class="col-md-2"><div class="card shadow-sm text-center p-3"><div class="h4 mb-0">{{ open_observations|default(0) }}</div><small class="text-muted">Auditor Requests</small></div></div>
+</div>
+<div class="row g-3">
+<div class="col-lg-8">
+{% if not executed %}
+<div class="card shadow-sm border-0 mb-3"><div class="card-header bg-white"><strong>Configure Audit Scope</strong></div>
+<div class="card-body">
+<form method="post" action="/mvp/workflow/mock-audit/execute">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="return_module" value="{{ request.query_params.get('return_module', 'audit_prep') }}">
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label small">Framework</label>
+<select name="framework" class="form-select form-select-sm">{% for fw in framework_options|default(framework_coverage) %}<option>{{ fw }}</option>{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label small">Auditor</label>
+<select name="auditor" class="form-select form-select-sm">{% for a in auditor_options|default(['Deloitte','EY','KPMG','Internal Audit']) %}<option>{{ a }}</option>{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label small">Audit Cycle</label>
+<select name="audit_cycle" class="form-select form-select-sm">{% for c in cycle_options|default(['Q2 2026']) %}<option>{{ c }}</option>{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label small">Applications (comma-separated)</label>
+<input name="applications" class="form-control form-control-sm" placeholder="UPI, Net Banking, Mobile Banking" value="{{ application_options[:3]|join(', ') if application_options else 'Net Banking, UPI' }}"></div>
+</div>
+<button type="submit" class="btn btn-primary btn-lg">Execute Mock Audit Simulation</button>
+</form></div></div>
+{% endif %}
+<div class="card shadow-sm border-0 mb-3"><div class="card-header bg-white"><strong>Execution Stages</strong></div>
+<div class="card-body pt-2">
+{% for s in stages %}
+<div class="ecs-workflow-stage {% if executed and s.id <= completed_stage %}is-done{% elif not executed and s.id == 1 %}is-active{% endif %}">
+<strong>Stage {{ s.id }}: {{ s.name }}</strong><br><span class="text-muted small">{{ s.desc }}</span></div>
+{% endfor %}
+</div></div>
+{% if executed and result %}
+<div class="card shadow-sm border-0 mb-3 border-success"><div class="card-header bg-success text-white"><strong>Mock Audit Summary Report — {{ result.audit_id }}</strong></div>
+<div class="card-body">
+<div class="row g-2 mb-3 small">
+<div class="col-md-3"><span class="text-muted">Framework</span><br><strong>{{ result.framework|default('—') }}</strong></div>
+<div class="col-md-3"><span class="text-muted">Auditor</span><br><strong>{{ result.auditor|default('—') }}</strong></div>
+<div class="col-md-3"><span class="text-muted">Readiness</span><br><strong>{{ result.readiness_score }}%</strong></div>
+<div class="col-md-3"><span class="text-muted">Cycle</span><br>{{ result.audit_cycle|default('Q2 2026') }}</div>
+</div>
+<p class="small"><strong>Applications:</strong> {{ result.applications|join(', ') if result.applications else '—' }}</p>
+<h6 class="text-uppercase text-muted small">Predicted Audit Findings</h6>
+<ul>{% for o in result.predicted_findings|default(result.observations) %}
+<li><span class="badge {% if o.severity in ('Critical','High') %}bg-danger{% elif o.severity=='Medium' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ o.severity }}</span>
+<strong>{{ o.id }}</strong> — {{ o.application|default('') }} · {{ o.control }}: {{ o.text }}</li>{% endfor %}</ul>
+<h6 class="text-uppercase text-muted small mt-3">Failed Controls</h6>
+<ul>{% for fc in result.failed_controls|default([]) %}<li><code>{{ fc }}</code></li>{% else %}<li>None in sample</li>{% endfor %}</ul>
+<h6 class="text-uppercase text-muted small mt-3">Missing Evidence</h6>
+<ul>{% for m in result.missing_evidences %}<li>{{ m }}</li>{% endfor %}</ul>
+<h6 class="text-uppercase text-muted small mt-3">Stale Evidence</h6>
+<ul>{% for s in result.stale_evidences|default([]) %}<li>{{ s }}</li>{% else %}<li>None flagged</li>{% endfor %}</ul>
+<h6 class="text-uppercase text-muted small mt-3">Remediation Recommendations</h6>
+<ul>{% for r in result.remediation_recommendations %}<li>{{ r }}</li>{% endfor %}</ul>
+<div class="d-flex flex-wrap gap-2 mt-3">
+<a href="/mvp/workflow/mock-audit/report?audit_id={{ result.audit_id }}" class="btn btn-outline-primary" target="_blank">Download Mock Audit Report</a>
+<form method="post" action="/mvp/workflow/mock-audit/action" class="d-inline"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="audit_id" value="{{ result.audit_id }}"><button name="submit_type" value="assign_findings" class="btn btn-warning">Assign Findings</button></form>
+<form method="post" action="/mvp/workflow/mock-audit/action" class="d-inline"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button name="submit_type" value="create_capa" class="btn btn-success">Create CAPA</button></form>
+<form method="post" action="/mvp/workflow/mock-audit/action" class="d-inline"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button name="submit_type" value="escalate_cio" class="btn btn-danger">Escalate to CIO</button></form>
+</div></div></div>
+{% endif %}
+</div>
+<div class="col-lg-4">{% include "partials/workflow_guidance.html" %}</div></div></div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

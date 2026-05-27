@@ -1,0 +1,279 @@
+{# Enterprise Governance Lifecycle — dynamic filter + pagination client #}
+<script>
+(function(){
+  if (window.__ecsLifecycleFilterInit) return;
+  window.__ecsLifecycleFilterInit = true;
+
+  var PAGE_SIZE = 12;
+  function getPageSize() { return window.__ecsTablePageSize || PAGE_SIZE; }
+  var dataset = null;
+  var pages = { controls:1, evidence:1, observations:1, remediation:1, audit:1, exceptions:1, timeline:1 };
+
+  function loadDataset() {
+    var el = document.getElementById('ecsLifecycleDataset');
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch (e) { return null; }
+  }
+
+  function filterVals() {
+    var v = { framework: 'All Frameworks', application: 'All Applications' };
+    document.querySelectorAll('[data-filter-profile="lifecycle"] .ecs-ws-filter').forEach(function(sel) {
+      v[sel.getAttribute('data-filter-key')] = sel.value;
+    });
+    return v;
+  }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function filterRows(rows, v) {
+    return (rows || []).filter(function(r) {
+      if (v.framework && v.framework.indexOf('All ') !== 0 && r.framework !== v.framework) return false;
+      if (v.application && v.application.indexOf('All ') !== 0 && r.application !== v.application) return false;
+      return true;
+    });
+  }
+
+  function badge(stage, ok, warn, bad) {
+    ok = ok || ['Approved','Closed','Completed','Revalidated','Pass'];
+    warn = warn || ['Validation Pending','Pending','In Progress','Assigned','Under Review','Awaiting Validation'];
+    bad = bad || ['Failed','Open','Remediation Open','Delayed','Escalated','Expired','Critical','High'];
+    if (ok.indexOf(stage) >= 0) return 'success';
+    if (warn.indexOf(stage) >= 0) return 'warning text-dark';
+    if (bad.indexOf(stage) >= 0) return 'danger';
+    return 'secondary';
+  }
+
+  function renderBarChart(elId, items, labelKey, valKey, suffix) {
+    if (window.ecsRenderCompactBarChart) {
+      window.ecsRenderCompactBarChart(elId, (items || []).map(function(i) {
+        return { label: i[labelKey], value: i[valKey], tone: i.tone || 'blue', tooltip: i[labelKey] + ': ' + i[valKey] + (suffix || '') };
+      }), { maxHeight: 64, suffix: suffix || '', defaultTone: 'blue' });
+      return;
+    }
+    var el = document.getElementById(elId);
+    if (!el) return;
+    if (!items.length) { el.innerHTML = '<span class="small text-muted">No data for selected scope.</span>'; return; }
+    var max = Math.max.apply(null, items.map(function(i) { return i[valKey]; }).concat([1]));
+    el.innerHTML = items.map(function(i) {
+      var h = Math.round((i[valKey] / max) * 64);
+      return '<div class="ecs-bar-col"><span class="ecs-bar-val">' + i[valKey] + (suffix || '') + '</span>' +
+        '<div class="ecs-bar-fill tone-blue" style="height:' + Math.max(3, h) + 'px"></div><span class="ecs-bar-lbl">' + esc(i[labelKey]) + '</span></div>';
+    }).join('');
+  }
+
+  function renderLineChart(elId, items, valKey, suffix) {
+    if (window.ecsRenderSparkline) {
+      window.ecsRenderSparkline(elId, (items || []).map(function(i) {
+        return { label: i.month || i.day, value: i[valKey] };
+      }), { valKey: 'value', color: '#3b6ea5' });
+      return;
+    }
+    renderBarChart(elId, items, 'month', valKey, suffix);
+  }
+
+  function paginateHtml(tableKey, total, page) {
+    var ps = getPageSize();
+    var pgs = Math.max(1, Math.ceil(total / ps));
+    if (total <= ps) return '';
+    return '<div class="ecs-ops-pager d-flex align-items-center gap-2 mt-1 small" data-lc-pager="' + tableKey + '">' +
+      '<button type="button" class="btn btn-outline-secondary btn-sm py-0 ecs-lc-pg" data-key="' + tableKey + '" data-dir="-1" ' + (page <= 1 ? 'disabled' : '') + '>&lsaquo; Prev</button>' +
+      '<span>Page ' + page + ' of ' + pgs + ' (' + total + ' rows)</span>' +
+      '<button type="button" class="btn btn-outline-secondary btn-sm py-0 ecs-lc-pg" data-key="' + tableKey + '" data-dir="1" ' + (page >= pgs ? 'disabled' : '') + '>Next &rsaquo;</button></div>';
+  }
+
+  function renderTable(tableKey, rows, cols, rowFn) {
+    var tb = document.querySelector('[data-ecs-lc-table="' + tableKey + '"] tbody');
+    if (!tb) return;
+    pages[tableKey] = pages[tableKey] || 1;
+    var page = pages[tableKey];
+    var ps = getPageSize();
+    var pgs = Math.max(1, Math.ceil(rows.length / ps));
+    if (page > pgs) page = pages[tableKey] = pgs;
+    var slice = rows.slice((page - 1) * ps, page * ps);
+    tb.innerHTML = slice.length ? slice.map(rowFn).join('') :
+      '<tr><td colspan="' + cols + '" class="text-muted small text-center py-3">No lifecycle activity found for selected scope.</td></tr>';
+    var wrap = tb.closest('.ecs-lc-table-wrap');
+    if (wrap) {
+      wrap.querySelectorAll('[data-lc-pager="' + tableKey + '"]').forEach(function(el) { el.remove(); });
+      if (rows.length > ps) wrap.insertAdjacentHTML('beforeend', paginateHtml(tableKey, rows.length, page));
+    }
+    if (window.ecsEnhanceExecutiveTables) window.ecsEnhanceExecutiveTables();
+  }
+
+  function renderKpis(data) {
+    var kpis = {
+      'Control Lifecycles': data.controls.length,
+      'Evidence Records': data.evidence.length,
+      'Open Observations': data.observations.filter(function(o) { return o.stage !== 'Closed'; }).length,
+      'Active Remediations': data.remediations.filter(function(r) { return r.current_stage !== 'Completed'; }).length,
+      'Audit Cycles': data.audits.length,
+      'Active Exceptions': data.exceptions.filter(function(e) { return e.current_status === 'Active' || e.current_status === 'Expiring Soon'; }).length
+    };
+    document.querySelectorAll('[data-ecs-ops-kpi]').forEach(function(el) {
+      var key = el.getAttribute('data-ecs-ops-kpi');
+      if (kpis[key] !== undefined) {
+        var valEl = el.querySelector('.ecs-exec-kpi-val') || el;
+        valEl.textContent = kpis[key];
+      }
+    });
+  }
+
+  function renderTimelines(timelines) {
+    var el = document.getElementById('ecsLcTimelineView');
+    if (!el) return;
+    if (!timelines.length) {
+      el.innerHTML = '<p class="small text-muted mb-0">No lifecycle activity found for selected scope.</p>';
+      return;
+    }
+    var page = pages.timeline || 1;
+    var pgs = Math.max(1, Math.ceil(timelines.length / 5));
+    if (page > pgs) page = pages.timeline = pgs;
+    var slice = timelines.slice((page - 1) * 5, page * 5);
+    el.innerHTML = slice.map(function(chain) {
+      var steps = chain.steps.map(function(st, i) {
+        return '<span class="ecs-lc-step"><span class="ecs-lc-step-icon">' + esc(st.icon) + '</span>' +
+          '<span class="ecs-lc-step-lbl">' + esc(st.label) + '</span><span class="ecs-lc-step-meta">' + esc(st.date) + ' · ' + esc(st.owner) + '</span></span>' +
+          (i < chain.steps.length - 1 ? '<span class="ecs-lc-arrow">&rarr;</span>' : '');
+      }).join('');
+      return '<div class="ecs-lc-chain mb-3"><div class="ecs-lc-chain-hdr"><strong>' + esc(chain.control_id) + '</strong> · ' +
+        esc(chain.framework) + ' · ' + esc(chain.application) + '</div><div class="ecs-lc-chain-steps">' + steps + '</div></div>';
+    }).join('');
+  }
+
+  function renderAuditGantt(items) {
+    var el = document.getElementById('ecsLcAuditGantt');
+    if (!el) return;
+    if (!items.length) { el.innerHTML = '<span class="small text-muted">No audit cycles for selected scope.</span>'; return; }
+    el.innerHTML = items.map(function(a) {
+      return '<div class="ecs-lc-gantt-row"><span class="ecs-lc-gantt-lbl">' + esc(a.label) + '</span>' +
+        '<div class="ecs-lc-gantt-bar"><span class="ecs-lc-gantt-seg bg-primary" title="Start">' + esc(a.start) + '</span>' +
+        '<span class="ecs-lc-gantt-seg bg-info" title="Evidence">' + esc(a.evidence_done) + '</span>' +
+        '<span class="ecs-lc-gantt-seg bg-warning" title="Findings">' + esc(a.findings) + '</span>' +
+        '<span class="ecs-lc-gantt-seg bg-success" title="Closure">' + esc(a.closure) + '</span></div>' +
+        '<span class="badge bg-secondary">' + esc(a.stage) + '</span></div>';
+    }).join('');
+  }
+
+  function renderExceptionTimeline(items) {
+    var el = document.getElementById('ecsLcExcTimeline');
+    if (!el) return;
+    if (!items.length) { el.innerHTML = '<span class="small text-muted">No exceptions for selected scope.</span>'; return; }
+    el.innerHTML = items.map(function(e) {
+      var bc = badge(e.status, ['Active'], ['Expiring Soon','Revalidation Required'], ['Expired']);
+      return '<div class="ecs-lc-exc-chip"><code class="small">' + esc(e.exception_id) + '</code> · ' + esc(e.control_id) +
+        ' · ' + esc(e.application) + ' · until ' + esc(e.until) + ' <span class="badge bg-' + bc + '">' + esc(e.status) + '</span></div>';
+    }).join('');
+  }
+
+  function buildCharts(evidence, remediations, audits, exceptions, framework) {
+    var aging = { '0-30 days': 0, '31-60 days': 0, '61-90 days': 0, '>90 days stale': 0 };
+    evidence.forEach(function(e) {
+      var a = e.age_days || 30;
+      if (a <= 30) aging['0-30 days']++;
+      else if (a <= 60) aging['31-60 days']++;
+      else if (a <= 90) aging['61-90 days']++;
+      else aging['>90 days stale']++;
+    });
+    var months = ['Jan','Feb','Mar','Apr','May','Jun'];
+    var remVel = months.map(function(m, i) {
+      return { month: m, avg_days: Math.max(8, 26 - i * 2), closed: Math.max(2, remediations.filter(function(r) { return r.current_stage === 'Completed'; }).length / 6 + i) };
+    });
+    var staleTrend = months.map(function(m, i) {
+      return { month: m, count: Math.max(1, evidence.filter(function(e) { return e.status === 'Stale'; }).length / 6 + i) };
+    });
+    var auditGantt = audits.slice(0, 6).map(function(a) {
+      return { label: a.audit_cycle, start: 'Jan', evidence_done: 'Mar', findings: 'Apr', closure: a.closure_status === 'Closed' ? 'May' : '—', stage: a.stage };
+    });
+    var excTimeline = exceptions.slice(0, 10).map(function(e) {
+      return { exception_id: e.exception_id, control_id: e.control_id, status: e.current_status, until: e.approved_until, application: e.application };
+    });
+    return { aging: aging, remVel: remVel, staleTrend: staleTrend, auditGantt: auditGantt, excTimeline: excTimeline };
+  }
+
+  function applyAll(resetPages) {
+    if (!dataset) return;
+    var v = filterVals();
+    if (resetPages !== false) pages = { controls:1, evidence:1, observations:1, remediation:1, audit:1, exceptions:1, timeline:1 };
+    var data = {
+      controls: filterRows(dataset.controls, v),
+      evidence: filterRows(dataset.evidence, v),
+      observations: filterRows(dataset.observations, v),
+      remediations: filterRows(dataset.remediations, v),
+      audits: filterRows(dataset.audits, v),
+      exceptions: filterRows(dataset.exceptions, v),
+      timelines: (dataset.timelines || []).filter(function(t) {
+        if (v.framework.indexOf('All ') !== 0 && t.framework !== v.framework) return false;
+        if (v.application.indexOf('All ') !== 0 && t.application !== v.application) return false;
+        return true;
+      })
+    };
+    renderKpis(data);
+    renderTable('controls', data.controls, 9, function(r) {
+      return '<tr><td>' + esc(r.framework) + '</td><td><strong>' + esc(r.application) + '</strong></td><td><code class="small">' + esc(r.control_id) + '</code></td>' +
+        '<td class="small">' + esc(r.control_name) + '</td><td><span class="badge bg-' + badge(r.lifecycle_stage) + '">' + esc(r.lifecycle_stage) + '</span></td>' +
+        '<td>' + esc(r.validation) + '</td><td class="small">' + esc(r.last_updated) + '</td><td class="small">' + esc(r.owner) + '</td><td>' + esc(r.risk) + '</td></tr>';
+    });
+    renderTable('evidence', data.evidence, 9, function(r) {
+      return '<tr><td><code class="small">' + esc(r.evidence_id) + '</code></td><td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td>' +
+        '<td><code class="small">' + esc(r.control_id) + '</code></td><td class="small">' + esc(r.evidence_type) + '</td>' +
+        '<td><span class="badge bg-' + badge(r.lifecycle_stage) + '">' + esc(r.lifecycle_stage) + '</span></td>' +
+        '<td class="small">' + esc(r.uploaded_by) + '</td><td>' + r.age_days + '</td><td>' + esc(r.status) + '</td></tr>';
+    });
+    renderTable('observations', data.observations, 9, function(r) {
+      return '<tr><td><code class="small">' + esc(r.observation_id) + '</code></td><td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td>' +
+        '<td class="small">' + esc(r.observation) + '</td><td><span class="badge bg-' + badge(r.severity) + '">' + esc(r.severity) + '</span></td>' +
+        '<td>' + esc(r.stage) + '</td><td>' + r.open_days + 'd</td><td class="small">' + esc(r.owner) + '</td><td>' + esc(r.sla) + '</td></tr>';
+    });
+    renderTable('remediation', data.remediations, 9, function(r) {
+      return '<tr><td><code class="small">' + esc(r.remediation_id) + '</code></td><td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td>' +
+        '<td class="small">' + esc(r.issue) + '</td><td>' + esc(r.team) + '</td><td><span class="badge bg-' + badge(r.current_stage) + '">' + esc(r.current_stage) + '</span></td>' +
+        '<td class="small">' + esc(r.eta) + '</td><td>' + r.progress_pct + '%</td><td>' + esc(r.risk) + '</td></tr>';
+    });
+    renderTable('audit', data.audits, 8, function(r) {
+      return '<tr><td><strong>' + esc(r.audit_cycle) + '</strong></td><td>' + esc(r.framework) + '</td><td class="small">' + esc(r.applications) + '</td>' +
+        '<td>' + esc(r.auditor) + '</td><td><span class="badge bg-' + badge(r.stage) + '">' + esc(r.stage) + '</span></td>' +
+        '<td>' + r.evidence_completion_pct + '%</td><td>' + r.findings + '</td><td>' + esc(r.closure_status) + '</td></tr>';
+    });
+    renderTable('exceptions', data.exceptions, 8, function(r) {
+      return '<tr><td><code class="small">' + esc(r.exception_id) + '</code></td><td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td>' +
+        '<td><code class="small">' + esc(r.control_id) + '</code></td><td>' + esc(r.exception_type) + '</td><td class="small">' + esc(r.approved_until) + '</td>' +
+        '<td><span class="badge bg-' + badge(r.current_status, ['Active'], ['Expiring Soon','Revalidation Required'], ['Expired']) + '">' + esc(r.current_status) + '</span></td>' +
+        '<td class="small">' + esc(r.owner) + '</td></tr>';
+    });
+    renderTimelines(data.timelines);
+    var charts = buildCharts(data.evidence, data.remediations, data.audits, data.exceptions, v.framework);
+    renderBarChart('ecsLcAging', Object.keys(charts.aging).map(function(k) { return { band: k, count: charts.aging[k] }; }), 'band', 'count', '');
+    renderLineChart('ecsLcRemVelocity', charts.remVel, 'avg_days', 'd');
+    renderLineChart('ecsLcStaleTrend', charts.staleTrend, 'count', '');
+    renderAuditGantt(charts.auditGantt);
+    renderExceptionTimeline(charts.excTimeline);
+    var sum = document.getElementById('ecsLifecycleFilterSummary');
+    if (sum) {
+      var total = data.controls.length + data.evidence.length + data.observations.length + data.remediations.length;
+      sum.textContent = total
+        ? 'Showing ' + total + ' lifecycle entities · ' + v.framework + ' · ' + v.application
+        : 'No lifecycle activity found for selected scope.';
+    }
+  }
+
+  window.ecsApplyLifecycleFilters = function() { applyAll(true); };
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.ecs-lc-pg');
+    if (btn) {
+      var key = btn.getAttribute('data-key');
+      var dir = parseInt(btn.getAttribute('data-dir'), 10);
+      pages[key] = Math.max(1, (pages[key] || 1) + dir);
+      applyAll(false);
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    dataset = loadDataset();
+    document.querySelectorAll('[data-filter-profile="lifecycle"] .ecs-ws-filter').forEach(function(sel) {
+      sel.addEventListener('change', function() { applyAll(true); });
+    });
+    if (dataset) applyAll(true);
+  });
+})();
+</script>

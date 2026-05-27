@@ -1,0 +1,43 @@
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap">
+<table class="table table-sm table-hover table-bordered bg-white ecs-paginated-table ecs-reuse-table mb-0" data-ecs-std-table="{{ reuse_table_id|default('reuse-main') }}" data-ecs-cols="13">
+<thead><tr>
+<th>Reuse ID</th><th>Source Framework</th><th>Target Framework</th><th>Application</th>
+<th>Control ID</th><th>Control Name</th><th>Reused Evidence</th><th>Reuse Type</th>
+<th>Reuse Status</th><th>Approved By</th><th>Last Reviewed</th><th>Audit Savings</th><th>Actions</th>
+</tr></thead><tbody>
+{% for g in rows %}
+<tr data-ecs-filter-row data-ecs-page-group="{{ g.reuse_id|default(g.group_id) }}"
+  data-filter-framework="{{ g.source_framework|default(g.framework_mapping) }}"
+  data-filter-application="{{ g.application|default('') }}"
+  data-filter-status="{{ g.reuse_status|default(g.status) }}"
+  data-filter-risk="{{ g.risk|default('Low') }}"
+  data-filter-owner="{{ g.owner|default('') }}">
+<td><code class="small">{{ g.reuse_id|default(g.group_id) }}</code></td>
+<td>{{ g.source_framework|default('—') }}</td>
+<td>{{ g.target_framework|default('—') }}</td>
+<td class="small">{{ g.application|default('—') }}</td>
+<td class="small"><code>{{ g.control_id|default('—') }}</code></td>
+<td class="small">{{ g.control_name|default(g.reused_control)|truncate(35, True) }}</td>
+<td class="small">{{ g.reused_evidence_file|default(g.filename)|truncate(42, True) }}</td>
+<td class="small">{{ g.reuse_type|default('Cross-framework') }}</td>
+<td><span class="badge {% if (g.reuse_status|default(g.status))=='Approved' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ g.reuse_status|default(g.status) }}</span></td>
+<td class="small">{{ g.approved_by|default('—') }}</td>
+<td class="small">{{ g.last_reviewed|default(g.last_refresh)|default('—') }}</td>
+<td>{% if g.audit_savings %}{{ g.audit_savings }}{% elif g.audit_savings_hrs is defined %}{{ g.audit_savings_hrs }} hrs{% else %}—{% endif %}</td>
+<td class="text-nowrap">
+<button type="button" class="btn btn-link btn-sm ecs-ws-detail-toggle p-0 me-1" data-ecs-detail-toggle="reuse-detail-{{ g.reuse_id|default(g.group_id) }}">View Mapping</button>
+<a href="/mvp/search?role={{ role }}&user={{ user|urlencode }}&framework={{ g.source_framework|urlencode }}" class="btn btn-sm btn-link p-0 me-1">Evidence</a>
+{% if role != 'owner' %}{{ module_action('reuse','approve_reuse',role,user,'Approve','btn-sm btn-outline-success py-0',g.group_id) }}{% endif %}
+{{ module_action('reuse','link',role,user,'Trail','btn-sm btn-outline-secondary py-0',g.group_id) }}
+</td></tr>
+<tr id="reuse-detail-{{ g.reuse_id|default(g.group_id) }}" class="ecs-ws-detail-row d-none" data-ecs-page-group="{{ g.reuse_id|default(g.group_id) }}">
+<td colspan="13" class="small bg-light">
+<strong>{{ g.controls_linked }} linked controls</strong> · confidence {{ g.mapping_confidence|default(88) }}% · owner {{ g.owner|default('—') }} · reviewer {{ g.reviewer|default(g.approved_by)|default('—') }}
+{% if g.linked_controls %}<ul class="mb-0 mt-1 ps-3">{% for l in g.linked_controls %}
+<li>{{ l.framework }} → {{ l.control }}{% if l.control_id %} ({{ l.control_id }}){% endif %}</li>{% endfor %}</ul>{% endif %}
+</td></tr>
+{% else %}
+<tr><td colspan="13" class="text-muted small">No reuse mappings in this view.</td></tr>
+{% endfor %}
+</tbody></table></div>

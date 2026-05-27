@@ -120,8 +120,8 @@ def _workflow_label(key: str) -> tuple[str, str]:
         return "approved", "Observation Closed — Auditor Approved"
     if key in ecs_state.rejected_controls:
         if ecs_state.rejected_controls[key].get("internal"):
-            return "rejected", "Rejected Internally — Owner Review"
-        return "rejected", "Rejected By Auditor"
+            return "rejected", "Rejected Internally — App Owner Review"
+        return "rejected", "Rejected by Auditor"
     if key in ecs_state.submitted_controls:
         return "submitted", "Pending Auditor Review"
     if key in ecs_state.clarification_controls:
@@ -130,7 +130,7 @@ def _workflow_label(key: str) -> tuple[str, str]:
         return "cancelled", "Draft Cancelled"
     if key in ecs_state.owner_drafts:
         return "draft", "Draft Saved"
-    return "pending", "Draft — Pending Owner Review"
+    return "pending", "Draft — Pending App Owner Review"
 
 
 def _action_type(key: str, evidence_status: str) -> str:
@@ -386,6 +386,62 @@ def build_auditor_review_queue(limit: int = 80) -> list[dict]:
         )
     )
     return [_enrich_queue_item(i) for i in items[:limit]]
+
+
+def build_closed_observations_queue(limit: int = 50) -> list[dict]:
+    """Historical closed observations — retained for auditor review."""
+    items: list[dict] = []
+    seen: set[str] = set()
+
+    for obs_id, meta in ecs_state.closed_observations.items():
+        fw = meta.get("framework", "")
+        control = meta.get("control", "")
+        key = meta.get("control_key") or (ecs_state.control_key(fw, control) if fw and control else "")
+        ctrl = _catalog_ctrl(fw, control) if fw and control else None
+        ev = ctrl["evidences"][0] if ctrl else {}
+        items.append({
+            "observation_id": obs_id,
+            "framework": fw or meta.get("framework", "Enterprise-wide"),
+            "application": meta.get("application") or ev.get("application_name", "Net Banking"),
+            "control": control or meta.get("control_id", "—"),
+            "control_id": meta.get("control_id") or (ctrl.get("control_id") if ctrl else "—"),
+            "evidence_id": meta.get("evidence_id") or ev.get("evidence_id", ""),
+            "closed_at": meta.get("closed_at", "—"),
+            "closed_by": meta.get("closed_by", "Auditor"),
+            "detail": meta.get("detail", "Observation closed"),
+            "audit_cycle": meta.get("audit_cycle", "Q2 2026"),
+            "auto_closed": meta.get("auto_closed", False),
+        })
+        seen.add(obs_id)
+
+    for key in ecs_state.approved_controls:
+        framework, control = key.split("::", 1)
+        ctrl = _catalog_ctrl(framework, control)
+        if not ctrl:
+            continue
+        from app.evidence_workflow_engine import observation_id_for
+        obs_id = observation_id_for(framework, control, ctrl.get("control_id", ""))
+        if obs_id in seen:
+            continue
+        appr = ecs_state.approved_controls[key]
+        ev = ctrl["evidences"][0]
+        items.append({
+            "observation_id": obs_id,
+            "framework": framework,
+            "application": ev.get("application_name", "Net Banking"),
+            "control": control,
+            "control_id": ctrl.get("control_id", ""),
+            "evidence_id": ev.get("evidence_id", ""),
+            "closed_at": appr.get("approved_at", "—") if isinstance(appr, dict) else "—",
+            "closed_by": appr.get("approved_by", "Auditor") if isinstance(appr, dict) else "Auditor",
+            "detail": "Auditor approved — observation closed",
+            "audit_cycle": "Q2 2026",
+            "auto_closed": True,
+        })
+        seen.add(obs_id)
+
+    items.sort(key=lambda x: x.get("closed_at", ""), reverse=True)
+    return items[:limit]
 
 
 def work_queue_summary() -> dict:

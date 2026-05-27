@@ -18,14 +18,25 @@ from app.evidence_repository import refresh_repository_from_frameworks
 from app.framework_catalog import (
     catalog_stats,
     get_framework_controls,
+    resolve_framework_name,
 )
 from app.framework_dashboards import build_framework_dashboard
 from app.enterprise_context import enterprise_widgets_context
 from app.audit_trail import log_event, record_approval, record_rejection
-from app.evidence_review import build_evidence_review, review_url
+from app.evidence_review import build_evidence_review, review_url, review_url_for_ev
 from app.routes_mvp import register_mvp_routes
+from app.evidence_routes import register_evidence_routes
+from app.role_permissions import permission_ctx
+from app.evidence_workflow_engine import (
+    build_workflow_context,
+    close_observations_for_control,
+    observation_id_for,
+    record_transition,
+    toast_payload,
+)
 from app.workflow_module import (
     build_auditor_review_queue,
+    build_closed_observations_queue,
     build_owner_work_queue,
     work_queue_summary,
 )
@@ -36,6 +47,8 @@ def _workflow_redirect(
     framework_name: str = "",
     return_to: str = "framework",
     notice: str = "",
+    toast: str = "",
+    obs_id: str = "",
 ):
     if return_to == "dashboard":
         url = f"/dashboard?role={role}&user={user}"
@@ -43,14 +56,43 @@ def _workflow_redirect(
         url = f"/framework/{framework_name}?role={role}&user={user}"
     else:
         url = f"/framework/{framework_name}?role={role}&user={user}"
+    if toast:
+        url += f"&toast={quote(toast)}"
+    if obs_id:
+        url += f"&obs_id={quote(obs_id)}"
     if notice:
         url += f"&notice={quote(notice)}"
     return RedirectResponse(url=url, status_code=303)
 
+
+def _redirect_with_toast(
+    role: str,
+    user: str,
+    dest_url: str,
+    action: str,
+    *,
+    framework: str,
+    control: str,
+    detail: str = "",
+) -> RedirectResponse:
+    tp = toast_payload(action, framework=framework, control=control, detail=detail)
+    record_transition(ecs_state.control_key(framework, control), action, user, role, tp["body"])
+    sep = "&" if "?" in dest_url else "?"
+    url = (
+        f"{dest_url}{sep}toast={quote(action)}&obs_id={quote(tp['observation_id'])}"
+        f"&notice={quote(tp['body'])}"
+    )
+    return RedirectResponse(url=url, status_code=303)
+
 @asynccontextmanager
 async def ecs_lifespan(application: FastAPI):
+    from app.ecs_logging import configure_logging, log_platform_ready, mark_startup_complete
+
+    configure_logging()
     refresh_repository_from_frameworks(source="startup")
     seed_demo_workflow_state()
+    mark_startup_complete()
+    log_platform_ready(host="127.0.0.1", port=8000)
     yield
 
 
@@ -58,6 +100,7 @@ app = FastAPI(title="ECS Consolidated Demo V13", lifespan=ecs_lifespan)
 
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["review_url"] = review_url
+templates.env.globals["review_url_for_ev"] = review_url_for_ev
 
 # Re-export shared state for backward compatibility with existing code paths
 PCI_DSS_MOCK_EVIDENCES = ecs_state.PCI_DSS_MOCK_EVIDENCES
@@ -130,28 +173,35 @@ def login_page(request: Request):
 
 @app.post("/login")
 def login(role: str = Form(...)):
+    from app.ecs_logging import log_login
+
     if role == "cio":
+        log_login("cio", "CIO", "CIO dashboard")
         return RedirectResponse(
             url="/dashboard/cio?role=cio&user=CIO",
             status_code=303,
         )
     if role == "vertical_head":
+        log_login("vertical_head", "VerticalHead", "Vertical Head dashboard")
         return RedirectResponse(
             url="/dashboard/vertical-head?role=vertical_head&user=VerticalHead",
             status_code=303,
         )
     if role == "compliance_head" or role == "compliance_officer":
+        log_login("compliance_head", "ComplianceOfficer", "Compliance Head dashboard")
         return RedirectResponse(
             url="/dashboard/compliance-head?role=compliance_head&user=ComplianceOfficer",
             status_code=303,
         )
     if role == "functional_head":
+        log_login("functional_head", "FunctionalHead", "Functional Head dashboard")
         return RedirectResponse(
             url="/dashboard/functional-head?role=functional_head&user=FunctionalHead",
             status_code=303,
         )
 
     user = "AppOwner" if role == "owner" else "Auditor"
+    log_login(role, user, "role dashboard")
 
     return RedirectResponse(
         url=f"/dashboard?role={role}&user={user}",
@@ -182,9 +232,12 @@ def dashboard(
         "rejected_controls": rejected_controls,
         "owner_work_queue": build_owner_work_queue() if role == "owner" else [],
         "auditor_review_queue": build_auditor_review_queue() if role == "auditor" else [],
+        "closed_observations_queue": build_closed_observations_queue() if role == "auditor" else [],
         "work_queue_summary": work_queue_summary(),
     }
     ctx.update(enterprise_widgets_context(role, user=user))
+    ctx.update(permission_ctx(role))
+    ctx["evidence_workflow"] = build_workflow_context(role)
     ctx["nav_active"] = "main_dashboard"
     return templates.TemplateResponse(request=request, name="dashboard.html", context=ctx)
 
@@ -221,6 +274,9 @@ def chat(
     framework_name: str = Form(""),
 ):
     response = chatbot_answer(query, role=role, user=user, framework_hint=framework_name)
+    from app.ecs_logging import log_chatbot
+
+    log_chatbot(user, role, query, framework_name)
     encoded = quote(response)
 
     if role == "cio":
@@ -280,8 +336,14 @@ def framework_page(
     user: str = "User",
     response: str = "",
     notice: str = "",
+    itpp_view: str = "",
+    itpp_domain: str = "",
+    itpp_app: str = "",
+    fw_app: str = "",
+    fw_tab: str = "applications",
 ):
     catalog_controls = get_framework_controls(framework_name)
+    resolved_fw = resolve_framework_name(framework_name)
     fw_evidence_count = sum(len(c["evidences"]) for c in catalog_controls)
 
     ctx = {
@@ -292,7 +354,7 @@ def framework_page(
         "framework_evidence_count": fw_evidence_count,
         "framework_control_count": len(catalog_controls),
         "catalog_stats": catalog_stats(),
-        "fw_dashboard": build_framework_dashboard(framework_name, catalog_controls),
+        "fw_dashboard": build_framework_dashboard(resolved_fw, catalog_controls),
         "role": role,
         "user": user,
         "response": response,
@@ -300,8 +362,34 @@ def framework_page(
         "submitted_controls": submitted_controls,
         "approved_controls": approved_controls,
         "rejected_controls": rejected_controls,
+        "itpp_view": itpp_view,
+        "itpp_domain": itpp_domain,
+        "itpp_app": itpp_app,
+        "fw_app": fw_app,
+        "fw_tab": fw_tab,
     }
-    ctx.update(enterprise_widgets_context(role, framework=framework_name, user=user))
+    from app.application_governance import build_application_grid, build_application_view
+
+    ctx["application_grid"] = build_application_grid(framework_name, catalog_controls)
+    ctx["application_view"] = build_application_view(framework_name, fw_app, catalog_controls) if fw_app else None
+    if framework_name == "ITPP":
+        from app.itpp_module import (
+            build_itpp_app_view,
+            build_itpp_domain_view,
+            build_itpp_landing_cards,
+        )
+
+        ctx["itpp_landing_cards"] = build_itpp_landing_cards()
+        ctx["itpp_domain_view"] = build_itpp_domain_view(itpp_domain) if itpp_domain else None
+        ctx["itpp_app_view"] = (
+            build_itpp_app_view(itpp_domain, itpp_app, catalog_controls)
+            if itpp_domain and itpp_app
+            else None
+        )
+    ctx.update(enterprise_widgets_context(role, framework=resolved_fw, user=user))
+    from app.ecs_logging import log_navigation
+
+    log_navigation(user, role, f"{framework_name} framework dashboard")
     return templates.TemplateResponse(
         request=request,
         name="framework.html",
@@ -313,18 +401,16 @@ def framework_page(
 def evidence_review_page(
     request: Request,
     framework_name: str,
-    control_name: str,
     evidence_id: str,
     role: str = "owner",
     user: str = "User",
     notice: str = "",
+    control_name: str = "",
 ):
     review = build_evidence_review(framework_name, control_name, evidence_id, role, user)
     if not review:
-        return RedirectResponse(
-            url=f"/framework/{framework_name}?role={role}&user={user}&notice={quote('Evidence not found.')}",
-            status_code=303,
-        )
+        fw = resolve_framework_name(framework_name)
+        review = build_evidence_review(fw, control_name, evidence_id or "EV-SYNTH", role, user)
     ctx = {
         "framework_name": framework_name,
         "frameworks": frameworks.keys(),
@@ -336,15 +422,62 @@ def evidence_review_page(
         "approved_controls": approved_controls,
         "rejected_controls": rejected_controls,
     }
-    ctx.update(enterprise_widgets_context(role, framework=framework_name, user=user))
+    ctx.update(enterprise_widgets_context(role, framework=resolve_framework_name(framework_name), user=user))
     return templates.TemplateResponse(request, "evidence_review.html", ctx)
 
 
-def _review_redirect(framework_name: str, role: str, user: str, notice: str, control_name: str = "", evidence_id: str = ""):
+@app.post("/evidence/review/close-observation")
+def evidence_review_close_observation(
+    framework_name: str = Form(...),
+    control_name: str = Form(...),
+    evidence_id: str = Form(...),
+    role: str = Form(...),
+    user: str = Form(...),
+    observation_id: str = Form(""),
+):
+    from app.role_permissions import guard_auditor_governance
+
+    deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
+    key = control_key(framework_name, control_name)
+    if key not in approved_controls:
+        return _review_redirect(
+            framework_name, role, user,
+            "Approve evidence before closing the observation.",
+            control_name, evidence_id,
+        )
+    closed = close_observations_for_control(
+        framework_name, control_name, "", user, role, auto=False,
+    )
+    if observation_id and observation_id not in ecs_state.closed_observations:
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        ecs_state.closed_observations[observation_id] = {
+            "observation_id": observation_id,
+            "closed_by": user,
+            "closed_at": ts,
+            "detail": "Manually closed by auditor",
+        }
+        closed.append(observation_id)
+    obs = observation_id or (closed[0] if closed else "")
+    body = f"Observation {obs} closed successfully." if obs else "Observation closed."
+    tp = toast_payload("approved", framework=framework_name, control=control_name, observation_id=obs, detail=body)
+    return _review_redirect(
+        framework_name, role, user, body, control_name, evidence_id,
+        toast="approved", obs_id=obs or tp["observation_id"],
+    )
+
+
+def _review_redirect(framework_name: str, role: str, user: str, notice: str, control_name: str = "", evidence_id: str = "", toast: str = "", obs_id: str = ""):
     if control_name and evidence_id:
         url = review_url(framework_name, control_name, evidence_id, role, user)
     else:
         url = f"/framework/{framework_name}?role={role}&user={user}"
+    if toast:
+        url += f"&toast={quote(toast)}"
+    if obs_id:
+        url += f"&obs_id={quote(obs_id)}"
     if notice:
         url += f"&notice={quote(notice)}"
     return RedirectResponse(url=url, status_code=303)
@@ -358,11 +491,24 @@ def evidence_review_submit(
     role: str = Form(...),
     user: str = Form(...),
 ):
+    from app.role_permissions import guard_submit_to_auditor
+
+    deny = guard_submit_to_auditor(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
     key = control_key(framework_name, control_name)
     if key in approved_controls:
         return _review_redirect(framework_name, role, user, "Cannot resubmit: observation is closed.", control_name, evidence_id)
     was_rejected = key in rejected_controls
     if was_rejected:
+        from app.resubmission import can_resubmit_to_auditor
+
+        if not can_resubmit_to_auditor(key):
+            return _review_redirect(
+                framework_name, role, user,
+                "Complete resubmission steps before submitting to Auditor.",
+                control_name, evidence_id,
+            )
         del rejected_controls[key]
     if key in ecs_state.clarification_controls:
         del ecs_state.clarification_controls[key]
@@ -386,8 +532,10 @@ def evidence_review_submit(
         evidence_id,
         role=role or "App Owner",
     )
-    notice = "Evidence resubmitted for auditor review." if was_rejected else "Submitted To Auditor — Pending Auditor Review."
-    return _review_redirect(framework_name, role, user, notice, control_name, evidence_id)
+    notice = "Resubmitted to Auditor for review." if was_rejected else "Submitted To Auditor — Pending Auditor Review."
+    tp = toast_payload("submitted", framework=framework_name, control=control_name)
+    record_transition(key, "submitted", user, role, tp["body"])
+    return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="submitted", obs_id=tp["observation_id"])
 
 
 @app.post("/evidence/review/approve")
@@ -398,14 +546,19 @@ def evidence_review_approve(
     role: str = Form(...),
     user: str = Form(...),
 ):
-    approve(
+    from app.role_permissions import guard_auditor_governance
+
+    deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
+    return approve(
         control_name=control_name,
         framework_name=framework_name,
         role=role,
         user=user,
         return_to="review",
+        evidence_id=evidence_id,
     )
-    return _review_redirect(framework_name, role, user, f"Approved — Observation Closed — Auditor Approved.", control_name, evidence_id)
 
 
 @app.post("/evidence/review/reject")
@@ -417,15 +570,20 @@ def evidence_review_reject(
     user: str = Form(...),
     reject_reason: str = Form(...),
 ):
-    reject(
+    from app.role_permissions import guard_auditor_governance
+
+    deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
+    return reject(
         control_name=control_name,
         framework_name=framework_name,
         role=role,
         user=user,
         reject_reason=reject_reason,
         return_to="review",
+        evidence_id=evidence_id,
     )
-    return _review_redirect(framework_name, role, user, f"Rejected By Auditor: {reject_reason.strip()[:80]}", control_name, evidence_id)
 
 
 @app.post("/evidence/review/clarify")
@@ -437,6 +595,11 @@ def evidence_review_clarify(
     user: str = Form(...),
     message: str = Form(...),
 ):
+    from app.role_permissions import guard_auditor_governance
+
+    deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
     workflow_clarify(
         control_name=control_name,
         framework_name=framework_name,
@@ -445,6 +608,48 @@ def evidence_review_clarify(
         message=message,
     )
     return _review_redirect(framework_name, role, user, "Clarification requested from App Owner.", control_name, evidence_id)
+
+
+@app.post("/evidence/review/request-reupload")
+def evidence_review_request_reupload(
+    framework_name: str = Form(...),
+    control_name: str = Form(...),
+    evidence_id: str = Form(...),
+    role: str = Form(...),
+    user: str = Form(...),
+    message: str = Form(""),
+):
+    from datetime import datetime, timezone
+
+    from app.role_permissions import can_request_reupload, deny_redirect
+
+    if not can_request_reupload(role):
+        return deny_redirect(role, user, f"/framework/{framework_name}")
+    key = control_key(framework_name, control_name)
+    if key in submitted_controls:
+        del submitted_controls[key]
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    ecs_state.clarification_controls[key] = {
+        "message": message or "Auditor has requested re-upload. App Owner to coordinate revised evidence.",
+        "requested_by": user,
+        "type": "reupload_requested",
+        "requested_at": ts,
+    }
+    log_event(
+        "Re-upload Requested by Auditor",
+        user,
+        framework_name,
+        control_name,
+        message or "Evidence returned to App Owner queue for re-upload",
+        evidence_id,
+        role=role or "Auditor",
+    )
+    tp = toast_payload("reupload", framework=framework_name, control=control_name, detail=message)
+    record_transition(key, "reupload", user, role, tp["body"])
+    return _review_redirect(
+        framework_name, role, user, tp["body"],
+        control_name, evidence_id, toast="reupload", obs_id=tp["observation_id"],
+    )
 
 
 @app.post("/evidence/review/reject-internal")
@@ -465,6 +670,7 @@ def evidence_review_reject_internal(
         "rejected_by": user,
         "rejected_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
         "internal": True,
+        "resubmission_stage": "owner_review",
     }
     if key in submitted_controls:
         del submitted_controls[key]
@@ -508,6 +714,59 @@ def evidence_review_cancel(
     )
 
 
+@app.post("/evidence/review/request-resubmission")
+def evidence_review_request_resubmission(
+    framework_name: str = Form(...),
+    control_name: str = Form(...),
+    evidence_id: str = Form(...),
+    role: str = Form(...),
+    user: str = Form(...),
+):
+    from app.resubmission import advance_stage
+
+    key = control_key(framework_name, control_name)
+    advance_stage(key, "team_resubmission")
+    log_event("Team Resubmission Requested", user, framework_name, control_name, "Assigned to team for revised upload", evidence_id, role=role or "App Owner")
+    return _review_redirect(framework_name, role, user, "Team resubmission requested.", control_name, evidence_id)
+
+
+@app.post("/evidence/review/upload-revised")
+def evidence_review_upload_revised(
+    framework_name: str = Form(...),
+    control_name: str = Form(...),
+    evidence_id: str = Form(...),
+    role: str = Form(...),
+    user: str = Form(...),
+):
+    from app.role_permissions import guard_upload
+
+    deny = guard_upload(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
+    from app.resubmission import advance_stage
+
+    key = control_key(framework_name, control_name)
+    advance_stage(key, "reevaluate")
+    log_event("Revised Evidence Uploaded", user, framework_name, control_name, "Revised artefact recorded", evidence_id, role=role or "App Owner")
+    return _review_redirect(framework_name, role, user, "Revised evidence uploaded.", control_name, evidence_id)
+
+
+@app.post("/evidence/review/reevaluate")
+def evidence_review_reevaluate(
+    framework_name: str = Form(...),
+    control_name: str = Form(...),
+    evidence_id: str = Form(...),
+    role: str = Form(...),
+    user: str = Form(...),
+):
+    from app.resubmission import advance_stage
+
+    key = control_key(framework_name, control_name)
+    advance_stage(key, "ready_resubmit")
+    log_event("Evidence Re-evaluated", user, framework_name, control_name, "Ready for auditor resubmission", evidence_id, role=role or "App Owner")
+    return _review_redirect(framework_name, role, user, "Re-evaluation complete — ready to resubmit to Auditor.", control_name, evidence_id)
+
+
 @app.post("/submit")
 def submit(
     control_name: str = Form(...),
@@ -516,6 +775,11 @@ def submit(
     user: str = Form(...),
     return_to: str = Form("framework"),
 ):
+    from app.role_permissions import guard_submit_to_auditor
+
+    deny = guard_submit_to_auditor(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
     key = control_key(framework_name, control_name)
     if key in approved_controls:
         notice = "Cannot resubmit: observation is closed and auditor approved."
@@ -523,6 +787,13 @@ def submit(
 
     was_rejected = key in rejected_controls
     if was_rejected:
+        from app.resubmission import can_resubmit_to_auditor
+
+        if not can_resubmit_to_auditor(key):
+            return _workflow_redirect(
+                role, user, framework_name, return_to,
+                "Complete resubmission steps before submitting to Auditor.",
+            )
         del rejected_controls[key]
     if key in ecs_state.clarification_controls:
         del ecs_state.clarification_controls[key]
@@ -547,7 +818,9 @@ def submit(
     )
 
     notice = f"Evidence resubmitted for {control_name}." if was_rejected else f"Submitted {control_name} to auditor review."
-    return _workflow_redirect(role, user, framework_name, return_to, notice)
+    tp = toast_payload("submitted", framework=framework_name, control=control_name)
+    record_transition(key, "submitted", user, role, tp["body"])
+    return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="submitted", obs_id=tp["observation_id"])
 
 
 @app.post("/approve")
@@ -557,7 +830,13 @@ def approve(
     role: str = Form(...),
     user: str = Form(...),
     return_to: str = Form("framework"),
+    evidence_id: str = Form(""),
 ):
+    from app.role_permissions import guard_auditor_governance
+
+    deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
     key = control_key(framework_name, control_name)
     from datetime import datetime, timezone
 
@@ -579,7 +858,15 @@ def approve(
         del ecs_state.submitted_meta[key]
     record_approval(framework_name, control_name, user, "Observation Closed - Auditor Approved")
 
-    return _workflow_redirect(role, user, framework_name, return_to, f"Approved {control_name} — observation closed.")
+    closed = close_observations_for_control(framework_name, control_name, "", user, role, auto=True)
+    tp = toast_payload("approved", framework=framework_name, control=control_name)
+    if closed:
+        tp["body"] = f"Observation {closed[0]} closed successfully."
+        tp["observation_id"] = closed[0]
+    record_transition(key, "approved", user, role, tp["body"])
+    if return_to == "review" and evidence_id:
+        return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="approved", obs_id=tp["observation_id"])
+    return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="approved", obs_id=tp["observation_id"])
 
 
 @app.post("/reject")
@@ -590,21 +877,22 @@ def reject(
     user: str = Form(...),
     reject_reason: str = Form(...),
     return_to: str = Form("framework"),
+    evidence_id: str = Form(""),
 ):
+    from app.role_permissions import guard_auditor_governance
+
+    deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
+    if deny:
+        return deny
     reason = reject_reason.strip()
     key = control_key(framework_name, control_name)
 
     if not reason:
         return _workflow_redirect(role, user, framework_name, return_to, "Reject reason is required.")
 
-    from datetime import datetime, timezone
+    from app.resubmission import init_rejection
 
-    rejected_controls[key] = {
-        "reason": reason,
-        "rejected_by": user,
-        "rejected_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "internal": False,
-    }
+    init_rejection(key, reason, user, internal=False)
     if key in approved_controls:
         del approved_controls[key]
     if key in submitted_controls:
@@ -617,7 +905,11 @@ def reject(
         del ecs_state.submitted_meta[key]
     record_rejection(framework_name, control_name, user, reason)
 
-    return _workflow_redirect(role, user, framework_name, return_to, f"Rejected {control_name}: {reason}")
+    tp = toast_payload("rejected", framework=framework_name, control=control_name, detail=reason[:120])
+    record_transition(key, "rejected", user, role, reason)
+    if return_to == "review" and evidence_id:
+        return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="rejected", obs_id=tp["observation_id"])
+    return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="rejected", obs_id=tp["observation_id"])
 
 
 @app.post("/workflow/cancel")
@@ -788,6 +1080,14 @@ def workflow_leadership_review(
 
 
 register_mvp_routes(app, templates)
+register_evidence_routes(app, templates)
+
+
+@app.get("/api/evidence-workflow/summary")
+def api_evidence_workflow_summary(role: str = "owner", user: str = "User"):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(build_workflow_context(role)["summary"])
 
 # Idempotent demo bootstrap for reload / TestClient when lifespan already ran
 seed_demo_workflow_state()

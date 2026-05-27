@@ -1,3 +1,221 @@
+{# ──────────────────────────────────────────────────────────────────
+   ECS shared UX macros — normalized `item` context.
+   Both governance/evidence action menus accept either a `row` or `ev`
+   object and internally normalize to `item` so every downstream
+   reference is safe from UndefinedError.
+   ────────────────────────────────────────────────────────────────── #}
+
+{# Safe attribute getter — returns default for None/Undefined #}
+{% macro safe_get(item, attr, default='') -%}
+{%- if item is mapping and attr in item and item[attr] is not none -%}{{ item[attr] }}
+{%- elif item is not none and item is not string and item|attr(attr) is defined and item|attr(attr) is not none -%}{{ item|attr(attr) }}
+{%- else -%}{{ default }}
+{%- endif -%}
+{% endmacro %}
+
+{# Normalize either `row` or `ev` into a single `item` dict-like object #}
+{% macro _normalize_item(row=none, ev=none) -%}
+{%- set candidate = row if row is defined and row else (ev if ev is defined and ev else {}) -%}
+{{ candidate }}
+{% endmacro %}
+
+
+{% macro governance_action_menu(menu_id, framework_name, role, user, row, fq='') %}
+{# Normalize row → item; safe defaults everywhere #}
+{% set item = row if row is defined and row else {} %}
+{% set control_id = item.control_id|default(item.control|default('')) %}
+{% set control_name = item.control_name|default(item.control|default('')) %}
+{% set application = item.application|default('Net Banking') %}
+{% set observation_id = item.observation_id|default(item.finding_id|default('')) %}
+{% set rev_eid = item.evidence_id|default(item.primary_evidence_id|default('')) %}
+{% set val = item.validation|default('') %}
+{% set wf = item.workflow_status|default('Pending') %}
+{% set risk = item.risk|default('') %}
+{% set sla_days = item.sla_aging_days|default(0)|int %}
+{% set sla = item.sla|default('Breached' if sla_days > 20 else '') %}
+{% set obs_count = item.finding_count|default(1 if item.finding_id is defined and item.finding_id and item.finding_id != '—' else 0) %}
+{% set q = fq or ('?role=' ~ role ~ '&user=' ~ user) %}
+{% set owner = item.owner|default(user) %}
+{% set is_critical = sla == 'Breached' or risk in ['Critical', 'High'] %}
+<div class="ecs-action-dropdown" data-ecs-action-root>
+<button type="button" class="btn btn-sm btn-outline-secondary ecs-action-toggle py-0 px-2" aria-expanded="false" aria-haspopup="true" aria-label="Governance actions">Actions<span class="ecs-action-caret" aria-hidden="true">▾</span></button>
+<ul class="ecs-action-menu-source" hidden aria-hidden="true">
+{% if role == 'auditor' %}
+<li role="none"><a class="ecs-action-item ecs-evidence-review-trigger" href="{{ review_url(framework_name, control_name, rev_eid, role, user, control_id) }}" role="menuitem">Review Evidence</a></li>
+<li role="none"><a class="ecs-action-item ecs-evidence-review-trigger" href="{{ review_url(framework_name, control_name, rev_eid, role, user, control_id) }}" role="menuitem">Approve Evidence</a></li>
+<li role="none"><a class="ecs-action-item ecs-evidence-review-trigger" href="{{ review_url(framework_name, control_name, rev_eid, role, user, control_id) }}#reject" role="menuitem">Reject Evidence</a></li>
+<li role="none"><a class="ecs-action-item" href="/mvp/audit-prep{{ q }}" role="menuitem">Request Re-upload</a></li>
+<li role="none"><a class="ecs-action-item" href="/mvp/workflow/assign-owner?role={{ role }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ control_id|urlencode }}&return_module=framework" role="menuitem">Assign Owner</a></li>
+<li role="none"><a class="ecs-action-item" href="/mvp/workflow/assign-owner?role={{ role }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ control_id|urlencode }}&return_module=framework" role="menuitem">Reassign</a></li>
+<li role="none"><a class="ecs-action-item" href="#" role="menuitem" data-ecs-raise-exception
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control-id="{{ control_id }}" data-control="{{ control_name }}"
+  data-observation-id="{{ observation_id }}"
+  data-evidence-id="{{ rev_eid }}" data-role="{{ role }}" data-user="{{ user }}">Raise Exception</a></li>
+<li role="none"><a class="ecs-action-item{% if is_critical %} ecs-action-danger{% endif %}" href="/mvp/audit-prep{{ q }}" role="menuitem">Escalate</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=findings" role="menuitem">View Observation{% if obs_count %} ({{ obs_count }}){% endif %}</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">Open Evidence Repository</a></li>
+<li role="presentation" class="ecs-action-divider"></li>
+<li role="none"><a class="ecs-action-item ecs-action-muted" href="/dashboard{{ q }}" role="menuitem">View Audit Trail</a></li>
+{% elif perm_can_upload|default(role == 'owner') %}
+<li role="none"><a class="ecs-action-item ecs-evidence-upload-trigger" href="#" role="menuitem"
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control="{{ control_id }}" data-owner="{{ owner }}"
+  data-user="{{ user }}" data-role="{{ role }}" data-upload-mode="upload">Upload Evidence</a></li>
+{% if 'Rejected' in wf or val == 'FAIL' %}
+<li role="none"><a class="ecs-action-item ecs-evidence-upload-trigger" href="#" role="menuitem"
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control="{{ control_id }}" data-owner="{{ owner }}"
+  data-user="{{ user }}" data-role="{{ role }}" data-upload-mode="replace">Re-upload Updated Evidence</a></li>
+{% endif %}
+{% if item.auditor_approved|default(false) %}
+<li role="none"><span class="ecs-action-item ecs-action-muted" role="menuitem">Track Approval Status — Approved</span></li>
+{% elif 'Submitted' in wf or wf == 'Submitted to Auditor' %}
+<li role="none"><span class="ecs-action-item ecs-action-muted" role="menuitem">Sent to Auditor — Pending Review</span></li>
+{% else %}
+<li role="none"><a class="ecs-action-item ecs-evidence-submit-trigger" href="#" role="menuitem"
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control="{{ control_id }}" data-user="{{ user }}" data-role="{{ role }}">Submit to Auditor</a></li>
+{% endif %}
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=findings" role="menuitem">View Observation{% if obs_count %} ({{ obs_count }}){% endif %}</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">View Repository</a></li>
+{% else %}
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">View Evidence</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">Review Validation</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=findings" role="menuitem">View Observation{% if obs_count %} ({{ obs_count }}){% endif %}</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">Open Evidence Repository</a></li>
+{% if perm_can_escalate|default(false) %}
+<li role="none"><a class="ecs-action-item" href="#" role="menuitem" data-ecs-raise-exception
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control-id="{{ control_id }}" data-control="{{ control_name }}"
+  data-observation-id="{{ observation_id }}"
+  data-evidence-id="{{ rev_eid }}" data-role="{{ role }}" data-user="{{ user }}">Raise Exception</a></li>
+{% endif %}
+{% endif %}
+{% if perm_can_upload|default(role == 'owner') and role != 'auditor' %}
+<li role="none"><a class="ecs-action-item ecs-evidence-revalidate-trigger" href="#" role="menuitem"
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control="{{ control_id }}" data-user="{{ user }}" data-role="{{ role }}">Revalidate Control</a></li>
+{% endif %}
+{% if perm_can_escalate|default(false) and role != 'auditor' %}
+<li role="none"><a class="ecs-action-item{% if is_critical %} ecs-action-danger{% endif %}" href="/mvp/audit-prep{{ q }}" role="menuitem">Escalate Issue</a></li>
+{% endif %}
+{% if perm_can_assign_owner|default(false) and role != 'auditor' %}
+<li role="none"><a class="ecs-action-item" href="/mvp/workflow/assign-owner?role={{ role }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ control_id|urlencode }}&return_module=framework" role="menuitem">Assign Reviewer</a></li>
+{% endif %}
+{% if role != 'auditor' %}
+<li role="presentation" class="ecs-action-divider"></li>
+<li role="none"><a class="ecs-action-item ecs-action-muted" href="/dashboard{{ q }}" role="menuitem">View Audit Trail</a></li>
+{% endif %}
+</ul>
+</div>
+{% endmacro %}
+
+
+{% macro workflow_state_group(row) %}
+{% set item = row if row is defined and row else {} %}
+<div class="ecs-workflow-state-group small">
+<div><span class="text-muted">Validation:</span>
+{% if item.validation == 'PASS' or item.auditor_approved|default(false) %}<span class="badge bg-success">PASS</span>
+{% elif item.validation == 'FAIL' %}<span class="badge bg-danger">FAIL</span>
+{% elif item.validation == 'WARN' %}<span class="badge bg-warning text-dark">WARN</span>
+{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}</div>
+<div><span class="text-muted">Workflow:</span> <span class="ecs-wf-label">{{ item.workflow_status|default('Draft')|truncate(22, True, '') }}</span></div>
+{% if item.finding_count|default(0) > 0 %}
+<div><span class="text-muted">Audit:</span> <span class="badge bg-danger">{{ item.finding_count }} Finding{{ 's' if item.finding_count != 1 else '' }}</span></div>
+{% endif %}
+</div>
+{% endmacro %}
+
+
+{% macro evidence_action_menu(menu_id, framework_name, role, user, ev, fq='') %}
+{# Normalize ev → item with safe defaults #}
+{% set item = ev if ev is defined and ev else {} %}
+{% set control_id = item.control_id|default(item.control|default('')) %}
+{% set control_name = item.control_name|default(item.control|default('')) %}
+{% set application = item.application|default('Net Banking') %}
+{% set observation_id = item.observation_id|default(item.finding_id|default('')) %}
+{% set evidence_id = item.evidence_id|default('') %}
+{% set lifecycle = item.lifecycle|default('') %}
+{% set validation = item.validation|default('') %}
+{% set observation_status = item.observation_status|default('') %}
+{% set auditor_approved = item.auditor_approved|default(false) %}
+{% set reuse_eligible = item.reuse_eligible|default(false) %}
+{% set q = fq or ('?role=' ~ role ~ '&user=' ~ user) %}
+<div class="ecs-action-dropdown" data-ecs-action-root>
+<button type="button" class="btn btn-sm btn-outline-secondary ecs-action-toggle py-0 px-2" aria-expanded="false" aria-haspopup="true" aria-label="Evidence actions">Actions<span class="ecs-action-caret" aria-hidden="true">▾</span></button>
+<ul class="ecs-action-menu-source" hidden aria-hidden="true">
+{% if role == 'auditor' %}
+<li role="none"><a class="ecs-action-item ecs-evidence-review-trigger" href="{{ review_url_for_ev(framework_name, item, role, user) }}" role="menuitem">Review Evidence</a></li>
+{% if lifecycle not in ('Approved',) and not auditor_approved %}
+<li role="none"><a class="ecs-action-item ecs-evidence-review-trigger" href="{{ review_url_for_ev(framework_name, item, role, user) }}" role="menuitem">Approve Evidence</a></li>
+<li role="none"><a class="ecs-action-item ecs-evidence-review-trigger" href="{{ review_url_for_ev(framework_name, item, role, user) }}#reject" role="menuitem">Reject Evidence</a></li>
+{% else %}
+<li role="none"><span class="ecs-action-item ecs-action-muted" role="menuitem">Approved ✓</span></li>
+{% if observation_status != 'Closed' %}
+<li role="none"><a class="ecs-action-item ecs-evidence-review-trigger" href="{{ review_url_for_ev(framework_name, item, role, user) }}#close-obs" role="menuitem">Close Observation</a></li>
+{% endif %}
+{% endif %}
+<li role="none"><a class="ecs-action-item" href="/mvp/audit-prep{{ q }}" role="menuitem">Request Re-upload</a></li>
+<li role="none"><a class="ecs-action-item ecs-evidence-review-trigger" href="{{ review_url_for_ev(framework_name, item, role, user) }}#comments" role="menuitem">Add Review Comments</a></li>
+<li role="none"><a class="ecs-action-item" href="/mvp/workflow/assign-owner?role={{ role }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ control_id|urlencode }}&return_module=framework" role="menuitem">Assign Owner</a></li>
+<li role="none"><a class="ecs-action-item" href="/mvp/workflow/assign-owner?role={{ role }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ control_id|urlencode }}&return_module=framework" role="menuitem">Reassign Owner</a></li>
+<li role="none"><a class="ecs-action-item" href="#" role="menuitem" data-ecs-raise-exception
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control-id="{{ control_id }}" data-control="{{ control_name }}"
+  data-observation-id="{{ observation_id }}"
+  data-evidence-id="{{ evidence_id }}" data-role="{{ role }}" data-user="{{ user }}">Raise Exception</a></li>
+<li role="none"><a class="ecs-action-item" href="/mvp/audit-prep{{ q }}" role="menuitem">Escalate</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=findings" role="menuitem">View Observation</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">Open Evidence Repository</a></li>
+<li role="presentation" class="ecs-action-divider"></li>
+<li role="none"><a class="ecs-action-item ecs-action-muted" href="/dashboard{{ q }}" role="menuitem">View Audit Trail</a></li>
+{% elif perm_can_upload|default(role == 'owner') %}
+{% if lifecycle in ('Rejected', 'Expired') or validation == 'Failed' %}
+<li role="none"><a class="ecs-action-item ecs-evidence-upload-trigger" href="#" role="menuitem"
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control="{{ control_id }}" data-user="{{ user }}" data-role="{{ role }}"
+  data-upload-mode="replace">Replace Evidence</a></li>
+{% else %}
+<li role="none"><a class="ecs-action-item ecs-evidence-upload-trigger" href="#" role="menuitem"
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control="{{ control_id }}" data-user="{{ user }}" data-role="{{ role }}"
+  data-upload-mode="upload">Upload Evidence</a></li>
+{% endif %}
+{% if lifecycle in ('Draft', 'Pending Review') %}
+<li role="none"><a class="ecs-action-item ecs-evidence-submit-trigger" href="#" role="menuitem"
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control="{{ control_id }}" data-evidence-id="{{ evidence_id }}"
+  data-user="{{ user }}" data-role="{{ role }}">Submit to Auditor</a></li>
+{% endif %}
+{% else %}
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">View Evidence</a></li>
+{% endif %}
+{% if role != 'auditor' %}
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">Review Validation</a></li>
+<li role="none"><a class="ecs-action-item" href="#" role="menuitem" data-ecs-raise-exception
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control-id="{{ control_id }}" data-control="{{ control_name }}"
+  data-observation-id="{{ observation_id }}"
+  data-evidence-id="{{ evidence_id }}" data-role="{{ role }}" data-user="{{ user }}">Raise Exception</a></li>
+{% endif %}
+{% if perm_can_upload|default(role == 'owner') %}
+<li role="none"><a class="ecs-action-item ecs-evidence-revalidate-trigger" href="#" role="menuitem"
+  data-framework="{{ framework_name }}" data-application="{{ application }}"
+  data-control="{{ control_id }}" data-user="{{ user }}" data-role="{{ role }}">Revalidate Control</a></li>
+{% endif %}
+{% if reuse_eligible %}
+<li role="none"><a class="ecs-action-item" href="/mvp/reuse{{ q }}" role="menuitem">Reuse Across Framework</a></li>
+{% endif %}
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=findings" role="menuitem">View Observation</a></li>
+<li role="none"><a class="ecs-action-item" href="/framework/{{ framework_name }}{{ q }}&fw_tab=evidence" role="menuitem">Open Evidence Repository</a></li>
+<li role="presentation" class="ecs-action-divider"></li>
+<li role="none"><a class="ecs-action-item ecs-action-muted" href="/dashboard{{ q }}" role="menuitem">View Audit Trail</a></li>
+</ul>
+</div>
+{% endmacro %}
+
+
 {% macro kpi_card(label, value, hint='', tone='primary', icon='') %}
 <div class="col-md-4 col-lg-3 col-xl-2">
 <div class="ecs-kpi-modern ecs-kpi-{{ tone }}">
@@ -63,6 +281,64 @@
 {% if label %}<div class="ecs-zone-label">{{ label }}</div>{% endif %}
 {% endmacro %}
 
+{% macro role_label(role) %}
+{% if role == 'owner' %}App Owner{% elif role == 'auditor' %}Auditor{% else %}{{ role|replace('_',' ')|title }}{% endif %}
+{% endmacro %}
+
 {% macro zone_close() %}
 </section>
+{% endmacro %}
+
+{% macro intro_strip(text, purpose='') %}
+<div class="ecs-intro-strip mb-4">
+<div class="ecs-intro-strip-icon">ℹ</div>
+<div class="ecs-intro-strip-body">
+{% if purpose %}<div class="ecs-intro-strip-purpose">{{ purpose }}</div>{% endif %}
+<p class="ecs-intro-strip-text mb-0">{{ text }}</p>
+</div>
+</div>
+{% endmacro %}
+
+{% macro module_card(title, meta, stats=[], href='#', tone='default') %}
+<div class="col-md-6 col-lg-4 col-xl-3">
+<a href="{{ href }}" class="ecs-module-card ecs-module-card-{{ tone }} text-decoration-none">
+<div class="ecs-module-card-head">
+<strong class="ecs-module-card-title">{{ title }}</strong>
+{% if meta %}<span class="ecs-module-card-meta">{{ meta }}</span>{% endif %}
+</div>
+{% if stats %}
+<div class="ecs-module-card-stats">
+{% for s in stats %}
+<div class="ecs-module-card-stat">
+<span class="ecs-module-card-stat-val">{{ s.value }}</span>
+<span class="ecs-module-card-stat-lbl">{{ s.label }}</span>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+<div class="ecs-module-card-cta">View details →</div>
+</a>
+</div>
+{% endmacro %}
+
+{% macro drill_tab_nav(tabs, active_id='') %}
+<ul class="nav ecs-drill-tabs" role="tablist">
+{% for t in tabs %}
+<li class="nav-item" role="presentation">
+<button class="nav-link{% if t.id == active_id or (not active_id and loop.first) %} active{% endif %}"
+  id="tab-{{ t.id }}" data-bs-toggle="tab" data-bs-target="#pane-{{ t.id }}" type="button"
+  role="tab" aria-controls="pane-{{ t.id }}" aria-selected="{{ 'true' if t.id == active_id or (not active_id and loop.first) else 'false' }}">
+{{ t.label }}{% if t.badge is defined and t.badge %}<span class="badge bg-secondary ms-1">{{ t.badge }}</span>{% endif %}
+</button>
+</li>
+{% endfor %}
+</ul>
+{% endmacro %}
+
+{# Empty state — reusable placeholder for missing data #}
+{% macro empty_state(message='No records available.', icon='ℹ') %}
+<div class="ecs-empty-state text-center text-muted py-3 px-2">
+<div class="ecs-empty-icon" aria-hidden="true">{{ icon }}</div>
+<p class="mb-0 small">{{ message }}</p>
+</div>
 {% endmacro %}

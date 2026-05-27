@@ -6,6 +6,9 @@
 </div>
 <span class="badge bg-warning text-dark">{{ owner_work_queue|length }} open</span>
 </div>
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_queue_pills %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
 
 {% if notice %}
 <div class="alert alert-info py-2 mb-3">{{ notice }}</div>
@@ -35,7 +38,7 @@
 <tr class="{% if item.workflow_code == 'approved' %}row-approved{% elif item.workflow_code == 'rejected' %}table-danger{% elif item.priority in ['Critical','High'] %}table-warning{% endif %}">
 <td><strong>{{ item.framework }}</strong></td>
 <td>{{ item.application }}</td>
-<td><strong>{{ item.control }}</strong><br><small class="text-muted">{{ item.control_id }}</small></td>
+<td><strong>{{ item.control }}</strong><br><small class="text-muted">{{ item.control_id }}</small>{% if item.observation_id|default('') %}<br><code class="small">{{ item.observation_id }}</code>{% endif %}</td>
 <td><strong>{{ item.evidence_name }}</strong><br><code class="small">{{ item.mock_file }}</code></td>
 <td><span class="badge bg-secondary">{{ item.action_type }}</span></td>
 <td>
@@ -45,10 +48,10 @@
 </td>
 <td>{{ item.aging_days }}d</td>
 <td>
-{% if item.workflow_code == 'approved' %}<span class="badge bg-success">Approved</span>
-{% elif item.workflow_code == 'rejected' %}<span class="badge bg-danger">Rejected</span>
-{% elif item.workflow_code == 'submitted' %}<span class="badge bg-warning text-dark">Pending Review</span>
-{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}
+{% if item.workflow_code == 'approved' %}<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
+{% elif item.workflow_code == 'rejected' %}<span class="ecs-wf-status-chip ecs-wf-chip-danger">RE-UPLOAD REQUIRED</span>
+{% elif item.workflow_code == 'submitted' %}<span class="ecs-wf-status-chip ecs-wf-chip-warning">SENT TO AUDITOR</span>
+{% else %}<span class="ecs-wf-status-chip ecs-wf-chip-secondary">DRAFT</span>{% endif %}
 </td>
 <td class="ecs-col-optional">{{ item.due_date }}</td>
 <td class="ecs-col-optional"><small>{{ item.auditor_comments[:80] }}{% if item.auditor_comments|length > 80 %}…{% endif %}</small></td>
@@ -58,8 +61,10 @@
 <div class="ecs-action-group">
 <a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">View</a>
 {% if item.workflow_code == 'approved' %}
+<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
 {% elif item.workflow_code == 'submitted' %}
-<button class="btn btn-outline-secondary btn-sm" disabled>Awaiting</button>
+<span class="ecs-wf-status-chip ecs-wf-chip-warning">SENT TO AUDITOR</span>
+<button class="btn btn-outline-secondary btn-sm" disabled>Awaiting Review</button>
 {% elif item.workflow_code == 'rejected' %}
 <a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-warning btn-sm">Resubmit</a>
 {% else %}

@@ -110,8 +110,6 @@ def try_enhanced_answer(query: str, role: str = "owner", user: str = "User") -> 
 
     engine_answer = process_query(query, role=role, user=user)
     if engine_answer:
-        from app.chatbot_engine import clear_chat_structured
-        clear_chat_structured(user, role)
         return engine_answer
 
     q = query.lower()
@@ -348,5 +346,52 @@ def try_enhanced_answer(query: str, role: str = "owner", user: str = "User") -> 
             return fmt("No rejected evidences in the current workflow state.")
         parts = [f"{k.split('::')[1][:40]}: {v['reason'][:60]}" for k, v in rejected]
         return fmt(f"Rejected evidences ({len(ecs_state.rejected_controls)} total) — " + " | ".join(parts))
+
+    if any(w in q for w in ("stale evidence", "failed evidence", "high-risk evidence", "high risk evidence")) or (
+        "evidence" in q and any(w in q for w in ("stale", "failed", "reject", "expir", "health"))
+    ):
+        from app.chatbot_engine import set_chat_structured
+        from app.chatbot_nav import evidence_health_link, mvp_url, link_html
+        from app.evidence_health_engine import build_evidence_health_view
+
+        view = build_evidence_health_view(role)
+        rows = view["rows"]
+        filter_issue = ""
+        if "stale" in q:
+            filter_issue, rows = "Stale", [r for r in rows if r["issue"] == "Stale"]
+        elif "failed" in q or "fail" in q:
+            filter_issue, rows = "Failed Validation", [r for r in rows if r["issue"] == "Failed Validation"]
+        elif "reject" in q:
+            filter_issue, rows = "Rejected", [r for r in rows if r["issue"] == "Rejected"]
+        elif "expir" in q:
+            filter_issue, rows = "Expired", [r for r in rows if r["issue"] in ("Expired", "Expiring Soon")]
+        elif "high risk" in q or "high-risk" in q or "critical" in q:
+            rows = [r for r in rows if r["risk"] in ("Critical", "High")]
+        fw = fw_hint or (rows[0]["framework"] if rows else "")
+        sample = rows[:5]
+        parts = [
+            f"{r['evidence_id']} — {r['control_id']} / {r['observation_id']}: {r['observation_summary'][:50]}"
+            for r in sample
+        ]
+        body = f"Evidence Health: {len(rows)} matching records in your scope."
+        if parts:
+            body += " Samples — " + " | ".join(parts)
+        link = evidence_health_link(role, user, filter_issue=filter_issue, framework=fw, label="Open Evidence Health (filtered)")
+        html = (
+            f'<div class="chart-card p-2 mb-2"><h6 class="chart-card-title mb-1">Evidence Health Intelligence</h6>'
+            f'<p class="small mb-2">{body.replace("|", "<br>")}</p>{link}'
+            f'<div class="mt-2">'
+            + "".join(
+                link_html(
+                    r["evidence_id"],
+                    mvp_url("evidence_health", role, user, framework=r["framework"], highlight=r["evidence_id"], filter_issue=filter_issue or r["issue"]),
+                    "btn btn-outline-secondary btn-sm me-1 mb-1",
+                )
+                for r in sample
+            )
+            + "</div></div>"
+        )
+        set_chat_structured(user, role, html)
+        return fmt(body + f" Open Evidence Health: /mvp/evidence-health?role={role}&filter_issue={filter_issue}")
 
     return None

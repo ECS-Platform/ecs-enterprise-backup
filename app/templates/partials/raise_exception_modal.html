@@ -1,0 +1,85 @@
+{# Global Raise Exception modal — linked to observations / controls / evidence #}
+<div class="modal fade" id="ecsRaiseExceptionModal" tabindex="-1" aria-labelledby="ecsRaiseExceptionLabel" aria-hidden="true">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<form method="post" action="/mvp/exceptions/raise" id="ecsRaiseExceptionForm">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="ecsRaiseExceptionLabel">Raise Exception / Technical Debt</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+<input type="hidden" name="role" id="ecsExcRole" value="{{ role|default('owner') }}">
+<input type="hidden" name="user" id="ecsExcUser" value="{{ user|default('User') }}">
+<input type="hidden" name="return_url" id="ecsExcReturn" value="">
+<input type="hidden" name="observation_id" id="ecsExcObs">
+<input type="hidden" name="evidence_id" id="ecsExcEvid">
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label small mb-0">Framework</label>
+<select class="form-select form-select-sm" name="framework" id="ecsExcFramework" required>
+{% if frameworks is defined %}{% for fw in frameworks %}<option value="{{ fw }}">{{ fw }}</option>{% endfor %}
+{% else %}
+<option>PCI DSS</option><option>DPSC</option><option>AppSec</option><option>VAPT</option><option>CSITE</option><option>ITPP</option><option>OS Baselining</option><option>Nginx Baselining</option>
+{% endif %}
+</select></div>
+<div class="col-md-6"><label class="form-label small mb-0">Application</label>
+<input class="form-control form-control-sm" name="application" id="ecsExcApp" value="Net Banking" required></div>
+</div>
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label small mb-0">Control ID</label>
+<input class="form-control form-control-sm" name="control_id" id="ecsExcControlId" placeholder="PCI-10.6"></div>
+<div class="col-md-6"><label class="form-label small mb-0">Control / Observation</label>
+<input class="form-control form-control-sm" name="control" id="ecsExcControl" placeholder="Control title or observation summary"></div>
+</div>
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label small mb-0">TD Expiry</label>
+<input type="date" class="form-control form-control-sm" name="td_expiry" value="2026-09-30"></div>
+<div class="col-md-6"><label class="form-label small mb-0">Residual Risk</label>
+<select class="form-select form-select-sm" name="residual_risk">
+<option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option>
+</select></div>
+</div>
+<label class="form-label small mb-0">Business Justification (required)</label>
+<textarea class="form-control form-control-sm mb-2" name="justification" rows="3" required placeholder="Describe why a temporary deviation is required…"></textarea>
+<label class="form-label small mb-0">Compensating Controls</label>
+<textarea class="form-control form-control-sm" name="compensating_control" rows="2" placeholder="WAF rules, enhanced monitoring, network isolation…"></textarea>
+<p class="small text-muted mt-2 mb-0">Status after submit: <strong>Pending Approval</strong> — routed to Compliance Head / CISO workflow.</p>
+</div>
+<div class="modal-footer py-2">
+<span class="spinner-border spinner-border-sm d-none me-2" id="ecsExcSpinner" role="status"></span>
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+<button type="submit" class="btn btn-warning btn-sm" id="ecsExcSubmit">Submit Exception</button>
+</div>
+</form>
+</div></div></div>
+<script>
+(function(){
+  if (window.__ecsRaiseExceptionInit) return;
+  window.__ecsRaiseExceptionInit = true;
+  document.addEventListener('click', function(e) {
+    var t = e.target.closest('[data-ecs-raise-exception]');
+    if (!t) return;
+    e.preventDefault();
+    var modal = document.getElementById('ecsRaiseExceptionModal');
+    if (!modal || !window.bootstrap) return;
+    var params = new URLSearchParams(window.location.search);
+    document.getElementById('ecsExcRole').value = t.getAttribute('data-role') || params.get('role') || 'owner';
+    document.getElementById('ecsExcUser').value = t.getAttribute('data-user') || params.get('user') || 'User';
+    document.getElementById('ecsExcReturn').value = window.location.pathname + window.location.search;
+    if (t.getAttribute('data-framework')) document.getElementById('ecsExcFramework').value = t.getAttribute('data-framework');
+    if (t.getAttribute('data-application')) document.getElementById('ecsExcApp').value = t.getAttribute('data-application');
+    if (t.getAttribute('data-control-id')) document.getElementById('ecsExcControlId').value = t.getAttribute('data-control-id');
+    if (t.getAttribute('data-control')) document.getElementById('ecsExcControl').value = t.getAttribute('data-control');
+    document.getElementById('ecsExcObs').value = t.getAttribute('data-observation-id') || '';
+    document.getElementById('ecsExcEvid').value = t.getAttribute('data-evidence-id') || '';
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+  });
+  var form = document.getElementById('ecsRaiseExceptionForm');
+  if (form) {
+    form.addEventListener('submit', function() {
+      var sp = document.getElementById('ecsExcSpinner');
+      var btn = document.getElementById('ecsExcSubmit');
+      if (sp) sp.classList.remove('d-none');
+      if (btn) btn.disabled = true;
+    });
+  }
+})();
+</script>

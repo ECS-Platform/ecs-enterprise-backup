@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 {% include "partials/enterprise_theme.html" %}
+{% include "partials/executive_charts_system.html" %}
 </head>
 
 <body class="bg-light ecs-enterprise-body">
@@ -21,28 +22,36 @@
 <div class="col-md-10 ecs-main-content">
 
 <div class="ecs-page ecs-page-loaded ecs-page-content">
-{% from "partials/ecs_ux_macros.html" import page_header, kpi_card, accordion_section, zone_open, zone_close %}
+{% from "partials/ecs_ux_macros.html" import kpi_card, accordion_section, zone_open, zone_close, role_label %}
 
-{{ page_header('CIO Evidence Analytics', 'Enterprise-wide evidence posture and executive insights', user, role) }}
+<div class="ecs-page-header mb-3">
+<div class="ecs-page-header-main"><h1 class="ecs-page-title mb-0">CIO Evidence Analytics</h1></div>
+<div class="ecs-page-header-meta">
+<span class="ecs-user-chip">{{ user }}</span>
+<span class="ecs-role-chip">{{ role_label(role) }}</span>
+</div>
+</div>
 
-{{ zone_open('top') }}
-<div class="row g-3 mb-3">
-{{ kpi_card('Compliance', analytics.overall_compliance_pct ~ '%', 'Enterprise maturity', 'success') }}
-{{ kpi_card('Approved', analytics.totals.approved, 'Controls closed', 'primary') }}
-{{ kpi_card('Submitted', analytics.totals.submitted, 'In auditor queue', 'warning') }}
-{{ kpi_card('Pending', analytics.totals.pending, 'Owner action', 'teal') }}
-{{ kpi_card('Rejected', analytics.totals.rejected, 'Remediation needed', 'danger') }}
-{{ kpi_card('Total Controls', analytics.totals.total, 'In scope', 'navy') }}
+{{ zone_open('top', 'Executive Summary') }}
+<div class="row g-2 g-md-3 mb-2">
+{{ kpi_card('Compliance', analytics.overall_compliance_pct ~ '%', 'Approved controls / total in scope', 'success') }}
+{{ kpi_card('Approved', analytics.totals.approved, 'Controls with auditor-approved evidence', 'primary') }}
+{{ kpi_card('Submitted', analytics.totals.submitted, 'Pending auditor review queue', 'warning') }}
+{{ kpi_card('Pending', analytics.totals.pending, 'No evidence submitted yet', 'teal') }}
+{{ kpi_card('Rejected', analytics.totals.rejected, 'Returned for resubmission', 'danger') }}
+{{ kpi_card('Total Controls', analytics.totals.total, '', 'navy') }}
+{{ kpi_card('Frameworks', analytics.framework_stats|length, '', 'primary') }}
+{{ kpi_card('Evidence Rows', analytics.evidence_rows|length, '', 'teal') }}
 </div>
 {{ zone_close() }}
 
-{{ zone_open('middle', 'Executive Insights') }}
+{{ zone_open('middle', 'Governance & Queue') }}
 {% set show_governance = true %}
 {% include "partials/governance_analytics_panel.html" %}
 {% include "partials/leadership_work_queue.html" %}
 {{ zone_close() }}
 
-{{ zone_open('bottom', 'Detailed Records') }}
+{{ zone_open('bottom', 'Drill-Down') }}
 
 {% call accordion_section('Framework Compliance Overview', 'cio-fw', analytics.framework_stats|length|string, false) %}
 <div class="row g-2 mb-3">

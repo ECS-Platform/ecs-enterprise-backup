@@ -1,0 +1,145 @@
+{# Enterprise framework-scoped time-series analytics #}
+{% set ta = gc.trend_analytics if gc and gc.trend_analytics is defined else none %}
+{% if ta %}
+
+<p class="small text-muted mb-2"><strong>{{ ta.scope_label }}</strong> · Applications: {{ ta.application_scope }} · {{ ta.date_range }}</p>
+
+<div class="ecs-trend-granularity btn-group btn-group-sm mb-2" role="group" id="trendGranularity-{{ framework_name|replace(' ','') }}">
+<button type="button" class="btn btn-outline-secondary active" data-gran="monthly">Monthly</button>
+<button type="button" class="btn btn-outline-secondary" data-gran="weekly">Weekly</button>
+<button type="button" class="btn btn-outline-secondary" data-gran="quarterly">Quarterly</button>
+<button type="button" class="btn btn-outline-secondary" data-gran="audit_cycle">Audit Cycle</button>
+</div>
+
+<div class="ecs-trend-panel">
+<div class="ecs-trend-panel-title">{{ ta.primary_label }}</div>
+<div class="table-responsive">
+<table class="table table-sm table-bordered mb-0 ecs-compact-table" id="trendSeriesTable">
+<thead><tr><th>Period</th>{% for m in ta.metric_definitions %}<th>{{ m.label }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for row in ta.granularities.monthly %}
+<tr data-gran="monthly"><td><strong>{{ row.period }}</strong></td>
+{% for m in ta.metric_definitions %}<td>{{ row[m.key]|default('—') }}{% if 'pct' in m.key %}%{% endif %}</td>{% endfor %}
+</tr>
+{% endfor %}
+{% for row in ta.granularities.weekly %}
+<tr data-gran="weekly" class="d-none"><td><strong>{{ row.period }}</strong></td>
+{% for m in ta.metric_definitions %}<td>{{ row[m.key]|default('—') }}{% if 'pct' in m.key %}%{% endif %}</td>{% endfor %}
+</tr>
+{% endfor %}
+{% for row in ta.granularities.quarterly %}
+<tr data-gran="quarterly" class="d-none"><td><strong>{{ row.period }}</strong></td>
+{% for m in ta.metric_definitions %}<td>{{ row[m.key]|default('—') }}{% if 'pct' in m.key %}%{% endif %}</td>{% endfor %}
+</tr>
+{% endfor %}
+{% for row in ta.granularities.audit_cycle %}
+<tr data-gran="audit_cycle" class="d-none"><td><strong>{{ row.period }}</strong></td>
+{% for m in ta.metric_definitions %}<td>{{ row[m.key]|default('—') }}{% if 'pct' in m.key %}%{% endif %}</td>{% endfor %}
+</tr>
+{% endfor %}
+</tbody></table></div></div>
+
+<div class="row g-2 mb-2">
+<div class="col-md-6">
+<div class="ecs-trend-panel h-100">
+<div class="ecs-trend-panel-title">Validation pass / fail evolution</div>
+<table class="table table-sm table-bordered mb-0 ecs-compact-table"><thead><tr><th>Month</th><th>Pass</th><th>Warn</th><th>Fail</th></tr></thead>
+<tbody>{% for v in ta.validation_pass_fail %}
+<tr><td>{{ v.period }}</td><td class="text-success">{{ v.pass }}</td><td class="text-warning">{{ v.warn }}</td><td class="text-danger">{{ v.fail }}</td></tr>
+{% endfor %}</tbody></table></div></div>
+<div class="col-md-6">
+<div class="ecs-trend-panel h-100">
+<div class="ecs-trend-panel-title">Finding aging trend</div>
+<table class="table table-sm table-bordered mb-0 ecs-compact-table"><thead><tr><th>Month</th><th>Critical</th><th>High</th><th>Medium</th></tr></thead>
+<tbody>{% for f in ta.finding_aging %}
+<tr><td>{{ f.period }}</td><td>{{ f.critical }}</td><td>{{ f.high }}</td><td>{{ f.medium }}</td></tr>
+{% endfor %}</tbody></table></div></div>
+</div>
+
+<div class="row g-2 mb-2">
+<div class="col-md-4"><div class="ecs-trend-panel"><div class="ecs-trend-panel-title">Remediation velocity</div>
+{% for r in ta.remediation_velocity %}<div class="small mb-1">{{ r.period }}: <strong>{{ r.closed }}</strong> closed · {{ r.opened }} opened</div>{% endfor %}
+</div></div>
+<div class="col-md-4"><div class="ecs-trend-panel"><div class="ecs-trend-panel-title">SLA breach trend</div>
+{% for s in ta.sla_breach_trend %}<div class="small mb-1">{{ s.period }}: <strong>{{ s.breaches }}</strong> breaches</div>{% endfor %}
+</div></div>
+<div class="col-md-4"><div class="ecs-trend-panel"><div class="ecs-trend-panel-title">Audit evolution</div>
+<p class="small mb-1">Readiness: {{ ta.audit_evolution.readiness_change }}</p>
+<p class="small mb-1">Findings: {{ ta.audit_evolution.findings_trend }}</p>
+<p class="small mb-1">Repeat obs.: {{ ta.audit_evolution.repeat_observations }}</p>
+<p class="small mb-0">Reuse efficiency: {{ ta.audit_evolution.reuse_efficiency_pct }}% · Rejection ↓ {{ ta.audit_evolution.rejection_reduction_pct }}%</p>
+</div></div>
+</div>
+
+<div class="ecs-trend-panel">
+<div class="ecs-trend-panel-title">Compliance evolution timeline — by application</div>
+{% for app in ta.compliance_evolution %}
+<div class="mb-2 pb-2 border-bottom">
+<strong class="small">{{ app.application }}</strong> <span class="text-muted small">({{ app.owner }}) · now {{ app.current_pct }}%</span>
+<div class="ecs-trend-bar-track mb-1"><div class="ecs-trend-bar-fill" style="width:{{ app.current_pct }}%"></div></div>
+<div class="ecs-evolution-chips">
+{% for pt in app.timeline %}<span class="ecs-evolution-chip">{{ pt.month }} {{ pt.pct }}%</span>{% endfor %}
+</div>
+<p class="small text-muted mb-0">{{ app.controls_implemented_delta }} controls · {{ app.findings_reduced }} findings reduced · evidence {{ app.evidence_freshness_gain }} · SLA breaches {{ app.sla_reduction }}</p>
+</div>
+{% endfor %}
+</div>
+
+{% set ciba = ta.controls_implemented_by_application if ta.controls_implemented_by_application is defined else none %}
+{% if ciba %}
+<div class="ecs-trend-panel">
+<div class="ecs-trend-panel-title">Controls implemented across applications</div>
+<div class="ecs-trend-granularity btn-group btn-group-sm mb-2" role="group" id="implGranularity-{{ framework_name|replace(' ','') }}">
+<button type="button" class="btn btn-outline-secondary active" data-impl-gran="monthly">Monthly</button>
+<button type="button" class="btn btn-outline-secondary" data-impl-gran="weekly">Weekly</button>
+<button type="button" class="btn btn-outline-secondary" data-impl-gran="quarterly">Quarterly</button>
+<button type="button" class="btn btn-outline-secondary" data-impl-gran="audit_cycle">Audit Cycle</button>
+<button type="button" class="btn btn-outline-secondary" data-impl-gran="yearly">Yearly</button>
+</div>
+<div class="table-responsive">
+<table class="table table-sm table-bordered mb-0 ecs-compact-table" id="implByAppTable">
+<thead><tr><th>Period</th>{% for app in ciba.application_columns %}<th>{{ app|truncate(14, True, '') }}</th>{% endfor %}<th>Total</th></tr></thead>
+<tbody>
+{% for gran in ['monthly', 'weekly', 'quarterly', 'audit_cycle', 'yearly'] %}
+{% for row in ciba[gran] %}
+<tr data-impl-gran="{{ gran }}" class="{% if gran != 'monthly' %}d-none{% endif %}">
+<td><strong>{{ row.period }}</strong></td>
+{% for app in ciba.application_columns %}<td>{{ row.applications[app]|default('—') }}</td>{% endfor %}
+<td><strong>{{ row.total_implemented }}</strong></td>
+</tr>
+{% endfor %}
+{% endfor %}
+</tbody></table></div></div>
+{% endif %}
+
+<script>
+(function(){
+  var grp = document.getElementById('trendGranularity-{{ framework_name|replace(' ','') }}');
+  if (grp) {
+    grp.querySelectorAll('[data-gran]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        grp.querySelectorAll('.btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        var g = btn.getAttribute('data-gran');
+        document.querySelectorAll('#trendSeriesTable tbody tr[data-gran]').forEach(function(tr){
+          tr.classList.toggle('d-none', tr.getAttribute('data-gran') !== g);
+        });
+      });
+    });
+  }
+  var implGrp = document.getElementById('implGranularity-{{ framework_name|replace(' ','') }}');
+  if (implGrp) {
+    implGrp.querySelectorAll('[data-impl-gran]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        implGrp.querySelectorAll('.btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        var g = btn.getAttribute('data-impl-gran');
+        document.querySelectorAll('#implByAppTable tbody tr[data-impl-gran]').forEach(function(tr){
+          tr.classList.toggle('d-none', tr.getAttribute('data-impl-gran') !== g);
+        });
+      });
+    });
+  }
+})();
+</script>
+{% endif %}

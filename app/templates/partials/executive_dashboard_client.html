@@ -1,0 +1,177 @@
+{# Shared executive drill-down, heatmaps, correlation graph, loading states #}
+<style>
+.ecs-exec-bu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+@media (min-width: 992px) { .ecs-exec-bu-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ecs-exec-bu-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.45rem 0.55rem; cursor: pointer; transition: box-shadow 0.2s, transform 0.15s; }
+.ecs-exec-bu-card:hover { box-shadow: 0 4px 14px rgba(15,23,42,0.08); transform: translateY(-1px); }
+.ecs-exec-bu-card .ecs-exec-bu-title { font-size: 0.72rem; font-weight: 700; color: #1e293b; }
+.ecs-exec-bu-metrics { display: flex; flex-wrap: wrap; gap: 0.35rem 0.65rem; font-size: 0.62rem; color: #64748b; margin-top: 0.25rem; }
+.ecs-heat-matrix { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 4px; }
+.ecs-heat-cell { border-radius: 4px; padding: 0.35rem 0.25rem; text-align: center; font-size: 0.58rem; cursor: pointer; transition: transform 0.15s, opacity 0.15s; min-height: 52px; color: #fff; }
+.ecs-heat-cell:hover { transform: scale(1.04); opacity: 0.95; }
+.ecs-heat-cell.tone-green { background: linear-gradient(135deg, #4a7c59, #5d9468); }
+.ecs-heat-cell.tone-amber { background: linear-gradient(135deg, #c27803, #d4920a); }
+.ecs-heat-cell.tone-red { background: linear-gradient(135deg, #b4534a, #c9655a); }
+.ecs-heat-cell.tone-dark-red { background: linear-gradient(135deg, #7f1d1d, #991b1b); }
+.ecs-heat-legend { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; font-size: 0.58rem; margin-bottom: 0.35rem; }
+.ecs-heat-legend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.ecs-heat-legend .lg-green::before { background: #4a7c59; }
+.ecs-heat-legend .lg-amber::before { background: #c27803; }
+.ecs-heat-legend .lg-red::before { background: #b4534a; }
+.ecs-heat-legend .lg-dark-red::before { background: #7f1d1d; }
+.ecs-corr-graph { position: relative; min-height: 220px; max-height: 320px; overflow: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem; }
+.ecs-corr-node { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.45rem; margin: 0.15rem; border-radius: 6px; font-size: 0.65rem; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; transition: background 0.15s; }
+.ecs-corr-node.sev-Critical { border-color: #dc3545; background: #fef2f2; }
+.ecs-corr-node.sev-High { border-color: #fd7e14; background: #fff7ed; }
+.ecs-corr-node.sev-Medium { border-color: #ffc107; }
+.ecs-corr-node:hover, .ecs-corr-node.is-active { background: #e7f1ff; border-color: #0d6efd; }
+.ecs-corr-flow { font-size: 0.55rem; color: #94a3b8; margin: 0.1rem 0.35rem; }
+.ecs-gran-toggle .btn { font-size: 0.62rem; padding: 0.15rem 0.45rem; }
+.ecs-exec-loading { display: inline-block; width: 14px; height: 14px; border: 2px solid #e2e8f0; border-top-color: #0d6efd; border-radius: 50%; animation: ecsSpin 0.7s linear infinite; vertical-align: middle; }
+@keyframes ecsSpin { to { transform: rotate(360deg); } }
+.ecs-bar-fill { animation: ecsBarGrow 0.45s ease-out; }
+@keyframes ecsBarGrow { from { transform: scaleY(0); transform-origin: bottom; } to { transform: scaleY(1); } }
+</style>
+<script>
+(function(){
+  if (window.__ecsExecDashInit) return;
+  window.__ecsExecDashInit = true;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+  window.ecsShowExecDrillModal = function(title, html) {
+    var modal = document.getElementById('ecsExecDrillModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.className = 'modal fade';
+      modal.id = 'ecsExecDrillModal';
+      modal.innerHTML = '<div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header py-2"><h6 class="modal-title" id="ecsExecDrillTitle"></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body small" id="ecsExecDrillBody"></div></div></div>';
+      document.body.appendChild(modal);
+    }
+    document.getElementById('ecsExecDrillTitle').textContent = title || 'Executive Drill-Down';
+    document.getElementById('ecsExecDrillBody').innerHTML = html || '';
+    if (window.bootstrap && bootstrap.Modal) new bootstrap.Modal(modal).show();
+  };
+
+  window.ecsRenderHeatMatrix = function(containerId, cells, clickFn) {
+    var el = document.getElementById(containerId);
+    if (!el || !cells) return;
+    el.innerHTML = cells.map(function(c, i) {
+      var tip = (c.label || '') + ' · Compliance ' + (c.compliance_score || c.readiness_pct || c.score) + '% · Evidence ' + (c.evidence_volume || '—') + ' · Obs ' + (c.observation_density || c.observations || '—');
+      return '<div class="ecs-heat-cell tone-' + esc(c.tone || 'amber') + '" data-heat-idx="' + i + '" title="' + esc(tip) + '"><strong>' + esc(c.label || c.framework || c.application || '') + '</strong><br>' + (c.compliance_score || c.readiness_pct || c.score || '') + '%</div>';
+    }).join('');
+    el.querySelectorAll('.ecs-heat-cell').forEach(function(cell) {
+      cell.addEventListener('click', function() {
+        var idx = parseInt(cell.getAttribute('data-heat-idx'), 10);
+        if (clickFn) clickFn(cells[idx], idx);
+        else if (cells[idx]) {
+          var c = cells[idx];
+          ecsShowExecDrillModal(c.label || c.framework || 'Heatmap Cell',
+            '<dl class="row mb-0"><dt class="col-4">Compliance</dt><dd class="col-8">' + (c.compliance_score || c.readiness_pct || c.score) + '%</dd>' +
+            '<dt class="col-4">Evidence Volume</dt><dd class="col-8">' + (c.evidence_volume || '—') + '</dd>' +
+            '<dt class="col-4">Observations</dt><dd class="col-8">' + (c.observation_density || c.observations || '—') + '</dd>' +
+            '<dt class="col-4">Risk Concentration</dt><dd class="col-8">' + (c.risk_concentration || '—') + '</dd></dl>');
+        }
+      });
+    });
+  };
+
+  window.ecsRenderAuditMatrix = function(containerId, matrix) {
+    ecsRenderHeatMatrix(containerId, (matrix || []).map(function(m) {
+      return { label: (m.framework || '').substring(0, 6) + '·' + (m.application || '').substring(0, 8), readiness_pct: m.readiness_pct, tone: m.tone, framework: m.framework, application: m.application, stale_count: m.stale_count, gaps: m.gaps, owner: m.owner };
+    }), function(c) {
+      ecsShowExecDrillModal((c.framework || '') + ' — ' + (c.application || ''),
+        '<p><strong>Readiness:</strong> ' + c.readiness_pct + '%</p><p><strong>Stale evidence:</strong> ' + (c.stale_count || 0) + '</p><p><strong>Open gaps:</strong> ' + (c.gaps || 0) + '</p><p><strong>Owner:</strong> ' + esc(c.owner || '—') + '</p>');
+    });
+  };
+
+  window.ecsRenderCorrelationGraph = function(containerId, graph, nodeDetails) {
+    var el = document.getElementById(containerId);
+    if (!el || !graph) return;
+    var chains = {};
+    (graph.nodes || []).forEach(function(n) {
+      var cid = n.chain_id || (n.id && n.id.split('-')[1]) || 'misc';
+      if (!chains[cid]) chains[cid] = [];
+      chains[cid].push(n);
+    });
+    var html = '';
+    Object.keys(chains).forEach(function(cid) {
+      html += '<div class="mb-2 pb-2 border-bottom"><small class="text-muted">' + esc(cid) + '</small><br>';
+      chains[cid].forEach(function(n, i) {
+        if (i > 0) html += '<span class="ecs-corr-flow">→</span>';
+        html += '<span class="ecs-corr-node sev-' + esc(n.severity || 'Medium') + '" data-node-id="' + esc(n.id) + '" title="' + esc(n.record || n.label) + '">' + esc(n.label) + '</span>';
+      });
+      html += '</div>';
+    });
+    el.innerHTML = html || '<p class="text-muted small mb-0">No correlation nodes in scope.</p>';
+    el.querySelectorAll('.ecs-corr-node').forEach(function(node) {
+      node.addEventListener('click', function() {
+        el.querySelectorAll('.ecs-corr-node').forEach(function(x){ x.classList.remove('is-active'); });
+        node.classList.add('is-active');
+        var det = (nodeDetails || {})[node.getAttribute('data-node-id')] || {};
+        ecsShowExecDrillModal(det.title || node.textContent,
+          '<p><strong>Severity:</strong> ' + esc(det.severity || '—') + ' · <strong>Status:</strong> ' + esc(det.status || '—') + '</p>' +
+          '<h6 class="mt-2">Linked Observations</h6><ul>' + (det.linked_observations || []).map(function(o){ return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' +
+          '<h6>Linked Incidents</h6><ul>' + (det.linked_incidents || []).map(function(o){ return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' +
+          '<h6>Linked Evidence</h6><ul>' + (det.linked_evidence || []).map(function(o){ return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' +
+          '<h6>Impacted Applications</h6><p>' + (det.impacted_applications || []).map(esc).join(', ') + '</p>' +
+          '<h6>Remediation Workflow</h6><ul>' + (det.remediation_workflow || []).map(function(o){ return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>');
+      });
+    });
+  };
+
+  window.ecsInitBuCards = function(containerId, buRows) {
+    var el = document.getElementById(containerId);
+    if (!el || !buRows) return;
+    el.innerHTML = buRows.map(function(b) {
+      return '<div class="ecs-exec-bu-card" data-bu="' + esc(b.unit) + '"><div class="ecs-exec-bu-title">' + esc(b.unit) + '</div>' +
+        '<div class="ecs-exec-bu-metrics"><span>Compliance <strong>' + b.compliance_pct + '%</strong></span>' +
+        '<span>Readiness <strong>' + b.audit_readiness + '%</strong></span><span>Gaps <strong>' + b.open_gaps + '</strong></span>' +
+        '<span>Obs <strong>' + b.observations + '</strong></span><span>Risk <strong>' + b.risk_score + '/10</strong></span></div></div>';
+    }).join('');
+    el.querySelectorAll('.ecs-exec-bu-card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        var bu = buRows.find(function(b){ return b.unit === card.getAttribute('data-bu'); });
+        if (!bu) return;
+        ecsShowExecDrillModal(bu.unit,
+          '<dl class="row mb-0"><dt class="col-4">Compliance</dt><dd class="col-8">' + bu.compliance_pct + '%</dd>' +
+          '<dt class="col-4">Audit Readiness</dt><dd class="col-8">' + bu.audit_readiness + '%</dd>' +
+          '<dt class="col-4">Open Gaps</dt><dd class="col-8">' + bu.open_gaps + '</dd>' +
+          '<dt class="col-4">Observations</dt><dd class="col-8">' + bu.observations + '</dd>' +
+          '<dt class="col-4">Risk Score</dt><dd class="col-8">' + bu.risk_score + '/10 (' + esc(bu.risk) + ')</dd></dl>');
+      });
+    });
+  };
+
+  window.ecsSwitchPeriodHeatmap = function(period, data) {
+    var cells = (data && data[period] && data[period].cells) ? data[period].cells : [];
+    ecsRenderHeatMatrix('ecsPeriodHeatGrid', cells);
+    var leg = document.getElementById('ecsPeriodHeatLegend');
+    if (leg && data[period] && data[period].legend) {
+      leg.innerHTML = data[period].legend.map(function(l) {
+        return '<span class="lg-' + l.tone.replace('dark-red','dark-red') + '">' + esc(l.label) + '</span>';
+      }).join('');
+    }
+  };
+
+  window.ecsRenderGranularityTrends = function(granularity, trends, chartIds) {
+    if (!trends || !trends[granularity]) return;
+    var g = trends[granularity];
+    var map = chartIds || {
+      observations: 'ecsGranObsChart',
+      compliance: 'ecsGranCompChart',
+      failed_evidence: 'ecsGranFailChart',
+      risk_escalation: 'ecsGranEscChart',
+      evidence_aging: 'ecsGranAgeChart',
+      remediation: 'ecsGranRemChart'
+    };
+    Object.keys(map).forEach(function(key) {
+      var cid = map[key];
+      var series = g[key] || [];
+      if (window.ecsRenderCompactBarChart && document.getElementById(cid)) {
+        ecsRenderCompactBarChart(cid, series, { suffix: series[0] && series[0].suffix ? series[0].suffix : (key === 'compliance' ? '%' : ''), defaultTone: key === 'compliance' ? 'green' : (key.indexOf('fail') >= 0 ? 'red' : 'blue') });
+      }
+    });
+  };
+})();
+</script>

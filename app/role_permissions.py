@@ -1,0 +1,167 @@
+"""Centralized ECS role permissions — audit governance workflow."""
+
+from __future__ import annotations
+
+from urllib.parse import quote
+
+from fastapi.responses import RedirectResponse
+
+EXECUTIVE_ROLES = frozenset({
+    "cio", "vertical_head", "compliance_head", "compliance_officer", "functional_head",
+})
+
+OPERATIONAL_UPLOAD_ROLES = frozenset({"owner"})
+
+AUDITOR_GOVERNANCE_ROLES = frozenset({"auditor", "enterprise_admin"})
+
+UPLOAD_ACTIONS = frozenset({
+    "upload", "upload_evidence", "upload_missing", "upload_batch", "upload_draft",
+    "replace", "replace_evidence", "bulk_upload", "submit", "submit_to_auditor",
+    "submit_for_review", "add_attachment", "upload_package", "upload_workflow",
+    "evidence_submission", "resubmit", "upload_revised", "validate", "reprocess",
+    "approve_import", "reject_import", "generate_package",
+})
+
+AUDITOR_ALLOWED_ACTIONS = frozenset({
+    "review", "approve", "reject", "add_comment", "request_reupload", "assign_owner",
+    "reassign", "escalate", "transfer_review", "view_trail", "close_observation",
+    "clarify", "close_gap", "mock_audit", "assign_gap", "request_owner",
+    "approve_reuse", "reject_reuse", "approve_exception", "reject_exception",
+    "view_trail", "export_summary", "drill_down", "escalate_stale", "escalate_risk",
+})
+
+
+def normalize_role(role: str) -> str:
+    role = (role or "owner").strip().lower()
+    if role == "compliance_officer":
+        return "compliance_head"
+    return role
+
+
+def can_raise_exception(role: str) -> bool:
+    r = normalize_role(role)
+    return r in {"owner", "auditor", "compliance_head", "cio", "vertical_head", "enterprise_admin"}
+
+
+def can_export_reports(role: str) -> bool:
+    return normalize_role(role) in {
+        "owner", "auditor", "cio", "vertical_head", "compliance_head", "enterprise_admin",
+    }
+
+
+def can_manage_frameworks(role: str) -> bool:
+    from app.framework_onboarding_engine import can_manage_framework_onboarding
+    return can_manage_framework_onboarding(role)
+
+
+def can_upload_evidence(role: str) -> bool:
+    return normalize_role(role) in OPERATIONAL_UPLOAD_ROLES
+
+
+def can_submit_to_auditor(role: str) -> bool:
+    return can_upload_evidence(role)
+
+
+def is_auditor(role: str) -> bool:
+    return normalize_role(role) == "auditor"
+
+
+def is_executive_readonly(role: str) -> bool:
+    return normalize_role(role) in EXECUTIVE_ROLES
+
+
+def can_review_evidence(role: str) -> bool:
+    return normalize_role(role) in AUDITOR_GOVERNANCE_ROLES | {"auditor"}
+
+
+def can_assign_owner(role: str) -> bool:
+    r = normalize_role(role)
+    return r in {"owner", "auditor", "compliance_head", "enterprise_admin"}
+
+
+def can_escalate(role: str) -> bool:
+    r = normalize_role(role)
+    return r in {"owner", "auditor", "cio", "vertical_head", "compliance_head", "enterprise_admin"}
+
+
+def can_request_reupload(role: str) -> bool:
+    return is_auditor(role)
+
+
+def action_allowed(role: str, action: str) -> bool:
+    action = (action or "").lower().replace("-", "_")
+    r = normalize_role(role)
+    if action in UPLOAD_ACTIONS:
+        return can_upload_evidence(r)
+    if is_auditor(r):
+        return action in AUDITOR_ALLOWED_ACTIONS or action not in UPLOAD_ACTIONS
+    if is_executive_readonly(r) and action in UPLOAD_ACTIONS:
+        return False
+    return True
+
+
+def permission_denied_message(action: str = "perform this action") -> str:
+    return f"Access denied: your role cannot {action}."
+
+
+def deny_redirect(role: str, user: str, dest: str = "/dashboard", msg: str | None = None) -> RedirectResponse:
+    notice = quote(msg or permission_denied_message())
+    sep = "&" if "?" in dest else "?"
+    return RedirectResponse(url=f"{dest}{sep}role={quote(role)}&user={quote(user)}&notice={notice}", status_code=303)
+
+
+def guard_upload(role: str, user: str, dest: str = "/dashboard") -> RedirectResponse | None:
+    if not can_upload_evidence(role):
+        return deny_redirect(
+            role, user, dest,
+            "Access denied: Auditors and executives cannot upload or replace evidence. "
+            "Use Request Re-upload to return items to the App Owner queue.",
+        )
+    return None
+
+
+def guard_auditor_governance(role: str, user: str, dest: str = "/dashboard") -> RedirectResponse | None:
+    if not can_review_evidence(role):
+        return deny_redirect(role, user, dest, "Access denied: auditor governance action only.")
+    return None
+
+
+def guard_submit_to_auditor(role: str, user: str, dest: str = "/dashboard") -> RedirectResponse | None:
+    if not can_submit_to_auditor(role):
+        return deny_redirect(role, user, dest, "Access denied: only App Owners may submit evidence to auditor review.")
+    return None
+
+
+def permission_ctx(role: str) -> dict:
+    r = normalize_role(role)
+    return {
+        "perm_can_upload": can_upload_evidence(r),
+        "perm_can_submit_auditor": can_submit_to_auditor(r),
+        "perm_is_auditor": is_auditor(r),
+        "perm_is_executive_readonly": is_executive_readonly(r),
+        "perm_can_review": can_review_evidence(r),
+        "perm_can_assign_owner": can_assign_owner(r),
+        "perm_can_escalate": can_escalate(r),
+        "perm_can_request_reupload": can_request_reupload(r),
+        "perm_can_raise_exception": can_raise_exception(r),
+        "perm_can_export": can_export_reports(r),
+        "perm_can_manage_frameworks": can_manage_frameworks(r),
+    }
+
+
+def filter_actions_for_role(role: str, actions: list[str]) -> list[str]:
+    return [a for a in actions if action_allowed(role, a)]
+
+
+def chatbot_actions_for_role(role: str) -> list[tuple[str, str]]:
+    """Role-filtered chatbot quick actions."""
+    from app.chatbot_context_engine import AUDITOR_CHAT_ACTIONS, CONTEXTUAL_ACTIONS, OWNER_CHAT_ACTIONS
+
+    r = normalize_role(role)
+    if is_auditor(r):
+        return list(AUDITOR_CHAT_ACTIONS)
+    if is_executive_readonly(r):
+        return [(l, k) for l, k in CONTEXTUAL_ACTIONS if k not in ("trigger_remediation",)]
+    if can_upload_evidence(r):
+        return list(OWNER_CHAT_ACTIONS)
+    return [(l, k) for l, k in CONTEXTUAL_ACTIONS if "upload" not in k.lower()]

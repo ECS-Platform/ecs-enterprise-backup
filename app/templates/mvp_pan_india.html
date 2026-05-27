@@ -1,25 +1,89 @@
 <!DOCTYPE html><html><head><title>Pan India</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-panindia"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Pan-India Regional Compliance</h1>
-<p class="text-muted small">Branch-level metrics, regional heatmaps, and zone-wise SLA breach tracking</p>
-{% if notice %}<div class="alert alert-info">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Pan-India Regional Compliance</h1>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<h3 class="h6 text-uppercase text-muted">Regional Compliance Heatmap</h3>
-<div class="zone-grid mb-4">{% for z in module_view.zone_heatmap %}
-<div class="zone-tile {% if z.risk=='High' %}zone-high{% elif z.risk=='Medium' %}zone-mid{% else %}zone-low{% endif %}">
-<strong>{{ z.zone }}</strong><br>{{ z.score }}%<br><small>{{ z.risk }} risk</small></div>
-{% endfor %}</div>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Zone</th><th>Score</th><th>Branches</th><th>Apps</th><th>Open Obs.</th><th>SLA Breaches</th><th>Actions</th></tr></thead><tbody>
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading regional posture…</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<p class="ecs-exec-desc">Regional governance — PCI readiness, audit scores, SLA breaches, and critical observations across North, South, East, West, and Central.</p>
+<div class="ecs-ws-metric-row mb-2" id="ecsPanOverviewMetrics"></div>
+<div class="compact-chart-grid mb-2">
+<div class="chart-card"><div class="chart-card-title">PCI DSS Readiness by Region</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsPanPciChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Audit Readiness Score</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsPanAuditChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">SLA Breaches</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsPanSlaChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Critical Observations</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsPanCritChart"></div></div></div>
+</div>
+<div class="chart-card mb-2"><div class="chart-card-title">Framework Posture (avg readiness)</div>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsPanFwChart"></div></div></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('regions', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-std-table="pan-regions"><thead><tr>
+<th>Zone</th><th>Score</th><th>PCI Ready</th><th>Audit Score</th><th>Framework Posture</th><th>Branches</th><th>Open Obs.</th><th>Critical Obs.</th><th>SLA Breaches</th><th>Actions</th>
+</tr></thead><tbody>
 {% for r in module_view.rows %}
-<tr><td>{{ r.zone }}</td><td>{{ r.compliance_pct }}%</td><td>{{ r.branches }}</td><td>{{ r.applications }}</td><td>{{ r.observations_open }}</td><td>{{ r.sla_breaches }}</td>
-<td>{{ module_action('pan_india','open_region',role,user,'Open Region','btn-sm btn-outline-primary',r.zone) }}
-{{ module_action('pan_india','escalate_zone',role,user,'Escalate Zone','btn-sm btn-outline-danger',r.zone) }}
-{{ module_action('pan_india','export_regional',role,user,'Export Report','btn-sm btn-outline-secondary',r.zone) }}</td></tr>
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework|default('') }}" data-filter-risk="{{ r.risk_level|default('Medium') }}" data-filter-region="{{ r.zone }}" class="ecs-pan-drill" role="button" data-zone="{{ r.zone }}">
+<td><strong>{{ r.zone }}</strong></td><td>{{ r.compliance_pct }}%</td><td>{{ r.pci_readiness|default('—') }}%</td>
+<td>{{ r.audit_score|default(r.audit_readiness_pct)|default('—') }}%</td><td>{{ r.framework_posture|default('—') }}%</td>
+<td>{{ r.branches }}</td><td>{{ r.observations_open }}</td><td>{{ r.critical_observations|default(0) }}</td><td>{{ r.sla_breaches }}</td>
+<td class="text-nowrap" onclick="event.stopPropagation();">{{ module_action('pan_india','open_region',role,user,'Open','btn-sm btn-outline-primary',r.zone) }}</td></tr>
 {% endfor %}
 </tbody></table></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('sla', false) }}
+<div class="table-responsive ecs-paginated-wrap"><table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="pan-sla"><thead><tr><th>Zone</th><th>SLA Breaches</th><th>Score</th><th>PCI</th><th>Risk</th></tr></thead><tbody>
+{% for r in module_view.rows if r.sla_breaches > 0 %}
+<tr class="table-warning"><td>{{ r.zone }}</td><td>{{ r.sla_breaches }}</td><td>{{ r.compliance_pct }}%</td><td>{{ r.pci_readiness|default('—') }}%</td><td>{{ r.risk_level }}</td></tr>
+{% else %}<tr><td colspan="5" class="text-muted small">No SLA breaches in current filter scope.</td></tr>{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('analytics', false) }}
+<div class="zone-grid" id="ecsPanZoneTiles">{% for z in module_view.zone_heatmap %}
+<div class="zone-tile ecs-pan-zone-tile {% if z.risk=='High' %}zone-high{% elif z.risk=='Medium' %}zone-mid{% else %}zone-low{% endif %}" role="button" data-zone="{{ z.zone }}" title="PCI {{ z.pci|default('—') }}% · {{ z.critical_obs|default(0) }} critical obs">
+<strong>{{ z.zone }}</strong><br>{{ z.score }}%<br><small>PCI {{ z.pci|default('—') }}%</small><br><small class="text-muted">{{ z.critical_obs|default(0) }} critical</small></div>
+{% endfor %}</div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+<script>
+(function(){
+  var rows = {{ module_view.rows|tojson }};
+  function panCharts(list) {
+    if (!window.ecsRenderCompactBarChart) return;
+    ecsRenderCompactBarChart('ecsPanPciChart', list.map(function(r){ return {label:r.zone, value:r.pci_readiness||r.compliance_pct, suffix:'%', tone:'navy'}; }), {suffix:'%'});
+    ecsRenderCompactBarChart('ecsPanAuditChart', list.map(function(r){ return {label:r.zone, value:r.audit_score||r.audit_readiness_pct||r.compliance_pct, suffix:'%', tone:'teal'}; }), {suffix:'%'});
+    ecsRenderCompactBarChart('ecsPanSlaChart', list.map(function(r){ return {label:r.zone, value:r.sla_breaches, tone:'red'}; }), {});
+    ecsRenderCompactBarChart('ecsPanCritChart', list.map(function(r){ return {label:r.zone, value:r.critical_observations||0, tone:'orange'}; }), {});
+    ecsRenderCompactBarChart('ecsPanFwChart', list.map(function(r){ return {label:r.zone, value:r.framework_posture||r.compliance_pct, suffix:'%', tone:'green'}; }), {suffix:'%'});
+  }
+  panCharts(rows);
+  document.querySelectorAll('.ecs-pan-drill, .ecs-pan-zone-tile').forEach(function(el){
+    el.addEventListener('click', function(){
+      var z = el.getAttribute('data-zone');
+      var r = rows.find(function(x){ return x.zone === z; });
+      if (!r || !window.ecsShowExecDrillModal) return;
+      ecsShowExecDrillModal(z + ' Regional Posture',
+        '<dl class="row mb-0"><dt class="col-4">Compliance</dt><dd class="col-8">' + r.compliance_pct + '%</dd>' +
+        '<dt class="col-4">PCI Readiness</dt><dd class="col-8">' + (r.pci_readiness||'—') + '%</dd>' +
+        '<dt class="col-4">Audit Score</dt><dd class="col-8">' + (r.audit_score||r.audit_readiness_pct) + '%</dd>' +
+        '<dt class="col-4">Framework Posture</dt><dd class="col-8">' + (r.framework_posture||'—') + '%</dd>' +
+        '<dt class="col-4">SLA Breaches</dt><dd class="col-8">' + r.sla_breaches + '</dd>' +
+        '<dt class="col-4">Critical Observations</dt><dd class="col-8">' + (r.critical_observations||0) + '</dd></dl>');
+    });
+  });
+  window.__ecsPanChartRefresh = panCharts;
+})();
+</script>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

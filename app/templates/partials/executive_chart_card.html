@@ -1,0 +1,5 @@
+{# Executive analytics card wrapper #}
+{% from "partials/executive_chart_macros.html" import executive_chart_card, compact_chart_grid %}
+{% macro executive_analytics_card(title, subtitle='', chart_id='') %}
+{{ executive_chart_card(title, subtitle, chart_id) }}
+{% endmacro %}

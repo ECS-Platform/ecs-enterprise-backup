@@ -1,0 +1,139 @@
+{# ITPP command center — landing cards, domain dashboard, application drill-down #}
+{% from "partials/ecs_ux_macros.html" import kpi_card, accordion_section %}
+{% set fq = '?role=' ~ role ~ '&user=' ~ user %}
+{% set base = '/framework/ITPP' ~ fq %}
+
+{% if itpp_view == 'app' and itpp_app_view %}
+<div class="ecs-breadcrumb-trail">
+<a href="{{ base }}">ITPP</a>
+<span class="ecs-breadcrumb-sep">›</span>
+<a href="{{ base }}&itpp_view=domain&itpp_domain={{ itpp_app_view.domain|urlencode }}">{{ itpp_app_view.domain }}</a>
+<span class="ecs-breadcrumb-sep">›</span>
+<span>{{ itpp_app_view.application }}</span>
+</div>
+<div class="row g-3 mb-3">
+{{ kpi_card('Maturity', itpp_app_view.maturity_pct ~ '%', '', 'success') }}
+{{ kpi_card('Controls', itpp_app_view.controls|length, '', 'primary') }}
+{{ kpi_card('Pending', itpp_app_view.pending_count, '', 'warning') }}
+</div>
+<div class="ecs-section-card">
+<div class="ecs-section-card-header">
+<h2 class="ecs-section-card-title h6 mb-0">{{ itpp_app_view.application }} · {{ itpp_app_view.domain }}</h2>
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table mb-0">
+<thead><tr><th>Control</th><th>Evidence</th><th>Status</th><th>Workflow</th><th>Actions</th></tr></thead>
+<tbody>
+{% for row in itpp_app_view.controls %}
+{% set primary_ev = row.evidences[0] %}
+<tr>
+<td><strong>{{ row.control }}</strong><br><small class="text-muted">{{ row.control_id }}</small></td>
+<td>{{ row.evidences|length }}</td>
+<td>{% if primary_ev.evidence_status == 'Expired' %}<span class="badge bg-danger">{{ primary_ev.evidence_status }}</span>{% else %}<span class="badge bg-success">{{ primary_ev.evidence_status|default('Current') }}</span>{% endif %}</td>
+<td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Approved</span>
+{% elif row.ckey in rejected_controls %}<span class="badge bg-danger">Rejected</span>
+{% elif row.ckey in submitted_controls %}<span class="badge bg-warning text-dark">Pending</span>
+{% else %}<span class="badge bg-secondary">Draft</span>{% endif %}</td>
+<td><a href="{{ review_url('ITPP', row.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">Open</a></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+
+{% elif itpp_view == 'domain' and itpp_domain_view %}
+<div class="ecs-breadcrumb-trail">
+<a href="{{ base }}">ITPP</a>
+<span class="ecs-breadcrumb-sep">›</span>
+<span>{{ itpp_domain_view.domain }}</span>
+</div>
+<div class="d-flex align-items-center gap-2 mb-3">
+<span class="fs-4">{{ itpp_domain_view.icon }}</span>
+<h2 class="h5 mb-0">{{ itpp_domain_view.domain }}</h2>
+</div>
+<div class="row g-3 mb-3">
+{{ kpi_card('Maturity', itpp_domain_view.maturity_pct ~ '%', '', 'success') }}
+{{ kpi_card('DR Test Success', itpp_domain_view.dr_test_success_pct ~ '%', '', 'primary') }}
+{{ kpi_card('Overdue Apps', itpp_domain_view.overdue_applications, '', 'danger') }}
+{{ kpi_card('Pending Reviews', itpp_domain_view.pending_reviews, '', 'warning') }}
+</div>
+
+<div class="ecs-section-card mb-3">
+<div class="ecs-section-card-header"><h3 class="ecs-section-card-title h6 mb-0">Application DR Status</h3></div>
+<div class="row g-3 ecs-paginated-wrap ecs-paginated-list">
+{% for app in itpp_domain_view.applications %}
+<div class="col-md-6 col-lg-4 col-xl-3 ecs-paginated-item">
+<a href="{{ base }}&itpp_view=app&itpp_domain={{ itpp_domain_view.domain|urlencode }}&itpp_app={{ app.name|urlencode }}" class="ecs-module-card {% if app.overdue %}ecs-module-card-danger{% elif app.pending_reviews %}ecs-module-card-warning{% else %}ecs-module-card-success{% endif %}">
+<div class="ecs-module-card-head">
+<strong class="ecs-module-card-title">{{ app.name }}</strong>
+<span class="ecs-module-card-meta">{{ app.dr_status }} · {{ app.maturity_pct }}%</span>
+</div>
+<div class="ecs-module-card-stats">
+<div class="ecs-module-card-stat"><span class="ecs-module-card-stat-val">{{ app.test_success_pct }}%</span><span class="ecs-module-card-stat-lbl">Test</span></div>
+<div class="ecs-module-card-stat"><span class="ecs-module-card-stat-val">{{ app.evidence_count }}</span><span class="ecs-module-card-stat-lbl">Evidence</span></div>
+<div class="ecs-module-card-stat"><span class="ecs-module-card-stat-val">{{ app.pending_reviews }}</span><span class="ecs-module-card-stat-lbl">Pending</span></div>
+<div class="ecs-module-card-stat"><span class="ecs-module-card-stat-val">{% if app.overdue %}Yes{% else %}No{% endif %}</span><span class="ecs-module-card-stat-lbl">Overdue</span></div>
+</div>
+</a>
+</div>
+{% endfor %}
+</div>
+</div>
+
+{% call accordion_section('Domain Controls', 'itpp-domain-evidence', itpp_domain_view.control_count|string, true) %}
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table mb-0">
+<thead><tr><th>Control</th><th>Status</th><th>Workflow</th><th>Actions</th></tr></thead>
+<tbody>
+{% for row in itpp_domain_view.controls %}
+<tr>
+<td><strong>{{ row.control }}</strong></td>
+<td><span class="badge bg-{% if row.simulation.status in ['Failed','Breached','Unauthorized','Overdue'] %}danger{% else %}success{% endif %}">{{ row.simulation.status }}</span></td>
+<td><span class="badge bg-secondary">{{ row.workflow_status|title }}</span></td>
+<td>
+{% for label, action in itpp_domain_view.actions[:2] %}
+<form method="post" action="/itpp/action" class="d-inline"><input type="hidden" name="action" value="{{ action }}"><input type="hidden" name="domain" value="{{ itpp_domain_view.domain }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button class="btn btn-outline-primary btn-sm">{{ label }}</button></form>
+{% endfor %}
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endcall %}
+
+{% else %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+<h2 class="h6 mb-0 text-muted text-uppercase">Governance Domains</h2>
+<a href="{{ base }}&itpp_view=workspace" class="btn btn-outline-primary btn-sm">Workflow Queue</a>
+</div>
+<div class="row g-3 ecs-paginated-wrap ecs-paginated-list mb-3">
+{% for card in itpp_landing_cards %}
+<div class="col-md-6 col-lg-4 col-xl-3 ecs-paginated-item">
+<a href="{{ base }}&itpp_view=domain&itpp_domain={{ card.name|urlencode }}" class="ecs-module-card ecs-module-card-{{ card.tone }}">
+<div class="ecs-module-card-head">
+<span class="me-1">{{ card.icon }}</span>
+<strong class="ecs-module-card-title">{{ card.label }}</strong>
+</div>
+<div class="ecs-module-card-stats">
+<div class="ecs-module-card-stat"><span class="ecs-module-card-stat-val">{{ card.applications }}</span><span class="ecs-module-card-stat-lbl">Apps</span></div>
+<div class="ecs-module-card-stat"><span class="ecs-module-card-stat-val">{{ card.controls_coverage }}</span><span class="ecs-module-card-stat-lbl">Coverage</span></div>
+<div class="ecs-module-card-stat"><span class="ecs-module-card-stat-val">{{ card.policy_compliance }}</span><span class="ecs-module-card-stat-lbl">Policy</span></div>
+<div class="ecs-module-card-stat"><span class="ecs-module-card-stat-val">{{ card.open_gaps }}</span><span class="ecs-module-card-stat-lbl">Gaps</span></div>
+</div>
+</a>
+</div>
+{% endfor %}
+</div>
+
+{% if itpp_view == 'workspace' %}
+<div class="ecs-section-card">
+{% include "partials/framework_workflow_table.html" %}
+</div>
+{% else %}
+{% call accordion_section('Operational Panel', 'itpp-ops-panel', '', true) %}
+{% include "partials/itpp_operational_panel.html" %}
+{% endcall %}
+{% endif %}
+{% endif %}

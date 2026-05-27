@@ -1,0 +1,424 @@
+{# Dynamic application onboarding — custom input, workflow simulation, results dashboard #}
+<div class="ecs-onboard-intake card shadow-sm mb-3">
+<div class="card-body py-3">
+<h6 class="text-uppercase text-muted small mb-2">New Application Onboarding</h6>
+<form id="ecsOnboardIntakeForm" class="ecs-onboard-form" autocomplete="off">
+<div class="row g-2">
+<div class="col-md-4 col-lg-3">
+<label class="form-label ecs-ws-filter-lbl mb-0">Application Name <span class="text-danger">*</span></label>
+<input type="text" name="application_name" id="ecsOnboardAppName" class="form-control form-control-sm"
+  list="ecsOnboardAppSuggestions" placeholder="e.g. WealthX Portal" required>
+<datalist id="ecsOnboardAppSuggestions">
+{% for app in module_view.onboarding_apps|default([]) %}
+<option value="{{ app }}">
+{% endfor %}
+</datalist>
+</div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Business Unit</label>
+<select name="business_unit" class="form-select form-select-sm">
+{% for bu in module_view.business_units|default(['Retail Banking','Corporate Banking','Wealth Management','Digital Channels','Operations & IT']) %}
+<option>{{ bu }}</option>
+{% endfor %}
+</select>
+</div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Owner</label>
+<input type="text" name="owner" class="form-control form-control-sm" placeholder="R. Mehta" value="{{ user }}">
+</div>
+<div class="col-md-3 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">Environment</label>
+<select name="environment" class="form-select form-select-sm">
+<option>PROD</option><option>UAT</option><option>DR</option>
+</select>
+</div>
+<div class="col-md-3 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">Criticality</label>
+<select name="criticality" class="form-select form-select-sm">
+<option>High</option><option selected>Medium</option><option>Low</option>
+</select>
+</div>
+<div class="col-md-3 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">Internet Facing?</label>
+<select name="internet_facing" class="form-select form-select-sm">
+<option>Yes</option><option>No</option>
+</select>
+</div>
+<div class="col-md-3 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">Hosting</label>
+<select name="hosting" class="form-select form-select-sm">
+<option>Cloud</option><option>On-Prem</option><option>Hybrid</option>
+</select>
+</div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Authentication Type</label>
+<select name="auth_type" class="form-select form-select-sm">
+<option>SAML SSO</option><option>OAuth 2.0</option><option>LDAP + MFA</option><option>Certificate-based</option>
+</select>
+</div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Data Classification</label>
+<select name="data_classification" class="form-select form-select-sm">
+<option>Restricted</option><option>Confidential</option><option>Internal</option>
+</select>
+</div>
+<div class="col-md-4 col-lg-2 d-flex align-items-end gap-1 flex-wrap">
+<button type="button" class="btn btn-primary btn-sm" id="ecsOnboardStartBtn">Start Onboarding</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-onboard-wizard>Wizard</button>
+</div>
+</div>
+<p class="small text-muted mb-0 mt-2">Enter any application name — ECS will simulate CMDB sync, framework discovery, and control mapping across all 9 governance frameworks.</p>
+</form>
+</div></div>
+
+{# Onboarding workflow modal #}
+<div class="modal fade" id="ecsOnboardWorkflowModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+<div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+<div class="modal-header py-2 border-0">
+<h6 class="modal-title mb-0"><span class="ecs-onboard-spinner me-2" aria-hidden="true"></span><span id="ecsOnboardWorkflowTitle">Onboarding in progress…</span></h6>
+</div>
+<div class="modal-body pt-0">
+<div class="ecs-onboard-progress-wrap mb-3">
+<div class="progress ecs-onboard-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+<div class="progress-bar progress-bar-striped progress-bar-animated" id="ecsOnboardProgressBar" style="width:0%"></div>
+</div>
+<p class="small text-muted mb-0 mt-1" id="ecsOnboardProgressLabel">Initializing…</p>
+<p class="small text-muted mb-0"><span id="ecsOnboardElapsed">0.0s</span> elapsed</p>
+</div>
+<ul class="ecs-onboard-step-list list-unstyled mb-3" id="ecsOnboardStepList"></ul>
+<div id="ecsOnboardFrameworkScan" class="d-none">
+<h6 class="small text-uppercase text-muted mb-2">Framework Scanning</h6>
+<div id="ecsOnboardFrameworkList"></div>
+</div>
+</div>
+<div class="modal-footer py-2 border-0 d-none" id="ecsOnboardWorkflowFooter">
+<button type="button" class="btn btn-primary btn-sm" id="ecsOnboardViewResultsBtn">View Results</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+
+{# Post-onboarding results dashboard #}
+<div id="ecsOnboardResultsPanel" class="ecs-onboard-results d-none mb-3">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+<div>
+<h6 class="mb-0" id="ecsOnboardResultsTitle">Onboarding Results</h6>
+<p class="small text-muted mb-0" id="ecsOnboardResultsSubtitle"></p>
+</div>
+<div class="d-flex flex-wrap gap-1">
+<button type="button" class="btn btn-success btn-sm" id="ecsOnboardRegisterBtn">Register Application</button>
+<button type="button" class="btn btn-outline-primary btn-sm" id="ecsOnboardExportBtn">Export Onboarding Package</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" id="ecsOnboardEvidenceBtn">Trigger Evidence Collection</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" id="ecsOnboardScanBtn">Schedule Baseline Scan</button>
+</div>
+</div>
+
+<div class="row g-2 mb-3" id="ecsOnboardKpiRow"></div>
+
+<div class="card shadow-sm mb-3">
+<div class="card-header py-2"><strong class="small">Framework Onboarding Analysis</strong></div>
+<div class="table-responsive ecs-fit-view">
+<table class="table table-sm table-bordered ecs-fit-table ecs-compact-table mb-0">
+<thead><tr>
+<th>Framework</th><th>Applicable</th><th>Implemented</th><th>Missing</th><th>Failed</th><th>Inherited</th><th>Reusable</th><th>Evidence Sources</th><th>Readiness</th><th>Risk</th>
+</tr></thead>
+<tbody id="ecsOnboardFrameworkTable"></tbody>
+</table>
+</div></div>
+
+<div class="row g-2 mb-3">
+<div class="col-lg-7">
+<div class="card shadow-sm h-100">
+<div class="card-header py-2"><strong class="small">Discovered Controls</strong></div>
+<div class="table-responsive ecs-fit-view" style="max-height:280px;overflow-y:auto">
+<table class="table table-sm table-bordered ecs-fit-table ecs-compact-table mb-0">
+<thead><tr><th>Control</th><th>Framework</th><th>State</th><th>Evidence</th><th>Source</th></tr></thead>
+<tbody id="ecsOnboardControlsTable"></tbody>
+</table>
+</div></div></div>
+<div class="col-lg-5">
+<div class="card shadow-sm mb-2">
+<div class="card-header py-2"><strong class="small">Evidence Source Registration</strong></div>
+<ul class="list-group list-group-flush small" id="ecsOnboardSourcesList"></ul>
+</div>
+<div class="card shadow-sm mb-2">
+<div class="card-header py-2"><strong class="small">Immediate Onboarding Gaps</strong></div>
+<ul class="list-group list-group-flush small" id="ecsOnboardGapsList"></ul>
+</div>
+<div class="card shadow-sm ecs-onboard-copilot">
+<div class="card-header py-2"><strong class="small">AI Copilot Insights</strong></div>
+<div class="card-body py-2 small" id="ecsOnboardCopilot"></div>
+</div>
+</div>
+</div>
+</div>
+
+<form id="ecsOnboardRegisterForm" method="post" action="/mvp/onboarding" class="d-none">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="application" id="ecsOnboardRegisterApp" value="">
+</form>
+
+<script>
+(function(){
+  if (window.__ecsOnboardSimInit) return;
+  window.__ecsOnboardSimInit = true;
+
+  var STEPS = [
+    'Discovering application metadata',
+    'CMDB sync',
+    'Infra fingerprinting',
+    'Security tool mapping',
+    'Framework applicability analysis',
+    'Control inheritance mapping',
+    'Evidence source registration',
+    'Compliance readiness estimation'
+  ];
+  var STEP_MS = 750;
+  var lastResult = null;
+  var workflowModal = null;
+  var renderedFw = {};
+  var elapsedTimer = null;
+  var workflowStart = 0;
+
+  function formPayload() {
+    var form = document.getElementById('ecsOnboardIntakeForm');
+    if (!form) return {};
+    var fd = new FormData(form);
+    var o = {};
+    fd.forEach(function(v, k) { o[k] = v; });
+    return o;
+  }
+
+  function ensureModal() {
+    var el = document.getElementById('ecsOnboardWorkflowModal');
+    if (el && typeof bootstrap !== 'undefined') workflowModal = bootstrap.Modal.getOrCreateInstance(el);
+    return workflowModal;
+  }
+
+  function setProgress(pct, label) {
+    var bar = document.getElementById('ecsOnboardProgressBar');
+    var lbl = document.getElementById('ecsOnboardProgressLabel');
+    if (bar) bar.style.width = Math.min(100, pct) + '%';
+    if (lbl) lbl.textContent = label || '';
+  }
+
+  function renderStepList(activeIdx) {
+    var ul = document.getElementById('ecsOnboardStepList');
+    if (!ul) return;
+    ul.innerHTML = STEPS.map(function(s, i) {
+      var icon = i < activeIdx ? '✔' : (i === activeIdx ? '◉' : '○');
+      var cls = i < activeIdx ? 'done' : (i === activeIdx ? 'active' : '');
+      return '<li class="ecs-onboard-step-item ' + cls + '"><span class="ecs-onboard-step-icon">' + icon + '</span> ' + s + '</li>';
+    }).join('');
+  }
+
+  function frameworkRowHtml(f, animate) {
+    var barW = f.readiness_pct;
+    return '<div class="ecs-onboard-fw-row mb-2' + (animate ? ' ecs-onboard-fw-animate' : '') + '">' +
+      '<div class="d-flex justify-content-between align-items-center mb-1">' +
+      '<strong class="small">' + f.framework + '</strong>' +
+      '<span class="small">' + f.readiness_pct + '% ready · <span class="badge bg-' +
+      (f.risk === 'High' ? 'danger' : f.risk === 'Medium' ? 'warning text-dark' : 'success') + '">' + f.risk + '</span></span></div>' +
+      '<div class="small text-muted mb-1">✔ ' + f.applicable_controls + ' controls discovered · ✔ ' + f.implemented + ' implemented · ⚠ ' + f.missing + ' missing · ✖ ' + f.failed + ' failed validation · ↪ ' + f.inherited + ' inherited · ↻ ' + f.reusable_evidence + ' reusable</div>' +
+      '<div class="progress ecs-onboard-fw-bar" style="height:6px"><div class="progress-bar bg-primary" style="width:' + barW + '%"></div></div></div>';
+  }
+
+  function renderFrameworkScan(result, idx) {
+    var wrap = document.getElementById('ecsOnboardFrameworkScan');
+    var list = document.getElementById('ecsOnboardFrameworkList');
+    if (!wrap || !list || !result) return;
+    if (renderedFw[idx]) return;
+    wrap.classList.remove('d-none');
+    var fw = result.framework_results[idx];
+    if (fw) {
+      renderedFw[idx] = true;
+      list.insertAdjacentHTML('beforeend', frameworkRowHtml(fw, true));
+    }
+  }
+
+  function renderAllFrameworks(result) {
+    if (!result || !result.framework_results) return;
+    result.framework_results.forEach(function(_, i) { renderFrameworkScan(result, i); });
+  }
+
+  function renderResults(result) {
+    lastResult = result;
+    try { sessionStorage.setItem('ecsOnboardLastResult', JSON.stringify(result)); } catch (e) {}
+
+    var panel = document.getElementById('ecsOnboardResultsPanel');
+    if (!panel) return;
+    panel.classList.remove('d-none');
+
+    var meta = result.metadata || {};
+    document.getElementById('ecsOnboardResultsTitle').textContent = meta.application_name + ' — Onboarding Complete';
+    document.getElementById('ecsOnboardResultsSubtitle').textContent =
+      meta.business_unit + ' · ' + meta.owner + ' · ' + meta.environment + ' · ' + meta.criticality + ' criticality · ' + result.overall_readiness + '% overall readiness';
+
+    var kpis = result.kpis || {};
+    var kpiDefs = [
+      ['Frameworks', kpis.frameworks_onboarded, 'primary'],
+      ['Controls Discovered', kpis.controls_discovered, 'info'],
+      ['Implemented', kpis.controls_implemented, 'success'],
+      ['Missing', kpis.controls_missing, 'warning'],
+      ['Failed Validations', kpis.failed_validations, 'danger'],
+      ['Reusable Mappings', kpis.reusable_evidence_mappings, 'secondary'],
+      ['Readiness Score', kpis.readiness_score + '%', 'primary']
+    ];
+    document.getElementById('ecsOnboardKpiRow').innerHTML = kpiDefs.map(function(k) {
+      return '<div class="col-6 col-md-4 col-lg"><div class="ecs-onboard-kpi ecs-onboard-kpi-' + k[2] + '">' +
+        '<div class="ecs-onboard-kpi-val">' + k[1] + '</div><div class="ecs-onboard-kpi-lbl">' + k[0] + '</div></div></div>';
+    }).join('');
+
+    document.getElementById('ecsOnboardFrameworkTable').innerHTML = (result.framework_results || []).map(function(f) {
+      return '<tr><td><strong>' + f.framework + '</strong></td><td>' + f.applicable_controls + '</td><td>' + f.implemented + '</td>' +
+        '<td>' + f.missing + '</td><td>' + f.failed + '</td><td>' + f.inherited + '</td><td>' + f.reusable_evidence + '</td><td>' + f.evidence_sources + '</td><td>' + f.readiness_pct + '%</td>' +
+        '<td><span class="badge bg-' + (f.risk === 'High' ? 'danger' : f.risk === 'Medium' ? 'warning text-dark' : 'success') + '">' + f.risk + '</span></td></tr>';
+    }).join('');
+
+    document.getElementById('ecsOnboardControlsTable').innerHTML = (result.discovered_controls || []).slice(0, 24).map(function(c) {
+      var stCls = c.implementation_state.indexOf('Fail') >= 0 ? 'danger' : (c.implementation_state === 'Implemented' ? 'success' : 'warning text-dark');
+      return '<tr><td><code class="small">' + c.control_id + '</code><br><span class="text-muted">' + c.control_name + '</span></td>' +
+        '<td>' + c.framework + '</td><td><span class="badge bg-' + stCls + '">' + c.implementation_state + '</span></td>' +
+        '<td>' + c.evidence_availability + '</td><td class="small">' + c.integration_source + '</td></tr>';
+    }).join('');
+
+    document.getElementById('ecsOnboardSourcesList').innerHTML = (result.evidence_sources || []).map(function(s) {
+      var badge = s.status === 'Synced successfully' ? 'success' : (s.status === 'Partially synced' ? 'warning text-dark' : 'danger');
+      return '<li class="list-group-item d-flex justify-content-between py-1"><span>' + s.source + '</span><span class="badge bg-' + badge + '">' + s.status + '</span></li>';
+    }).join('');
+
+    document.getElementById('ecsOnboardGapsList').innerHTML = (result.remediation_gaps || []).map(function(g) {
+      return '<li class="list-group-item py-1">' + g + '</li>';
+    }).join('');
+
+    var cop = result.copilot_insights || {};
+    var copHtml = '<p class="mb-2"><strong>' + (cop.headline || '') + '</strong></p>';
+    if (cop.risks && cop.risks.length) {
+      copHtml += '<p class="mb-1 text-muted">Highest risks:</p><ul class="mb-2 ps-3">';
+      cop.risks.forEach(function(r) { copHtml += '<li>' + r + '</li>'; });
+      copHtml += '</ul>';
+    }
+    if (cop.recommendations && cop.recommendations.length) {
+      copHtml += '<p class="mb-1 text-muted">Recommendations:</p><ul class="mb-0 ps-3">';
+      cop.recommendations.forEach(function(r) { copHtml += '<li>' + r + '</li>'; });
+      copHtml += '</ul>';
+    }
+    document.getElementById('ecsOnboardCopilot').innerHTML = copHtml;
+
+    document.getElementById('ecsOnboardRegisterApp').value = meta.application_name || '';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function runWorkflow(payload) {
+    var modal = ensureModal();
+    if (!modal) return;
+    renderedFw = {};
+    workflowStart = Date.now();
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    elapsedTimer = setInterval(function() {
+      var el = document.getElementById('ecsOnboardElapsed');
+      if (el) el.textContent = ((Date.now() - workflowStart) / 1000).toFixed(1) + 's';
+    }, 100);
+    document.getElementById('ecsOnboardWorkflowTitle').textContent = 'Onboarding ' + (payload.application_name || 'application') + '…';
+    document.getElementById('ecsOnboardFrameworkList').innerHTML = '';
+    document.getElementById('ecsOnboardFrameworkScan').classList.add('d-none');
+    document.getElementById('ecsOnboardWorkflowFooter').classList.add('d-none');
+    setProgress(0, 'Initializing AI onboarding workflow…');
+    renderStepList(0);
+    modal.show();
+
+    var fetchPromise = fetch('/api/onboarding/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(r) { return r.json(); });
+
+    var step = 0;
+    var statusMsgs = ['Analyzing application metadata…', 'Syncing integrations…', 'Mapping controls…', 'Registering evidence sources…', 'Analyzing frameworks…'];
+    function nextStep() {
+      if (step >= STEPS.length) {
+        fetchPromise.then(function(result) {
+          renderAllFrameworks(result);
+          setProgress(100, 'Onboarding analysis complete');
+          document.getElementById('ecsOnboardWorkflowTitle').textContent = 'Onboarding complete';
+          document.getElementById('ecsOnboardWorkflowFooter').classList.remove('d-none');
+          window.__ecsOnboardPendingResult = result;
+          if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+        }).catch(function() {
+          setProgress(100, 'Simulation completed with cached estimate');
+          document.getElementById('ecsOnboardWorkflowFooter').classList.remove('d-none');
+          if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+        });
+        return;
+      }
+      renderStepList(step);
+      var msg = STEPS[step] + '…';
+      if (step >= 4) msg = statusMsgs[(step - 4) % statusMsgs.length];
+      setProgress(Math.round(((step + 1) / STEPS.length) * 92), msg);
+      if (step >= 4) {
+        fetchPromise.then(function(result) {
+          var batch = Math.ceil((result.framework_results.length) / 4);
+          var start = (step - 4) * batch;
+          for (var i = start; i < start + batch && i < result.framework_results.length; i++) {
+            renderFrameworkScan(result, i);
+          }
+        });
+      }
+      step += 1;
+      setTimeout(nextStep, STEP_MS);
+    }
+    setTimeout(nextStep, 400);
+  }
+
+  document.getElementById('ecsOnboardStartBtn')?.addEventListener('click', function() {
+    var form = document.getElementById('ecsOnboardIntakeForm');
+    if (!form || !form.reportValidity()) return;
+    runWorkflow(formPayload());
+  });
+
+  document.getElementById('ecsOnboardIntakeForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    document.getElementById('ecsOnboardStartBtn')?.click();
+  });
+
+  document.getElementById('ecsOnboardViewResultsBtn')?.addEventListener('click', function() {
+    var result = window.__ecsOnboardPendingResult;
+    if (!result) {
+      try { result = JSON.parse(sessionStorage.getItem('ecsOnboardLastResult') || 'null'); } catch (e) {}
+    }
+    if (result) renderResults(result);
+    if (workflowModal) workflowModal.hide();
+  });
+
+  document.getElementById('ecsOnboardRegisterBtn')?.addEventListener('click', function() {
+    document.getElementById('ecsOnboardRegisterForm')?.submit();
+  });
+
+  document.getElementById('ecsOnboardExportBtn')?.addEventListener('click', function() {
+    if (!lastResult) return;
+    fetch('/api/onboarding/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ result: lastResult })
+    }).then(function(r) { return r.blob(); }).then(function(blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ecs-onboarding-summary.txt';
+      a.click();
+    });
+  });
+
+  document.getElementById('ecsOnboardEvidenceBtn')?.addEventListener('click', function() {
+    window.location.href = '/mvp/upload?role={{ role }}&user={{ user|urlencode }}&notice=' + encodeURIComponent('First evidence collection queued for ' + (lastResult?.metadata?.application_name || 'application'));
+  });
+
+  document.getElementById('ecsOnboardScanBtn')?.addEventListener('click', function() {
+    window.location.href = '/mvp/scheduler?role={{ role }}&user={{ user|urlencode }}&notice=' + encodeURIComponent('Baseline scan scheduled for ' + (lastResult?.metadata?.application_name || 'application'));
+  });
+
+  try {
+    var cached = sessionStorage.getItem('ecsOnboardLastResult');
+    if (cached) renderResults(JSON.parse(cached));
+  } catch (e) {}
+})();
+</script>

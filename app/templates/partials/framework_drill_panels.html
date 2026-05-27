@@ -1,0 +1,291 @@
+{# Primary framework navigation — governance-context-aware drill-down #}
+{% set wl = fw_dashboard.workflow_labels if fw_dashboard is defined else {} %}
+{% set fq = '?role=' ~ role ~ '&user=' ~ user %}
+{% set drill_modules = fw_dashboard.drill_modules if fw_dashboard is defined else [] %}
+{% set controls_bd = fw_dashboard.control_breakdown if fw_dashboard is defined and fw_dashboard.control_breakdown is defined else [] %}
+{% set gc = fw_dashboard.governance_context if fw_dashboard is defined and fw_dashboard.governance_context is defined else none %}
+{% set default_tab = fw_tab|default('applications') %}
+{% set rel_controls = gc.relational_controls if gc and gc.relational_controls else controls_bd %}
+{% from "partials/ecs_ux_macros.html" import governance_action_menu, workflow_state_group %}
+
+<div class="ecs-drill-zone">
+<nav class="ecs-drill-nav-grid ecs-drill-module-cards" aria-label="Framework drill-down">
+{% for mod in drill_modules %}
+<button type="button" class="ecs-drill-module-btn{% if mod.id == default_tab %} is-active{% endif %}" data-drill-tab="{{ mod.id }}" data-bs-target="#pane-{{ mod.id }}" aria-controls="pane-{{ mod.id }}">
+<span class="ecs-drill-module-icon" aria-hidden="true">{{ mod.icon }}</span>
+<span class="ecs-drill-module-label">{{ mod.label }}</span>
+</button>
+{% endfor %}
+</nav>
+
+<div class="tab-content ecs-drill-tab-body">
+
+{# APPLICATIONS #}
+<div class="tab-pane fade{% if default_tab == 'applications' %} show active{% endif %}" id="pane-applications" role="tabpanel">
+{% if gc %}<p class="small text-muted mb-2"><strong>Scope:</strong> {{ gc.scope.context_label }} · {{ gc.scope.control_count }} controls · {{ gc.scope.application_count }} applications · per-app audit readiness</p>{% elif fw_dashboard.context_label %}<p class="small text-muted mb-2"><strong>Scope:</strong> {{ fw_dashboard.context_label }}</p>{% endif %}
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Application</th><th>Owner</th><th>Readiness</th><th>Controls</th><th>Findings</th><th>Failed</th><th>Last Validation</th><th>Risk</th><th></th></tr></thead>
+<tbody>
+{% for app in application_grid %}
+<tr>
+<td><strong>{{ app.name }}</strong>{% if app.focus|default('') %}<br><span class="small text-muted">{{ app.focus|truncate(36, True, '') }}</span>{% endif %}</td>
+<td class="small">{{ app.owner|default('—') }}</td>
+<td>{{ app.audit_readiness_pct|default(app.compliance_pct) }}%</td>
+<td>{{ app.implemented|default('—') }}</td>
+<td>{{ app.findings }}</td>
+<td>{{ app.failed_controls|default(0) }}</td>
+<td class="small">{{ app.last_validation|default(app.last_refresh) }}</td>
+<td><span class="badge {% if app.risk_rating == 'High' %}bg-danger{% elif app.risk_rating == 'Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ app.risk_rating }}</span></td>
+<td><a href="/framework/{{ framework_name }}{{ fq }}&fw_app={{ app.name|urlencode }}&fw_tab=applications" class="btn btn-outline-primary btn-sm py-0 px-2">Open</a></td>
+</tr>
+{% endfor %}
+</tbody></table></div></div>
+
+{# CONTROLS #}
+<div class="tab-pane fade{% if default_tab == 'controls' %} show active{% endif %}" id="pane-controls" role="tabpanel">
+{% if gc %}<p class="small text-muted mb-2"><strong>{{ framework_name }} controls only</strong> — {{ gc.scope.control_count }} controls mapped to {{ gc.scope.application_count }} applications · prefix registry enforced</p>{% endif %}
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Control ID</th><th>Control</th><th>Application</th><th>Owner</th><th>Evidence</th><th>Governance State</th><th></th></tr></thead>
+<tbody>
+{% for row in rel_controls %}
+<tr class="{% if row.validation == 'FAIL' or 'Rejected' in row.workflow_status %}table-danger{% elif row.validation == 'WARN' or 'Pending' in row.workflow_status %}table-warning{% endif %}">
+<td><code class="small">{{ row.control_id }}</code></td>
+<td><strong>{{ row.control|truncate(40, True, '') }}</strong></td>
+<td>{{ row.application }}</td>
+<td class="small">{{ row.owner|default('—') }}</td>
+<td class="small">{% if row.evidence_present or row.evidence_name %}{{ row.evidence_name|default('Linked')|truncate(24, True, '') }}{% else %}<span class="text-danger">Missing</span>{% endif %}</td>
+<td>{{ workflow_state_group(row) }}</td>
+<td class="ecs-sticky-actions">{{ governance_action_menu(loop.index, framework_name, role, user, row, fq) }}</td>
+</tr>
+{% endfor %}
+</tbody></table></div></div>
+
+{# PENDING ACTIONS & GAPS (merged) #}
+<div class="tab-pane fade" id="pane-pending" role="tabpanel">
+{% if gc %}<p class="small text-muted mb-2"><strong>{{ framework_name }} pending actions & open gaps</strong> — observation closure, missing evidence, failed validation, SLA breaches · application-mapped</p>{% endif %}
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Application</th><th>Control</th><th>Type</th><th>Owner</th><th>Action</th><th>Due</th><th>Risk</th><th></th></tr></thead>
+<tbody>
+{% set pending_rows = gc.pending_actions_and_gaps if gc and gc.pending_actions_and_gaps is defined else (gc.pending_actions if gc else []) %}
+{% if pending_rows %}
+{% for pa in pending_rows %}
+<tr class="{% if pa.risk == 'Critical' %}table-danger{% elif pa.risk == 'High' %}table-warning{% endif %}">
+<td><strong>{{ pa.application }}</strong></td>
+<td><code class="small">{{ pa.control_id }}</code>{% if pa.finding_id and pa.finding_id != '—' %}<br><span class="small text-muted">Obs {{ pa.finding_id }}</span>{% endif %}<br><span class="small text-muted">{{ pa.control_name|default(pa.control|default(''))|truncate(28, True, '') }}</span></td>
+<td><span class="badge {% if pa.item_type == 'Open Gap' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ pa.item_type|default(pa.gap_type|default('Pending Action')) }}</span></td>
+<td class="small">{{ pa.owner }}</td>
+<td class="small">{{ pa.action|default(pa.description)|truncate(40, True, '') }}</td>
+<td class="small">{{ pa.due_date|default('—') }}</td>
+<td><span class="badge {% if pa.risk == 'Critical' %}bg-danger{% elif pa.risk == 'High' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ pa.risk|default(pa.risk_severity) }}</span></td>
+<td class="ecs-sticky-actions">{{ governance_action_menu('pa-' ~ loop.index, framework_name, role, user, pa, fq) }}</td>
+</tr>
+{% endfor %}
+{% else %}
+{% for ctrl in framework_catalog_controls %}
+{% set ckey = framework_name ~ '::' ~ ctrl.control %}
+{% if ckey in submitted_controls or ckey in rejected_controls %}
+{% set primary_ev = ctrl.evidences[0] %}
+<tr class="{% if ckey in rejected_controls %}table-danger{% else %}table-warning{% endif %}">
+<td>{{ primary_ev.application_name }}</td>
+<td><code class="small">{{ ctrl.control_id }}</code></td>
+<td>—</td>
+<td class="small">{{ primary_ev.uploaded_by }}</td>
+<td>{% if ckey in rejected_controls %}Resubmit evidence{% else %}Auditor review{% endif %}</td>
+<td>—</td>
+<td>Medium</td>
+<td><a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-primary btn-sm py-0 px-2">Open</a></td>
+</tr>
+{% endif %}
+{% endfor %}
+{% endif %}
+</tbody></table></div></div>
+
+{# EVIDENCE REPOSITORY #}
+<div class="tab-pane fade" id="pane-evidence" role="tabpanel">
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+<div><h3 class="h6 mb-0">{{ wl.queue_title|default('Evidence Governance Repository') }}</h3>
+{% if gc %}<p class="small text-muted mb-0">{{ framework_name }} evidence · mapped to controls, findings, and audit cycles</p>{% endif %}</div>
+<span class="badge bg-secondary">{{ framework_control_count }} controls · {{ gc.evidence_repository|length if gc and gc.evidence_repository else framework_evidence_count }} evidences</span>
+</div>
+{% include "partials/framework_relational_evidence.html" %}
+</div>
+
+{# OPEN OBSERVATIONS #}
+<div class="tab-pane fade" id="pane-findings" role="tabpanel">
+{% if gc and gc.open_findings %}
+<p class="small text-muted mb-2"><strong>Open Observations</strong> — {{ framework_name }} scope · new and in-progress observations plus recently closed · {{ gc.failed_controls_count }} failed controls (separate metric)</p>
+<h6 class="small text-uppercase text-muted mt-2 mb-1">Open &amp; In Progress</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view mb-3">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Obs ID</th><th>Application</th><th>Observation</th><th>Severity</th><th>Owner</th><th>Open Since</th><th>Control</th><th>Status</th></tr></thead>
+<tbody>
+{% for f in gc.open_findings if f.status not in ['Closed'] %}
+<tr class="{% if f.severity == 'Critical' %}table-danger{% elif f.severity == 'High' %}table-warning{% endif %}">
+<td><code class="small">{{ f.finding_id }}</code></td>
+<td><strong>{{ f.application }}</strong></td>
+<td class="small">{{ f.observation|truncate(48, True, '') }}</td>
+<td>{{ f.severity }}</td>
+<td class="small">{{ f.owner|default('—') }}</td>
+<td>{{ f.open_since }}{% if f.aging_days|default('') %} <span class="text-muted">({{ f.aging_days }}d)</span>{% endif %}</td>
+<td><code class="small">{{ f.linked_control }}</code></td>
+<td>{{ f.status }}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+<h6 class="small text-uppercase text-muted mb-1">Recently Closed (30 days)</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Obs ID</th><th>Application</th><th>Observation</th><th>Severity</th><th>Closed</th><th>Owner</th><th>Closure Note</th></tr></thead>
+<tbody>
+{% for f in gc.open_findings if f.status == 'Closed' %}
+<tr class="table-success">
+<td><code class="small">{{ f.finding_id }}</code></td>
+<td><strong>{{ f.application }}</strong></td>
+<td class="small">{{ f.observation|truncate(50, True, '') }}</td>
+<td>{{ f.severity }}</td>
+<td>{{ f.closure_date|default('—') }}</td>
+<td class="small">{{ f.owner|default('—') }}</td>
+<td class="small text-muted">{{ f.closure_note|default('Auditor accepted')|truncate(40, True, '') }}</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="text-muted small">No recently closed observations in scope.</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}<p class="text-muted small mb-0">No open findings in scope.</p>{% endif %}
+</div>
+
+{# INTEGRATIONS #}
+<div class="tab-pane fade" id="pane-integrations" role="tabpanel">
+<p class="small text-muted mb-2"><strong>{{ framework_name }} integrations</strong> — application mappings, sync challenges, business process &amp; evidence collection confirmation</p>
+{% if gc and gc.integrations_detailed %}
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view mb-3">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Integration</th><th>Applications</th><th>Controls</th><th>Last Sync</th><th>Health</th><th>Evidence OK?</th><th></th></tr></thead>
+<tbody>
+{% for c in gc.integrations_detailed %}
+<tr class="{% if c.health == 'Degraded' %}table-warning{% elif c.health == 'Failed' %}table-danger{% endif %}">
+<td><strong>{{ c.name }}</strong></td>
+<td class="small">{{ c.affected_applications|default(c.applications)|join(', ')|truncate(48, True, '') }}</td>
+<td>{{ c.controls_populated }}</td>
+<td class="small">{{ c.last_sync }}</td>
+<td><span class="badge {% if c.health == 'Healthy' %}bg-success{% elif c.health == 'Degraded' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ c.health }}</span></td>
+<td>{% if c.evidence_collection_ready|default(false) %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-danger">Blocked</span>{% endif %}</td>
+<td><a href="/mvp/integrations-hub{{ fq }}" class="btn btn-outline-primary btn-sm py-0 px-2">Hub</a></td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+{% if gc.integrations_detailed[0].sync_challenges is defined %}
+<h6 class="small text-uppercase text-muted mb-1">Sync Challenges by Application</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Integration</th><th>Application</th><th>Issue</th><th>Severity</th><th>Status</th></tr></thead>
+<tbody>
+{% for c in gc.integrations_detailed %}
+{% for ch in c.sync_challenges|default([]) %}
+<tr><td class="small">{{ c.name }}</td><td><strong>{{ ch.application }}</strong></td><td class="small">{{ ch.issue }}</td>
+<td><span class="badge {% if ch.severity == 'Critical' %}bg-danger{% elif ch.severity == 'High' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ ch.severity }}</span></td>
+<td>{{ ch.status }}</td></tr>
+{% endfor %}
+{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% else %}
+<div class="d-flex flex-wrap gap-2">
+{% for c in fw_dashboard.framework_integrations|default([]) %}
+<div class="ecs-connector-card ecs-connector-compact">
+<span class="ecs-connector-health ok"></span><strong>{{ c.name if c.name is defined else c }}</strong>
+<span class="badge bg-success ms-1">Synced</span>
+<a href="/mvp/integrations{{ fq }}" class="btn btn-outline-primary btn-sm py-0 ms-1">Manage</a>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+</div>
+
+{# EXCEPTIONS / TD — Risk Access Form (RAF) #}
+<div class="tab-pane fade" id="pane-exceptions" role="tabpanel">
+{% set exceptions = gc.framework_exceptions if gc and gc.framework_exceptions else fw_dashboard.framework_exceptions|default([]) %}
+<p class="small text-muted mb-2"><strong>{{ framework_name }} exceptions / TD</strong> — Bank Pay Risk Access Form (RAF) submissions for TD breaches · {{ exceptions|length }} active waivers</p>
+<div class="ecs-ws-metric-row mb-2">
+<span class="badge bg-warning text-dark">Active TDs: {{ exceptions|length }}</span>
+</div>
+<div class="ecs-paginated-wrap ecs-paginated-list">
+{% for ex in exceptions %}
+<div class="ecs-priority-card ecs-paginated-item mb-2 py-2">
+<div class="ecs-priority-card-head mb-1">
+<div>
+<strong class="ecs-priority-title">{{ ex.id }} — {{ ex.title }}</strong>
+<div class="ecs-priority-meta">
+RAF <code>{{ ex.risk_access_form_id|default('—') }}</code> · TD: {{ ex.td_breach_type|default('—') }} ·
+Control <code>{{ ex.control_id|default('—') }}</code> · {{ ex.application|default(framework_name) }} · Expires {{ ex.expires }}
+</div>
+</div>
+<span class="badge {% if ex.status == 'Active' %}bg-warning text-dark{% elif ex.status == 'Review Due' %}bg-danger{% else %}bg-secondary{% endif %}">{{ ex.status }}</span>
+</div>
+<p class="small mb-1"><strong>Submitted via:</strong> {{ ex.submitted_via|default('Bank Pay Risk Access Form (online)') }}</p>
+<p class="small mb-1"><strong>Justification:</strong> {{ ex.justification|default('—') }}</p>
+<p class="small mb-0"><strong>Compensating:</strong> {{ ex.compensating|default('—') }} · <strong>Approver:</strong> {{ ex.approver|default('—') }}</p>
+</div>
+{% endfor %}
+</div>
+<a href="/mvp/exceptions{{ fq }}" class="btn btn-outline-primary btn-sm mt-1">Exceptions Register</a>
+</div>
+
+{# TRENDS #}
+<div class="tab-pane fade" id="pane-trends" role="tabpanel">
+{% include "partials/framework_trends_panel.html" %}
+{% include "partials/framework_insights.html" %}
+</div>
+
+{# REUSE MAPPING #}
+<div class="tab-pane fade" id="pane-reuse" role="tabpanel">
+{% if gc and gc.reuse_mappings %}
+<p class="small text-muted mb-2"><strong>{{ framework_name }} evidence reuse</strong> — cross-framework control mappings (PCI ↔ VAPT ↔ AppSec ↔ others)</p>
+{% set pci_reuse = gc.reuse_mappings|selectattr('source_framework', 'equalto', 'PCI DSS')|list|length if framework_name == 'PCI DSS' else 0 %}
+<div class="ecs-ws-metric-row mb-2">
+<span class="badge bg-info text-dark">{{ gc.reuse_mappings|length }} reuse mappings</span>
+{% if framework_name == 'PCI DSS' %}<span class="badge bg-primary">PCI reused in {{ gc.reuse_mappings|map(attribute='target_framework')|unique|list|length }} frameworks</span>{% endif %}
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view mb-2">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Source</th><th>Source Control</th><th>Target</th><th>Target Control</th><th>Shared Evidence</th><th>Confidence</th></tr></thead>
+<tbody>
+{% for r in gc.reuse_mappings %}
+<tr>
+<td>{{ r.source_framework }}</td>
+<td class="small"><code>{{ r.source_control }}</code></td>
+<td>{{ r.target_framework }}</td>
+<td class="small"><code>{{ r.target_control }}</code></td>
+<td>{{ r.shared_evidence|truncate(32, True, '') }}</td>
+<td>{{ r.confidence_pct }}%</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+{% endif %}
+<a href="/mvp/reuse{{ fq }}" class="btn btn-outline-primary btn-sm">Evidence Reuse Hub</a>
+</div>
+
+</div></div>
+<script>
+(function(){
+  function activateTab(tabId) {
+    document.dispatchEvent(new CustomEvent('ecsDrillTabSwitch', { detail: { tabId: tabId } }));
+    document.querySelectorAll('.ecs-drill-module-btn').forEach(function(b){
+      b.classList.toggle('is-active', b.getAttribute('data-drill-tab') === tabId);
+    });
+    document.querySelectorAll('.ecs-drill-tab-body .tab-pane').forEach(function(p){
+      p.classList.remove('show','active');
+    });
+    var pane = document.getElementById('pane-' + tabId);
+    if (pane) pane.classList.add('show','active');
+  }
+  document.querySelectorAll('.ecs-drill-module-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ activateTab(btn.getAttribute('data-drill-tab')); });
+  });
+  var initial = '{{ default_tab }}' || 'applications';
+  if (document.getElementById('pane-' + initial)) activateTab(initial);
+})();
+</script>

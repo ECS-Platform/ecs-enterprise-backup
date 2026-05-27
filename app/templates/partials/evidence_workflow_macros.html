@@ -1,0 +1,68 @@
+{# Evidence workflow UI macros — counters, chips, timeline, analytics #}
+
+{% macro workflow_counter_strip(summary) %}
+{% if summary and summary.counters %}
+<div class="ecs-wf-counter-strip mb-2" id="ecsWorkflowCounterStrip" data-ecs-wf-counters>
+{% for c in summary.counters %}
+<div class="ecs-wf-counter ecs-wf-counter-{{ c.tone|default('primary') }}">
+<div class="ecs-wf-counter-val" data-ecs-wf-count="{{ c.label|lower|replace(' ','_') }}">{{ c.value }}</div>
+<div class="ecs-wf-counter-lbl">{{ c.label }}</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro workflow_analytics_cards(analytics) %}
+{% if analytics and analytics.cards %}
+<div class="ecs-wf-analytics-row mb-2">
+{% for card in analytics.cards[:5] %}
+<div class="ecs-wf-analytic-card ecs-wf-analytic-{{ card.tone|default('primary') }}">
+<div class="ecs-wf-analytic-val">{{ card.value }}</div>
+<div class="ecs-wf-analytic-lbl">{{ card.label }}</div>
+<div class="ecs-wf-analytic-hint">{{ card.hint|default('') }}</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro workflow_status_chip(state, role='owner') %}
+{% if state is mapping %}
+<span class="ecs-wf-status-chip ecs-wf-chip-{{ state.chip_tone|default('secondary') }}" data-wf-code="{{ state.code|default('draft') }}" title="{{ state.owner_label if role == 'owner' else state.auditor_label }}">{{ state.chip_text|default('DRAFT') }}</span>
+{% else %}
+<span class="badge bg-secondary ecs-wf-status-chip">{{ state }}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro workflow_timeline(steps) %}
+{% if steps %}
+<div class="ecs-wf-timeline mb-2">
+{% for s in steps %}
+<span class="ecs-wf-tl-step{% if s.done %} is-done{% endif %}{% if s.active %} is-active{% endif %}{% if s.tone %} ecs-wf-tl-{{ s.tone }}{% endif %}">{{ s.step }}</span>
+{% if not loop.last %}<span class="ecs-wf-tl-arrow">→</span>{% endif %}
+{% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro workflow_observation_meta(state, application='', role='owner') %}
+{% if state is mapping %}
+<div class="ecs-wf-obs-meta small text-muted mb-1">
+<code>{{ state.observation_id|default('—') }}</code>
+· <strong>{{ state.control|default('—')|truncate(24, True, '') }}</strong>
+{% if application %}· {{ application }}{% endif %}
+· <span class="ecs-wf-meta-status">{{ state.auditor_label if role == 'auditor' else state.owner_label }}</span>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro workflow_queue_pills(queues) %}
+{% if queues and queues.queues %}
+<div class="ecs-wf-queue-pills mb-2">
+{% for q in queues.queues %}
+<span class="ecs-wf-queue-pill" data-queue-id="{{ q.id }}">{{ q.label }} <strong>{{ q.count }}</strong></span>
+{% endfor %}
+</div>
+{% endif %}
+{% endmacro %}

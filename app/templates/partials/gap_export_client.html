@@ -1,0 +1,214 @@
+{# Gap export modal, toast, and client — always-on comparison export workflow #}
+<style>
+.ecs-export-toast{position:fixed;bottom:20px;right:20px;z-index:2000;min-width:280px;max-width:360px;background:#fff;border:1px solid #86efac;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:.65rem .75rem;display:none}
+.ecs-export-toast.is-visible{display:block}
+#ecsGapExportModal{z-index:2050}
+.ecs-gap-export-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:2040;display:none}
+.ecs-gap-export-backdrop.is-visible{display:block}
+#ecsGapExportModal.ecs-modal-fallback{display:none;position:fixed;inset:0;z-index:2050;overflow-y:auto;padding:1rem}
+#ecsGapExportModal.ecs-modal-fallback.show{display:block}
+#ecsGapExportModal.ecs-modal-fallback .modal-dialog{margin:1.75rem auto}
+</style>
+
+<div class="ecs-gap-export-backdrop" id="ecsGapExportBackdrop"></div>
+
+<div class="modal fade" id="ecsGapExportModal" tabindex="-1" aria-labelledby="ecsGapExportTitle" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="ecsGapExportTitle">Export Gap Analysis</h6>
+<button type="button" class="btn-close" id="ecsGapExportClose" aria-label="Close"></button></div>
+<form id="ecsGapExportForm">
+<div class="modal-body small">
+<input type="hidden" name="role" id="ecsExportRole" value="{{ role }}">
+<input type="hidden" name="user" id="ecsExportUser" value="{{ user }}">
+<input type="hidden" name="compare_framework" id="ecsExportFramework" value="All Frameworks">
+<input type="hidden" name="compare_scope" id="ecsExportScope" value="All Applications">
+<input type="hidden" name="compare_application" id="ecsExportApplication" value="All Applications">
+<input type="hidden" name="time_range" id="ecsExportTimeRange" value="Current Month">
+<p class="text-muted mb-2" id="ecsExportFilterPreview">Filters: All Frameworks · All Applications · Current Month</p>
+<label class="form-label fw-semibold">Export format</label>
+<div class="mb-2">
+<label class="me-3"><input type="radio" name="export_format" value="excel" checked> Excel (.xlsx)</label>
+<label class="me-3"><input type="radio" name="export_format" value="pdf"> PDF</label>
+<label><input type="radio" name="export_format" value="csv"> CSV</label>
+</div>
+<label class="form-label fw-semibold">Include sections</label>
+<div class="form-check"><input class="form-check-input" type="checkbox" name="include_executive" id="incExec" checked><label class="form-check-label" for="incExec">Executive Summary</label></div>
+<div class="form-check"><input class="form-check-input" type="checkbox" name="include_observations" id="incObs" checked><label class="form-check-label" for="incObs">Observations</label></div>
+<div class="form-check"><input class="form-check-input" type="checkbox" name="include_failed" id="incFail" checked><label class="form-check-label" for="incFail">Failed Controls</label></div>
+<div class="form-check"><input class="form-check-input" type="checkbox" name="include_missing" id="incMiss" checked><label class="form-check-label" for="incMiss">Missing Evidence</label></div>
+<div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="include_audit_impact" id="incAudit" checked><label class="form-check-label" for="incAudit">Audit Impact</label></div>
+</div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-outline-secondary btn-sm" id="ecsGapExportCancel">Cancel</button>
+<button type="submit" class="btn btn-primary btn-sm" id="ecsGapExportSubmit">Generate Export</button>
+</div>
+</form></div></div></div>
+
+<div class="ecs-export-toast" id="ecsExportToast" role="status">
+<strong class="d-block mb-1">Gap Analysis Export Generated Successfully</strong>
+<p class="small text-muted mb-2" id="ecsExportToastMeta"></p>
+<div class="d-flex flex-wrap gap-2">
+<a href="#" class="btn btn-sm btn-primary" id="ecsExportToastDownload">Download Now</a>
+<a href="#" class="btn btn-sm btn-outline-secondary" id="ecsExportToastPreview" target="_blank">View Report</a>
+<button type="button" class="btn btn-sm btn-link" id="ecsExportToastClose">Dismiss</button>
+</div></div>
+
+<script>
+(function(){
+  if (window.__ecsGapExportInit) return;
+  window.__ecsGapExportInit = true;
+
+  var exportModal = null;
+  var modalEl = null;
+  var backdropEl = null;
+
+  function getFilters() {
+    if (window.ecsGetComparisonFilters) return window.ecsGetComparisonFilters();
+    var v = { compare_framework: 'All Frameworks', compare_scope: 'All Applications', compare_application: 'All Applications', time_range: 'Current Month' };
+    document.querySelectorAll('[data-filter-profile="comparison"] .ecs-ws-filter, [data-ecs-workspace-filters] .ecs-ws-filter').forEach(function(sel) {
+      var key = sel.getAttribute('data-filter-key');
+      if (key) v[key] = sel.value;
+    });
+    return v;
+  }
+
+  function syncFiltersToModal() {
+    var v = getFilters();
+    var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val; };
+    set('ecsExportFramework', v.compare_framework || 'All Frameworks');
+    set('ecsExportScope', v.compare_scope || 'All Applications');
+    set('ecsExportApplication', v.compare_application || 'All Applications');
+    set('ecsExportTimeRange', v.time_range || 'Current Month');
+    var prev = document.getElementById('ecsExportFilterPreview');
+    if (prev) {
+      prev.textContent = 'Filters: ' + (v.compare_framework || 'All Frameworks') + ' · ' +
+        (v.compare_application || 'All Applications') + ' · ' +
+        (v.compare_scope || 'All Applications') + ' · ' + (v.time_range || 'Current Month');
+    }
+  }
+
+  function closeExportModal() {
+    if (exportModal) exportModal.hide();
+    else if (modalEl) {
+      modalEl.classList.remove('show');
+      modalEl.style.display = 'none';
+      modalEl.setAttribute('aria-hidden', 'true');
+    }
+    if (backdropEl) backdropEl.classList.remove('is-visible');
+    document.body.classList.remove('modal-open');
+  }
+
+  function openExportModal() {
+    syncFiltersToModal();
+    if (!modalEl) modalEl = document.getElementById('ecsGapExportModal');
+    if (!modalEl) return;
+    if (typeof bootstrap !== 'undefined') {
+      exportModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+      exportModal.show();
+    } else {
+      modalEl.classList.add('show', 'ecs-modal-fallback');
+      modalEl.style.display = 'block';
+      modalEl.removeAttribute('aria-hidden');
+      if (backdropEl) backdropEl.classList.add('is-visible');
+      document.body.classList.add('modal-open');
+    }
+  }
+
+  function showToast(exportId, filename) {
+    var toast = document.getElementById('ecsExportToast');
+    var meta = document.getElementById('ecsExportToastMeta');
+    if (!toast) return;
+    if (meta) meta.textContent = filename || exportId;
+    var dl = document.getElementById('ecsExportToastDownload');
+    var pv = document.getElementById('ecsExportToastPreview');
+    if (dl) dl.href = '/mvp/exports/download/' + exportId;
+    if (pv) pv.href = '/mvp/exports/preview/' + exportId;
+    toast.classList.add('is-visible');
+  }
+
+  function runExport(form) {
+    syncFiltersToModal();
+    var btn = document.getElementById('ecsGapExportSubmit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+    var fd = new FormData(form);
+    ['include_executive','include_observations','include_failed','include_missing','include_audit_impact'].forEach(function(name) {
+      if (!fd.has(name)) fd.append(name, 'off');
+    });
+    fetch('/mvp/comparison/export-gaps', { method: 'POST', body: fd })
+      .then(function(res) {
+        if (!res.ok) throw new Error('Export failed');
+        var exportId = res.headers.get('X-Export-Id');
+        var cd = res.headers.get('Content-Disposition') || '';
+        var match = cd.match(/filename=\"?([^\";]+)/);
+        var filename = match ? match[1] : 'gap_export.xlsx';
+        return res.blob().then(function(blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          closeExportModal();
+          if (exportId) showToast(exportId, filename);
+        });
+      })
+      .catch(function(err) { alert('Export generation failed. Please retry.'); console.error(err); })
+      .finally(function() {
+        if (btn) { btn.disabled = false; btn.textContent = 'Generate Export'; }
+      });
+  }
+
+  function initGapExport() {
+    modalEl = document.getElementById('ecsGapExportModal');
+    backdropEl = document.getElementById('ecsGapExportBackdrop');
+    var toastEl = document.getElementById('ecsExportToast');
+    if (modalEl && modalEl.parentElement !== document.body) document.body.appendChild(modalEl);
+    if (backdropEl && backdropEl.parentElement !== document.body) document.body.appendChild(backdropEl);
+    if (toastEl && toastEl.parentElement !== document.body) document.body.appendChild(toastEl);
+
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('#ecsExportGapsBtn')) {
+        e.preventDefault();
+        openExportModal();
+        return;
+      }
+      if (e.target.closest('#ecsCompareAppsBtn')) {
+        e.preventDefault();
+        if (window.ecsApplyComparisonFilters) window.ecsApplyComparisonFilters();
+        if (window.ecsActivateWorkspaceTab) window.ecsActivateWorkspaceTab('pairs');
+        return;
+      }
+      if (e.target.closest('#ecsVarianceReportBtn')) {
+        e.preventDefault();
+        if (window.ecsActivateWorkspaceTab) window.ecsActivateWorkspaceTab('variance');
+        return;
+      }
+      if (e.target.closest('#ecsGapExportCancel') || e.target.closest('#ecsGapExportClose') || e.target === backdropEl) {
+        e.preventDefault();
+        closeExportModal();
+        return;
+      }
+      if (e.target.closest('#ecsExportToastClose')) {
+        document.getElementById('ecsExportToast')?.classList.remove('is-visible');
+      }
+    });
+
+    modalEl?.addEventListener('show.bs.modal', syncFiltersToModal);
+
+    document.getElementById('ecsGapExportForm')?.addEventListener('submit', function(e) {
+      e.preventDefault();
+      runExport(e.target);
+    });
+
+    window.ecsOpenGapExportModal = openExportModal;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGapExport);
+  } else {
+    initGapExport();
+  }
+})();
+</script>

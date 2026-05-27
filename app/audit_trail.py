@@ -46,6 +46,13 @@ def log_event(
     if len(_notifications) > 30:
         _notifications.pop()
 
+    try:
+        from app.ecs_logging import log_workflow_event
+
+        log_workflow_event(action, actor, framework, control, detail, role=role)
+    except Exception:
+        pass
+
 
 def _level_for_action(action: str) -> str:
     if "Reject" in action or "Tamper" in action or "Overdue" in action:

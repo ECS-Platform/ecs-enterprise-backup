@@ -1,0 +1,125 @@
+{% macro workspace_exec_strip(module_view) %}
+{% if module_view is defined and module_view.kpis %}
+<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
+{% for k in module_view.kpis %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}" data-ecs-ops-kpi="{{ k.label }}" title="{{ k.hint|default('') }}">
+<span class="ecs-exec-kpi-val">{{ k.value }}</span>
+<span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
+</div>
+{% endfor %}
+</div></div>
+{% endif %}
+{% endmacro %}
+
+{% macro workspace_filters(workspace, role, user) %}
+{% if workspace is defined %}
+{% set profile = workspace.filter_profile|default('standard') %}
+<div class="ecs-workspace-filters sticky-top bg-light py-1 mb-2" data-ecs-workspace-filters data-filter-profile="{{ profile }}">
+<div class="row g-1 align-items-end">
+{% if profile == 'comparison' %}
+<div class="col-6 col-md-3"><label class="form-label ecs-ws-filter-lbl">Compare Framework</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="compare_framework">
+{% for f in workspace.compare_frameworks|default(workspace.frameworks) %}<option>{{ f }}</option>{% endfor %}
+</select></div>
+<div class="col-6 col-md-3"><label class="form-label ecs-ws-filter-lbl">Compare Scope</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="compare_scope">
+{% for s in workspace.compare_scopes|default(['All Applications']) %}<option>{{ s }}</option>{% endfor %}
+</select></div>
+<div class="col-6 col-md-3"><label class="form-label ecs-ws-filter-lbl">Time Range</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="time_range">
+{% for t in workspace.time_ranges|default(['Current Month']) %}<option>{{ t }}</option>{% endfor %}
+</select></div>
+<div class="col-6 col-md-3"><label class="form-label ecs-ws-filter-lbl">Application</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="compare_application">
+{% for a in workspace.compare_applications|default(['All Applications']) %}<option>{{ a }}</option>{% endfor %}
+</select></div>
+{% elif profile == 'lifecycle' %}
+<div class="col-6 col-md-3"><label class="form-label ecs-ws-filter-lbl">Framework</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="framework">
+{% for f in workspace.frameworks %}<option>{{ f }}</option>{% endfor %}
+</select></div>
+<div class="col-6 col-md-3"><label class="form-label ecs-ws-filter-lbl">Application</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="application">
+{% for a in workspace.applications %}<option>{{ a }}</option>{% endfor %}
+</select></div>
+{% elif profile == 'completeness' %}
+<div class="col-6 col-md-2"><label class="form-label ecs-ws-filter-lbl">Framework</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="framework">
+{% for f in workspace.frameworks %}<option>{{ f }}</option>{% endfor %}
+</select></div>
+<div class="col-6 col-md-2"><label class="form-label ecs-ws-filter-lbl">Application</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="application">
+{% for a in workspace.applications %}<option>{{ a }}</option>{% endfor %}
+</select></div>
+<div class="col-6 col-md-2"><label class="form-label ecs-ws-filter-lbl">Risk</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="risk">
+{% for r in workspace.risks %}<option>{{ r }}</option>{% endfor %}
+</select></div>
+{% elif profile == 'integrations_hub' %}
+<div class="col-6 col-md-3"><label class="form-label ecs-ws-filter-lbl">Framework</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="framework">
+{% for f in workspace.frameworks %}<option>{{ f }}</option>{% endfor %}
+</select></div>
+<div class="col-6 col-md-3"><label class="form-label ecs-ws-filter-lbl">Application</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="application">
+{% for a in workspace.applications %}<option>{{ a }}</option>{% endfor %}
+</select></div>
+{% else %}
+<div class="col-6 col-md-2"><label class="form-label ecs-ws-filter-lbl">Framework</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="framework">
+{% for f in workspace.frameworks %}<option>{{ f }}</option>{% endfor %}
+</select></div>
+<div class="col-6 col-md-2"><label class="form-label ecs-ws-filter-lbl">Application</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="application">
+{% for a in workspace.applications %}<option>{{ a }}</option>{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Risk</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="risk">
+{% for r in workspace.risks %}<option>{{ r }}</option>{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Status</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="status">
+{% for s in workspace.statuses %}<option>{{ s }}</option>{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Owner</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="owner">
+{% for o in workspace.owners %}<option>{{ o }}</option>{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Region</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="region">
+{% for rg in workspace.regions|default(['All Regions']) %}<option>{{ rg }}</option>{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Severity</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="severity">
+{% for sv in workspace.severities|default(['All Severities']) %}<option>{{ sv }}</option>{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Audit Cycle</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="audit_cycle">
+{% for ac in workspace.audit_cycles|default(['All Cycles']) %}<option>{{ ac }}</option>{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Date Range</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="date_range">
+{% for dr in workspace.date_ranges|default(['Last 30 days']) %}<option>{{ dr }}</option>{% endfor %}
+</select></div>
+{% endif %}
+</div></div>
+{% endif %}
+{% endmacro %}
+
+{% macro workspace_tab_nav(workspace) %}
+{% if workspace is defined and workspace.tabs %}
+<nav class="ecs-workspace-tabs mb-2" aria-label="Module sections">
+{% for t in workspace.tabs %}
+<button type="button" class="ecs-workspace-tab{% if loop.first %} is-active{% endif %}" data-workspace-tab="{{ t.id }}">{{ t.label }}</button>
+{% endfor %}
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro workspace_pane(id, active=false) %}
+<div class="ecs-workspace-pane{% if active %} is-active{% endif %}" data-workspace-pane="{{ id }}" id="ws-pane-{{ id }}">
+{% endmacro %}
+
+{% macro workspace_pane_end() %}
+</div>
+{% endmacro %}

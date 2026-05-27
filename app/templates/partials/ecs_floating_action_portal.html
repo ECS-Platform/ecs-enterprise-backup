@@ -1,0 +1,122 @@
+{# Body-portal floating action menus — escapes table overflow clipping #}
+<script>
+(function(){
+  if (window.__ecsFloatingActionsInit) return;
+  window.__ecsFloatingActionsInit = true;
+
+  var portal = null;
+  var activeToggle = null;
+  var repositionTimer = null;
+
+  function ensurePortal() {
+    if (portal) return portal;
+    portal = document.createElement('div');
+    portal.id = 'ecsActionPortal';
+    portal.className = 'ecs-action-portal';
+    portal.setAttribute('role', 'presentation');
+    portal.hidden = true;
+    portal.innerHTML = '<ul class="ecs-action-menu-portal" role="menu"></ul>';
+    document.body.appendChild(portal);
+    portal.addEventListener('click', function(e) {
+      var link = e.target.closest('a, button');
+      if (link && !link.classList.contains('ecs-action-toggle')) {
+        closePortal();
+      }
+    });
+    return portal;
+  }
+
+  function closePortal() {
+    if (portal) {
+      portal.hidden = true;
+      portal.querySelector('ul').innerHTML = '';
+    }
+    if (activeToggle) {
+      activeToggle.setAttribute('aria-expanded', 'false');
+      activeToggle.classList.remove('is-open');
+      activeToggle = null;
+    }
+  }
+  window.ecsCloseActionPortal = closePortal;
+
+  function positionPortal(toggle) {
+    if (!portal || portal.hidden) return;
+    var ul = portal.querySelector('ul');
+    var rect = toggle.getBoundingClientRect();
+    var menuW = ul.offsetWidth || 260;
+    var menuH = ul.offsetHeight || 200;
+    var gap = 6;
+    var pad = 8;
+    var left = rect.right - menuW;
+    if (left < pad) left = rect.left;
+    if (left + menuW > window.innerWidth - pad) left = window.innerWidth - menuW - pad;
+
+    var top = rect.bottom + gap;
+    if (top + menuH > window.innerHeight - pad) {
+      top = rect.top - menuH - gap;
+    }
+    if (top < pad) top = pad;
+
+    portal.style.top = Math.round(top) + 'px';
+    portal.style.left = Math.round(left) + 'px';
+  }
+
+  function openPortal(toggle) {
+    var root = toggle.closest('[data-ecs-action-root]');
+    if (!root) return;
+    var source = root.querySelector('.ecs-action-menu-source');
+    if (!source) return;
+
+    if (activeToggle === toggle && portal && !portal.hidden) {
+      closePortal();
+      return;
+    }
+    closePortal();
+
+    ensurePortal();
+    var ul = portal.querySelector('ul');
+    ul.innerHTML = source.innerHTML;
+    portal.hidden = false;
+    activeToggle = toggle;
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.classList.add('is-open');
+    requestAnimationFrame(function(){ positionPortal(toggle); });
+  }
+
+  document.addEventListener('click', function(e) {
+    var toggle = e.target.closest('.ecs-action-toggle');
+    if (toggle) {
+      e.preventDefault();
+      e.stopPropagation();
+      openPortal(toggle);
+      return;
+    }
+    if (portal && !portal.hidden && !e.target.closest('#ecsActionPortal')) {
+      closePortal();
+    }
+  }, true);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closePortal();
+  });
+
+  window.addEventListener('scroll', function() {
+    if (activeToggle && portal && !portal.hidden) {
+      clearTimeout(repositionTimer);
+      repositionTimer = setTimeout(function(){ positionPortal(activeToggle); }, 16);
+    }
+  }, true);
+
+  window.addEventListener('resize', function() {
+    if (activeToggle && portal && !portal.hidden) positionPortal(activeToggle);
+  });
+
+  document.addEventListener('ecsPaginationChanged', closePortal);
+  document.addEventListener('ecsDrillTabSwitch', closePortal);
+
+  document.addEventListener('click', function(e) {
+    var fwLink = e.target.closest('a[href*="/framework/"]');
+    if (fwLink && portal && !portal.hidden) closePortal();
+  });
+})();
+</script>

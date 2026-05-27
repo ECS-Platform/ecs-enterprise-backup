@@ -193,6 +193,52 @@ def build_risk_register(role: str = "owner") -> dict:
     bu_exposure = {}
     for r in risks:
         bu_exposure[r["business_unit"]] = bu_exposure.get(r["business_unit"], 0) + 1
+    category_counts: dict[str, int] = {}
+    for r in risks:
+        category_counts[r["category"]] = category_counts.get(r["category"], 0) + 1
+    severity_chart = [
+        {"label": cat, "value": cnt, "tone": "red" if "Cyber" in cat or "AppSec" in cat else "orange"}
+        for cat, cnt in sorted(category_counts.items(), key=lambda x: -x[1])
+    ]
+    aging_buckets = [0, 30, 60, 90, 120, 180]
+    aging_trend = []
+    for i, lo in enumerate(aging_buckets):
+        hi = aging_buckets[i + 1] if i + 1 < len(aging_buckets) else 9999
+        cnt = len([r for r in risks if lo <= r["aging_days"] < hi])
+        aging_trend.append({"label": f"{lo}–{hi if hi < 9999 else '+'}d", "value": cnt})
+    escalation_timeline = sorted(
+        [
+            {
+                "risk_id": r["risk_id"],
+                "title": r["title"][:50],
+                "date": r["open_date"],
+                "severity": r["residual_risk"],
+                "status": r["status"],
+            }
+            for r in risks
+            if r["status"] in ("Escalated", "Open") and r["residual_risk"] in ("Critical", "High")
+        ],
+        key=lambda x: x["date"],
+        reverse=True,
+    )[:8]
+    for r in risks:
+        obs_id = f"OBS-{r['risk_id'].replace('RSK-', '')}"
+        r["linked_observations"] = [
+            {
+                "observation_id": obs_id,
+                "title": r["title"],
+                "status": r["status"],
+                "framework": r.get("linked_framework", ""),
+            }
+        ]
+        r["impacted_applications"] = [r["application"]]
+        r["mitigation_plans"] = [
+            f"{r['treatment']} — target {r['due_date']}",
+            f"Owner: {r['owner']}",
+        ]
+        r["evidence_gaps"] = [
+            f"Evidence pending for {r.get('linked_control', 'control')}",
+        ]
     return {
         "rows": risks,
         "kpis": [
@@ -205,116 +251,25 @@ def build_risk_register(role: str = "owner") -> dict:
         "high_open": high_open,
         "bu_exposure": [{"unit": k, "count": v} for k, v in sorted(bu_exposure.items(), key=lambda x: -x[1])],
         "heatmap": _risk_heatmap_matrix(risks),
+        "severity_chart": severity_chart,
+        "aging_trend": aging_trend,
+        "escalation_timeline": escalation_timeline,
         "actions": _grc_actions(role, "risk"),
         "role": role,
     }
 
 
 def build_exceptions_td(role: str = "owner") -> dict:
-    exceptions = [
-        {
-            "exception_id": "EXC-2026-014",
-            "control": "PCI DSS — TLS 1.0 disablement",
-            "framework": "PCI DSS",
-            "application": "Payments",
-            "justification": "Legacy merchant SDK requires TLS 1.0 until Q3 migration completes.",
-            "compensating_control": "WAF TLS downgrade block + enhanced monitoring",
-            "td_expiry": "2026-06-30",
-            "owner": "K. Reddy (App Owner)",
-            "approving_authority": "CIO / CISO",
-            "residual_risk": "High",
-            "renewal_status": "Due for renewal",
-            "status": "Active",
-            "expired": False,
-        },
-        {
-            "exception_id": "EXC-2026-021",
-            "control": "OS Baselining — Unsupported RHEL 7 host",
-            "framework": "OS Baselining",
-            "application": "Treasury",
-            "justification": "Vendor CBS middleware not certified on RHEL 8 until vendor patch Q4.",
-            "compensating_control": "Network segmentation + enhanced AV + monthly VA",
-            "td_expiry": "2026-04-15",
-            "owner": "S. Banerjee (App Owner)",
-            "approving_authority": "Compliance Head",
-            "residual_risk": "Critical",
-            "renewal_status": "TD Expired",
-            "status": "Expired",
-            "expired": True,
-        },
-        {
-            "exception_id": "EXC-2026-033",
-            "control": "VAPT — Delayed critical remediation",
-            "framework": "VAPT",
-            "application": "Mobile Banking",
-            "justification": "App store release freeze during regulatory audit window.",
-            "compensating_control": "Temporary WAF rule + API rate limiting",
-            "td_expiry": "2026-05-20",
-            "owner": "A. Sharma (App Owner)",
-            "approving_authority": "CISO",
-            "residual_risk": "High",
-            "renewal_status": "TD Expired",
-            "status": "Expired",
-            "expired": True,
-        },
-        {
-            "exception_id": "EXC-2026-041",
-            "control": "ITPP — Temporary firewall rule (DR test)",
-            "framework": "ITPP",
-            "application": "Net Banking",
-            "justification": "Emergency DR validation required temporary inbound rule.",
-            "compensating_control": "Time-bound ACL + SOC monitoring",
-            "td_expiry": "2026-05-28",
-            "owner": "R. Mehta (App Owner)",
-            "approving_authority": "Network Head",
-            "residual_risk": "Medium",
-            "renewal_status": "Active",
-            "status": "Active",
-            "expired": False,
-        },
-        {
-            "exception_id": "EXC-2026-052",
-            "control": "AppSec — Delayed MFA rollout (admin console)",
-            "framework": "AppSec",
-            "application": "Loan System",
-            "justification": "Identity provider integration delayed by vendor.",
-            "compensating_control": "IP allow-list + PAM session recording",
-            "td_expiry": "2026-07-15",
-            "owner": "M. Joshi (App Owner)",
-            "approving_authority": "CISO",
-            "residual_risk": "High",
-            "renewal_status": "Approved",
-            "status": "Active",
-            "expired": False,
-        },
-        {
-            "exception_id": "EXC-2026-058",
-            "control": "DB Baselining — Break-glass DB account",
-            "framework": "DB Baselining",
-            "application": "Treasury",
-            "justification": "CBS emergency access account required for FX settlement incidents.",
-            "compensating_control": "Dual approval + session replay + 24h auto-disable",
-            "td_expiry": "2026-08-01",
-            "owner": "S. Banerjee (App Owner)",
-            "approving_authority": "DBA Head / CISO",
-            "residual_risk": "Medium",
-            "renewal_status": "Approved",
-            "status": "Active",
-            "expired": False,
-        },
-    ]
-    expired = [e for e in exceptions if e["expired"]]
+    from app.exception_state_engine import build_exception_kpis, get_all_exceptions
+
+    exceptions = get_all_exceptions(role)
+    expired = [e for e in exceptions if e.get("expired")]
     by_fw: dict[str, int] = {}
     for e in exceptions:
         by_fw[e["framework"]] = by_fw.get(e["framework"], 0) + 1
     return {
         "rows": exceptions,
-        "kpis": [
-            {"label": "Active Exceptions", "value": len([e for e in exceptions if e["status"] == "Active"]), "tone": "primary"},
-            {"label": "TD Expired", "value": len(expired), "tone": "danger"},
-            {"label": "High-Risk Exceptions", "value": len([e for e in exceptions if e["residual_risk"] in ("Critical", "High")]), "tone": "warning"},
-            {"label": "Due Renewal", "value": len([e for e in exceptions if "renewal" in e["renewal_status"].lower()]), "tone": "info"},
-        ],
+        "kpis": build_exception_kpis(exceptions),
         "expired": expired,
         "by_framework": [{"framework": k, "count": v} for k, v in sorted(by_fw.items(), key=lambda x: -x[1])],
         "actions": _grc_actions(role, "exception"),
@@ -404,7 +359,9 @@ def build_regulatory_mapping(role: str = "owner") -> dict:
 def build_executive_heatmaps(role: str = "cio") -> dict:
     stats = ecs_state.build_evidence_analytics()
     maturity = display_framework_maturity(stats["framework_stats"])
-    apps = ecs_state.BANKING_APPLICATIONS
+    apps = ecs_state.BANKING_APPLICATIONS + ["Wealth Portal"]
+    from app.enterprise_mock_service import build_pan_india_posture
+    pan_regions = build_pan_india_posture()["regions"]
     return {
         "kpis": [
             {"label": "Enterprise Maturity", "value": f"{round(sum(f.get('maturity_pct', f.get('compliance_pct', 0)) for f in maturity) / max(len(maturity), 1), 1)}%", "tone": "primary"},
@@ -416,7 +373,7 @@ def build_executive_heatmaps(role: str = "cio") -> dict:
         "framework_heatmap": [{"name": f["name"], "score": f.get("maturity_pct", f.get("compliance_pct", 0)), "risk": "High" if f.get("maturity_pct", f.get("compliance_pct", 100)) < 75 else "Low"} for f in maturity],
         "application_heatmap": [{"name": a, "score": 65 + (i * 7) % 30, "risk": _risk_level(i)} for i, a in enumerate(apps)],
         "business_unit_heatmap": [{"unit": u["unit"], "score": u["compliance_pct"], "gaps": u["open_gaps"]} for u in BUSINESS_UNITS],
-        "regional_heatmap": [{"region": r["region"], "score": r["score"], "observations": r["observations_open"]} for r in ecs_state.PAN_INDIA_REGIONS],
+        "regional_heatmap": [{"region": r["region"], "score": r["score"], "observations": r["observations_open"]} for r in pan_regions],
         "sla_heatmap": [{"framework": fw, "breaches": (i % 3)} for i, fw in enumerate(FRAMEWORK_CATALOG.keys())],
         "aging_heatmap": [{"bucket": b, "count": c} for b, c in [("0-15d", 42), ("16-30d", 28), ("31-45d", 15), ("46-60d", 8), ("60+d", 5)]],
         "top_risky_apps": sorted([{"application": a, "score": 65 + (i * 7) % 30} for i, a in enumerate(apps)], key=lambda x: x["score"])[:4],
@@ -485,9 +442,9 @@ def _grc_actions(role: str, module: str) -> list[str]:
     }
     actions = base.get(module, [])
     if role == "auditor":
-        return [a for a in actions if any(w in a for w in ("approve", "reject", "view", "link"))]
+        return [a for a in actions if any(w in a for w in ("approve", "reject", "view", "link", "assign", "reassign", "escalate", "request_reupload"))]
     if role in ("cio", "vertical_head", "compliance_head"):
-        return actions
+        return [a for a in actions if "upload" not in a and "replace" not in a]
     if role == "owner":
         return [a for a in actions if "escalate" not in a or "request" in a]
     return actions[:4]
@@ -495,6 +452,17 @@ def _grc_actions(role: str, module: str) -> list[str]:
 
 def execute_grc_action(module: str, action: str, item_id: str, user: str, role: str) -> str:
     from app.audit_trail import log_event
+    from app.role_permissions import action_allowed, permission_denied_message
+
+    if not action_allowed(role, action):
+        return permission_denied_message(action.replace("_", " "))
+
+    if module in ("exceptions_td", "exception_governance") and item_id and action in (
+        "approve_exception", "reject_exception", "extend_td", "renew_exception",
+        "close_exception", "escalate_expired_td",
+    ):
+        from app.exception_state_engine import apply_exception_action
+        return apply_exception_action(item_id, action, user, role)
 
     key = f"{module}:{action}:{item_id}"
     ecs_state.grc_action_log.setdefault(key, {"count": 0})

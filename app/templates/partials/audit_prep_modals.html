@@ -1,0 +1,131 @@
+{# Audit Prep modals — mock audit, package generation, evidence export, escalation #}
+{% set pkg = package_preview|default({}) %}
+{% set exp = export_preview|default({}) %}
+{% set maf = mock_audit_frameworks|default(['PCI DSS', 'VAPT', 'AppSec', 'DPSC', 'ITPP']) %}
+
+<div class="modal fade" id="mockAuditModal" tabindex="-1">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Simulated Audit Execution</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<form method="post" action="/mvp/workflow/mock-audit/execute">
+<div class="modal-body small">
+<p class="text-muted">Configure scope and run a regulator-style mock audit. Generates missing evidence list, failed controls, stale evidence, predicted findings, and readiness score.</p>
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="return_module" value="audit_prep">
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label">Framework</label>
+<select name="framework" class="form-select form-select-sm">{% for fw in maf %}<option{% if fw == (audit_filters.framework|default('PCI DSS')) %} selected{% endif %}>{{ fw }}</option>{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label">Auditor</label>
+<select name="auditor" class="form-select form-select-sm"><option>Deloitte</option><option>EY</option><option>KPMG</option><option>Internal Audit</option><option>PwC</option></select></div>
+<div class="col-md-6"><label class="form-label">Audit Cycle</label>
+<select name="audit_cycle" class="form-select form-select-sm"><option>Q2 2026</option><option>H1 2026</option><option>FY 2026</option></select></div>
+<div class="col-md-6"><label class="form-label">Applications (comma-separated)</label>
+<input name="applications" class="form-control form-control-sm" value="{{ audit_filters.application|default('Net Banking, UPI, Mobile Banking') }}"></div>
+</div>
+</div>
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+<button type="submit" class="btn btn-primary">Run Mock Audit Simulation</button>
+</div>
+</form></div></div></div>
+
+<div class="modal fade" id="escalateModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Escalate Gap</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body small">
+<p>Escalation routes the gap to the CISO office and CIO executive queue with audit-cycle context preserved.</p>
+<p class="mb-0"><strong>Owner:</strong> <span id="escalateOwner">—</span> · <strong>Control:</strong> <span id="escalateControl">—</span></p>
+</div>
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+<form method="post" action="/mvp/module/action" class="d-inline">
+<input type="hidden" name="module" value="audit_prep"><input type="hidden" name="action" value="escalate"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-danger">Confirm Escalation</button></form>
+</div></div></div></div>
+
+<div class="modal fade" id="auditPackageModal" tabindex="-1">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Audit Package Preview</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body small">
+<p class="text-muted">{{ pkg.auditor_notes|default('Q2 2026 audit package preview') }}</p>
+<div class="row g-2 mb-2">
+<div class="col-md-4"><strong>Package</strong><br><code>{{ pkg.package_name|default('PCI_AUDIT_PACKAGE_Q2.zip') }}</code></div>
+<div class="col-md-4"><strong>Frameworks</strong><br>{{ pkg.frameworks|join(', ') if pkg.frameworks else 'PCI DSS' }}</div>
+<div class="col-md-4"><strong>Generated</strong><br>{{ pkg.generated_at|default('2026-05-24') }}</div>
+</div>
+<div class="row g-2 mb-2">
+<div class="col-md-3"><span class="badge bg-success">{{ pkg.evidence_count|default(22) }} evidence</span></div>
+<div class="col-md-3"><span class="badge bg-primary">{{ pkg.controls_covered|default(12) }} controls</span></div>
+<div class="col-md-3"><span class="badge bg-warning text-dark">{{ pkg.stale_excluded|default(3) }} stale excluded</span></div>
+<div class="col-md-3"><span class="badge bg-danger">{{ pkg.rejected_excluded|default(1) }} rejected excluded</span></div>
+</div>
+<p><strong>Applications included:</strong> {{ pkg.applications|join(', ') if pkg.applications else 'Net Banking, Mobile Banking' }}</p>
+{% if pkg.included_controls %}
+<h6 class="text-muted mt-2">Included Controls</h6>
+<ul class="small">{% for c in pkg.included_controls %}<li>{{ c }}</li>{% endfor %}</ul>
+{% endif %}
+<h6 class="text-muted mt-2">Evidence Manifest</h6>
+<table class="table table-sm table-bordered"><thead><tr><th>ID</th><th>Name</th><th>Control</th><th>Status</th></tr></thead>
+<tbody>{% for m in pkg.manifest|default([]) %}
+<tr><td><code>{{ m.id }}</code></td><td>{{ m.name }}</td><td>{{ m.control }}</td><td>{{ m.status }}</td></tr>
+{% endfor %}</tbody></table>
+<h6 class="text-muted">Excluded Evidence</h6>
+<ul class="mb-1">{% for x in pkg.excluded|default([]) %}<li>{{ x }}</li>{% endfor %}</ul>
+<p class="mb-1"><strong>Pending approvals held:</strong> {{ pkg.pending_approvals|default(2) }}</p>
+<p class="mb-0"><strong>Related bundles:</strong> {{ pkg.bundle_files|join(', ') if pkg.bundle_files else '—' }}</p>
+</div>
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+<button type="button" class="btn btn-primary" disabled>Download {{ pkg.package_name|default('package.zip') }}</button>
+</div></div></div></div>
+
+<div class="modal fade" id="exportBundleModal" tabindex="-1">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">Evidence Bundle Export</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body small">
+<p><strong>{{ exp.bundle_name|default('ECS_EVIDENCE_BUNDLE_Q2_2026.zip') }}</strong> · {{ exp.scope|default('Multi-framework export') }}</p>
+<div class="progress mb-2" style="height:10px"><div class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width:100%"></div></div>
+<p class="text-success small mb-2">Export simulation complete · {{ exp.export_timestamp|default('2026-05-24') }}</p>
+<div class="row g-2 mb-2">
+<div class="col-md-6"><strong>Applications</strong><br>{{ exp.applications|join(', ') if exp.applications else 'Bank-wide' }}</div>
+<div class="col-md-6"><strong>Frameworks</strong><br>{{ exp.frameworks|join(', ') if exp.frameworks else 'Multi-framework' }}</div>
+</div>
+<div class="row g-2 mb-2">
+<div class="col-md-4"><strong>Evidence inventory</strong><br>{{ exp.evidence_inventory|default(156) }} items</div>
+<div class="col-md-4"><strong>Control mappings</strong><br>{{ exp.control_mappings|default(89) }}</div>
+<div class="col-md-4"><strong>Reuse mappings</strong><br>{{ exp.reuse_mappings|default(12) }}</div>
+</div>
+<p><strong>Checksum validation:</strong> <code>{{ exp.checksum|default('sha256:…') }}</code></p>
+<h6 class="text-muted">Bundle Contents</h6>
+<ul>{% for f in exp.files|default([]) %}<li>{{ f }}</li>{% endfor %}</ul>
+<p class="mb-0"><strong>Pending approvals excluded:</strong> {{ exp.pending_approvals|default(4) }}</p>
+</div>
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+<button type="button" class="btn btn-primary" disabled>Download Bundle</button>
+</div></div></div></div>
+
+<script>
+(function(){
+  var show = '{{ show_modal|default('') }}';
+  if (show === 'package') {
+    var m = document.getElementById('auditPackageModal');
+    if (m && window.bootstrap) new bootstrap.Modal(m).show();
+  } else if (show === 'export') {
+    var e = document.getElementById('exportBundleModal');
+    if (e && window.bootstrap) new bootstrap.Modal(e).show();
+  }
+  document.querySelectorAll('[data-bs-target="#escalateModal"]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var o = document.getElementById('escalateOwner');
+      var c = document.getElementById('escalateControl');
+      if (o) o.textContent = btn.getAttribute('data-owner') || '—';
+      if (c) c.textContent = btn.getAttribute('data-control') || '—';
+    });
+  });
+  if (window.bootstrap) {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el){
+      new bootstrap.Tooltip(el);
+    });
+  }
+})();
+</script>

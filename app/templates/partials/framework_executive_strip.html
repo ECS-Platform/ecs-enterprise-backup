@@ -1,0 +1,21 @@
+{# Compact horizontal executive KPI strip #}
+{% if fw_dashboard is defined and fw_dashboard.kpis %}
+<div class="ecs-exec-strip mb-2">
+<div class="ecs-exec-strip-scroll">
+{% for k in fw_dashboard.kpis %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}" title="{{ k.hint|default('') }}">
+<span class="ecs-exec-kpi-val">{{ k.value }}</span>
+<span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
+{% if k.hint %}<span class="ecs-exec-kpi-hint">{{ k.hint }}</span>{% endif %}
+{% if k.scope %}<span class="ecs-exec-kpi-hint d-block" style="font-size:0.55rem;opacity:0.85">{{ k.scope|truncate(55, True, '') }}</span>{% endif %}
+</div>
+{% endfor %}
+</div>
+</div>
+{% if fw_dashboard.focus_line %}
+<p class="ecs-fw-focus-line small text-muted mb-1">{{ fw_dashboard.focus_line }}</p>
+{% endif %}
+{% if fw_dashboard.context_label %}
+<p class="ecs-fw-context-label small mb-2"><strong>Scope:</strong> {{ fw_dashboard.context_label }}</p>
+{% endif %}
+{% endif %}

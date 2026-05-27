@@ -1,0 +1,12 @@
+<style>
+.ecs-workflow-header{border-left:4px solid var(--ecs-primary,#0d6efd);padding-left:1rem;margin-bottom:1.5rem}
+.ecs-workflow-stage{position:relative;padding:.75rem 1rem .75rem 2.5rem;border-left:3px solid #dee2e6;margin-left:.5rem}
+.ecs-workflow-stage.is-done{border-left-color:#198754;background:#f8fff9}
+.ecs-workflow-stage.is-active{border-left-color:#0d6efd;background:#f0f7ff;font-weight:600}
+.ecs-workflow-stage::before{content:'';position:absolute;left:-9px;top:1rem;width:14px;height:14px;border-radius:50%;background:#dee2e6;border:2px solid #fff}
+.ecs-workflow-stage.is-done::before{background:#198754}
+.ecs-workflow-stage.is-active::before{background:#0d6efd}
+.ecs-mock-file{border:1px dashed #adb5bd;border-radius:.375rem;padding:.5rem .75rem;background:#fafafa;cursor:pointer}
+.ecs-mock-file:hover{border-color:#0d6efd;background:#f0f7ff}
+.ecs-prep-task{border-left:3px solid #6c757d;padding:.35rem .75rem;margin-bottom:.35rem;background:#fff;font-size:.85rem}
+</style>

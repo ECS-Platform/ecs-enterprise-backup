@@ -1,29 +1,113 @@
-<!DOCTYPE html><html><head><title>App Comparison</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>App Comparison</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-compare-card { border:1px solid #e2e8f0; border-radius:8px; padding:0.65rem 0.75rem; background:#fff; min-height:108px; }
+.ecs-compare-card-success { border-left:4px solid #198754; background:linear-gradient(135deg,#f0fdf4 0%,#fff 100%); }
+.ecs-compare-card-warning { border-left:4px solid #ffc107; background:linear-gradient(135deg,#fffbeb 0%,#fff 100%); }
+.ecs-compare-card-danger { border-left:4px solid #dc3545; background:linear-gradient(135deg,#fef2f2 0%,#fff 100%); }
+.ecs-compare-card-title { font-weight:700; font-size:0.82rem; margin-bottom:0.15rem; }
+.ecs-compare-card-fw { font-size:0.72rem; color:#334155; margin-bottom:0.2rem; }
+.ecs-compare-card-meta { font-size:0.68rem; color:#64748b; }
+.ecs-compare-card-trend { margin-top:0.35rem; }
+.ecs-compare-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:0.5rem; margin-bottom:0.75rem; }
+</style></head>
 <body class="bg-light ecs-cap-comparison"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Application Compliance Comparison</h1>
-<p class="text-muted small">Maturity variance, control gaps, and risk heatmaps — analytics only, no submit workflow</p>
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Application Compliance Comparison</h1>
+<p class="small text-muted mb-2">Compare framework-specific readiness across banking applications — filter by framework, scope, and time range.</p>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
-{% from "partials/mvp_module_actions.html" import module_action %}
-<div class="ecs-module-actions">
-{{ module_action('comparison','compare',role,user,'Compare Apps','btn-primary btn-sm') }}
-{{ module_action('comparison','export_gap',role,user,'Export Gap Analysis','btn-outline-primary btn-sm') }}
-{{ module_action('comparison','variance_report',role,user,'Variance Report','btn-outline-secondary btn-sm') }}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="small text-muted mb-2" id="ecsCompareFilterSummary">Loading comparison data…</p>
+<div class="ecs-module-actions mb-2 d-flex flex-wrap gap-2 align-items-center">
+{% include "partials/gap_export_modal.html" %}
 </div>
-<h3 class="h6 text-uppercase text-muted">Compliance Heatmap (App × Framework)</h3>
-<div class="heatmap-grid mb-4">{% for h in module_view.heatmap %}
-<div class="heatmap-cell {% if h.pct >= 80 %}heat-high{% elif h.pct >= 60 %}heat-mid{% else %}heat-low{% endif %}">
-<div>{{ h.application[:10] }}</div><div>{{ h.framework[:8] }}</div><div>{{ h.pct }}%</div></div>
-{% endfor %}</div>
-<div class="row"><div class="col-md-6"><h3 class="h6">Application Maturity</h3>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-sm bg-white ecs-paginated-table"><thead><tr><th>Application</th><th>Maturity</th><th>Risk</th></tr></thead><tbody>
-{% for a in module_view.rows %}<tr><td>{{ a.application }}</td><td>{{ a.compliance_pct }}%</td><td>{{ a.risk }}</td></tr>{% endfor %}
-</tbody></table></div></div><div class="col-md-6"><h3 class="h6">Variance Pairs</h3>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-sm bg-white ecs-paginated-table"><thead><tr><th>Apps</th><th>Gap</th><th>Risk</th></tr></thead><tbody>
-{% for v in module_view.variance_rows %}<tr><td>{{ v.app_a }} vs {{ v.app_b }}</td><td>{{ v.variance }}%</td><td>{{ v.risk }}</td></tr>{% endfor %}
-</tbody></table></div></div></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+
+<h6 class="small text-muted text-uppercase mb-1">Framework Readiness Heatmap</h6>
+<div class="ecs-compare-cards-grid" id="ecsCompareHeatmapCards">
+{% for c in module_view.heatmap_cards[0:8] %}
+<div class="ecs-compare-card ecs-compare-card-{{ c.tone }}">
+<div class="ecs-compare-card-title">{{ c.application }}</div>
+<div class="ecs-compare-card-fw">{{ c.framework }} Readiness: <strong>{{ c.readiness_pct }}%</strong></div>
+<div class="ecs-compare-card-meta">Open Findings: {{ c.open_findings }}</div>
+<div class="ecs-compare-card-meta">Failed Controls: {{ c.failed_controls }}</div>
+<div class="ecs-compare-card-trend"><span class="badge bg-{% if c.trend=='Improving' %}success{% elif c.trend=='Stable' %}secondary{% elif c.trend=='Declining' %}warning text-dark{% else %}danger{% endif %}">{{ c.trend }}</span></div>
+</div>
+{% endfor %}
+</div>
+
+<h6 class="small text-muted text-uppercase mb-1">Application Pair Comparisons</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view ecs-ops-table-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-compare-table="pairs"><thead><tr>
+<th>Application Pair</th><th>Framework</th><th>App A Readiness</th><th>App B Readiness</th><th>Gap</th><th>Open Findings</th><th>Failed Controls</th><th>Trend</th>
+</tr></thead><tbody>
+{% for p in module_view.comparison_pairs[0:10] %}
+<tr><td><strong>{{ p.pair_label }}</strong></td><td><span class="badge bg-light text-dark">{{ p.framework }}</span></td>
+<td>{{ p.readiness_a }}%</td><td>{{ p.readiness_b }}%</td><td>{{ p.gap }}%</td>
+<td>{{ p.open_findings_a }} vs {{ p.open_findings_b }}</td><td>{{ p.failed_a }} vs {{ p.failed_b }}</td>
+<td><span class="badge bg-{% if p.trend=='Improving' %}success{% elif p.trend=='Stable' %}secondary{% elif p.trend=='Declining' %}warning text-dark{% else %}danger{% endif %}">{{ p.trend }}</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+<div class="d-flex align-items-center gap-2 mb-2" id="ecsComparePager"></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('applications', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0"><thead><tr>
+<th>Application</th><th>Framework</th><th>Readiness</th><th>Open Findings</th><th>Failed Controls</th><th>Stale Evidence</th><th>SLA Breaches</th><th>Trend</th><th>Risk</th>
+</tr></thead><tbody>
+{% for r in module_view.readiness_matrix[0:15] %}
+<tr data-ecs-filter-row data-filter-application="{{ r.application }}" data-filter-framework="{{ r.framework }}" data-filter-risk="{{ r.risk }}">
+<td><strong>{{ r.application }}</strong></td><td>{{ r.framework }}</td><td>{{ r.readiness_pct }}%</td>
+<td>{{ r.open_findings }}</td><td>{{ r.failed_controls }}</td><td>{{ r.stale_evidence }}</td><td>{{ r.sla_breaches }}</td>
+<td>{{ r.trend }}</td><td>{{ r.risk }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('pairs', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-compare-table="pairs"><thead><tr>
+<th>Application Pair</th><th>Framework</th><th>App A Readiness</th><th>App B Readiness</th><th>Gap</th><th>Open Findings</th><th>Failed Controls</th><th>Trend</th>
+</tr></thead><tbody>
+{% for p in module_view.comparison_pairs[0:10] %}
+<tr><td><strong>{{ p.pair_label }}</strong></td><td>{{ p.framework }}</td>
+<td>{{ p.readiness_a }}%</td><td>{{ p.readiness_b }}%</td><td>{{ p.gap }}%</td>
+<td>{{ p.open_findings_a }} vs {{ p.open_findings_b }}</td><td>{{ p.failed_a }} vs {{ p.failed_b }}</td><td>{{ p.trend }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('variance', false) }}
+<div class="compact-chart-grid mb-2">
+<div class="chart-card"><div class="chart-card-title">Readiness evolution</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsCompareTrend-readiness"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Failed controls trend</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsCompareTrend-failed"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Observation closure trend</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsCompareTrend-closure"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Framework maturity trend</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsCompareTrend-maturity"></div></div></div>
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('rankings', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0"><thead><tr>
+<th>Rank</th><th>Application</th><th>Framework</th><th>Readiness</th><th>Audit Maturity</th><th>Open Findings</th><th>Failed Controls</th><th>Trend</th>
+</tr></thead><tbody>
+{% for r in module_view.readiness_matrix[0:20] %}
+<tr><td>{{ loop.index }}</td><td><strong>{{ r.application }}</strong></td><td>{{ r.framework }}</td>
+<td>{{ r.readiness_pct }}%</td><td>{{ r.audit_maturity }}%</td><td>{{ r.open_findings }}</td><td>{{ r.failed_controls }}</td><td>{{ r.trend }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% if module_view.comparison_dataset is defined %}
+<script type="application/json" id="ecsComparisonDataset">{{ module_view.comparison_dataset|tojson }}</script>
+{% include "partials/comparison_filter_client.html" %}
+{% endif %}
+{% include "partials/gap_export_client.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

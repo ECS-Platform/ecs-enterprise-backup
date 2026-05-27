@@ -1,0 +1,49 @@
+{% from "partials/analytics_macros.html" import metric_info %}
+
+<form method="get" action="{% if request is defined %}{{ request.url.path }}{% else %}/mvp/trends{% endif %}" class="card shadow-sm border-0 mb-4 ecs-analytics-filter-bar">
+<div class="card-body py-3">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<div class="row g-2 align-items-end">
+<div class="col-md-6 col-lg-3">
+<label class="form-label small fw-semibold mb-1">Framework</label>
+<select name="framework" class="form-select form-select-sm">{% for f in filter_options.frameworks %}
+<option value="{{ f }}" {% if analytics_filters.framework == f %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+<div class="col-md-6 col-lg-3">
+<label class="form-label small fw-semibold mb-1">Application</label>
+<select name="application" class="form-select form-select-sm">{% for a in filter_options.applications %}
+<option value="{{ a }}" {% if analytics_filters.application == a %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label small fw-semibold mb-1">Risk Level</label>
+<select name="risk_level" class="form-select form-select-sm">{% for r in filter_options.risk_levels %}
+<option value="{{ r }}" {% if analytics_filters.risk_level == r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label small fw-semibold mb-1">Time Period</label>
+<select name="time_period" class="form-select form-select-sm">{% for p in filter_options.periods %}
+<option value="{{ p }}" {% if analytics_filters.time_period == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label small fw-semibold mb-1">Audit Cycle</label>
+<select name="audit_cycle" class="form-select form-select-sm">{% for p in filter_options.audit_cycles %}
+<option value="{{ p }}" {% if analytics_filters.audit_cycle == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label small fw-semibold mb-1">Region</label>
+<select name="region" class="form-select form-select-sm">{% for r in filter_options.regions %}
+<option value="{{ r }}" {% if analytics_filters.region == r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+<div class="col-md-4 col-lg-2">
+<label class="form-label small fw-semibold mb-1">Business Unit</label>
+<select name="business_unit" class="form-select form-select-sm">{% for u in filter_options.business_units %}
+<option value="{{ u }}" {% if analytics_filters.business_unit == u %}selected{% endif %}>{{ u }}</option>{% endfor %}</select></div>
+<div class="col-auto"><button type="submit" class="btn btn-primary btn-sm ecs-analytics-apply">Apply Filters</button></div>
+</div>
+<p class="ecs-exec-desc-muted mb-0 mt-2" id="ecsAnalyticsFilterSummary"><strong>In scope:</strong> {{ module_view.intel.scope_summary if module_view.intel is defined else analytics_filters.framework }}</p>
+</div></form>
+<script>
+(function(){
+  var form = document.querySelector('.ecs-analytics-filter-bar');
+  if (!form || form.dataset.ecsAutoFilter || form.dataset.ecsLiveAnalytics) return;
+  form.dataset.ecsAutoFilter = '1';
+  form.querySelectorAll('select').forEach(function(sel){
+    sel.addEventListener('change', function(){ form.submit(); });
+  });
+})();
+</script>

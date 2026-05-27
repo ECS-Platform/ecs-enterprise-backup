@@ -1,0 +1,151 @@
+<!DOCTYPE html><html><head><title>Evidence Approval Analytics</title>{% include "partials/mvp_styles.html" %}{% include "partials/executive_charts_system.html" %}</head>
+<body class="bg-light ecs-cap-evidence-approval"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Evidence Approval Analytics</h1>
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">{{ module_view.role_summary|default('Loading evidence approval analytics…') }}</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<div class="row g-2 mb-2">
+<div class="col-md-3"><div class="chart-card"><h6 class="chart-card-title mb-0">Approval Trend</h6>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsApprovalTrendChart"></div></div>
+<p class="chart-kpi-inline mb-0">Monthly approval success rate</p></div></div>
+<div class="col-md-3"><div class="chart-card"><h6 class="chart-card-title mb-0">Rejection Trend</h6>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsRejectionTrendChart"></div></div>
+<p class="chart-kpi-inline mb-0">Monthly rejection volume</p></div></div>
+<div class="col-md-3"><div class="chart-card"><h6 class="chart-card-title mb-0">Framework Approval %</h6>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsFrameworkApprovalChart"></div></div></div></div>
+<div class="col-md-3"><div class="chart-card"><h6 class="chart-card-title mb-0">Reviewer Workload</h6>
+<div id="ecsReviewerWorkloadChart"></div></div></div>
+</div>
+<div class="row g-2">
+<div class="col-md-6"><h6 class="small text-muted">Top Frameworks</h6>
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Framework</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Rate</th></tr></thead><tbody>
+{% for f in (module_view.framework_analytics|default([], true))[:6] %}
+<tr><td>{{ f.framework }}</td><td>{{ f.approved }}</td><td>{{ f.rejected }}</td><td>{{ f.pending }}</td><td>{{ f.approval_pct }}%</td></tr>
+{% endfor %}
+</tbody></table></div>
+<div class="col-md-6"><h6 class="small text-muted">Application Maturity</h6>
+<div id="ecsAppMaturityChart"></div></div>
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('approved', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="evidence-approved"><thead><tr>
+<th>Framework</th><th>Application</th><th>Control</th><th>Evidence Name</th><th>Submitted By</th><th>Approved By</th><th>Approval Date</th><th>Quality</th><th>Status</th>
+</tr></thead><tbody>
+{% for r in (module_view.approved_rows|default([], true))[:15] %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application }}" data-filter-owner="{{ r.owner|default('') }}" data-filter-status="{{ r.status }}">
+<td>{{ r.framework }}</td><td>{{ r.application }}</td><td class="small">{{ r.control[:35] }}</td><td>{{ r.evidence_name[:40] }}</td>
+<td class="small">{{ r.submitted_by }}</td><td class="small">{{ r.approved_by|default('—') }}</td><td class="small">{{ r.approval_date|default('—') }}</td>
+<td>{{ r.quality_score|default('—') }}%</td><td><span class="badge bg-success">{{ r.status }}</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('rejected', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="evidence-rejected"><thead><tr>
+<th>Framework</th><th>Application</th><th>Control</th><th>Evidence Name</th><th>Rejected By</th><th>Reason</th><th>Date</th><th>Resubmission</th>
+</tr></thead><tbody>
+{% for r in (module_view.rejected_rows|default([], true))[:15] %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application }}" data-filter-status="{{ r.status }}">
+<td>{{ r.framework }}</td><td>{{ r.application }}</td><td class="small">{{ r.control[:35] }}</td><td>{{ r.evidence_name[:40] }}</td>
+<td class="small">{{ r.rejected_by|default('—') }}</td><td class="small">{{ r.rejection_reason|default('—')|truncate(50, True) }}</td>
+<td class="small">{{ r.rejection_date|default('—') }}</td><td>{{ r.resubmission_status|default('—') }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('pending', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="evidence-pending"><thead><tr>
+<th>Framework</th><th>Application</th><th>Evidence</th><th>Submitted</th><th>Reviewer</th><th>SLA Remaining</th><th>Priority</th>
+</tr></thead><tbody>
+{% for r in (module_view.pending_rows|default([], true))[:15] %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application }}" data-filter-risk="{{ r.priority|default(r.risk) }}" data-filter-status="{{ r.status }}">
+<td>{{ r.framework }}</td><td>{{ r.application }}</td><td>{{ r.evidence_name[:40] }}</td><td class="small">{{ r.submitted_at|default('—') }}</td>
+<td class="small">{{ r.reviewer|default('Unassigned') }}</td><td>{{ r.sla_remaining_days|default('—') }}d</td>
+<td><span class="badge bg-{% if r.priority in ['Critical','High'] %}danger{% else %}warning text-dark{% endif %}">{{ r.priority|default(r.risk) }}</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('quality', false) }}
+<div class="row g-2">
+{% for q in (module_view.quality_samples|default([], true))[:8] %}
+<div class="col-md-6 col-lg-4"><div class="chart-card h-100">
+<h6 class="chart-card-title mb-1">{{ q.evidence_name[:42] }}</h6>
+<p class="mb-1 small"><strong>Quality Score:</strong> {{ q.quality_score }}%</p>
+<div class="ecs-insight-bar mb-1"><div class="ecs-insight-bar-label"><span>Completeness</span><span>{{ q.completeness }}</span></div>
+<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-{% if q.quality_score >= 85 %}success{% elif q.quality_score >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ q.quality_score }}%"></div></div></div>
+<p class="small mb-0 text-muted">Freshness: {{ q.freshness }} · Metadata: {{ q.metadata_quality }} · Control Match: {{ q.control_match }}</p>
+</div></div>
+{% endfor %}
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('analytics', false) }}
+<div class="row g-2 mb-2">
+<div class="col-md-6"><h6 class="small text-muted">Framework Drilldown</h6>
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="evidence-fw-analytics"><thead><tr><th>Framework</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>%</th></tr></thead><tbody>
+{% for f in module_view.framework_analytics|default([]) %}
+<tr><td>{{ f.framework }}</td><td>{{ f.approved }}</td><td>{{ f.rejected }}</td><td>{{ f.pending }}</td><td>{{ f.approval_pct }}%</td></tr>
+{% endfor %}
+</tbody></table></div>
+<div class="col-md-6"><h6 class="small text-muted">Application Drilldown</h6>
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="evidence-app-analytics"><thead><tr><th>Application</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Maturity</th></tr></thead><tbody>
+{% for a in module_view.application_analytics|default([]) %}
+<tr><td>{{ a.application }}</td><td>{{ a.approved }}</td><td>{{ a.rejected }}</td><td>{{ a.pending }}</td><td>{{ a.maturity_pct }}%</td></tr>
+{% endfor %}
+</tbody></table></div></div>
+<div class="chart-card"><h6 class="chart-card-title mb-0">Stale Evidence Aging</h6>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsStaleAgingChart"></div></div></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('audit_trail', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="evidence-audit-trail"><thead><tr>
+<th>Evidence ID</th><th>Evidence</th><th>Action</th><th>Actor</th><th>Timestamp</th><th>Remarks</th><th></th>
+</tr></thead><tbody>
+{% for t in (module_view.audit_trail|default([], true)) %}
+<tr><td><code class="small">{{ t.evidence_id }}</code></td><td>{{ t.evidence_name }}</td>
+<td><span class="badge bg-{% if t.action == 'Approved' %}success{% else %}danger{% endif %}">{{ t.action }}</span></td>
+<td class="small">{{ t.actor }}</td><td class="small">{{ t.timestamp }}</td><td class="small">{{ t.remarks|truncate(60, True) }}</td>
+<td><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#trail-{{ loop.index }}">View Audit Trail</button></td></tr>
+<tr class="collapse" id="trail-{{ loop.index }}"><td colspan="7" class="small bg-light">{{ t.framework }} · {{ t.application }} — Full approval history retained in governance registry.</td></tr>
+{% endfor %}
+</tbody></table></div>
+<p class="small text-muted mt-2">Export: {{ module_action('evidence_approval','export_summary',role,user,'Export Summary','btn-sm btn-outline-primary') }}</p>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% include "partials/standard_filter_include.html" %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var mv = {{ {'approval_trend': module_view.approval_trend|default([]), 'rejection_trend': module_view.rejection_trend|default([]), 'framework_approval_bars': module_view.framework_approval_bars|default([]), 'reviewer_workload': module_view.reviewer_workload|default([]), 'application_maturity_bars': module_view.application_maturity_bars|default([]), 'stale_aging': module_view.stale_aging|default([])}|tojson }};
+  if (window.ecsRenderCompactBarChart) {
+    ecsRenderCompactBarChart('ecsApprovalTrendChart', mv.approval_trend, {suffix: '%', defaultTone: 'teal'});
+    ecsRenderCompactBarChart('ecsRejectionTrendChart', mv.rejection_trend, {defaultTone: 'orange'});
+    ecsRenderCompactBarChart('ecsFrameworkApprovalChart', mv.framework_approval_bars, {suffix: '%', defaultTone: 'navy', barWidth: 12});
+    ecsRenderCompactBarChart('ecsStaleAgingChart', mv.stale_aging, {defaultTone: 'orange'});
+  }
+  if (window.ecsRenderHorizontalBars) {
+    ecsRenderHorizontalBars('ecsReviewerWorkloadChart', mv.reviewer_workload);
+    ecsRenderHorizontalBars('ecsAppMaturityChart', mv.application_maturity_bars.map(function(i){ return {label: i.label, value: i.value, tone: 'teal'}; }));
+  }
+});
+</script>
+{% include "partials/chatbot_global.html" %}</body></html>

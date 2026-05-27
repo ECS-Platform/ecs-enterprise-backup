@@ -1,27 +1,93 @@
-<!DOCTYPE html><html><head><title>Integrations</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Integrations</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-integ-pie-wrap { width:72px; height:72px; border-radius:50%; margin:0 auto; position:relative; display:flex; align-items:center; justify-content:center; }
+.ecs-integ-pie-center { background:#fff; border-radius:50%; width:44px; height:44px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.72rem; position:relative; z-index:1; }
+.ecs-integ-dep-chip { background:#f8fafc; font-size:0.72rem; }
+.ecs-cap-integrations #ecsIntegHealthTable th,
+.ecs-cap-integrations #ecsIntegHealthTable td { white-space:normal; word-wrap:break-word; font-size:0.72rem; }
+</style></head>
 <body class="bg-light ecs-cap-integrations"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>External System Integrations</h1>
-<p class="text-muted small">SIEM, CMDB, ServiceNow, and SharePoint connector health — ingestion pipelines, not evidence approval</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">External System Integrations</h1>
+<p class="small text-muted mb-2">Framework-aware integration health &amp; evidence connectivity — filter by framework, application, risk, status, and owner.</p>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-{% set groups = [('siem','SIEM Integrations'),('cmdb','CMDB Integrations'),('sharepoint','SharePoint'),('servicenow','ServiceNow')] %}
-{% for key, label in groups %}
-{% if module_view.grouped.get(key) %}
-<div class="connector-group"><h3 class="h6 text-uppercase text-muted">{{ label }}</h3>
-<div class="row g-3">{% for c in module_view.grouped[key] %}
-<div class="col-md-6"><div class="card connector-card {{ key }} shadow-sm p-3">
-<div class="d-flex justify-content-between"><strong>{{ c.name }}</strong>
-<span class="badge {% if c.api_status|default(c.api_health|default('Healthy')) in ('Healthy','Connected','Synced') %}bg-success{% else %}bg-danger{% endif %}">{{ c.api_status|default(c.api_health|default('Healthy')) }}</span></div>
-<small class="text-muted">{{ c.type }} · Sync: {{ c.sync_status|default(c.status) }}</small>
-<div class="row small mt-2"><div class="col-6">Last sync: {{ c.last_sync }}</div><div class="col-6">Records: {{ c.records_ingested|default(c.records) }}</div></div>
-<div class="mt-2">{{ module_action('integrations','test_connection',role,user,'Test','btn-sm btn-outline-primary',c.name) }}
-<form method="post" action="/mvp/integrations/sync" class="d-inline"><input type="hidden" name="connector" value="{{c.name}}"><input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}"><button class="btn btn-sm btn-success">Sync Now</button></form>
-{{ module_action('integrations','reconnect',role,user,'Reconnect','btn-sm btn-outline-warning',c.name) }}
-{{ module_action('integrations','view_logs',role,user,'Logs','btn-sm btn-outline-secondary',c.name) }}</div>
-</div></div>{% endfor %}</div></div>
-{% endif %}{% endfor %}
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_filters(workspace, role, user) }}
+<p class="small text-muted mb-2" id="ecsOpsFilterSummary">Loading filtered integration data…</p>
+<div class="d-flex flex-wrap gap-2 mb-2">
+<button type="button" class="btn btn-outline-primary btn-sm" data-ecs-tab-switch="connectors">Connectors</button>
+<button type="button" class="btn btn-outline-primary btn-sm" data-ecs-tab-switch="sync">Sync Status</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-ecs-tab-switch="logs">View Logs</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-integ-logs="">All Connector Logs</button>
+</div>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+{% include "partials/integrations_health_panel.html" %}
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('connectors', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-compact-table mb-0"><thead><tr>
+<th>Connector</th><th>Type</th><th>API Health</th><th>Sync Status</th><th>Last Sync</th><th>Records</th><th>Actions</th>
+</tr></thead><tbody>
+{% for c in module_view.rows %}
+<tr data-ecs-filter-row data-filter-status="{{ c.sync_status }}" data-filter-framework="" data-filter-application="" data-filter-risk="" data-filter-owner="">
+<td><strong>{{ c.name }}</strong></td><td>{{ c.type }}</td>
+<td><span class="badge {% if c.api_health=='Healthy' %}bg-success{% else %}bg-danger{% endif %}">{{ c.api_health }}</span></td>
+<td>{{ c.sync_status }}</td><td class="small">{{ c.last_sync }}</td>
+<td>{{ c.records_ingested|default(c.records) }}</td>
+<td>{{ module_action('integrations','test_connection',role,user,'Test','btn-sm btn-outline-primary',c.name) }}
+<form method="post" action="/mvp/integrations/sync" class="d-inline"><input type="hidden" name="connector" value="{{ c.name }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button class="btn btn-sm btn-success">Sync</button></form>
+<button type="button" class="btn btn-sm btn-outline-secondary" data-integ-logs="{{ c.name }}">Logs</button></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('sync', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Current Sync Activity</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-compact-table mb-0"><thead><tr>
+<th>Job ID</th><th>Connector</th><th>Status</th><th>Queued</th><th>Evidence Files</th><th>Records</th><th>Auth</th>
+</tr></thead><tbody>
+{% for j in module_view.sync_jobs|default([]) %}
+<tr class="{% if j.status=='Failed' %}table-danger{% elif j.status=='Running' %}table-info{% elif j.status=='Retry Queued' %}table-warning{% endif %}"
+  data-ecs-filter-row data-filter-status="{{ j.status }}" data-filter-framework="" data-filter-application="" data-filter-risk="" data-filter-owner="">
+<td><code class="small">{{ j.job_id }}</code></td><td>{{ j.connector }}</td>
+<td><span class="badge {% if j.status=='Completed' %}bg-success{% elif j.status=='Running' %}bg-primary{% elif j.status=='Failed' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ j.status }}</span></td>
+<td class="small">{{ j.queued_at }}</td><td>{{ j.evidence_files }}</td><td>{{ j.records_ingested }}</td>
+<td>{{ j.auth_health }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('logs', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-compact-table mb-0" data-ecs-ops-table="integ-logs"><thead><tr>
+<th>Timestamp</th><th>Framework</th><th>Connector</th><th>Application</th><th>Owner</th><th>Level</th><th>Message</th><th>Outcome</th>
+</tr></thead><tbody>
+{% for e in (module_view.event_logs|default([], true))[0:10] %}
+<tr class="{% if e.level=='Error' %}table-danger{% elif e.level=='Warning' %}table-warning{% endif %}"
+  data-ecs-filter-row data-filter-status="{{ e.outcome|default(e.level) }}" data-filter-framework="{{ e.framework|default('') }}"
+  data-filter-application="{{ e.application|default('') }}" data-filter-risk="{{ e.risk|default('') }}" data-filter-owner="{{ e.owner|default('') }}">
+<td class="small">{{ e.timestamp }}</td>
+<td><span class="badge bg-light text-dark">{{ e.framework|default('—') }}</span></td>
+<td><strong>{{ e.connector }}</strong></td>
+<td><strong>{{ e.application|default('—') }}</strong></td>
+<td class="small">{{ e.owner|default('—') }}</td>
+<td><span class="badge {% if e.level=='Error' %}bg-danger{% elif e.level=='Warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ e.level }}</span></td>
+<td class="small">{{ e.message|truncate(72, True, '') }}</td><td>{{ e.outcome }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% if module_view.operations_dataset is defined %}
+<script type="application/json" id="ecsOperationsDataset">{{ module_view.operations_dataset|tojson }}</script>
+{% include "partials/operations_filter_client.html" %}
+{% endif %}
+{% include "partials/integrations_modals.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

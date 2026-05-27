@@ -1,0 +1,43 @@
+{# Relational evidence repository — lifecycle-aware governance workflow #}
+{% set fq = '?role=' ~ role ~ '&user=' ~ user %}
+{% from "partials/ecs_ux_macros.html" import evidence_action_menu %}
+{% from "partials/evidence_workflow_macros.html" import workflow_status_chip %}
+{% if gc and gc.evidence_repository %}
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0 ecs-evidence-repo-table">
+<thead>
+<tr>
+<th>Evidence ID</th><th>Observation</th><th>Control</th><th>Framework</th><th>Application</th>
+<th>Validation</th><th>Observation Status</th><th>Reviewer</th><th>Lifecycle</th><th>Audit Cycle</th><th></th>
+</tr>
+</thead>
+<tbody>
+{% for ev in gc.evidence_repository %}
+{% set ckey = (ev.framework|default(framework_name)) ~ '::' ~ (ev.control|default(ev.control_name|default(''))) %}
+<tr data-ckey="{{ ckey }}" data-evidence-id="{{ ev.evidence_id }}"
+  class="{% if ev.workflow_code == 'approved' or ev.auditor_approved %}row-approved ecs-wf-row-approved{% elif ev.lifecycle == 'Rejected' %}table-danger{% elif ev.lifecycle == 'Pending Review' %}table-warning{% elif ev.lifecycle == 'Expired' %}table-secondary{% endif %}">
+<td><code class="small">{{ ev.evidence_id }}</code><br><span class="text-muted small">{{ ev.name|truncate(26, True, '') }}</span></td>
+<td><code class="small">{{ ev.observation_id|default('—') }}</code></td>
+<td><code class="small">{{ ev.control_id }}</code><br><span class="small">{{ ev.control_name|default(ev.control|default(''))|truncate(28, True, '') }}</span></td>
+<td class="small">{{ ev.framework|default(framework_name) }}</td>
+<td>{{ ev.application }}</td>
+<td><span class="badge {% if ev.validation in ('Validated', 'PASS') %}bg-success{% elif ev.validation in ('Failed', 'FAIL') %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ ev.validation }}</span></td>
+<td>{% if ev.observation_status == 'Closed' %}<span class="ecs-wf-status-chip ecs-wf-chip-success">Closed</span>{% else %}<span class="ecs-wf-status-chip ecs-wf-chip-warning">{{ ev.observation_status|default('Open') }}</span>{% endif %}</td>
+<td class="small">{{ ev.reviewer|default('—') }}<br>{% if ev.review_timestamp %}<span class="text-muted">{{ ev.review_timestamp[:16] }}</span>{% endif %}</td>
+<td>
+{% if ev.workflow_chip %}<span class="ecs-wf-status-chip ecs-wf-chip-{{ 'success' if ev.workflow_code == 'approved' else ('danger' if ev.workflow_code == 'rejected' else ('warning' if ev.workflow_code == 'submitted' else 'secondary')) }}">{{ ev.workflow_chip }}</span>
+{% else %}<span class="badge bg-secondary">{{ ev.lifecycle_state|default(ev.lifecycle) }}</span>{% endif %}
+</td>
+<td class="small">{{ ev.audit_cycle|default('Q2 2026') }}</td>
+<td class="ecs-sticky-actions text-nowrap">
+<a href="{{ review_url_for_ev(framework_name, ev, role, user) }}" class="btn btn-outline-primary btn-sm py-0 px-2 ecs-evidence-review-trigger">Review</a>
+{{ evidence_action_menu('ev-' ~ loop.index, framework_name, role, user, ev, fq) }}
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+{% include "partials/framework_workflow_table.html" %}
+{% endif %}

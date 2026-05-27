@@ -52,6 +52,12 @@ def seed_demo_workflow_state():
         ecs_state.rejected_controls[key] = {
             "reason": reason,
             "rejected_by": "S. Nair (Auditor)",
+            "rejected_at": "2026-05-20 14:00:00 UTC",
+            "internal": False,
+            "resubmission_stage": "owner_review",
+            "team_resubmission_requested": False,
+            "revised_uploaded": False,
+            "reevaluated": False,
         }
         if key in ecs_state.submitted_controls:
             del ecs_state.submitted_controls[key]

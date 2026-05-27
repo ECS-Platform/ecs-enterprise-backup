@@ -76,6 +76,7 @@
         var show = i >= startIdx && i < endIdx;
         g.rows.forEach(function(r){ r.style.display = show ? '' : 'none'; });
       });
+      document.dispatchEvent(new CustomEvent('ecsPaginationChanged'));
 
       var summary = total
         ? 'Showing ' + from + '–' + to + ' of ' + total + ' records'
@@ -86,7 +87,7 @@
         '<div class="ecs-pagination-controls">' +
           '<label class="ecs-pagination-size-label">Rows ' +
             '<select class="form-select form-select-sm ecs-pagination-size d-inline-block w-auto">' +
-              [10,20,50].map(function(n){
+              [10,25,50].map(function(n){
                 return '<option value="'+n+'"'+(n===size?' selected':'')+'>'+n+'</option>';
               }).join('') +
             '</select></label>' +

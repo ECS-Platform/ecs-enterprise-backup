@@ -1,0 +1,47 @@
+<!DOCTYPE html><html><head><title>Gap Closure</title>{% include "partials/mvp_styles.html" %}{% include "partials/workflow_styles.html" %}</head>
+<body class="bg-light ecs-cap-audit"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<div class="ecs-workflow-header"><a href="{{ return_url }}" class="small text-muted">&larr; Back to Audit Prep</a>
+<h1 class="h3 mt-1">{{ workflow_title }}</h1>
+<p class="text-muted small mb-0">{{ framework }} · {{ application }}</p></div>
+{% if notice %}<div class="alert alert-success">{{ notice }}</div>{% endif %}
+<div class="row g-3">
+<div class="col-lg-8">
+<form method="post" action="/mvp/workflow/close-gap" class="card shadow-sm border-0">
+<div class="card-body">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="framework" value="{{ framework }}">
+<input type="hidden" name="control" value="{{ control_name }}">
+<input type="hidden" name="return_module" value="{{ request.query_params.get('return_module', 'audit_prep') }}">
+<div class="mb-3"><label class="form-label fw-semibold">Control Name</label>
+<input class="form-control" value="{{ control_name }}" readonly></div>
+<div class="mb-3"><label class="form-label fw-semibold">Gap Description</label>
+<textarea class="form-control" name="gap_description" rows="2" readonly>{{ gap_description }}</textarea></div>
+<div class="mb-3"><label class="form-label fw-semibold">Root Cause</label>
+<textarea class="form-control" name="root_cause" rows="2">{{ root_cause }}</textarea></div>
+<div class="mb-3"><label class="form-label fw-semibold">Remediation Plan</label>
+<textarea class="form-control" name="remediation_plan" rows="3">{{ remediation_plan }}</textarea></div>
+<div class="row g-2 mb-3">
+<div class="col-md-6"><label class="form-label fw-semibold">Target Closure Date</label>
+<input type="date" class="form-control" name="target_date" value="{{ target_closure_date }}"></div>
+<div class="col-md-6"><label class="form-label fw-semibold">Closure Validation Status</label>
+<input class="form-control" value="{{ closure_validation_status }}" readonly></div></div>
+<div class="mb-3"><label class="form-label fw-semibold">Evidence Required</label>
+<ul class="mb-0">{% for e in evidence_required %}<li>{{ e }}</li>{% endfor %}</ul></div>
+<div class="row g-2 mb-3">
+<div class="col-md-6"><label class="form-label fw-semibold">Assigned Team</label>
+<input class="form-control" value="{{ assigned_team }}" readonly></div>
+<div class="col-md-6"><label class="form-label fw-semibold">Reviewer</label>
+<input class="form-control" value="{{ reviewer }}" readonly></div></div>
+<div class="d-flex flex-wrap gap-2">
+<button type="submit" name="submit_type" value="save_draft" class="btn btn-outline-secondary">Save Draft</button>
+<button type="submit" name="submit_type" value="submit_validation" class="btn btn-primary">Submit for Validation</button>
+<button type="submit" name="submit_type" value="escalate" class="btn btn-warning">Escalate</button>
+<button type="submit" name="submit_type" value="mark_remediated" class="btn btn-success">Mark as Remediated</button>
+</div></div></form></div>
+<div class="col-lg-4">{% include "partials/workflow_guidance.html" %}
+<div class="card shadow-sm border-0 mt-3"><div class="card-body small">
+<strong>Example — PCI DSS Req 8.3</strong><p class="text-muted mb-0 mt-1">MFA not enforced for privileged Linux jump servers. PAM integration completed; MFA rollout in progress.</p>
+</div></div></div></div></div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

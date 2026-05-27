@@ -1,40 +1,214 @@
-<!DOCTYPE html><html><head><title>Scheduler</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Scheduler</title>{% include "partials/mvp_styles.html" %}{% include "partials/scheduler_styles.html" %}</head>
 <body class="bg-light ecs-cap-scheduler"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<div class="page-header"><h1>Evidence Collection Scheduler</h1><p class="text-muted small mb-0">Automated pull jobs from SharePoint, ServiceNow, SIEM, and CMDB — operational scheduling, not approval workflow</p></div>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Evidence Collection Scheduler</h1>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<div class="row mb-4 align-items-center">
-<div class="col-auto"><div class="health-ring">{{ module_view.scheduler_health.uptime_pct }}%</div></div>
-<div class="col"><strong>Scheduler Health: {{ module_view.scheduler_health.status }}</strong>
-<p class="small text-muted mb-0">{{ module_view.scheduler_health.healthy_jobs }}/{{ module_view.scheduler_health.total_jobs }} jobs healthy · next global sync in 2h 14m</p></div>
-<div class="col-auto ecs-module-actions">
-{{ module_action('scheduler','run_now',role,user,'Run Now','btn-primary btn-sm') }}
-{{ module_action('scheduler','pause',role,user,'Pause','btn-outline-secondary btn-sm') }}
-{{ module_action('scheduler','resume',role,user,'Resume','btn-outline-secondary btn-sm') }}
-{{ module_action('scheduler','retry',role,user,'Retry Failed','btn-warning btn-sm') }}
+{% set ys = module_view.yesterday_summary %}
+{% set ci = module_view.compliance_impact %}
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="small text-muted mb-2" id="ecsOpsFilterSummary">Loading filtered operations data…</p>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+<span class="ecs-sched-live {% if module_view.paused %}is-paused{% else %}is-running{% endif %}">{{ module_view.scheduler_health.live_status|default('Running') }}</span>
+<span class="small text-muted">Uptime {{ module_view.scheduler_health.uptime_pct }}% · {{ module_view.scheduler_health.healthy_jobs }}/{{ module_view.scheduler_health.total_jobs }} jobs healthy</span>
+<div class="ecs-module-actions ms-auto">
+<button type="button" class="btn btn-primary btn-sm" data-sched-run>Run Now</button>
+{% if module_view.paused %}
+<button type="button" class="btn btn-success btn-sm" data-sched-resume>Resume</button>
+{% else %}
+<button type="button" class="btn btn-outline-secondary btn-sm" data-sched-pause>Pause</button>
+{% endif %}
+<button type="button" class="btn btn-warning btn-sm" data-sched-retry>Retry Failed</button>
 </div></div>
-<div class="row g-3 mb-4">
-{% for j in module_view.rows %}
-<div class="col-md-6 col-lg-4"><div class="card job-card shadow-sm p-3 h-100 {% if j.health != 'Healthy' %}unhealthy{% endif %}">
-<div class="d-flex justify-content-between"><code class="small">{{ j.job_id }}</code>
-<span class="badge {% if j.health=='Healthy' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ j.health }}</span></div>
-<h6 class="mt-2 mb-1">{{ j.source_system }}</h6>
-<small class="text-muted">{{ j.framework }} · {{ j.frequency }}</small>
-<div class="row mt-2 small"><div class="col-6"><span class="text-muted">Next run</span><br>{{ j.next_run }}</div>
-<div class="col-6"><span class="text-muted">Last run</span><br>{{ j.last_run }}</div></div>
-<div class="mt-2 small">Failed: {{ j.failed_collections }} · Retry: {{ j.retry_status }}</div>
-<div class="mt-2">{{ module_action('scheduler','run_now',role,user,'Run Now','btn-sm btn-outline-primary',j.job_id) }}
-{{ module_action('scheduler','retry',role,user,'Retry','btn-sm btn-outline-warning',j.job_id) }}</div>
-</div></div>
+
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<h6 class="small text-muted text-uppercase mb-1">Yesterday Scan Summary</h6>
+<div class="ecs-sched-summary">
+<div class="ecs-sched-card"><strong data-ecs-ops-kpi="Yesterday Apps Scanned">{{ ys.applications_scanned }}</strong><span>Apps Scanned</span></div>
+<div class="ecs-sched-card"><strong data-ecs-ops-kpi="Yesterday Evidence">{{ ys.evidence_collected }}</strong><span>Evidence Collected</span></div>
+<div class="ecs-sched-card"><strong data-ecs-ops-kpi="Yesterday Validated">{{ ys.controls_auto_validated }}</strong><span>Auto-Validated</span></div>
+<div class="ecs-sched-card"><strong>{{ ys.controls_pending_review }}</strong><span>Pending Review</span></div>
+<div class="ecs-sched-card"><strong data-ecs-ops-kpi="Yesterday Failed">{{ ys.failed_collections }}</strong><span>Failed</span></div>
+<div class="ecs-sched-card"><strong>+{{ ys.compliance_delta_pct }}%</strong><span>Compliance Delta</span></div>
+<div class="ecs-sched-card"><strong>{{ ys.reuse_mapped }}</strong><span>Reuse Mapped</span></div>
+<div class="ecs-sched-card"><strong>{{ ys.high_risk_gaps }}</strong><span>High-Risk Gaps</span></div>
+</div>
+
+<h6 class="small text-muted text-uppercase mb-1 mt-2">Daily Cron Execution — Yesterday</h6>
+<div class="chart-card mb-2"><div class="chart-card-title">Evidence collected by job</div>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsSchedCronChart"></div></div></div>
+<div id="ecsSchedCronOverview">
+{% for c in module_view.cron_timeline[:6] %}
+<div class="ecs-cron-row row g-1 align-items-center">
+<div class="col-md-3"><strong>{{ c.label }}</strong></div>
+<div class="col-md-2 small">{{ c.duration_sec }}s</div>
+<div class="col-md-2 small">{{ c.applications_scanned }} apps</div>
+<div class="col-md-2 small">{{ c.evidence_collected }} evid</div>
+<div class="col-md-1 small">{{ c.controls_validated }} ctrl</div>
+<div class="col-md-1 small text-danger">{{ c.failures }} fail</div>
+<div class="col-md-1"><span class="badge {% if c.health=='Success' %}bg-success{% elif c.health=='Partial' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ c.health }}</span></div>
+</div>
 {% endfor %}
 </div>
-<h3 class="h6 text-uppercase text-muted">Execution History</h3>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table table-sm ecs-cap-table bg-white ecs-paginated-table"><thead><tr><th>Timestamp</th><th>Status</th><th>Records</th><th>Duration</th><th>Triggered By</th></tr></thead><tbody>
-{% for h in module_view.execution_history %}<tr><td>{{h.timestamp}}</td><td>{{h.status}}</td><td>{{h.records}}</td><td>{{h.duration_sec}}s</td><td>{{h.triggered_by}}</td></tr>{% endfor %}
+
+<h6 class="small text-muted text-uppercase mb-1 mt-2">Compliance Impact From Scheduler</h6>
+<div class="ecs-ws-metric-row mb-2">
+<span><strong>{{ ci.controls_validated_yesterday }}</strong> controls validated</span>
+<span><strong>{{ ci.manual_effort_saved_hours }}h</strong> manual effort saved</span>
+<span><strong>+{{ ci.compliance_uplift_pct }}%</strong> compliance uplift</span>
+<span><strong>{{ ci.pending_human_reviews }}</strong> pending reviews</span>
+<span><strong>{{ ci.reuse_savings_hours }}h</strong> reuse savings</span>
+</div>
+
+<h6 class="small text-muted text-uppercase mb-1">Application Scan Preview</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-ops-table="sched-scans"><thead><tr>
+<th>Application</th><th>Framework</th><th>Evidence</th><th>Passed</th><th>Pending</th><th>Missing</th><th>Risk</th><th>Health</th><th>Actions</th>
+</tr></thead><tbody>
+{% for s in module_view.application_scans[:10] %}
+<tr data-ecs-filter-row data-filter-application="{{ s.application }}" data-filter-framework="{{ s.framework }}" data-filter-risk="{{ s.risk }}" data-filter-owner="{{ s.owner }}">
+<td>{{ s.application }}</td><td>{{ s.framework }}</td><td>{{ s.evidence_collected }}</td><td>{{ s.controls_passed }}</td>
+<td>{{ s.controls_pending }}</td><td>{{ s.missing_evidence }}</td><td>{{ s.risk }}</td>
+<td><span class="badge {% if s.health=='Healthy' %}bg-success{% elif s.health=='Attention' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ s.health }}</span></td>
+<td><button type="button" class="btn btn-link btn-sm p-0" data-sched-app-drill="{{ loop.index0 }}">Details</button></td></tr>
+{% endfor %}
 </tbody></table></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('applications', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-ops-table="sched-scans"><thead><tr>
+<th>Application</th><th>Framework</th><th>Evidence Collected</th><th>Controls Passed</th><th>Controls Pending</th><th>Missing</th><th>Risk</th><th>Last Scan</th><th>Health</th><th>Actions</th>
+</tr></thead><tbody>
+{% for s in module_view.application_scans[:10] %}
+<tr data-ecs-filter-row data-filter-application="{{ s.application }}" data-filter-framework="{{ s.framework }}" data-filter-risk="{{ s.risk }}" data-filter-status="{{ s.health }}" data-filter-owner="{{ s.owner }}">
+<td><strong>{{ s.application }}</strong></td><td>{{ s.framework }}</td><td>{{ s.evidence_collected }}</td><td>{{ s.controls_passed }}</td>
+<td>{{ s.controls_pending }}</td><td>{{ s.missing_evidence }}</td><td>{{ s.risk }}</td><td class="small">{{ s.last_scan }}</td>
+<td><span class="badge {% if s.health=='Healthy' %}bg-success{% elif s.health=='Attention' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ s.health }}</span></td>
+<td class="text-nowrap"><button type="button" class="btn btn-link btn-sm p-0" data-sched-app-drill="{{ loop.index0 }}">View</button>
+{{ module_action('scheduler','run_now',role,user,'Re-scan','btn-sm btn-outline-primary',s.application) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('cron', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-ops-table="sched-cron"><thead><tr>
+<th></th><th>Framework</th><th>Application</th><th>Scheduled</th><th>Last Execution</th><th>Evidence</th><th>Validated</th><th>Retries</th><th>Status</th><th>Failure Reason</th><th>Actions</th>
+</tr></thead><tbody>
+{% for c in module_view.cron_timeline[:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ c.framework|default('Enterprise-wide') }}" data-filter-application="{{ c.application|default('All Applications') }}" data-filter-status="{{ c.health }}"><td><button type="button" class="btn btn-link btn-sm p-0 ecs-ws-detail-toggle" data-ecs-detail-toggle="cron-detail-{{ loop.index0 }}">+</button></td>
+<td>{{ c.framework|default('—') }}</td><td>{{ c.application|default('—') }}</td>
+<td class="small">{{ c.scheduled_time|default(c.label) }}</td><td class="small">{{ c.last_execution|default(c.timestamp) }}</td>
+<td>{{ c.evidence_collected }}</td><td>{{ c.controls_validated }}</td>
+<td>{{ c.retry_count|default(0) }}</td>
+<td><span class="badge {% if c.health=='Success' %}bg-success{% elif c.health=='Partial' %}bg-warning text-dark{% elif c.health=='Running' %}bg-primary{% else %}bg-danger{% endif %}">{{ c.health }}</span></td>
+<td class="small text-danger">{{ c.failure_reason|default('—')|truncate(40) }}</td>
+<td class="text-nowrap"><button type="button" class="btn btn-sm btn-outline-warning" data-sched-retry>Retry</button>
+<button type="button" class="btn btn-sm btn-outline-primary" data-sched-run>Run Now</button></td></tr>
+<tr class="d-none ecs-ws-detail-row" id="cron-detail-{{ loop.index0 }}"><td colspan="11">
+<strong class="small">Execution Details — {{ c.run_id }}</strong>
+<ul class="small mb-0">{% for d in c.details|default([]) %}<li>{{ d }}</li>{% endfor %}</ul>
+</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('history', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
+<th>Run ID</th><th>Trigger</th><th>Started</th><th>Completed</th><th>Duration</th><th>Apps</th><th>Evidence</th><th>Status</th><th>Initiated By</th><th>Actions</th>
+</tr></thead><tbody>
+{% for h in module_view.execution_history %}
+<tr data-ecs-filter-row data-filter-status="{{ h.status }}">
+<td><code class="small">{{ h.run_id }}</code></td><td>{{ h.trigger_type }}</td><td class="small">{{ h.started }}</td><td class="small">{{ h.completed }}</td>
+<td>{{ h.duration_sec }}s</td><td>{{ h.apps_covered }}</td><td>{{ h.evidence_count }}</td>
+<td><span class="badge {% if h.status=='Success' %}bg-success{% elif h.status=='Partial' %}bg-warning text-dark{% elif h.status=='Failed' %}bg-danger{% else %}bg-secondary{% endif %}">{{ h.status }}</span></td>
+<td>{{ h.initiated_by }}</td>
+<td class="text-nowrap">
+<button type="button" class="btn btn-link btn-sm p-0" data-sched-run-log="{{ loop.index0 }}">View Logs</button>
+{{ module_action('scheduler','run_now',role,user,'Re-run','btn-sm btn-outline-primary',h.run_id) }}
+<button type="button" class="btn btn-link btn-sm p-0" data-sched-export="{{ h.run_id }}">Export</button>
+</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('failures', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-ops-table="sched-failures"><thead><tr>
+<th>ID</th><th>Source</th><th>Issue</th><th>Severity</th><th>Impact</th><th>Affected Apps</th><th>Remediation</th><th>Retry</th><th>Actions</th>
+</tr></thead><tbody>
+{% for f in module_view.scheduler_failures[:10] %}
+<tr class="{% if f.severity=='High' %}table-danger{% elif f.severity=='Medium' %}table-warning{% endif %}" data-ecs-filter-row data-filter-framework="{{ f.framework|default('') }}" data-filter-application="{{ f.application|default('') }}" data-filter-status="{{ f.status|default('') }}" data-filter-owner="{{ f.owner|default('') }}">
+<td>{{ f.failure_id }}</td><td><strong>{{ f.source }}</strong><br><span class="small">{{ f.type }}</span></td>
+<td class="small">{{ f.description|truncate(55, True, '…') }}</td>
+<td><span class="badge {% if f.severity=='High' %}bg-danger{% elif f.severity=='Medium' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ f.severity }}</span></td>
+<td class="small">{{ f.impact }}</td><td class="small">{{ f.affected_applications }}</td><td class="small">{{ f.remediation|truncate(50, True, '…') }}</td>
+<td>{{ f.retry_status }}</td>
+<td class="text-nowrap">{{ module_action('scheduler','retry',role,user,'Retry','btn-sm btn-warning',f.failure_id) }}
+{{ module_action('scheduler','escalate',role,user,'Escalate','btn-sm btn-outline-danger',f.failure_id) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('upcoming', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Upcoming Scheduled Collections</h6>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
+<th>Schedule</th><th>Target</th><th>Frameworks</th><th>Expected Evidence</th><th>Est. Runtime</th><th>Warnings</th>
+</tr></thead><tbody>
+{% for u in module_view.upcoming_plan %}
+<tr class="{% if u.dependency_warning %}table-warning{% endif %}">
+<td><strong>{{ u.schedule }}</strong></td><td>{{ u.target }}</td><td>{{ u.frameworks }}</td><td>{{ u.expected_evidence }}</td>
+<td>{{ u.estimated_runtime_min }} min</td><td class="small text-danger">{{ u.dependency_warning|default('—') }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('integrations', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Integration Health</h6>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
+<th>Connector</th><th>Status</th><th>Sync Frequency</th><th>Last Sync</th><th>Failed Syncs</th><th>Latency</th><th>Auth</th><th>Detail</th>
+</tr></thead><tbody>
+{% for i in module_view.integration_health %}
+<tr><td><strong>{{ i.name }}</strong></td>
+<td><span class="badge {% if i.status=='Healthy' %}bg-success{% elif i.status in ['Authentication Issue','Retry Pending'] %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ i.status }}</span></td>
+<td>Every 6 hours</td><td class="small">{{ i.detail|truncate(30, True, '') }}</td>
+<td>{% if i.status in ['Delayed','Retry Pending','Authentication Issue'] %}1{% else %}0{% endif %}</td>
+<td>{{ (loop.index * 38 + 72) }}ms</td>
+<td>{% if i.status=='Authentication Issue' %}Expired{% else %}OK{% endif %}</td>
+<td class="small">{{ i.detail }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+<h6 class="small text-muted text-uppercase mb-1">Collection Jobs</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-ops-table="sched-jobs"><thead><tr>
+<th>Job ID</th><th>Source</th><th>Framework</th><th>Frequency</th><th>Health</th><th>Last Run</th><th>Records</th><th>Actions</th>
+</tr></thead><tbody>
+{% for j in module_view.rows[:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ j.framework }}" data-filter-application="{{ j.application }}" data-filter-status="{{ j.status }}" data-filter-owner="{{ j.owner }}" data-filter-risk="{{ j.risk }}">
+<td><code class="small">{{ j.job_id }}</code></td><td>{{ j.source_system }}</td><td>{{ j.framework }}</td><td>{{ j.frequency }}</td>
+<td><span class="badge {% if j.health=='Healthy' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ j.health }}</span></td>
+<td class="small">{{ j.last_run }}</td><td>{{ j.records|default(j.evidence_collected) }}</td>
+<td>{{ module_action('scheduler','run_now',role,user,'Run','btn-sm btn-outline-primary',j.job_id) }}
+{{ module_action('scheduler','retry',role,user,'Retry','btn-sm btn-outline-warning',j.job_id) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% if module_view.operations_dataset is defined %}
+<script type="application/json" id="ecsOperationsDataset">{{ module_view.operations_dataset|tojson }}</script>
+{% include "partials/operations_filter_client.html" %}
+{% endif %}
+{% include "partials/scheduler_modals.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

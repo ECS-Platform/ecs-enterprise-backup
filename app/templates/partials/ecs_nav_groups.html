@@ -1,0 +1,114 @@
+{# Grouped enterprise navigation — Executive, Frameworks, Operations, Governance, GRC #}
+{% from "partials/nav_badge.html" import nav_badge %}
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set exec_open = nav_module in ['enterprise','pan_india','reports','trends'] or nav_active in ['main_dashboard','role_dashboard'] %}
+{% set fw_open = framework_name is defined or nav_module == 'framework_admin' %}
+{% set ops_open = nav_module in ['scheduler','upload','integrations','onboarding','integrations_hub'] %}
+{% set gov_open = nav_module in ['audit_prep','evidence_health','reuse','lifecycle','completeness','comparison','search','evidence_approval'] %}
+{% set grc_open = nav_module in ['risk_register','exceptions_td','cmdb','regulatory_mapping','executive_heatmaps','correlation','governance_analytics','exception_governance'] %}
+
+<nav class="ecs-nav-groups" aria-label="ECS command center">
+
+<div class="ecs-nav-group">
+<button class="ecs-nav-group-toggle{% if exec_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-exec" aria-expanded="{{ 'true' if exec_open else 'false' }}">
+<span class="ecs-nav-group-label">Executive Overview</span>
+<span class="ecs-nav-group-chevron">▾</span>
+</button>
+<div id="nav-exec" class="collapse{% if exec_open %} show{% endif %}">
+<div class="ecs-nav-group-items">
+{% if role == "owner" or role == "auditor" %}
+<a href="/dashboard{{ q }}" class="ecs-sidebar-btn{% if nav_active == 'main_dashboard' %} is-active{% endif %}" title="{% if role == 'owner' %}{{ nav_counters.global_tooltips.owner_pending if nav_counters is defined and nav_counters.global_tooltips is defined else '' }}{% else %}{{ nav_counters.global_tooltips.auditor_pending if nav_counters is defined and nav_counters.global_tooltips is defined else '' }}{% endif %}">Main Dashboard {{ nav_badge(nav_counters.global.owner_pending if role == 'owner' and nav_counters is defined else (nav_counters.global.auditor_pending if nav_counters is defined else 0), nav_counters.global_tooltips.owner_pending if role == 'owner' and nav_counters is defined and nav_counters.global_tooltips is defined else (nav_counters.global_tooltips.auditor_pending if nav_counters is defined and nav_counters.global_tooltips is defined else '')) }}</a>
+{% elif role == "cio" %}
+<a href="/dashboard/cio{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Evidence Analytics {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
+{% elif role == "vertical_head" %}
+<a href="/dashboard/vertical-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Vertical Head Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
+{% elif role == "compliance_head" or role == "compliance_officer" %}
+<a href="/dashboard/compliance-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Compliance Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
+{% elif role == "functional_head" %}
+<a href="/dashboard/functional-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Functional Head Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
+{% endif %}
+<a href="/mvp/enterprise{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'enterprise' %} is-active{% endif %}">Enterprise {{ nav_badge(nav_counters.modules.enterprise if nav_counters is defined else 0, nav_counters.module_tooltips.enterprise if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/pan-india{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'pan_india' %} is-active{% endif %}">Pan India {{ nav_badge(nav_counters.modules.pan_india if nav_counters is defined else 0, nav_counters.module_tooltips.pan_india if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/reports{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'reports' %} is-active{% endif %}">Reports {{ nav_badge(nav_counters.modules.reports if nav_counters is defined else 0, nav_counters.module_tooltips.reports if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/trends{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'trends' %} is-active{% endif %}">Trends {{ nav_badge(nav_counters.modules.trends if nav_counters is defined else 0, nav_counters.module_tooltips.trends if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+</div>
+</div>
+</div>
+
+<div class="ecs-nav-group">
+<button class="ecs-nav-group-toggle{% if fw_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-fw" aria-expanded="{{ 'true' if fw_open else 'false' }}">
+<span class="ecs-nav-group-label">Frameworks</span>
+<span class="ecs-nav-group-chevron">▾</span>
+</button>
+<div id="nav-fw" class="collapse{% if fw_open %} show{% endif %}">
+<div class="ecs-nav-group-items ecs-nav-group-items-nested">
+{% for framework in frameworks %}
+<a href="/framework/{{framework}}{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-nested{% if framework_name is defined and framework_name == framework %} is-active{% endif %}" title="{{ nav_counters.framework_tooltips[framework] if nav_counters is defined and nav_counters.framework_tooltips is defined else '' }}">{{framework}} {{ nav_badge(nav_counters.frameworks[framework] if nav_counters is defined and nav_counters.frameworks is defined else 0, nav_counters.framework_tooltips[framework] if nav_counters is defined and nav_counters.framework_tooltips is defined else '') }}</a>
+{% endfor %}
+{% if perm_can_manage_frameworks|default(false) %}
+<a href="/mvp/framework-admin{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-admin{% if nav_module == 'framework_admin' %} is-active{% endif %}">Framework Administration</a>
+<a href="/mvp/framework-admin{{ q }}&wizard=1" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent">+ Add New Framework</a>
+{% elif role == 'auditor' %}
+<a href="/mvp/framework-admin{{ q }}?role=auditor&user={{ user|urlencode }}" class="ecs-sidebar-btn ecs-sidebar-btn-nested{% if nav_module == 'framework_admin' %} is-active{% endif %}">Framework Onboarding Review</a>
+{% endif %}
+</div>
+</div>
+</div>
+
+<div class="ecs-nav-group">
+<button class="ecs-nav-group-toggle{% if ops_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-ops" aria-expanded="{{ 'true' if ops_open else 'false' }}">
+<span class="ecs-nav-group-label">Operations</span>
+<span class="ecs-nav-group-chevron">▾</span>
+</button>
+<div id="nav-ops" class="collapse{% if ops_open %} show{% endif %}">
+<div class="ecs-nav-group-items">
+<a href="/mvp/scheduler{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'scheduler' %} is-active{% endif %}">Scheduler {{ nav_badge(nav_counters.modules.scheduler if nav_counters is defined else 0, nav_counters.module_tooltips.scheduler if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+{% if perm_can_upload|default(role == 'owner') %}
+<a href="/mvp/upload{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'upload' %} is-active{% endif %}">Bulk Upload {{ nav_badge(nav_counters.modules.upload if nav_counters is defined else 0, nav_counters.module_tooltips.upload if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+{% endif %}
+<a href="/mvp/integrations{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'integrations' %} is-active{% endif %}">Integrations {{ nav_badge(nav_counters.modules.integrations if nav_counters is defined else 0, nav_counters.module_tooltips.integrations if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/onboarding{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'onboarding' %} is-active{% endif %}">Onboarding {{ nav_badge(nav_counters.modules.onboarding if nav_counters is defined else 0, nav_counters.module_tooltips.onboarding if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+</div>
+</div>
+</div>
+
+<div class="ecs-nav-group">
+<button class="ecs-nav-group-toggle{% if gov_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-gov" aria-expanded="{{ 'true' if gov_open else 'false' }}">
+<span class="ecs-nav-group-label">Governance</span>
+<span class="ecs-nav-group-chevron">▾</span>
+</button>
+<div id="nav-gov" class="collapse{% if gov_open %} show{% endif %}">
+<div class="ecs-nav-group-items">
+<a href="/mvp/audit-prep{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_prep' %} is-active{% endif %}">Audit Prep {{ nav_badge(nav_counters.modules.audit_prep if nav_counters is defined else 0, nav_counters.module_tooltips.audit_prep if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/evidence-health{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_health' %} is-active{% endif %}">Evidence Health {{ nav_badge(nav_counters.modules.evidence_health if nav_counters is defined else 0, nav_counters.module_tooltips.evidence_health if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/reuse{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'reuse' %} is-active{% endif %}">Evidence Reuse {{ nav_badge(nav_counters.modules.reuse if nav_counters is defined else 0, nav_counters.module_tooltips.reuse if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/lifecycle{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'lifecycle' %} is-active{% endif %}">Lifecycle {{ nav_badge(nav_counters.modules.lifecycle if nav_counters is defined else 0, nav_counters.module_tooltips.lifecycle if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/completeness{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'completeness' %} is-active{% endif %}">Completeness {{ nav_badge(nav_counters.modules.completeness if nav_counters is defined else 0, nav_counters.module_tooltips.completeness if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/comparison{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'comparison' %} is-active{% endif %}">App Comparison {{ nav_badge(nav_counters.modules.comparison if nav_counters is defined else 0, nav_counters.module_tooltips.comparison if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/search{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'search' %} is-active{% endif %}">Search {{ nav_badge(nav_counters.modules.search if nav_counters is defined else 0, nav_counters.module_tooltips.search if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/evidence-approval{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_approval' %} is-active{% endif %}">Evidence Approval Analytics {{ nav_badge(nav_counters.modules.evidence_approval if nav_counters is defined else 0, nav_counters.module_tooltips.evidence_approval if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+</div>
+</div>
+</div>
+
+<div class="ecs-nav-group">
+<button class="ecs-nav-group-toggle{% if grc_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-grc" aria-expanded="{{ 'true' if grc_open else 'false' }}">
+<span class="ecs-nav-group-label">Enterprise GRC</span>
+<span class="ecs-nav-group-chevron">▾</span>
+</button>
+<div id="nav-grc" class="collapse{% if grc_open %} show{% endif %}">
+<div class="ecs-nav-group-items">
+<a href="/mvp/risk-register{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'risk_register' %} is-active{% endif %}">Risk Register {{ nav_badge(nav_counters.modules.risk_register if nav_counters is defined else 0, nav_counters.module_tooltips.risk_register if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/exceptions{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'exceptions_td' %} is-active{% endif %}">Exceptions / TD {{ nav_badge(nav_counters.modules.exceptions_td if nav_counters is defined else 0, nav_counters.module_tooltips.exceptions_td if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/exception-governance{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'exception_governance' %} is-active{% endif %}">Exception Governance {{ nav_badge(nav_counters.modules.exception_governance if nav_counters is defined else 0, nav_counters.module_tooltips.exception_governance if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/cmdb{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'cmdb' %} is-active{% endif %}">CMDB / Assets {{ nav_badge(nav_counters.modules.cmdb if nav_counters is defined else 0, nav_counters.module_tooltips.cmdb if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/regulatory{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'regulatory_mapping' %} is-active{% endif %}">Regulatory Mapping {{ nav_badge(nav_counters.modules.regulatory_mapping if nav_counters is defined else 0, nav_counters.module_tooltips.regulatory_mapping if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/heatmaps{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'executive_heatmaps' %} is-active{% endif %}">Executive Heatmaps {{ nav_badge(nav_counters.modules.executive_heatmaps if nav_counters is defined else 0, nav_counters.module_tooltips.executive_heatmaps if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/integrations-hub{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'integrations_hub' %} is-active{% endif %}">Integrations Hub {{ nav_badge(nav_counters.modules.integrations_hub if nav_counters is defined else 0, nav_counters.module_tooltips.integrations_hub if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/correlation{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'correlation' %} is-active{% endif %}">Cross-Tool Correlation {{ nav_badge(nav_counters.modules.correlation if nav_counters is defined else 0, nav_counters.module_tooltips.correlation if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/governance-analytics{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'governance_analytics' %} is-active{% endif %}">Governance Analytics {{ nav_badge(nav_counters.modules.governance_analytics if nav_counters is defined else 0, nav_counters.module_tooltips.governance_analytics if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+</div>
+</div>
+</div>
+
+</nav>

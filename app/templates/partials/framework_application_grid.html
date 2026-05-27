@@ -1,0 +1,59 @@
+{# Application drill-down — framework-specific operational view #}
+{% set fq = '?role=' ~ role ~ '&user=' ~ user %}
+{% if application_view %}
+<div class="ecs-breadcrumb-trail mb-2">
+<a href="/framework/{{ framework_name }}{{ fq }}&fw_tab=applications">{{ framework_name }}</a>
+<span class="ecs-breadcrumb-sep">›</span>
+<span>{{ application_view.application }}</span>
+</div>
+{% if application_view.focus %}
+<p class="small text-muted mb-2"><strong>{{ framework_name }} scope:</strong> {{ application_view.focus }}</p>
+{% endif %}
+<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
+<div class="ecs-exec-kpi ecs-exec-kpi-success"><span class="ecs-exec-kpi-val">{{ application_view.implemented }}</span><span class="ecs-exec-kpi-lbl">Approved Controls</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-warning"><span class="ecs-exec-kpi-val">{{ application_view.pending }}</span><span class="ecs-exec-kpi-lbl">Pending Validation</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-danger"><span class="ecs-exec-kpi-val">{{ application_view.findings }}</span><span class="ecs-exec-kpi-lbl">Open Findings</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-danger"><span class="ecs-exec-kpi-val">{{ application_view.expired }}</span><span class="ecs-exec-kpi-lbl">Expired Evidence</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-primary"><span class="ecs-exec-kpi-val">{{ application_view.audit_readiness_pct }}%</span><span class="ecs-exec-kpi-lbl">Readiness</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ 'danger' if application_view.risk_rating == 'High' else 'warning' if application_view.risk_rating == 'Medium' else 'success' }}"><span class="ecs-exec-kpi-val">{{ application_view.risk_rating }}</span><span class="ecs-exec-kpi-lbl">Risk Level</span></div>
+</div></div>
+{% if application_view.drilldown and application_view.drilldown.sections %}
+<div class="row g-2 mb-2">
+{% for section in application_view.drilldown.sections %}
+<div class="col-md-6">
+<div class="ecs-section-card h-100 py-2 px-2">
+<h6 class="small text-uppercase text-muted mb-1">{{ section.title }}</h6>
+<ul class="small mb-0">{% for item in section['items'] %}<li>{{ item }}</li>{% endfor %}</ul>
+</div></div>
+{% endfor %}
+</div>
+{% endif %}
+<div class="ecs-section-card mb-2">
+<h6 class="small text-muted mb-2">{{ framework_name }} controls for {{ application_view.application }}</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Control</th><th>Evidence</th><th>Approved</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>
+{% for row in application_view.controls %}
+{% set primary_ev = row.evidences[0] %}
+<tr class="{% if row.ckey in rejected_controls %}table-danger{% elif row.ckey in submitted_controls %}table-warning{% endif %}">
+<td><strong>{{ row.control }}</strong><br><small class="text-muted">{{ row.control_id }}</small></td>
+<td>{{ row.evidences|length }}{% if row.reject_reason %}<br><small class="text-danger">{{ row.reject_reason|truncate(40, True, '…') }}</small>{% endif %}</td>
+<td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+<td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Approved</span>
+{% elif row.ckey in rejected_controls %}<span class="badge bg-danger">Rejected</span>
+{% elif row.ckey in submitted_controls %}<span class="badge bg-warning text-dark">Pending Auditor</span>
+{% else %}<span class="badge bg-secondary">Awaiting Evidence</span>{% endif %}</td>
+<td>
+<a href="{{ review_url(framework_name, row.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm py-0 px-2">View</a>
+{% if role == 'owner' and row.ckey in rejected_controls %}
+<a href="{{ review_url(framework_name, row.control, primary_ev.evidence_id, role, user) }}" class="btn btn-warning btn-sm py-0 px-2">Resubmit</a>
+{% elif role == 'owner' and row.ckey not in approved_controls and row.ckey not in submitted_controls %}
+<a href="{{ review_url(framework_name, row.control, primary_ev.evidence_id, role, user) }}" class="btn btn-primary btn-sm py-0 px-2">Submit</a>
+{% endif %}
+</td></tr>
+{% else %}
+<tr><td colspan="5" class="text-muted small">No catalog-linked controls for this application — see framework drill-down sections above.</td></tr>
+{% endfor %}
+</tbody></table></div></div>
+{% endif %}

@@ -3,7 +3,7 @@
 from urllib.parse import quote
 
 from fastapi import File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from app import ecs_state
 from app.analytics_module import (
@@ -23,14 +23,14 @@ from app.evidence_repository import (
     upload_tracker,
 )
 from app.integrations_module import get_integration_dashboard, simulate_sync
-from app.reporting_module import generate_report_content, list_reports
-from app.scheduler_module import get_scheduler_dashboard, run_scheduled_pull
+from app.reporting_module import generate_report_content, generate_report_export, list_reports
+from app.scheduler_module import get_scheduler_dashboard, run_scheduled_pull, retry_failed_observation
 from app.search_module import build_search_discovery, search_evidences
 from app.enterprise_context import enterprise_widgets_context
 from app.demo_metrics import REUSE_METRICS
 
 
-def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_module: str = ""):
+def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_module: str = "", analytics_filters: dict | None = None):
     ctx = {
         "frameworks": ecs_state.frameworks.keys(),
         "role": role,
@@ -41,7 +41,7 @@ def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_m
         "rejected_controls": ecs_state.rejected_controls,
         "applications": ecs_state.onboarded_applications,
     }
-    ctx.update(enterprise_widgets_context(role, page_module=page_module, user=user))
+    ctx.update(enterprise_widgets_context(role, page_module=page_module, user=user, analytics_filters=analytics_filters))
     ctx["module_view"] = ctx.get("module_view") or {}
     ctx["reuse_metrics"] = REUSE_METRICS
     return ctx
@@ -64,6 +64,7 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "audit_prep": "/mvp/audit-prep",
         "trends": "/mvp/trends",
         "onboarding": "/mvp/onboarding",
+        "framework_admin": "/mvp/framework-admin",
         "risk_register": "/mvp/risk-register",
         "exceptions_td": "/mvp/exceptions",
         "cmdb": "/mvp/cmdb",
@@ -72,6 +73,8 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "integrations_hub": "/mvp/integrations-hub",
         "correlation": "/mvp/correlation",
         "governance_analytics": "/mvp/governance-analytics",
+        "evidence_approval": "/mvp/evidence-approval",
+        "exception_governance": "/mvp/exception-governance",
     }
     base = paths.get(module, "/dashboard")
     return RedirectResponse(url=f"{base}?role={role}&user={user}&notice={quote(notice)}", status_code=303)
@@ -133,15 +136,66 @@ def register_mvp_routes(app, templates):
 
     @app.post("/mvp/scheduler/run")
     def mvp_scheduler_run(role: str = Form(...), user: str = Form(...)):
-        result = run_scheduled_pull()
-        notice = quote(f"Scheduler pull complete at {result['timestamp']}. Added {result['added']} items.")
+        try:
+            from app.ecs_logging import log_scheduler
+            log_scheduler("Manual scheduler run triggered", user=user)
+        except Exception:
+            pass
+        result = run_scheduled_pull(user=user)
+        notice = (
+            f"Scheduler run completed — {result['observations_scanned']} observations scanned, "
+            f"{result['new_findings']} new findings detected."
+        )
+        return RedirectResponse(
+            url=f"/mvp/scheduler?role={role}&user={user}&notice={quote(notice)}&toast=scheduler_ok",
+            status_code=303,
+        )
+
+    @app.post("/mvp/scheduler/retry")
+    def mvp_scheduler_retry(
+        role: str = Form(...),
+        user: str = Form(...),
+        failure_id: str = Form(...),
+    ):
+        result = retry_failed_observation(failure_id, user)
+        toast = "scheduler_retry_ok" if result["ok"] else "scheduler_retry_fail"
+        return RedirectResponse(
+            url=f"/mvp/scheduler?role={role}&user={user}&notice={quote(result['message'])}&toast={toast}",
+            status_code=303,
+        )
+
+    @app.post("/mvp/scheduler/pause")
+    def mvp_scheduler_pause(role: str = Form(...), user: str = Form(...)):
+        from app.scheduler_module import pause_scheduler
+        notice = quote(pause_scheduler(user))
+        return RedirectResponse(url=f"/mvp/scheduler?role={role}&user={user}&notice={notice}", status_code=303)
+
+    @app.post("/mvp/scheduler/resume")
+    def mvp_scheduler_resume(role: str = Form(...), user: str = Form(...)):
+        from app.scheduler_module import resume_scheduler
+        notice = quote(resume_scheduler(user))
         return RedirectResponse(url=f"/mvp/scheduler?role={role}&user={user}&notice={notice}", status_code=303)
 
     @app.get("/mvp/upload", response_class=HTMLResponse)
-    def mvp_upload_page(request: Request, role: str = "owner", user: str = "User", response: str = "", notice: str = ""):
+    def mvp_upload_page(
+        request: Request,
+        role: str = "owner",
+        user: str = "User",
+        response: str = "",
+        notice: str = "",
+        framework: str = "",
+        application: str = "",
+        control: str = "",
+    ):
+        from app.role_permissions import guard_upload
+
+        deny = guard_upload(role, user, "/mvp/completeness")
+        if deny:
+            return deny
         ctx = _base_ctx(role, user, response, notice, page_module="upload")
         ctx["uploads"] = list(reversed(evidence_repository[-15:]))
         ctx["tracker"] = list(reversed(upload_tracker[-10:]))
+        ctx["upload_prefill"] = {"framework": framework, "application": application, "control": control}
         return templates.TemplateResponse(request, "mvp_bulk_upload.html", ctx)
 
     @app.post("/mvp/upload/bulk")
@@ -152,6 +206,11 @@ def register_mvp_routes(app, templates):
         application: str = Form("Net Banking"),
         files: list[UploadFile] = File(...),
     ):
+        from app.role_permissions import guard_upload
+
+        deny = guard_upload(role, user, "/mvp/completeness")
+        if deny:
+            return deny
         count = 0
         for f in files:
             content = await f.read()
@@ -161,10 +220,33 @@ def register_mvp_routes(app, templates):
         return RedirectResponse(url=f"/mvp/upload?role={role}&user={user}&notice={notice}", status_code=303)
 
     @app.get("/mvp/evidence-health", response_class=HTMLResponse)
-    def mvp_evidence_health(request: Request, role: str = "owner", user: str = "User", response: str = ""):
+    def mvp_evidence_health(
+        request: Request,
+        role: str = "owner",
+        user: str = "User",
+        response: str = "",
+        framework: str = "",
+        application: str = "",
+        status: str = "",
+        filter_issue: str = "",
+        highlight: str = "",
+        observation_id: str = "",
+        tab: str = "",
+    ):
         ctx = _base_ctx(role, user, response, page_module="evidence_health")
         ctx["health"] = get_health_dashboard()
         ctx["summaries"] = get_summaries()
+        ctx["health_deep_link"] = {
+            "framework": framework,
+            "application": application,
+            "status": status,
+            "filter_issue": filter_issue,
+            "highlight": highlight,
+            "observation_id": observation_id,
+            "tab": tab,
+        }
+        if tab and ctx.get("workspace"):
+            ctx["workspace"]["default_tab"] = tab
         return templates.TemplateResponse(request, "mvp_evidence_health.html", ctx)
 
     @app.get("/mvp/search", response_class=HTMLResponse)
@@ -194,8 +276,8 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_search.html", ctx)
 
     @app.get("/mvp/completeness", response_class=HTMLResponse)
-    def mvp_completeness(request: Request, role: str = "auditor", user: str = "Auditor", response: str = ""):
-        ctx = _base_ctx(role, user, response, page_module="completeness")
+    def mvp_completeness(request: Request, role: str = "auditor", user: str = "Auditor", response: str = "", notice: str = ""):
+        ctx = _base_ctx(role, user, response, notice, page_module="completeness")
         ctx["completeness"] = completeness_report()
         return templates.TemplateResponse(request, "mvp_completeness.html", ctx)
 
@@ -212,12 +294,153 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_onboarding.html", ctx)
 
     @app.post("/mvp/onboarding")
-    def mvp_onboarding_add(application: str = Form(...), role: str = Form(...), user: str = Form(...)):
-        app_name = application.strip()
+    async def mvp_onboarding_add(request: Request, role: str = Form(...), user: str = Form(...)):
+        form = await request.form()
+        app_name = (form.get("application") or form.get("application_name") or "").strip()
         if app_name and app_name not in ecs_state.onboarded_applications:
             ecs_state.onboarded_applications.append(app_name)
-        notice = quote(f"Application onboarded: {app_name}")
+        notice = quote(f"Application registered: {app_name}")
         return RedirectResponse(url=f"/mvp/onboarding?role={role}&user={user}&notice={notice}", status_code=303)
+
+    @app.post("/api/onboarding/simulate")
+    async def api_onboarding_simulate(request: Request):
+        from app.onboarding_engine import simulate_onboarding
+
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        result = simulate_onboarding(payload)
+        return JSONResponse(result)
+
+    @app.post("/api/onboarding/export")
+    async def api_onboarding_export(request: Request):
+        from app.onboarding_engine import export_onboarding_summary, simulate_onboarding
+
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        result = payload.get("result") or simulate_onboarding(payload)
+        app_name = result.get("metadata", {}).get("application_name", "application")
+        safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in app_name)
+        content = export_onboarding_summary(result)
+        return PlainTextResponse(
+            content,
+            headers={"Content-Disposition": f'attachment; filename="ecs-onboarding-{safe_name}.txt"'},
+        )
+
+    @app.get("/mvp/framework-admin", response_class=HTMLResponse)
+    def mvp_framework_admin(
+        request: Request,
+        role: str = "cio",
+        user: str = "CIO",
+        notice: str = "",
+        wizard: str = "",
+        framework_id: str = "",
+        toast: str = "",
+    ):
+        from app.framework_onboarding_engine import build_admin_dashboard, get_onboarding_record
+        from app.role_permissions import can_manage_frameworks, deny_redirect
+
+        if not can_manage_frameworks(role) and role not in ("auditor", "owner"):
+            return deny_redirect(role, user, "/dashboard", "Framework administration requires Admin, CIO, or Compliance Head access.")
+        ctx = _base_ctx(role, user, notice=notice, page_module="framework_admin")
+        ctx["admin"] = build_admin_dashboard(role)
+        ctx["show_wizard"] = wizard == "1" and can_manage_frameworks(role)
+        sel = get_onboarding_record(framework_id) if framework_id else None
+        if sel:
+            ctx["selected_framework"] = {
+                "framework_id": sel["framework_id"],
+                "framework_name": sel["framework_name"],
+                "lifecycle_state": sel.get("lifecycle_state"),
+                "analysis": sel.get("analysis", {}),
+                "mapping_matrix": sel.get("mapping_matrix", []),
+                "gaps": sel.get("gaps", []),
+                "controls": sel.get("controls", [])[:50],
+            }
+        else:
+            ctx["selected_framework"] = None
+        ctx["toast"] = toast
+        ctx["categories"] = ["Security", "Audit", "Regulatory", "Infra", "Risk"]
+        return templates.TemplateResponse(request, "mvp_framework_admin.html", ctx)
+
+    @app.post("/api/framework-onboarding/import")
+    async def api_framework_onboarding_import(request: Request):
+        from app.framework_onboarding_engine import run_onboarding_pipeline
+        from app.role_permissions import can_manage_frameworks
+
+        form = await request.form()
+        role = form.get("role", "cio")
+        user = form.get("user", "User")
+        if not can_manage_frameworks(role):
+            return JSONResponse({"ok": False, "errors": ["Permission denied."]}, status_code=403)
+        upload = form.get("control_file")
+        content = await upload.read() if upload and hasattr(upload, "read") else b""
+        filename = upload.filename if upload and hasattr(upload, "filename") else "controls.csv"
+        details = {
+            "framework_name": form.get("framework_name", ""),
+            "version": form.get("version", ""),
+            "regulator": form.get("regulator", ""),
+            "effective_date": form.get("effective_date", ""),
+            "category": form.get("category", "Security"),
+        }
+        result = run_onboarding_pipeline(details, content, filename, user, role)
+        if not result.get("ok"):
+            return JSONResponse(result, status_code=400)
+        return JSONResponse({
+            "ok": True,
+            "framework_id": result["framework_id"],
+            "record": {
+                "framework_id": result["framework_id"],
+                "framework_name": result["record"]["framework_name"],
+                "analysis": result["record"]["analysis"],
+                "lifecycle_state": result["record"]["lifecycle_state"],
+                "controls_count": len(result["record"]["controls"]),
+                "controls": result["record"]["controls"][:50],
+                "mapping_matrix": result["record"]["mapping_matrix"][:20],
+                "gaps_count": len(result["record"]["gaps"]),
+                "warnings": result.get("warnings", []),
+            },
+        })
+
+    @app.post("/api/framework-onboarding/lifecycle")
+    async def api_framework_onboarding_lifecycle(request: Request):
+        from app.framework_onboarding_engine import advance_lifecycle
+
+        body = await request.json()
+        msg = advance_lifecycle(body.get("framework_id", ""), body.get("action", ""), body.get("user", "User"), body.get("role", "cio"))
+        return JSONResponse({"ok": True, "message": msg})
+
+    @app.post("/api/framework-onboarding/reuse-decision")
+    async def api_framework_reuse_decision(request: Request):
+        from app.framework_onboarding_engine import apply_evidence_reuse
+
+        body = await request.json()
+        msg = apply_evidence_reuse(
+            body.get("framework_id", ""), body.get("control_id", ""),
+            body.get("decision", "reuse"), body.get("user", "User"), body.get("role", "owner"),
+        )
+        return JSONResponse({"ok": True, "message": msg})
+
+    @app.get("/api/framework-onboarding/{framework_id}")
+    def api_framework_onboarding_get(framework_id: str):
+        from app.framework_onboarding_engine import get_onboarding_record
+        rec = get_onboarding_record(framework_id)
+        if not rec:
+            return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
+        return JSONResponse({"ok": True, "record": rec})
+
+    @app.get("/mvp/framework-admin/export/{framework_id}")
+    def mvp_framework_export(framework_id: str, format: str = "pdf", role: str = "cio", user: str = "User"):
+        from app.framework_onboarding_engine import export_onboarding_analysis
+        try:
+            content, media_type, filename = export_onboarding_analysis(framework_id, format)
+            return Response(content=content, media_type=media_type, headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            })
+        except ValueError as e:
+            return PlainTextResponse(str(e), status_code=404)
 
     @app.get("/mvp/lifecycle", response_class=HTMLResponse)
     def mvp_lifecycle(request: Request, role: str = "owner", user: str = "User", response: str = ""):
@@ -228,10 +451,112 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_lifecycle.html", ctx)
 
     @app.get("/mvp/comparison", response_class=HTMLResponse)
-    def mvp_comparison(request: Request, role: str = "cio", user: str = "CIO", response: str = ""):
-        ctx = _base_ctx(role, user, response, page_module="comparison")
+    def mvp_comparison(
+        request: Request,
+        role: str = "cio",
+        user: str = "CIO",
+        response: str = "",
+        notice: str = "",
+        export_id: str = "",
+    ):
+        ctx = _base_ctx(role, user, response, notice, page_module="comparison")
         ctx["comparison"] = application_comparison()
+        ctx["export_id"] = export_id
         return templates.TemplateResponse(request, "mvp_comparison.html", ctx)
+
+    @app.post("/mvp/comparison/export-gaps")
+    async def mvp_comparison_export_gaps(
+        role: str = Form(...),
+        user: str = Form(...),
+        compare_framework: str = Form("All Frameworks"),
+        compare_scope: str = Form("All Applications"),
+        compare_application: str = Form("All Applications"),
+        time_range: str = Form("Current Month"),
+        export_format: str = Form("excel"),
+        include_executive: str = Form("on"),
+        include_observations: str = Form("on"),
+        include_failed: str = Form("on"),
+        include_missing: str = Form("on"),
+        include_audit_impact: str = Form("on"),
+    ):
+        from app.audit_trail import log_event
+        from app.gap_export_engine import (
+            build_gap_export_payload,
+            generate_gap_export_file,
+            record_export,
+        )
+
+        def _on(val: str) -> bool:
+            return val in ("on", "true", "1", "yes")
+
+        payload = build_gap_export_payload(
+            framework=compare_framework,
+            scope=compare_scope,
+            time_range=time_range,
+            application=compare_application,
+            role=role,
+            include_executive=_on(include_executive),
+            include_observations=_on(include_observations),
+            include_failed=_on(include_failed),
+            include_missing=_on(include_missing),
+            include_audit_impact=_on(include_audit_impact),
+        )
+        content, media_type, filename = generate_gap_export_file(payload, export_format)
+        entry = record_export(
+            user=user,
+            role=role,
+            fmt=export_format,
+            filename=filename,
+            payload=payload,
+            content_bytes=content,
+            content_type=media_type,
+        )
+        log_event(
+            "Gap Analysis Export",
+            user,
+            compare_framework,
+            compare_application,
+            f"{filename} — {payload['meta']['record_count']} records",
+            role=role,
+        )
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "X-Export-Id": entry["export_id"],
+                "X-Export-Preview": entry["preview_path"],
+            },
+        )
+
+    @app.get("/mvp/exports/download/{export_id}")
+    def mvp_export_download(export_id: str, user: str = "User"):
+        from app.ecs_logging import log_export
+
+        rec = ecs_state.export_registry.get(export_id)
+        if not rec:
+            return PlainTextResponse("Export not found.", status_code=404)
+        try:
+            log_export(user, export_id)
+        except Exception:
+            pass
+        return Response(
+            content=rec["content_bytes"],
+            media_type=rec["content_type"],
+            headers={"Content-Disposition": f'attachment; filename="{rec["filename"]}"'},
+        )
+
+    @app.get("/mvp/exports/preview/{export_id}", response_class=HTMLResponse)
+    def mvp_export_preview(export_id: str):
+        from app.gap_export_engine import build_html_preview
+
+        rec = ecs_state.export_registry.get(export_id)
+        if not rec:
+            return HTMLResponse("<p>Export not found.</p>", status_code=404)
+        payload = rec.get("payload")
+        if not payload:
+            return HTMLResponse("<p>Preview unavailable for this export.</p>", status_code=404)
+        return HTMLResponse(build_html_preview(payload))
 
     @app.get("/mvp/integrations", response_class=HTMLResponse)
     def mvp_integrations(request: Request, role: str = "owner", user: str = "User", response: str = "", notice: str = ""):
@@ -265,24 +590,469 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_reports.html", ctx)
 
     @app.get("/mvp/reports/download/{report_id}")
-    def mvp_report_download(report_id: str):
+    def mvp_report_download(
+        report_id: str,
+        user: str = "User",
+        role: str = "owner",
+        format: str = "pdf",
+        framework: str = "",
+        application: str = "",
+    ):
+        try:
+            from app.ecs_logging import log_export
+            log_export(user, report_id)
+        except Exception:
+            pass
+        fmt = (format or "pdf").lower()
+        if fmt in ("pdf", "excel", "csv", "xlsx"):
+            if fmt == "xlsx":
+                fmt = "excel"
+            content, media_type, filename = generate_report_export(
+                report_id, fmt, role=role, user=user, framework=framework, application=application,
+            )
+            ecs_state.export_history.insert(0, {
+                "export_id": report_id,
+                "title": report_id,
+                "format": fmt.upper(),
+                "framework": framework or "Enterprise-wide",
+                "application": application or "All Applications",
+                "timestamp": filename.split("_")[-1].replace(f".{fmt if fmt != 'excel' else 'xlsx'}", ""),
+                "generated_by": user,
+                "status": "Generated",
+                "download_path": f"/mvp/reports/download/{report_id}?format={fmt}&user={quote(user)}&role={quote(role)}",
+            })
+            return Response(content=content, media_type=media_type, headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            })
         content = generate_report_content(report_id)
         return PlainTextResponse(content, media_type="text/plain", headers={
             "Content-Disposition": f'attachment; filename="{report_id}-ecs-report.txt"'
         })
 
     @app.get("/mvp/audit-prep", response_class=HTMLResponse)
-    def mvp_audit_prep(request: Request, role: str = "auditor", user: str = "Auditor", response: str = ""):
-        ctx = _base_ctx(role, user, response, page_module="audit_prep")
+    def mvp_audit_prep(
+        request: Request,
+        role: str = "auditor",
+        user: str = "Auditor",
+        response: str = "",
+        notice: str = "",
+        fw_filter: str = "",
+        app_filter: str = "",
+        risk_filter: str = "",
+        status_filter: str = "",
+        owner_filter: str = "",
+        show_modal: str = "",
+    ):
+        filters = {
+            "framework": fw_filter,
+            "application": app_filter,
+            "risk": risk_filter,
+            "status": status_filter,
+            "owner": owner_filter,
+        }
+        ctx = _base_ctx(role, user, response, notice, page_module="audit_prep", analytics_filters=filters)
         ctx["prep"] = audit_preparation_checklist()
+        ctx["audit_filters"] = filters
+        ctx["show_modal"] = show_modal
+        from app.audit_prep_data import build_audit_package_preview, build_export_bundle_preview
+        ctx["package_preview"] = build_audit_package_preview(filters=filters)
+        ctx["export_preview"] = build_export_bundle_preview(filters)
+        ctx["mock_audit_frameworks"] = list(__import__("app.governance_relational_model", fromlist=["FRAMEWORK_GRAPHS"]).FRAMEWORK_GRAPHS.keys())
         return templates.TemplateResponse(request, "mvp_audit_prep.html", ctx)
 
+    @app.get("/mvp/workflow/close-gap", response_class=HTMLResponse)
+    def workflow_close_gap_get(
+        request: Request,
+        role: str = "auditor",
+        user: str = "Auditor",
+        framework: str = "",
+        control: str = "",
+        return_module: str = "audit_prep",
+        notice: str = "",
+    ):
+        from app.operational_workflows import build_close_gap_view
+
+        ctx = _base_ctx(role, user, notice=notice, page_module=return_module or "audit_prep")
+        ctx.update(build_close_gap_view(framework, control, role, user, return_module))
+        return templates.TemplateResponse(request, "mvp_workflow_close_gap.html", ctx)
+
+    @app.post("/mvp/workflow/close-gap")
+    def workflow_close_gap_post(
+        role: str = Form(...),
+        user: str = Form(...),
+        framework: str = Form(""),
+        control: str = Form(""),
+        submit_type: str = Form(...),
+        root_cause: str = Form(""),
+        remediation_plan: str = Form(""),
+        target_date: str = Form(""),
+        return_module: str = Form("audit_prep"),
+    ):
+        from app.operational_workflows import _return_url, process_close_gap
+
+        notice = process_close_gap(
+            framework=framework,
+            control=control,
+            user=user,
+            role=role,
+            submit_type=submit_type,
+            root_cause=root_cause,
+            remediation_plan=remediation_plan,
+            target_date=target_date,
+        )
+        dest = _return_url(role, user, return_module)
+        return RedirectResponse(url=f"{dest}&notice={quote(notice)}", status_code=303)
+
+    @app.get("/mvp/workflow/assign-owner", response_class=HTMLResponse)
+    def workflow_assign_owner_get(
+        request: Request,
+        role: str = "auditor",
+        user: str = "Auditor",
+        framework: str = "",
+        control: str = "",
+        return_module: str = "audit_prep",
+        notice: str = "",
+    ):
+        from app.operational_workflows import build_assign_owner_view
+
+        ctx = _base_ctx(role, user, notice=notice, page_module=return_module or "audit_prep")
+        ctx.update(build_assign_owner_view(framework, control, role, user, return_module))
+        return templates.TemplateResponse(request, "mvp_workflow_assign_owner.html", ctx)
+
+    @app.post("/mvp/workflow/assign-owner")
+    def workflow_assign_owner_post(
+        role: str = Form(...),
+        user: str = Form(...),
+        framework: str = Form(""),
+        control: str = Form(""),
+        submit_type: str = Form(...),
+        team: str = Form("Application Owner"),
+        priority: str = Form("High"),
+        sla_days: str = Form("5"),
+        escalation_level: str = Form("L1"),
+        comments: str = Form(""),
+        return_module: str = Form("audit_prep"),
+    ):
+        from app.operational_workflows import _return_url, process_assign_owner
+
+        notice = process_assign_owner(
+            framework=framework,
+            control=control,
+            user=user,
+            role=role,
+            submit_type=submit_type,
+            team=team,
+            priority=priority,
+            sla_days=sla_days,
+            escalation_level=escalation_level,
+            comments=comments,
+        )
+        dest = _return_url(role, user, return_module)
+        return RedirectResponse(url=f"{dest}&notice={quote(notice)}", status_code=303)
+
+    @app.get("/mvp/workflow/upload-missing", response_class=HTMLResponse)
+    def workflow_upload_missing_get(
+        request: Request,
+        role: str = "owner",
+        user: str = "User",
+        framework: str = "",
+        control: str = "",
+        observation_id: str = "",
+        return_module: str = "audit_prep",
+        notice: str = "",
+    ):
+        from app.operational_workflows import build_upload_missing_view
+        from app.role_permissions import guard_upload
+
+        deny = guard_upload(role, user, f"/mvp/{return_module.replace('_', '-')}")
+        if deny:
+            return deny
+        ctx = _base_ctx(role, user, notice=notice, page_module=return_module or "audit_prep")
+        ctx.update(build_upload_missing_view(framework, control, role, user, return_module, observation_id))
+        return templates.TemplateResponse(request, "mvp_workflow_upload_missing.html", ctx)
+
+    @app.post("/mvp/workflow/upload-missing")
+    async def workflow_upload_missing_post(
+        role: str = Form(...),
+        user: str = Form(...),
+        framework: str = Form(""),
+        control: str = Form(""),
+        observation_id: str = Form(""),
+        submit_type: str = Form(...),
+        evidence_comments: str = Form(""),
+        mock_filename: str = Form(""),
+        evidence_category: str = Form(""),
+        remediation_owner: str = Form(""),
+        expected_closure: str = Form(""),
+        sharepoint_link: str = Form(""),
+        servicenow_ticket: str = Form(""),
+        jira_remediation: str = Form(""),
+        return_module: str = Form("audit_prep"),
+        evidence_file: UploadFile | None = File(None),
+    ):
+        from app.operational_workflows import _return_url, process_upload_missing
+        from app.role_permissions import guard_upload
+
+        deny = guard_upload(role, user, f"/mvp/{return_module.replace('_', '-')}")
+        if deny:
+            return deny
+        fname = mock_filename
+        if evidence_file and evidence_file.filename:
+            fname = evidence_file.filename
+        linked = " · ".join(filter(None, [sharepoint_link, servicenow_ticket, jira_remediation]))
+        notice = process_upload_missing(
+            framework=framework,
+            control=control,
+            user=user,
+            role=role,
+            submit_type=submit_type,
+            evidence_comments=evidence_comments,
+            linked_source=linked,
+            filename=fname,
+            observation_id=observation_id,
+            evidence_category=evidence_category,
+            remediation_owner=remediation_owner,
+            expected_closure=expected_closure,
+        )
+        dest = _return_url(role, user, return_module)
+        toast = "uploaded" if submit_type == "submit_review" else ""
+        sep = "&" if "?" in dest else "?"
+        url = f"{dest}{sep}notice={quote(notice)}"
+        if toast:
+            url += f"&toast={toast}"
+        return RedirectResponse(url=url, status_code=303)
+
+    @app.post("/mvp/exceptions/raise")
+    def mvp_raise_exception(
+        role: str = Form(...),
+        user: str = Form(...),
+        framework: str = Form(...),
+        application: str = Form("Net Banking"),
+        control: str = Form(""),
+        control_id: str = Form(""),
+        justification: str = Form(...),
+        compensating_control: str = Form(""),
+        observation_id: str = Form(""),
+        evidence_id: str = Form(""),
+        td_expiry: str = Form("2026-09-30"),
+        residual_risk: str = Form("Medium"),
+        return_url: str = Form("/mvp/exceptions"),
+    ):
+        from app.exception_state_engine import create_exception
+        from app.role_permissions import can_raise_exception, deny_redirect
+
+        if not can_raise_exception(role):
+            return deny_redirect(role, user, return_url or "/mvp/exceptions")
+        try:
+            eid, _ = create_exception(
+                framework=framework,
+                application=application,
+                control=control,
+                control_id=control_id,
+                justification=justification,
+                compensating_control=compensating_control,
+                observation_id=observation_id,
+                evidence_id=evidence_id,
+                td_expiry=td_expiry,
+                residual_risk=residual_risk,
+                user=user,
+                role=role,
+                submit=True,
+            )
+            notice = f"Exception {eid} raised successfully — routed to approver workflow."
+            base = return_url or f"/mvp/exceptions?role={quote(role)}&user={quote(user)}"
+            sep = "&" if "?" in base else "?"
+            return RedirectResponse(
+                url=f"{base}{sep}notice={quote(notice)}&toast=exception_ok&exception_id={quote(eid)}",
+                status_code=303,
+            )
+        except Exception:
+            base = return_url or f"/mvp/exceptions?role={quote(role)}&user={quote(user)}"
+            sep = "&" if "?" in base else "?"
+            return RedirectResponse(
+                url=f"{base}{sep}notice={quote('Failed to raise exception — please retry or contact admin.')}&toast=exception_fail",
+                status_code=303,
+            )
+
+    @app.post("/api/exceptions/raise")
+    async def api_raise_exception(request: Request):
+        from app.exception_state_engine import create_exception
+        from app.role_permissions import can_raise_exception
+
+        body = await request.json()
+        role = body.get("role", "owner")
+        user = body.get("user", "User")
+        if not can_raise_exception(role):
+            return JSONResponse({"ok": False, "error": "Permission denied"}, status_code=403)
+        try:
+            eid, rec = create_exception(
+                framework=body.get("framework", "PCI DSS"),
+                application=body.get("application", "Net Banking"),
+                control=body.get("control", ""),
+                control_id=body.get("control_id", ""),
+                justification=body.get("justification", "Business justification pending"),
+                compensating_control=body.get("compensating_control", ""),
+                observation_id=body.get("observation_id", ""),
+                evidence_id=body.get("evidence_id", ""),
+                td_expiry=body.get("td_expiry", "2026-09-30"),
+                residual_risk=body.get("residual_risk", "Medium"),
+                user=user,
+                role=role,
+                submit=True,
+            )
+            return JSONResponse({"ok": True, "exception_id": eid, "record": rec})
+        except Exception as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+    @app.post("/mvp/workflow/request-reupload")
+    def workflow_request_reupload_post(
+        role: str = Form(...),
+        user: str = Form(...),
+        observation_id: str = Form(""),
+        framework: str = Form(""),
+        control: str = Form(""),
+        comments: str = Form(""),
+        return_module: str = Form("audit_prep"),
+    ):
+        from app.missing_evidence_engine import apply_request_reupload
+        from app.operational_workflows import _return_url
+        from app.role_permissions import can_request_reupload, deny_redirect
+
+        if not can_request_reupload(role):
+            return deny_redirect(role, user, f"/mvp/{return_module.replace('_', '-')}")
+        notice = apply_request_reupload(observation_id, user, role, comments=comments) if observation_id else "Observation ID required."
+        dest = _return_url(role, user, return_module)
+        return RedirectResponse(url=f"{dest}&notice={quote(notice)}", status_code=303)
+
+    @app.get("/mvp/workflow/mock-audit", response_class=HTMLResponse)
+    def workflow_mock_audit_get(
+        request: Request,
+        role: str = "auditor",
+        user: str = "Auditor",
+        executed: int = 0,
+        return_module: str = "audit_prep",
+        notice: str = "",
+    ):
+        from app.operational_workflows import build_mock_audit_view
+
+        ctx = _base_ctx(role, user, notice=notice, page_module="audit_prep")
+        ctx.update(build_mock_audit_view(role, user, executed=bool(executed), return_module=return_module))
+        return templates.TemplateResponse(request, "mvp_workflow_mock_audit.html", ctx)
+
+    @app.post("/mvp/workflow/mock-audit/execute")
+    def workflow_mock_audit_execute(
+        role: str = Form(...),
+        user: str = Form(...),
+        return_module: str = Form("audit_prep"),
+        framework: str = Form("PCI DSS"),
+        applications: str = Form(""),
+        auditor: str = Form("Deloitte"),
+        audit_cycle: str = Form("Q2 2026"),
+    ):
+        from app.operational_workflows import execute_mock_audit
+
+        execute_mock_audit(user, role, framework=framework, applications=applications, auditor=auditor, audit_cycle=audit_cycle)
+        return RedirectResponse(
+            url=f"/mvp/workflow/mock-audit?role={role}&user={user}&executed=1&return_module={return_module}&notice={quote('Mock audit simulation complete — review summary report below.')}",
+            status_code=303,
+        )
+
+    @app.post("/mvp/workflow/mock-audit/action")
+    def workflow_mock_audit_action(
+        role: str = Form(...),
+        user: str = Form(...),
+        submit_type: str = Form(...),
+        return_module: str = Form("audit_prep"),
+    ):
+        from app.operational_workflows import _return_url, process_mock_audit_action
+
+        notice = process_mock_audit_action(submit_type, user, role)
+        dest = _return_url(role, user, return_module)
+        return RedirectResponse(url=f"{dest}&notice={quote(notice)}", status_code=303)
+
+    @app.get("/mvp/workflow/mock-audit/report", response_class=PlainTextResponse)
+    def workflow_mock_audit_report(audit_id: str = ""):
+        from app.operational_workflows import generate_mock_audit_report
+
+        return PlainTextResponse(generate_mock_audit_report(audit_id), media_type="text/plain")
+
     @app.get("/mvp/trends", response_class=HTMLResponse)
-    def mvp_trends(request: Request, role: str = "cio", user: str = "CIO", response: str = ""):
-        ctx = _base_ctx(role, user, response, page_module="trends")
-        ctx["trends"] = compliance_trends()
+    def mvp_trends(
+        request: Request,
+        role: str = "cio",
+        user: str = "CIO",
+        response: str = "",
+        framework: str = "Enterprise-wide",
+        application: str = "All Applications",
+        risk_level: str = "All",
+        audit_cycle: str = "Q2 2026 Audit Cycle",
+        time_period: str = "Last 6 months",
+        region: str = "All Regions",
+        business_unit: str = "All Units",
+    ):
+        from app.governance_intelligence import get_filter_options, parse_analytics_filters
+
+        filters = parse_analytics_filters(
+            framework=framework,
+            application=application,
+            risk_level=risk_level,
+            audit_cycle=audit_cycle,
+            time_period=time_period,
+            region=region,
+            business_unit=business_unit,
+        )
+        ctx = _base_ctx(role, user, response, page_module="trends", analytics_filters=filters)
+        ctx["trends"] = compliance_trends(filters)
         ctx["analytics"] = ecs_state.build_evidence_analytics()
+        ctx["analytics_filters"] = filters
+        ctx["filter_options"] = get_filter_options()
         return templates.TemplateResponse(request, "mvp_trends.html", ctx)
+
+    @app.get("/mvp/api/analytics-intel", response_class=JSONResponse)
+    def mvp_api_analytics_intel(
+        framework: str = "Enterprise-wide",
+        application: str = "All Applications",
+        risk_level: str = "All",
+        audit_cycle: str = "Q2 2026 Audit Cycle",
+        time_period: str = "Last 6 months",
+        region: str = "All Regions",
+        business_unit: str = "All Units",
+    ):
+        from app.governance_intelligence import build_contextual_trends, parse_analytics_filters
+
+        filters = parse_analytics_filters(
+            framework=framework,
+            application=application,
+            risk_level=risk_level,
+            audit_cycle=audit_cycle,
+            time_period=time_period,
+            region=region,
+            business_unit=business_unit,
+        )
+        intel = build_contextual_trends(filters)
+        return JSONResponse({
+            "intel": intel,
+            "kpis": intel["executive_kpis"],
+            "scope_summary": intel["scope_summary"],
+        })
+
+    @app.get("/api/ecs/filters/options", response_class=JSONResponse)
+    def api_ecs_filter_options(role: str = "owner"):
+        from app.global_filter_engine import filter_options
+
+        return JSONResponse(filter_options(role))
+
+    @app.post("/api/ecs/filters/apply", response_class=JSONResponse)
+    async def api_ecs_filters_apply(request: Request):
+        from app.global_filter_engine import apply_filters
+
+        body = await request.json()
+        module = body.get("module", "")
+        role = body.get("role", "owner")
+        filters = body.get("filters") or {}
+        if not module:
+            return JSONResponse({"error": "module required"}, status_code=400)
+        return JSONResponse(apply_filters(module, role, filters))
 
     @app.get("/mvp/risk-register", response_class=HTMLResponse)
     def mvp_risk_register(request: Request, role: str = "owner", user: str = "User", notice: str = ""):
@@ -291,6 +1061,14 @@ def register_mvp_routes(app, templates):
     @app.get("/mvp/exceptions", response_class=HTMLResponse)
     def mvp_exceptions(request: Request, role: str = "owner", user: str = "User", notice: str = ""):
         return templates.TemplateResponse(request, "mvp_exceptions.html", _base_ctx(role, user, notice=notice, page_module="exceptions_td"))
+
+    @app.get("/mvp/evidence-approval", response_class=HTMLResponse)
+    def mvp_evidence_approval(request: Request, role: str = "owner", user: str = "User", notice: str = ""):
+        return templates.TemplateResponse(request, "mvp_evidence_approval.html", _base_ctx(role, user, notice=notice, page_module="evidence_approval"))
+
+    @app.get("/mvp/exception-governance", response_class=HTMLResponse)
+    def mvp_exception_governance(request: Request, role: str = "owner", user: str = "User", notice: str = ""):
+        return templates.TemplateResponse(request, "mvp_exception_governance.html", _base_ctx(role, user, notice=notice, page_module="exception_governance"))
 
     @app.get("/mvp/cmdb", response_class=HTMLResponse)
     def mvp_cmdb(request: Request, role: str = "owner", user: str = "User", notice: str = ""):
@@ -320,8 +1098,34 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_correlation.html", _base_ctx(role, user, notice=notice, page_module="correlation"))
 
     @app.get("/mvp/governance-analytics", response_class=HTMLResponse)
-    def mvp_governance_analytics(request: Request, role: str = "cio", user: str = "CIO", notice: str = ""):
-        return templates.TemplateResponse(request, "mvp_governance_analytics.html", _base_ctx(role, user, notice=notice, page_module="governance_analytics"))
+    def mvp_governance_analytics(
+        request: Request,
+        role: str = "cio",
+        user: str = "CIO",
+        notice: str = "",
+        framework: str = "Enterprise-wide",
+        application: str = "All Applications",
+        risk_level: str = "All",
+        audit_cycle: str = "Q2 2026 Audit Cycle",
+        time_period: str = "Last 6 months",
+        region: str = "All Regions",
+        business_unit: str = "All Units",
+    ):
+        from app.governance_intelligence import get_filter_options, parse_analytics_filters
+
+        filters = parse_analytics_filters(
+            framework=framework,
+            application=application,
+            risk_level=risk_level,
+            audit_cycle=audit_cycle,
+            time_period=time_period,
+            region=region,
+            business_unit=business_unit,
+        )
+        ctx = _base_ctx(role, user, notice=notice, page_module="governance_analytics", analytics_filters=filters)
+        ctx["analytics_filters"] = filters
+        ctx["filter_options"] = get_filter_options()
+        return templates.TemplateResponse(request, "mvp_governance_analytics.html", ctx)
 
     @app.post("/mvp/grc/action")
     def mvp_grc_action(
@@ -344,11 +1148,84 @@ def register_mvp_routes(app, templates):
         item_id: str = Form(""),
     ):
         from app.audit_trail import log_event
+        from app.analytics_module import completeness_report
+
+        workflow_actions = {"close_gap", "assign_owner", "assign_gap", "upload_missing", "mock_audit", "request_reupload"}
+        if action in workflow_actions:
+            from app.role_permissions import action_allowed, guard_upload
+
+            if action == "upload_missing":
+                deny = guard_upload(role, user, f"/mvp/{module.replace('_', '-')}")
+                if deny:
+                    return deny
+            elif not action_allowed(role, action):
+                from app.role_permissions import deny_redirect
+                return deny_redirect(role, user, f"/mvp/{module.replace('_', '-')}")
+            framework = ""
+            if item_id:
+                for m in completeness_report()["missing"]:
+                    if m["control"] == item_id:
+                        framework = m["framework"]
+                        break
+            flow_map = {
+                "close_gap": "close-gap",
+                "assign_owner": "assign-owner",
+                "assign_gap": "assign-owner",
+                "upload_missing": "upload-missing",
+                "mock_audit": "mock-audit",
+                "request_reupload": "request-reupload",
+            }
+            flow = flow_map.get(action)
+            if flow:
+                q = f"role={quote(role)}&user={quote(user)}&return_module={quote(module)}"
+                if item_id:
+                    q += f"&control={quote(item_id)}"
+                if framework:
+                    q += f"&framework={quote(framework)}"
+                return RedirectResponse(url=f"/mvp/workflow/{flow}?{q}", status_code=303)
+
+        if module == "audit_prep" and action == "escalate":
+            from app.audit_trail import log_event
+            log_event("Audit Gap Escalated", user, "", item_id, "Escalated to CISO office from Audit Prep", role=role)
+            return RedirectResponse(
+                url=f"/mvp/audit-prep?role={role}&user={user}&notice={quote('Gap escalated to CISO office — executive queue updated.')}",
+                status_code=303,
+            )
+        if module == "audit_prep" and action == "generate_package":
+            from app.audit_prep_data import build_audit_package_preview
+            from app.audit_trail import log_event
+            preview = build_audit_package_preview()
+            log_event("Audit Package Generated", user, "", preview["package_name"], preview["auditor_notes"], role=role)
+            fq = f"role={role}&user={user}&show_modal=package&notice={quote('Audit package ' + preview['package_name'] + ' generated — review preview below.')}"
+            return RedirectResponse(url=f"/mvp/audit-prep?{fq}", status_code=303)
+        if module == "audit_prep" and action == "export_pdf":
+            from app.audit_prep_data import build_export_bundle_preview
+            from app.audit_trail import log_event
+            preview = build_export_bundle_preview()
+            log_event("Evidence Bundle Export", user, "", preview["bundle_name"], preview["scope"], role=role)
+            fq = f"role={role}&user={user}&show_modal=export&notice={quote('Export bundle ' + preview['bundle_name'] + ' ready for download.')}"
+            return RedirectResponse(url=f"/mvp/audit-prep?{fq}", status_code=303)
 
         label = action.replace("_", " ").title()
         log_event(f"Module: {label}", user, "", item_id, f"{module} capability action")
         if module == "scheduler" and action == "run_now":
-            run_scheduled_pull()
+            result = run_scheduled_pull(user=user)
+            notice = (
+                f"Scheduler run completed — {result['observations_scanned']} observations scanned, "
+                f"{result['new_findings']} new findings detected."
+            )
+            return _module_redirect(module, role, user, notice)
+        if module == "scheduler" and action == "retry" and item_id:
+            result = retry_failed_observation(item_id, user)
+            return _module_redirect(module, role, user, result["message"])
+        if module == "scheduler" and action == "pause":
+            from app.scheduler_module import pause_scheduler
+            notice = pause_scheduler(user)
+            return _module_redirect(module, role, user, notice)
+        if module == "scheduler" and action == "resume":
+            from app.scheduler_module import resume_scheduler
+            notice = resume_scheduler(user)
+            return _module_redirect(module, role, user, notice)
         if module == "integrations" and action == "sync_now" and item_id:
             simulate_sync(item_id)
         if module == "integrations_hub":
@@ -361,10 +1238,56 @@ def register_mvp_routes(app, templates):
             elif action == "retry_failed_sync" and item_id:
                 notice = retry_failed_sync(item_id)
                 return _module_redirect(module, role, user, notice)
-        if module in ("risk_register", "exceptions_td", "cmdb", "regulatory_mapping", "executive_heatmaps", "correlation", "governance_analytics"):
+        if module in ("risk_register", "exceptions_td", "exception_governance", "cmdb", "regulatory_mapping", "executive_heatmaps", "correlation", "governance_analytics", "evidence_approval"):
             from app.enterprise_grc import execute_grc_action
             notice = execute_grc_action(module, action, item_id, user, role)
             return _module_redirect(module, role, user, notice)
+        if module == "reports" and action in ("export_pdf", "export_excel", "export_csv") and item_id:
+            fmt = "pdf" if action == "export_pdf" else ("csv" if action == "export_csv" else "excel")
+            return RedirectResponse(
+                url=f"/mvp/reports/download/{item_id}?format={fmt}&role={quote(role)}&user={quote(user)}",
+                status_code=303,
+            )
+        if module == "reports" and action == "generate" and item_id:
+            return RedirectResponse(
+                url=f"/mvp/reports/download/{item_id}?format=pdf&role={quote(role)}&user={quote(user)}",
+                status_code=303,
+            )
+        if module == "pan_india" and action == "export_regional":
+            from app.ecs_state import PAN_INDIA_REGIONS
+            import csv, io
+            buf = io.StringIO()
+            w = csv.DictWriter(buf, fieldnames=["region", "score", "branches", "applications", "observations_open", "audit_readiness_pct"])
+            w.writeheader()
+            rows = PAN_INDIA_REGIONS if not item_id else [r for r in PAN_INDIA_REGIONS if r["region"] == item_id]
+            for row in rows:
+                w.writerow(row)
+            content = buf.getvalue().encode("utf-8-sig")
+            fname = f"PanIndia_{item_id or 'AllRegions'}_2026_05.csv"
+            return Response(content=content, media_type="text/csv", headers={
+                "Content-Disposition": f'attachment; filename="{fname}"',
+            })
+        if module == "governance_analytics" and action == "export_chart":
+            content = (
+                "ECS Governance Analytics Export\n"
+                f"Generated by: {user}\n"
+                f"Module: governance_analytics\n"
+                f"Item: {item_id or 'overview'}\n"
+                "Metric,Value\nAudit Readiness,78\nOpen Observations,42\nStale Evidence,18\n"
+            ).encode("utf-8")
+            return Response(content=content, media_type="text/csv", headers={
+                "Content-Disposition": 'attachment; filename="governance_analytics_export.csv"',
+            })
+        if module == "evidence_approval" and action == "export_summary":
+            from app.evidence_approval_engine import build_evidence_approval_view
+            dash = build_evidence_approval_view(role)
+            lines = ["Evidence Approval Summary Export", f"Generated by: {user}"]
+            for kpi in dash.get("kpis", []):
+                lines.append(f"{kpi['label']},{kpi['value']}")
+            content = "\n".join(lines).encode("utf-8")
+            return Response(content=content, media_type="text/csv", headers={
+                "Content-Disposition": 'attachment; filename="evidence_approval_summary.csv"',
+            })
         notice = f"{label} completed" + (f" for {item_id}" if item_id else "") + "."
         return _module_redirect(module, role, user, notice)
 
@@ -377,8 +1300,31 @@ def register_mvp_routes(app, templates):
         return_url: str = Form("/dashboard"),
     ):
         from app.main import chatbot_answer
+        from app.ecs_logging import log_chatbot
 
+        log_chatbot(user, role, query, framework_name)
         response = chatbot_answer(query, role=role, user=user, framework_hint=framework_name)
         encoded = quote(response)
         sep = "&" if "?" in return_url else "?"
         return RedirectResponse(url=f"{return_url}{sep}response={encoded}", status_code=303)
+
+    @app.post("/mvp/api/chat-action")
+    def mvp_chat_action(
+        action: str = Form(...),
+        role: str = Form(...),
+        user: str = Form(...),
+        scenario: str = Form(""),
+    ):
+        from app.chatbot_context_engine import execute_quick_action
+        from app.chatbot_engine import get_context, record_exchange, set_chat_structured
+        from app.operations_intelligence import OUTAGE_SCENARIOS, _build_summary_html
+
+        ctx = get_context(user, role)
+        if scenario:
+            ctx["active_outage"] = scenario
+        plain, html = execute_quick_action(action, user, role, scenario)
+        if scenario and scenario in OUTAGE_SCENARIOS:
+            html = _build_summary_html(OUTAGE_SCENARIOS[scenario], scenario, role) + html
+        set_chat_structured(user, role, html)
+        record_exchange(user, role, f"@chat-action:{action}", plain)
+        return {"ok": True, "html": html, "plain": plain, "context": ctx}

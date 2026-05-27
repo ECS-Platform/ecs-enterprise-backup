@@ -1,22 +1,77 @@
 <!DOCTYPE html><html><head><title>Reports</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-reports"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Audit-Ready Export Center</h1>
-<p class="text-muted small">Regulator packs, scheduled exports, and report generation history</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Audit-Ready Export Center</h1>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<div class="row g-3">{% for r in module_view.rows %}
-<div class="col-md-4"><div class="card report-card shadow-sm p-3 h-100">
-<h6>{{ r.title|default(r.id) }}</h6>
-<p class="small text-muted mb-2">{{ r.description|default('Enterprise compliance export pack') }}</p>
-<div class="small"><span class="badge bg-light text-dark border">{{ r.format }}</span>
-<span class="badge bg-secondary">{{ r.schedule }}</span> <span class="badge bg-info text-dark">{{ r.status }}</span></div>
-<div class="mt-3">{% if r.id %}<a href="/mvp/reports/download/{{ r.id }}" class="btn btn-sm btn-primary">Download</a>{% endif %}
-{{ module_action('reports','export_pdf',role,user,'PDF','btn-sm btn-outline-danger',r.id|default('')) }}
-{{ module_action('reports','export_excel',role,user,'Excel','btn-sm btn-outline-success',r.id|default('')) }}
-{{ module_action('reports','schedule',role,user,'Schedule','btn-sm btn-outline-secondary',r.id|default('')) }}</div>
-</div></div>{% endfor %}</div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading reports…</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<p class="ecs-ws-summary">{{ module_view.rows|length }} export packs available — PDF, Excel, and scheduled audit-ready reports.</p>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('catalog', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-std-table="reports-catalog"><thead><tr><th>Report</th><th>Format</th><th>Framework</th><th>Application</th><th>Schedule</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for r in module_view.rows %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework|default('Enterprise-wide') }}" data-filter-application="{{ r.application|default('All Applications') }}" data-filter-risk="{{ r.risk|default('Low') }}" data-filter-status="{{ r.status }}">
+<td><strong>{{ r.title|default(r.id) }}</strong><br><span class="small text-muted">{{ r.description|default('Enterprise compliance export')|truncate(60) }}</span></td>
+<td>{{ r.format }}</td><td>{{ r.framework|default('Enterprise-wide') }}</td><td>{{ r.application|default('All Applications') }}</td><td>{{ r.schedule }}</td><td><span class="badge bg-secondary">{{ r.status }}</span></td>
+<td class="text-nowrap">{% if r.id %}<a href="/mvp/reports/download/{{ r.id }}?format=pdf&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-primary">PDF</a>{% endif %}
+<a href="/mvp/reports/download/{{ r.id }}?format=excel&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-success">Excel</a>
+<a href="/mvp/reports/download/{{ r.id }}?format=csv&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-secondary">CSV</a>
+{{ module_action('reports','schedule',role,user,'Schedule','btn-sm btn-outline-secondary',r.id|default('')) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('observations', false) }}
+<p class="ecs-ws-summary small">Observation-linked report rows — preview before PDF / Excel / CSV export.</p>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-std-table="reports-observations"><thead><tr>
+<th>Obs ID</th><th>Observation Title</th><th>Framework</th><th>Application</th><th>Evidence ID</th><th>Evidence Type</th><th>Status</th><th>Owner</th><th>Generated</th>
+</tr></thead><tbody>
+{% for o in (module_view.observation_rows|default([]))[:30] %}
+<tr data-ecs-filter-row data-filter-framework="{{ o.framework }}" data-filter-application="{{ o.application }}" data-filter-owner="{{ o.owner }}" data-filter-status="{{ o.evidence_status }}">
+<td><code class="small">{{ o.observation_id }}</code></td><td class="small">{{ o.observation_title|truncate(45) }}</td><td>{{ o.framework }}</td><td>{{ o.application }}</td>
+<td>{{ o.evidence_id }}</td><td class="small">{{ o.evidence_type }}</td><td><span class="badge bg-secondary">{{ o.evidence_status }}</span></td>
+<td class="small">{{ o.owner }}</td><td class="small">{{ o.generated_date }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('scheduled', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="reports-scheduled"><thead><tr><th>Report</th><th>Schedule</th><th>Framework</th><th>Status</th></tr></thead><tbody>
+{% for r in module_view.rows %}{% if r.schedule != 'On Demand' %}
+<tr><td>{{ r.title|default(r.id) }}</td><td>{{ r.schedule }}</td><td>{{ r.framework|default('Enterprise-wide') }}</td><td>{{ r.status }}</td></tr>
+{% endif %}{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('history', false) }}
+<p class="ecs-ws-summary small">Recent export history — gap analysis exports and scheduled report runs.</p>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="reports-history"><thead><tr>
+<th>Report</th><th>Format</th><th>Framework</th><th>Generated By</th><th>Timestamp</th><th>Filters</th><th>Status</th><th></th>
+</tr></thead><tbody>
+{% for r in (module_view.history_rows|default(module_view.rows, true))[:20] %}
+<tr><td><strong>{{ r.title|default(r.id) }}</strong></td><td>{{ r.format }}</td>
+<td>{{ r.framework|default('—') }}</td><td>{{ r.downloaded_by|default(r.generated_by|default('—')) }}</td>
+<td class="small">{{ r.generated_at|default('2026-05-20') }}</td>
+<td class="small">{% if r.filters_used %}{{ r.filters_used.framework|default('') }} · {{ r.filters_used.application|default('') }}{% else %}—{% endif %}</td>
+<td><span class="badge bg-success">{{ r.status }}</span></td>
+<td>{% if r.download_path %}<a href="{{ r.download_path }}" class="btn btn-sm btn-primary py-0">Download</a>{% elif r.id %}<a href="/mvp/reports/download/{{ r.id }}" class="btn btn-sm btn-outline-primary py-0">Download</a>{% endif %}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

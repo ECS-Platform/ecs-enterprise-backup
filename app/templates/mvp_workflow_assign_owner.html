@@ -1,0 +1,40 @@
+<!DOCTYPE html><html><head><title>Assign Owner</title>{% include "partials/mvp_styles.html" %}{% include "partials/workflow_styles.html" %}</head>
+<body class="bg-light ecs-cap-audit"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<div class="ecs-workflow-header"><a href="{{ return_url }}" class="small text-muted">&larr; Back to Audit Prep</a>
+<h1 class="h3 mt-1">{{ workflow_title }}</h1></div>
+{% if notice %}<div class="alert alert-success">{{ notice }}</div>{% endif %}
+<div class="row g-3">
+<div class="col-lg-8">
+<form method="post" action="/mvp/workflow/assign-owner" class="card shadow-sm border-0">
+<div class="card-body">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="framework" value="{{ framework }}">
+<input type="hidden" name="control" value="{{ control }}">
+<input type="hidden" name="return_module" value="{{ request.query_params.get('return_module', 'audit_prep') }}">
+<div class="row g-2 mb-3">
+<div class="col-md-6"><label class="form-label fw-semibold">Application</label><input class="form-control" value="{{ application }}" readonly></div>
+<div class="col-md-6"><label class="form-label fw-semibold">Framework</label><input class="form-control" value="{{ framework }}" readonly></div>
+<div class="col-12"><label class="form-label fw-semibold">Control</label><input class="form-control" value="{{ control }}" readonly></div>
+<div class="col-md-6"><label class="form-label fw-semibold">Current Risk</label><span class="badge bg-danger">{{ current_risk }}</span></div>
+<div class="col-md-6"><label class="form-label fw-semibold">Pending Due Date</label><input class="form-control" value="{{ pending_due_date }}" readonly></div></div>
+<div class="mb-3"><label class="form-label fw-semibold">Assign To</label>
+<select class="form-select" name="team">{% for t in teams %}<option {% if t == selected_team %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+<div class="row g-2 mb-3">
+<div class="col-md-4"><label class="form-label fw-semibold">Priority</label>
+<select class="form-select" name="priority"><option {% if priority=='High' %}selected{% endif %}>High</option><option {% if priority=='Medium' %}selected{% endif %}>Medium</option><option {% if priority=='Low' %}selected{% endif %}>Low</option></select></div>
+<div class="col-md-4"><label class="form-label fw-semibold">SLA (business days)</label>
+<input class="form-control" name="sla_days" value="{{ sla_days }}"></div>
+<div class="col-md-4"><label class="form-label fw-semibold">Escalation Level</label>
+<select class="form-select" name="escalation_level"><option {% if escalation_level=='L1' %}selected{% endif %}>L1</option><option {% if escalation_level=='L2' %}selected{% endif %}>L2</option><option {% if escalation_level=='L3' %}selected{% endif %}>L3</option></select></div></div>
+<div class="mb-3"><label class="form-label fw-semibold">Comments</label>
+<textarea class="form-control" name="comments" rows="3" placeholder="Assignment context for owner queue...">{{ comments }}</textarea></div>
+<div class="d-flex flex-wrap gap-2">
+<button type="submit" name="submit_type" value="assign" class="btn btn-primary">Assign</button>
+<button type="submit" name="submit_type" value="escalate" class="btn btn-warning">Escalate</button>
+<button type="submit" name="submit_type" value="notify_teams" class="btn btn-outline-info">Notify via Teams</button>
+<button type="submit" name="submit_type" value="send_reminder" class="btn btn-outline-secondary">Send Reminder</button>
+</div></div></form></div>
+<div class="col-lg-4">{% include "partials/workflow_guidance.html" %}</div></div></div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

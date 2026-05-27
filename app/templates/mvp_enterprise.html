@@ -1,29 +1,94 @@
 <!DOCTYPE html><html><head><title>Enterprise</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-enterprise"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Enterprise Governance Overview</h1>
-<p class="text-muted small">Organization-wide KPIs, maturity heatmaps, and business-unit risk posture</p>
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Enterprise Governance Overview</h1>
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<div class="row g-2 mb-4">{% for bu in module_view.business_units %}
-<div class="col-md-4"><div class="exec-kpi"><h5>{{ bu.compliance_pct }}%</h5><strong>{{ bu.unit }}</strong><br>
-<span class="badge {% if bu.risk=='High' %}bg-danger{% elif bu.risk=='Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ bu.risk }}</span>
-<small class="d-block text-muted">{{ bu.open_gaps }} open gaps</small></div></div>
-{% endfor %}</div>
-<h3 class="h6 text-uppercase text-muted">Framework Maturity Heatmap</h3>
-<div class="maturity-heat mb-4">{% for m in module_view.maturity_heatmap %}
-<span style="background:{% if m.pct >= 85 %}#198754{% elif m.pct >= 75 %}#ffc107{% else %}#dc3545{% endif %}" title="{{ m.framework }}">{{ m.pct }}</span>
-{% endfor %}</div>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Framework</th><th>Maturity</th><th>Open Items</th><th>Risk</th><th>Actions</th></tr></thead><tbody>
-{% for r in module_view.rows %}
-<tr><td>{{ r.framework }}</td><td>{{ r.maturity_pct }}%</td><td>{{ r.open_items }}</td>
-<td><span class="badge {% if r.risk=='High' %}bg-danger{% elif r.risk=='Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ r.risk }}</span></td>
-<td><a href="/framework/{{ r.framework }}?role={{role}}&user={{user}}" class="btn btn-sm btn-outline-primary">Drill Down</a>
-{% if role in ('cio','compliance_head') %}{{ module_action('enterprise','view_gaps',role,user,'View Gap','btn-sm btn-outline-warning',r.framework) }}
-{{ module_action('enterprise','escalate_risk',role,user,'Escalate','btn-sm btn-outline-danger',r.framework) }}{% endif %}</td></tr>
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading filtered enterprise data…</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<p class="ecs-ws-summary ecs-exec-desc">National score {{ module_view.kpis[1].value }} · {{ module_view.kpis[2].value }} open observations · {{ module_view.kpis[3].value }} frameworks at risk.</p>
+
+<h6 class="small text-muted text-uppercase mb-1">Banking Business Units — click to drill down</h6>
+<div class="ecs-exec-bu-grid mb-2" id="ecsEntBuCards"></div>
+
+<div class="compact-chart-grid mb-2">
+<div class="chart-card"><div class="chart-card-title">Compliance %</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsEntBuCompChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Audit Readiness</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsEntBuReadyChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Open Gaps</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsEntBuGapsChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Observations</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsEntBuObsChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Risk Score</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsEntBuRiskChart"></div></div></div>
+</div>
+<div class="ecs-ws-metric-row" id="ecsEntOverviewMetrics"></div>
+{{ workspace_pane_end() }}
+
+{% if workspace.tabs|selectattr('id','equalto','business_units')|list %}
+{{ workspace_pane('business_units', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-std-table="ent-business-units"><thead><tr>
+<th>Unit</th><th>Compliance</th><th>Audit Readiness</th><th>Open Gaps</th><th>Observations</th><th>Risk Score</th><th>Risk</th>
+</tr></thead><tbody>
+{% for bu in module_view.banking_bu_analytics|default([]) %}
+<tr data-ecs-filter-row data-filter-risk="{{ bu.risk }}" class="ecs-bu-drill" role="button" data-bu="{{ bu.unit }}">
+<td><strong>{{ bu.unit }}</strong></td><td>{{ bu.compliance_pct }}%</td><td>{{ bu.audit_readiness }}%</td>
+<td>{{ bu.open_gaps }}</td><td>{{ bu.observations }}</td><td>{{ bu.risk_score }}/10</td>
+<td><span class="badge bg-{% if bu.risk=='High' %}danger{% elif bu.risk=='Medium' %}warning text-dark{% else %}success{% endif %}">{{ bu.risk }}</span></td></tr>
 {% endfor %}
 </tbody></table></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{% if workspace.tabs|selectattr('id','equalto','frameworks')|list %}
+{{ workspace_pane('frameworks', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table mb-0" data-ecs-std-table="ent-frameworks"><thead><tr><th>Framework</th><th>Maturity</th><th>Open Items</th><th>Risk</th><th>Actions</th></tr></thead><tbody>
+{% for r in module_view.rows %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-risk="{{ r.risk }}">
+<td>{{ r.framework }}</td><td>{{ r.maturity_pct }}%</td><td>{{ r.open_items }}</td>
+<td><span class="badge {% if r.risk=='High' %}bg-danger{% elif r.risk=='Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ r.risk }}</span></td>
+<td class="text-nowrap"><a href="/framework/{{ r.framework }}?role={{ role }}&user={{ user }}" class="btn btn-sm btn-outline-primary">Drill Down</a>
+{% if role in ('cio','compliance_head') %}{{ module_action('enterprise','view_gaps',role,user,'Gaps','btn-sm btn-outline-warning',r.framework) }}{% endif %}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{% if workspace.tabs|selectattr('id','equalto','gaps')|list %}
+{{ workspace_pane('gaps', false) }}
+<div class="table-responsive ecs-paginated-wrap"><table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Framework</th><th>Maturity</th><th>Open Items</th></tr></thead><tbody>
+{% for r in module_view.rows if r.open_items > 0 %}
+<tr><td>{{ r.framework }}</td><td>{{ r.maturity_pct }}%</td><td>{{ r.open_items }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{% if workspace.tabs|selectattr('id','equalto','analytics')|list %}
+{{ workspace_pane('analytics', false) }}
+<div class="chart-card mb-2"><div class="chart-card-title">Framework maturity (filtered)</div>
+<div class="chart-container-compact"><div class="ecs-horizontal-bars" id="ecsEntHeatmapBars"></div></div></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+</div></div></div>
+<script>
+(function(){
+  var bu = {{ module_view.banking_bu_analytics|default([])|tojson }};
+  var charts = {{ module_view.bu_charts|default({})|tojson }};
+  if (window.ecsInitBuCards) ecsInitBuCards('ecsEntBuCards', bu);
+  if (window.ecsRenderCompactBarChart && charts) {
+    ecsRenderCompactBarChart('ecsEntBuCompChart', charts.compliance || [], {suffix:'%'});
+    ecsRenderCompactBarChart('ecsEntBuReadyChart', charts.readiness || [], {suffix:'%', defaultTone:'teal'});
+    ecsRenderCompactBarChart('ecsEntBuGapsChart', charts.gaps || [], {defaultTone:'orange'});
+    ecsRenderCompactBarChart('ecsEntBuObsChart', charts.observations || [], {defaultTone:'red'});
+    ecsRenderCompactBarChart('ecsEntBuRiskChart', charts.risk_score || [], {defaultTone:'navy'});
+  }
+})();
+</script>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

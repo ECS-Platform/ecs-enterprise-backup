@@ -1,0 +1,197 @@
+{# Dynamic App Comparison filter client #}
+<script>
+(function(){
+  if (window.__ecsCompareFilterInit) return;
+  window.__ecsCompareFilterInit = true;
+
+  var PAGE_SIZE = 10;
+  function getPageSize() { return window.__ecsTablePageSize || PAGE_SIZE; }
+  var dataset = null;
+  var page = 1;
+
+  function loadDataset() {
+    var el = document.getElementById('ecsComparisonDataset');
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch (e) { return null; }
+  }
+
+  function filterVals() {
+    var v = { compare_framework: 'All Frameworks', compare_scope: 'All Applications', compare_application: 'All Applications', time_range: 'Current Month' };
+    document.querySelectorAll('[data-ecs-workspace-filters] .ecs-ws-filter').forEach(function(sel) {
+      v[sel.getAttribute('data-filter-key')] = sel.value;
+    });
+    return v;
+  }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function toneBadge(tone) {
+    if (tone === 'success') return 'success';
+    if (tone === 'warning') return 'warning text-dark';
+    return 'danger';
+  }
+
+  function trendBadge(trend) {
+    if (trend === 'Improving') return 'success';
+    if (trend === 'Stable') return 'secondary';
+    if (trend === 'Declining') return 'warning text-dark';
+    return 'danger';
+  }
+
+  function filterMatrix(matrix, fw, app) {
+    var rows = matrix || [];
+    if (fw && fw.indexOf('All ') !== 0) rows = rows.filter(function(r) { return r.framework === fw; });
+    if (app && app.indexOf('All ') !== 0) rows = rows.filter(function(r) { return r.application === app; });
+    return rows;
+  }
+
+  function buildPairs(matrix) {
+    var byFw = {};
+    matrix.forEach(function(r) {
+      if (!byFw[r.framework]) byFw[r.framework] = {};
+      byFw[r.framework][r.application] = r;
+    });
+    var pairs = [];
+    Object.keys(byFw).forEach(function(fw) {
+      var apps = Object.keys(byFw[fw]).sort();
+      for (var i = 0; i < apps.length; i++) {
+        for (var j = i + 1; j < apps.length; j++) {
+          var a = byFw[fw][apps[i]], b = byFw[fw][apps[j]];
+          var gap = Math.abs(a.readiness_pct - b.readiness_pct);
+          pairs.push({
+            pair_label: a.application + ' vs ' + b.application,
+            app_a: a.application, app_b: b.application, framework: fw,
+            readiness_a: a.readiness_pct, readiness_b: b.readiness_pct, gap: gap,
+            open_findings_a: a.open_findings, open_findings_b: b.open_findings,
+            failed_a: a.failed_controls, failed_b: b.failed_controls,
+            trend: a.readiness_pct >= b.readiness_pct ? a.trend : b.trend
+          });
+        }
+      }
+    });
+    pairs.sort(function(x, y) { return y.gap - x.gap; });
+    return pairs;
+  }
+
+  function computeKpis(matrix) {
+    if (!matrix.length) return { 'Apps in Scope': 0, 'Avg Readiness': '0%', 'Critical Postures': 0, 'Improving Trends': 0 };
+    var apps = new Set(matrix.map(function(r) { return r.application; }));
+    var avg = Math.round(matrix.reduce(function(a, r) { return a + r.readiness_pct; }, 0) / matrix.length);
+    return {
+      'Apps in Scope': apps.size,
+      'Avg Readiness': avg + '%',
+      'Critical Postures': matrix.filter(function(r) { return r.readiness_pct < 60; }).length,
+      'Improving Trends': matrix.filter(function(r) { return r.trend === 'Improving'; }).length
+    };
+  }
+
+  function renderKpis(kpis) {
+    document.querySelectorAll('[data-ecs-ops-kpi]').forEach(function(el) {
+      var key = el.getAttribute('data-ecs-ops-kpi');
+      if (kpis[key] !== undefined) {
+        var valEl = el.querySelector('.ecs-exec-kpi-val') || el;
+        valEl.textContent = kpis[key];
+      }
+    });
+  }
+
+  function renderPairs(pairs) {
+    var tb = document.querySelector('[data-ecs-compare-table="pairs"] tbody');
+    if (!tb) return;
+    var ps = getPageSize();
+    var pages = Math.max(1, Math.ceil(pairs.length / ps));
+    if (page > pages) page = pages;
+    var slice = pairs.slice((page - 1) * ps, page * ps);
+    tb.innerHTML = slice.length ? slice.map(function(p) {
+      return '<tr><td><strong>' + esc(p.pair_label) + '</strong></td><td><span class="badge bg-light text-dark">' + esc(p.framework) + '</span></td>' +
+        '<td>' + p.readiness_a + '%</td><td>' + p.readiness_b + '%</td><td>' + p.gap + '%</td>' +
+        '<td>' + p.open_findings_a + ' vs ' + p.open_findings_b + '</td><td>' + p.failed_a + ' vs ' + p.failed_b + '</td>' +
+        '<td><span class="badge bg-' + trendBadge(p.trend) + '">' + esc(p.trend) + '</span></td></tr>';
+    }).join('') : '<tr><td colspan="8" class="text-muted small text-center py-2">No comparisons match filters.</td></tr>';
+    var pager = document.getElementById('ecsComparePager');
+    if (pager) {
+      pager.innerHTML = pairs.length > ps
+        ? '<button type="button" class="btn btn-outline-secondary btn-sm py-0" id="ecsComparePrev" ' + (page <= 1 ? 'disabled' : '') + '>&lsaquo; Prev</button>' +
+          '<span class="small">Page ' + page + ' of ' + pages + ' (' + pairs.length + ' pairs)</span>' +
+          '<button type="button" class="btn btn-outline-secondary btn-sm py-0" id="ecsCompareNext" ' + (page >= pages ? 'disabled' : '') + '>Next &rsaquo;</button>'
+        : '<span class="small text-muted">' + pairs.length + ' pair(s)</span>';
+    }
+    if (window.ecsEnhanceExecutiveTables) window.ecsEnhanceExecutiveTables();
+  }
+
+  function renderCards(matrix) {
+    var grid = document.getElementById('ecsCompareHeatmapCards');
+    if (!grid) return;
+    var sorted = matrix.slice().sort(function(a, b) { return a.readiness_pct - b.readiness_pct; }).slice(0, 12);
+    grid.innerHTML = sorted.map(function(c) {
+      return '<div class="ecs-compare-card ecs-compare-card-' + esc(c.tone) + '">' +
+        '<div class="ecs-compare-card-title">' + esc(c.application) + '</div>' +
+        '<div class="ecs-compare-card-fw">' + esc(c.framework) + ' Readiness: <strong>' + c.readiness_pct + '%</strong></div>' +
+        '<div class="ecs-compare-card-meta">Open Findings: ' + c.open_findings + '</div>' +
+        '<div class="ecs-compare-card-meta">Failed Controls: ' + c.failed_controls + '</div>' +
+        '<div class="ecs-compare-card-trend"><span class="badge bg-' + trendBadge(c.trend) + '">' + esc(c.trend) + '</span></div></div>';
+    }).join('') || '<p class="small text-muted mb-0">No readiness cards for current filters.</p>';
+  }
+
+  function renderTrends(matrix) {
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    ['readiness', 'failed', 'closure', 'maturity'].forEach(function(kind) {
+      var el = document.getElementById('ecsCompareTrend-' + kind);
+      if (!el) return;
+      var max = 100;
+      var vals = months.map(function(m, idx) {
+        var base = matrix.length ? matrix.reduce(function(a, r) { return a + r.readiness_pct; }, 0) / matrix.length : 70;
+        var offset = kind === 'failed' ? 4 : (kind === 'closure' ? 8 : 0);
+        var drift = kind === 'readiness' || kind === 'maturity' ? (idx - 2) * 1.5 : (idx - 2) * 0.3;
+        return Math.max(0, Math.round(base + offset + drift + (kind === 'failed' ? -idx * 0.2 : idx * 0.5)));
+      });
+      max = Math.max.apply(null, vals.concat([1]));
+      if (window.ecsRenderCompactBarChart) {
+        window.ecsRenderCompactBarChart(el, months.map(function(m, i) {
+          return { label: m, value: vals[i], tone: kind === 'failed' ? 'red' : (kind === 'closure' ? 'teal' : 'blue') };
+        }), { maxHeight: 64, suffix: (kind === 'readiness' || kind === 'maturity' ? '%' : '') });
+        return;
+      }
+      el.innerHTML = months.map(function(m, i) {
+        var h = Math.round((vals[i] / max) * 64);
+        return '<div class="ecs-bar-col"><span class="ecs-bar-val">' + vals[i] + (kind === 'readiness' || kind === 'maturity' ? '%' : '') + '</span>' +
+          '<div class="ecs-bar-fill tone-blue" style="height:' + Math.max(3, h) + 'px"></div><span class="ecs-bar-lbl">' + m + '</span></div>';
+      }).join('');
+    });
+  }
+
+  function applyAll(resetPage) {
+    if (!dataset || !dataset.matrices) return;
+    var v = filterVals();
+    var matrix = dataset.matrices[v.compare_scope + '|' + v.time_range] || [];
+    matrix = filterMatrix(matrix, v.compare_framework, v.compare_application);
+    if (resetPage !== false) page = 1;
+    var pairs = buildPairs(matrix);
+    renderKpis(computeKpis(matrix));
+    renderPairs(pairs);
+    renderCards(matrix);
+    renderTrends(matrix);
+    var sum = document.getElementById('ecsCompareFilterSummary');
+    if (sum) {
+      sum.textContent = 'Showing ' + pairs.length + ' framework-specific comparisons · ' + matrix.length + ' readiness postures · ' +
+        v.compare_framework + ' · ' + v.compare_application + ' · ' + v.compare_scope + ' · ' + v.time_range;
+    }
+  }
+
+  window.ecsGetComparisonFilters = filterVals;
+  window.ecsApplyComparisonFilters = function() { applyAll(true); };
+
+  document.addEventListener('click', function(e) {
+    if (e.target.id === 'ecsComparePrev') { page = Math.max(1, page - 1); applyAll(false); }
+    if (e.target.id === 'ecsCompareNext') { page++; applyAll(false); }
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    dataset = loadDataset();
+    document.querySelectorAll('[data-filter-profile="comparison"] .ecs-ws-filter').forEach(function(sel) {
+      sel.addEventListener('change', function() { applyAll(true); });
+    });
+    if (dataset) applyAll(true);
+  });
+})();
+</script>

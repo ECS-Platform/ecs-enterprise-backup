@@ -1,0 +1,217 @@
+{# Global evidence upload modal — opened by .ecs-evidence-upload-trigger #}
+<div class="modal fade" id="ecsEvidenceUploadModal" tabindex="-1" aria-labelledby="ecsEvidenceUploadTitle">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="ecsEvidenceUploadTitle">Upload Evidence</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+<div id="ecsUploadError" class="alert alert-danger py-2 small d-none" role="alert">
+Evidence upload service temporarily unavailable.
+</div>
+<div id="ecsUploadSuccess" class="alert alert-success py-2 small d-none" role="alert"></div>
+<form id="ecsEvidenceUploadForm" enctype="multipart/form-data">
+<input type="hidden" name="role" id="ecsUploadRole" value="{{ role|default('owner') }}">
+<input type="hidden" name="user" id="ecsUploadUser" value="{{ user|default('User') }}">
+<input type="hidden" name="return_url" id="ecsUploadReturnUrl" value="">
+<div class="row g-2">
+<div class="col-md-6"><label class="form-label small fw-semibold">Framework</label>
+<select name="framework" id="ecsUploadFramework" class="form-select form-select-sm" required>
+{% for fw in frameworks|default(['PCI DSS','AppSec','VAPT','OS Baselining','DB Baselining','Nginx Baselining','DPSC','CSITE','ITPP']) %}
+<option value="{{ fw }}">{{ fw }}</option>{% endfor %}
+</select></div>
+<div class="col-md-6"><label class="form-label small fw-semibold">Application</label>
+<select name="application" id="ecsUploadApplication" class="form-select form-select-sm" required>
+<option>Net Banking</option><option>Mobile Banking</option><option>Payments</option>
+<option>UPI</option><option>Card Platform</option><option>Treasury</option><option>Internet Banking</option>
+</select></div>
+<div class="col-md-6"><label class="form-label small fw-semibold">Control ID</label>
+<input type="text" name="control" id="ecsUploadControl" class="form-control form-control-sm" placeholder="e.g. PCI-10.6"></div>
+<div class="col-md-6"><label class="form-label small fw-semibold">Owner</label>
+<input type="text" name="owner" id="ecsUploadOwner" class="form-control form-control-sm" value="{{ user|default('User') }}"></div>
+<div class="col-md-6"><label class="form-label small fw-semibold">Evidence Type</label>
+<select name="evidence_type" id="ecsUploadType" class="form-select form-select-sm">
+<option>Document</option><option>Scan Report</option><option>Policy</option><option>Firewall Export</option>
+<option>SIEM Export</option><option>SAST Report</option><option>Pen-Test Report</option><option>Certificate Report</option>
+</select></div>
+<div class="col-md-6"><label class="form-label small fw-semibold">Audit Cycle</label>
+<select name="audit_cycle" id="ecsUploadCycle" class="form-select form-select-sm">
+<option>Q2 2026</option><option>Q1 2026</option><option>H1 2026</option><option>Q2 2026 Audit</option>
+</select></div>
+<div class="col-12"><label class="form-label small fw-semibold">Comments</label>
+<textarea name="comments" id="ecsUploadComments" class="form-control form-control-sm" rows="2" placeholder="Auditor notes, scope, or remediation context"></textarea></div>
+<div class="col-12"><label class="form-label small fw-semibold">Evidence File</label>
+<input type="file" name="evidence_file" id="ecsUploadFile" class="form-control form-control-sm" accept=".pdf,.xlsx,.csv,.json,.zip,.png,.jpg"></div>
+</div>
+</form>
+</div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+<button type="button" class="btn btn-primary btn-sm" id="ecsEvidenceUploadSubmit">Upload Evidence</button>
+</div>
+</div></div></div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1090">
+<div id="ecsUploadToast" class="toast align-items-center text-bg-success border-0" role="alert">
+<div class="d-flex"><div class="toast-body" id="ecsUploadToastBody">Evidence uploaded.</div>
+<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+</div></div>
+
+<script>
+(function(){
+  function initEcsEvidenceUpload() {
+  if (window.__ecsEvidenceUploadInit) return;
+  if (typeof bootstrap === 'undefined') return;
+  window.__ecsEvidenceUploadInit = true;
+
+  var modalEl = document.getElementById('ecsEvidenceUploadModal');
+  if (!modalEl) return;
+  var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  var form = document.getElementById('ecsEvidenceUploadForm');
+  var errBox = document.getElementById('ecsUploadError');
+  var okBox = document.getElementById('ecsUploadSuccess');
+  var toastEl = document.getElementById('ecsUploadToast');
+  var toastBody = document.getElementById('ecsUploadToastBody');
+
+  function showError(msg) {
+    if (errBox) { errBox.textContent = msg || 'Evidence upload service temporarily unavailable.'; errBox.classList.remove('d-none'); }
+    if (okBox) okBox.classList.add('d-none');
+  }
+  function showSuccess(msg) {
+    if (okBox) { okBox.textContent = msg; okBox.classList.remove('d-none'); }
+    if (errBox) errBox.classList.add('d-none');
+  }
+  function openUploadModal(opts) {
+    opts = opts || {};
+    if (errBox) errBox.classList.add('d-none');
+    if (okBox) okBox.classList.add('d-none');
+    var set = function(id, val) { var el = document.getElementById(id); if (el && val) el.value = val; };
+    set('ecsUploadFramework', opts.framework);
+    set('ecsUploadApplication', opts.application);
+    set('ecsUploadControl', opts.control);
+    set('ecsUploadOwner', opts.owner);
+    set('ecsUploadUser', opts.user);
+    set('ecsUploadRole', opts.role);
+    set('ecsUploadReturnUrl', opts.returnUrl || window.location.pathname + window.location.search);
+    if (opts.mode === 'replace') {
+      document.getElementById('ecsEvidenceUploadTitle').textContent = 'Replace Evidence';
+    } else {
+      document.getElementById('ecsEvidenceUploadTitle').textContent = 'Upload Evidence';
+    }
+    modal.show();
+  }
+  window.ecsOpenEvidenceUpload = openUploadModal;
+
+  document.addEventListener('click', function(e) {
+    var t = e.target.closest('.ecs-evidence-upload-trigger');
+    if (!t) return;
+    e.preventDefault();
+    var role = (t.getAttribute('data-role') || '').toLowerCase();
+    if (role && role !== 'owner') {
+      showError('Access denied: Auditors and executives cannot upload or replace evidence. Use Request Re-upload to return items to the App Owner queue.');
+      modal.show();
+      return;
+    }
+    openUploadModal({
+      framework: t.getAttribute('data-framework') || '',
+      application: t.getAttribute('data-application') || '',
+      control: t.getAttribute('data-control') || '',
+      owner: t.getAttribute('data-owner') || '',
+      user: t.getAttribute('data-user') || '',
+      role: t.getAttribute('data-role') || '',
+      mode: t.getAttribute('data-upload-mode') || 'upload',
+      returnUrl: t.getAttribute('data-return-url') || ''
+    });
+  });
+
+  var submitBtn = document.getElementById('ecsEvidenceUploadSubmit');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function() {
+      if (!form) return;
+      var fd = new FormData(form);
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Uploading…';
+      fetch('/evidence/upload', {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+      }).then(function(r) {
+        if (!r.ok) throw new Error('upload failed');
+        return r.json();
+      }).then(function(data) {
+        if (data.status !== 'success') throw new Error(data.message || 'upload failed');
+        var msg = data.message || ('Evidence ' + data.evidence_id + ' uploaded — ' + data.validation_status);
+        showSuccess(msg);
+        if (toastEl && toastBody) {
+          toastBody.textContent = msg;
+          bootstrap.Toast.getOrCreateInstance(toastEl).show();
+        }
+        setTimeout(function() {
+          modal.hide();
+          var u = document.getElementById('ecsUploadReturnUrl');
+          if (u && u.value) window.location.href = u.value + (u.value.indexOf('?') >= 0 ? '&' : '?') + 'notice=' + encodeURIComponent(msg);
+        }, 1200);
+      }).catch(function() {
+        showError('Evidence upload service temporarily unavailable.');
+      }).finally(function() {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload Evidence';
+      });
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    var rv = e.target.closest('.ecs-evidence-revalidate-trigger');
+    if (!rv) return;
+    e.preventDefault();
+    var fd = new FormData();
+    fd.append('framework', rv.getAttribute('data-framework') || '');
+    fd.append('control', rv.getAttribute('data-control') || '');
+    fd.append('application', rv.getAttribute('data-application') || 'Net Banking');
+    fd.append('user', rv.getAttribute('data-user') || 'User');
+    fd.append('role', rv.getAttribute('data-role') || 'owner');
+    fd.append('return_url', window.location.pathname + window.location.search);
+    fetch('/evidence/revalidate', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (toastEl && toastBody) { toastBody.textContent = d.message || 'Revalidation queued.'; bootstrap.Toast.getOrCreateInstance(toastEl).show(); }
+      }).catch(function() { showError('Evidence upload service temporarily unavailable.'); modal.show(); });
+  });
+
+  document.addEventListener('click', function(e) {
+    var sub = e.target.closest('.ecs-evidence-submit-trigger');
+    if (!sub) return;
+    e.preventDefault();
+    var fd = new FormData();
+    fd.append('framework', sub.getAttribute('data-framework') || '');
+    fd.append('control', sub.getAttribute('data-control') || '');
+    fd.append('application', sub.getAttribute('data-application') || 'Net Banking');
+    fd.append('evidence_id', sub.getAttribute('data-evidence-id') || '');
+    fd.append('user', sub.getAttribute('data-user') || 'User');
+    fd.append('role', sub.getAttribute('data-role') || 'owner');
+    fd.append('return_url', window.location.pathname + window.location.search);
+    fetch('/evidence/submit', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (window.ecsShowWorkflowToast) {
+          window.ecsShowWorkflowToast({ type: 'success', title: '✓ Evidence Submitted To Auditor', body: d.message || 'Awaiting auditor review.' });
+        } else if (toastEl && toastBody) {
+          toastBody.textContent = d.message || 'Evidence submitted for review.';
+          bootstrap.Toast.getOrCreateInstance(toastEl).show();
+        }
+        if (window.ecsRefreshWorkflowCounters) window.ecsRefreshWorkflowCounters();
+        var ctrl = sub.getAttribute('data-control') || '';
+        document.querySelectorAll('.ecs-evidence-submit-trigger[data-control="' + ctrl + '"]').forEach(function(el) {
+          var li = el.closest('li');
+          if (li) li.innerHTML = '<span class="ecs-action-item ecs-action-muted" role="menuitem">Sent to Auditor — Pending Review</span>';
+        });
+      }).catch(function() { showError('Evidence upload service temporarily unavailable.'); modal.show(); });
+  });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initEcsEvidenceUpload);
+  } else {
+    initEcsEvidenceUpload();
+  }
+})();
+</script>

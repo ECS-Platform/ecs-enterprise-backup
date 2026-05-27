@@ -138,61 +138,71 @@ def role_dashboard_metrics(role: str) -> dict:
     if role == "auditor":
         auditor_q = len(build_auditor_review_queue())
         return {
-            "title": "Auditor Work Queue",
+            "title": "Auditor Queue",
+            "show_strip": True,
             "pending_tasks": auditor_q or pending_approvals,
             "approvals_today": 14,
-            "escalations": wq["escalated"] or 3,
-            "observations_reviewed": t["approved"] + t["rejected"],
-            "summary": f"{auditor_q or pending_approvals} submissions awaiting review across {_CAT['framework_count']} frameworks.",
+            "summary": "",
         }
     if role == "owner":
         owner_q = len(build_owner_work_queue())
         return {
-            "title": "App Owner Actions",
+            "title": "",
+            "summary": "",
+            "show_strip": False,
             "pending_tasks": owner_q or (t["pending"] + t["rejected"]),
             "resubmits_required": t["rejected"],
-            "draft_controls": t["pending"],
-            "closed_observations": t["approved"],
-            "summary": f"{owner_q} items in your consolidated work queue across all frameworks.",
         }
     if role in ("compliance_head", "compliance_officer"):
         return {
-            "title": "Compliance Officer Overview",
+            "title": "Compliance Overview",
+            "show_strip": True,
             "pending_tasks": pending_approvals,
-            "open_gaps": t["pending"] + t["rejected"],
             "audit_readiness_pct": 86.2,
-            "frameworks_at_risk": 2,
-            "summary": "Enterprise audit readiness at 86.2% with DPSC and CSITE frameworks under watch.",
+            "summary": "",
         }
     if role == "vertical_head":
         return {
             "title": "Vertical Head Summary",
+            "show_strip": True,
             "pending_tasks": pending_approvals,
             "national_score": 88.1,
-            "applications_at_risk": 2,
-            "closure_velocity": "87.4%",
-            "summary": "Pan-India compliance 88.1% with Mobile Banking and Loan System elevated risk.",
+            "summary": "",
         }
     if role == "cio":
         return {
-            "title": "CIO Executive Summary",
+            "title": "CIO Summary",
+            "show_strip": True,
             "pending_tasks": pending_approvals,
             "enterprise_compliance": enterprise_kpis()["enterprise_compliance_pct"],
             "evidence_artefacts": _CAT["evidence_count"],
             "audit_completion": "91.6%",
-            "summary": f"{_CAT['evidence_count']} governed artefacts across {_CAT['control_count']} controls enterprise-wide.",
+            "summary": "",
         }
-    return {"title": "Enterprise ECS", "summary": "Governance dashboard", "pending_tasks": 0}
+    if role == "functional_head":
+        return {
+            "title": "Functional Head Summary",
+            "show_strip": True,
+            "pending_tasks": pending_approvals,
+            "audit_readiness_pct": 82.4,
+            "summary": "",
+        }
+    return {"title": "", "show_strip": False, "summary": "", "pending_tasks": 0}
 
 
 def enterprise_kpis():
     stats = ecs_state.build_evidence_analytics()
     live = stats["overall_compliance_pct"]
     display_compliance = round(max(live, 84.6), 1) if live < 50 else max(live, 84.6)
-    national = round(
-        sum(r["score"] for r in ecs_state.PAN_INDIA_REGIONS) / len(ecs_state.PAN_INDIA_REGIONS),
-        1,
-    )
+    try:
+        from app.enterprise_mock_service import build_pan_india_posture
+        regions = build_pan_india_posture()["regions"]
+        national = round(sum(r["score"] for r in regions) / max(len(regions), 1), 1)
+    except Exception:
+        national = round(
+            sum(r["score"] for r in ecs_state.PAN_INDIA_REGIONS) / len(ecs_state.PAN_INDIA_REGIONS),
+            1,
+        )
     return {
         "enterprise_compliance_pct": display_compliance,
         "live_compliance_pct": live,

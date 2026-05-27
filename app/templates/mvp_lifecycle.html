@@ -1,31 +1,136 @@
-<!DOCTYPE html><html><head><title>Lifecycle</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Governance Lifecycle</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-lc-chain { border:1px solid #e2e8f0; border-radius:8px; padding:0.65rem; background:#fff; }
+.ecs-lc-chain-hdr { font-size:0.78rem; margin-bottom:0.45rem; color:#334155; }
+.ecs-lc-chain-steps { display:flex; flex-wrap:wrap; align-items:flex-start; gap:0.25rem; }
+.ecs-lc-step { display:inline-flex; flex-direction:column; align-items:center; min-width:72px; max-width:100px; font-size:0.62rem; text-align:center; }
+.ecs-lc-step-icon { width:22px; height:22px; border-radius:50%; background:#2563eb; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.65rem; margin-bottom:2px; }
+.ecs-lc-step-lbl { font-weight:600; color:#334155; line-height:1.15; }
+.ecs-lc-step-meta { color:#64748b; font-size:0.58rem; line-height:1.1; }
+.ecs-lc-arrow { color:#94a3b8; align-self:center; font-size:0.85rem; padding:0 2px; }
+.ecs-lc-gantt-row { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.35rem; font-size:0.68rem; flex-wrap:wrap; }
+.ecs-lc-gantt-lbl { min-width:100px; font-weight:600; }
+.ecs-lc-gantt-bar { display:flex; gap:2px; flex:1; min-width:120px; }
+.ecs-lc-gantt-seg { padding:2px 6px; border-radius:3px; color:#fff; font-size:0.58rem; }
+.ecs-lc-exc-chip { background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.35rem 0.5rem; margin-bottom:0.35rem; font-size:0.68rem; }
+</style></head>
 <body class="bg-light ecs-cap-lifecycle"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Evidence Lifecycle Governance</h1>
-<p class="text-muted small">Draft → Active → Expiring → Archived → Retired — retention and renewal management</p>
-{% if notice %}<div class="alert alert-info">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Governance Lifecycle Management</h1>
+<p class="small text-muted mb-2">Tracks the end-to-end lifecycle of controls, evidence, observations, remediation, exceptions, and audit closure activities across enterprise governance frameworks.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<div class="row g-2 mb-4">{% for state in ['Draft','Active','Expiring','Archived','Retired'] %}
-<div class="col"><div class="lifecycle-lane"><h6 class="small text-center">{{ state }} ({{ module_view.buckets[state] }})</h6>
-{% for item in module_view.bucket_items[state][:4] %}
-<div class="lifecycle-chip">{{ item.name[:22] }}<br><span class="text-muted">{{ item.expiry_date|default('—') }}</span></div>
-{% endfor %}</div></div>{% endfor %}</div>
-<div class="row"><div class="col-md-7">
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-sm table-bordered bg-white ecs-paginated-table"><thead><tr><th>State</th><th>Evidence</th><th>Uploaded</th><th>Expiry</th><th>Actions</th></tr></thead><tbody>
-{% for r in module_view.rows %}
-<tr><td><span class="badge bg-secondary">{{ r.lifecycle_state }}</span></td><td>{{ r.name[:30] }}</td><td>{{ r.upload_date }}</td><td>{{ r.expiry_date }}</td>
-<td>{% if role=='owner' %}{{ module_action('lifecycle','renew',role,user,'Renew','btn-sm btn-primary',r.evidence_id) }}{% endif %}
-{{ module_action('lifecycle','archive',role,user,'Archive','btn-sm btn-outline-secondary',r.evidence_id) }}
-{{ module_action('lifecycle','retire',role,user,'Retire','btn-sm btn-outline-dark',r.evidence_id) }}
-{{ module_action('lifecycle','extend_retention',role,user,'Extend','btn-sm btn-outline-info',r.evidence_id) }}</td></tr>
-{% endfor %}</tbody></table></div></div>
-<div class="col-md-5"><h6 class="text-uppercase text-muted small">Renewal Timeline</h6>
-<div class="ecs-timeline ecs-paginated-blocks">{% for e in module_view.timeline_events %}
-<div class="ecs-timeline-item"><strong>{{ e.name[:30] }}</strong><br>
-<small>{{ e.upload_date }} → expires {{ e.expiry_date }} · {{ e.state }}</small></div>
-{% endfor %}</div></div></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="small text-muted mb-2" id="ecsLifecycleFilterSummary">Loading lifecycle data…</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('controls', true) }}
+<div class="compact-chart-grid mb-2">
+<div class="chart-card"><div class="chart-card-title">Evidence aging by band</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsLcAging"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Remediation velocity (avg days to close)</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsLcRemVelocity"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Stale evidence trend</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsLcStaleTrend"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Exception expiry timeline</div><div class="chart-container-compact" id="ecsLcExcTimeline"></div></div>
+</div>
+<h6 class="small text-muted text-uppercase mb-1">Control Lifecycle</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-lc-table-wrap ecs-fit-view mb-1">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-lc-table="controls"><thead><tr>
+<th>Framework</th><th>Application</th><th>Control ID</th><th>Control Name</th><th>Lifecycle Stage</th><th>Validation</th><th>Last Updated</th><th>Owner</th><th>Risk</th>
+</tr></thead><tbody>
+{% for r in module_view.controls[0:12] %}
+<tr><td>{{ r.framework }}</td><td><strong>{{ r.application }}</strong></td><td><code class="small">{{ r.control_id }}</code></td>
+<td class="small">{{ r.control_name }}</td><td><span class="badge bg-secondary">{{ r.lifecycle_stage }}</span></td>
+<td>{{ r.validation }}</td><td class="small">{{ r.last_updated }}</td><td class="small">{{ r.owner }}</td><td>{{ r.risk }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('evidence', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Evidence Lifecycle</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-lc-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-lc-table="evidence"><thead><tr>
+<th>Evidence ID</th><th>Framework</th><th>Application</th><th>Control</th><th>Evidence Type</th><th>Lifecycle Stage</th><th>Uploaded By</th><th>Age (Days)</th><th>Status</th>
+</tr></thead><tbody>
+{% for r in module_view.evidence_rows[0:12] %}
+<tr><td><code class="small">{{ r.evidence_id }}</code></td><td>{{ r.framework }}</td><td>{{ r.application }}</td><td><code class="small">{{ r.control_id }}</code></td>
+<td class="small">{{ r.evidence_type }}</td><td>{{ r.lifecycle_stage }}</td><td class="small">{{ r.uploaded_by }}</td><td>{{ r.age_days }}</td><td>{{ r.status }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('observations', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Observation Lifecycle</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-lc-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-lc-table="observations"><thead><tr>
+<th>Observation ID</th><th>Framework</th><th>Application</th><th>Observation</th><th>Severity</th><th>Stage</th><th>Open Since</th><th>Owner</th><th>SLA</th>
+</tr></thead><tbody>
+{% for r in module_view.observations[0:12] %}
+<tr><td><code class="small">{{ r.observation_id }}</code></td><td>{{ r.framework }}</td><td>{{ r.application }}</td>
+<td class="small">{{ r.observation|truncate(55, True, '…') }}</td><td>{{ r.severity }}</td><td>{{ r.stage }}</td>
+<td>{{ r.open_days }}d</td><td class="small">{{ r.owner }}</td><td>{{ r.sla }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('remediation', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Remediation Lifecycle</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-lc-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-lc-table="remediation"><thead><tr>
+<th>Remediation ID</th><th>Framework</th><th>Application</th><th>Issue</th><th>Team</th><th>Current Stage</th><th>ETA</th><th>Progress</th><th>Risk</th>
+</tr></thead><tbody>
+{% for r in module_view.remediations[0:12] %}
+<tr><td><code class="small">{{ r.remediation_id }}</code></td><td>{{ r.framework }}</td><td>{{ r.application }}</td>
+<td class="small">{{ r.issue|truncate(50, True, '…') }}</td><td>{{ r.team }}</td><td>{{ r.current_stage }}</td>
+<td class="small">{{ r.eta }}</td><td>{{ r.progress_pct }}%</td><td>{{ r.risk }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('audit', false) }}
+<div class="chart-card mb-2"><div class="chart-card-title">Audit closure timeline</div><div class="chart-container-compact" id="ecsLcAuditGantt"></div></div>
+<h6 class="small text-muted text-uppercase mb-1">Audit Lifecycle</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-lc-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-lc-table="audit"><thead><tr>
+<th>Audit Cycle</th><th>Framework</th><th>Applications</th><th>Auditor</th><th>Stage</th><th>Evidence Completion</th><th>Findings</th><th>Closure Status</th>
+</tr></thead><tbody>
+{% for r in module_view.audits[0:12] %}
+<tr><td><strong>{{ r.audit_cycle }}</strong></td><td>{{ r.framework }}</td><td class="small">{{ r.applications }}</td>
+<td>{{ r.auditor }}</td><td>{{ r.stage }}</td><td>{{ r.evidence_completion_pct }}%</td><td>{{ r.findings }}</td><td>{{ r.closure_status }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('exceptions', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Exception / TD Lifecycle</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-lc-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-lc-table="exceptions"><thead><tr>
+<th>Exception ID</th><th>Framework</th><th>Application</th><th>Control</th><th>Exception Type</th><th>Approved Until</th><th>Current Status</th><th>Owner</th>
+</tr></thead><tbody>
+{% for r in module_view.exceptions[0:12] %}
+<tr><td><code class="small">{{ r.exception_id }}</code></td><td>{{ r.framework }}</td><td>{{ r.application }}</td>
+<td><code class="small">{{ r.control_id }}</code></td><td>{{ r.exception_type }}</td><td class="small">{{ r.approved_until }}</td>
+<td>{{ r.current_status }}</td><td class="small">{{ r.owner }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('timeline', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Enterprise Lifecycle Timeline</h6>
+<p class="small text-muted mb-2">End-to-end traceability from control mapping through evidence, validation, remediation, and approval.</p>
+<div id="ecsLcTimelineView">
+{% for chain in module_view.timelines[0:3] %}
+<div class="ecs-lc-chain mb-3"><div class="ecs-lc-chain-hdr"><strong>{{ chain.control_id }}</strong> · {{ chain.framework }} · {{ chain.application }}</div>
+<div class="ecs-lc-chain-steps">{% for st in chain.steps %}<span class="ecs-lc-step"><span class="ecs-lc-step-icon">{{ st.icon }}</span><span class="ecs-lc-step-lbl">{{ st.label }}</span><span class="ecs-lc-step-meta">{{ st.date }} · {{ st.owner }}</span></span>{% if not loop.last %}<span class="ecs-lc-arrow">&rarr;</span>{% endif %}{% endfor %}</div></div>
+{% endfor %}
+</div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% if module_view.lifecycle_dataset is defined %}
+<script type="application/json" id="ecsLifecycleDataset">{{ module_view.lifecycle_dataset|tojson }}</script>
+{% include "partials/lifecycle_filter_client.html" %}
+{% endif %}
+{% include "partials/chatbot_global.html" %}</body></html>

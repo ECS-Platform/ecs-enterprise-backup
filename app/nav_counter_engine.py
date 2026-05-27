@@ -28,6 +28,7 @@ MODULE_LABELS = {
     "audit_prep": "audit preparation gaps",
     "trends": "open trend-tracked observations",
     "onboarding": "applications onboarding in progress",
+    "framework_admin": "framework onboarding / pending activation",
     "risk_register": "open high/critical enterprise risks",
     "exceptions_td": "TD expired or high-risk exceptions",
     "cmdb": "non-compliant or unmonitored assets",
@@ -36,6 +37,8 @@ MODULE_LABELS = {
     "integrations_hub": "integration sync failures",
     "correlation": "open cross-tool correlation chains",
     "governance_analytics": "governance trend alerts",
+    "evidence_approval": "evidence pending validation or stale",
+    "exception_governance": "exceptions pending CAB or expiring TD",
 }
 
 MODULE_KEYS = list(MODULE_LABELS.keys())

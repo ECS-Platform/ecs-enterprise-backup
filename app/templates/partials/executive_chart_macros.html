@@ -1,0 +1,27 @@
+{# Executive compact chart containers — CIO / MD dashboard style #}
+{% macro executive_chart_card(title, subtitle='', chart_id='', extra_class='') %}
+<div class="executive-analytics-card chart-card {{ extra_class }}">
+<div class="chart-card-header">
+<div class="chart-card-title">{{ title }}</div>
+{% if subtitle %}<div class="chart-card-subtitle">{{ subtitle }}</div>{% endif %}
+</div>
+<div class="chart-container-compact">
+{% if chart_id %}<div class="mini-bar-chart ecs-bar-chart" id="{{ chart_id }}" role="img"></div>
+{% else %}<div class="mini-bar-chart ecs-bar-chart" role="img">{{ caller() }}</div>{% endif %}
+</div>
+</div>
+{% endmacro %}
+
+{% macro compact_chart_grid() %}
+<div class="compact-chart-grid">
+{{ caller() }}
+</div>
+{% endmacro %}
+
+{% macro trend_bar_scaled(value, max_val, color='navy', label='', tooltip='') %}
+{% set h = ((value / max_val * 72)|int) if max_val else 4 %}
+<div class="ecs-trend-bar-v ecs-trend-bar-{{ color }}" style="height:{{ [4, h]|max }}px" title="{{ tooltip or (label ~ ': ' ~ value) }}">
+{% if label %}<span class="ecs-trend-bar-lbl">{{ label }}</span>{% endif %}
+<span class="ecs-trend-bar-val">{{ value }}</span>
+</div>
+{% endmacro %}

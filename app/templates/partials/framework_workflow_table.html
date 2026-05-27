@@ -1,0 +1,96 @@
+{# Evidence workflow queue — full table with approve/reject/submit actions #}
+{% from "partials/evidence_workflow_macros.html" import workflow_status_chip %}
+{% set wl = fw_dashboard.workflow_labels if fw_dashboard is defined else {} %}
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table mb-0">
+<thead>
+<tr>
+<th>Control</th><th>Evidence</th><th>Application</th><th>Status</th><th>Validation</th><th>Workflow</th><th>Actions</th>
+</tr>
+</thead>
+<tbody>
+{% for ctrl in framework_catalog_controls %}
+{% set ckey = framework_name ~ '::' ~ ctrl.control %}
+{% set row_span = ctrl.evidences|length %}
+{% set ctrl_idx = loop.index %}
+{% set primary_ev = ctrl.evidences[0] %}
+{% for ev in ctrl.evidences %}
+<tr data-ecs-page-group="{{ ctrl_idx }}" data-ckey="{{ ckey }}" class="{% if ckey in approved_controls %}row-approved ecs-wf-row-approved{% elif ckey in rejected_controls %}table-danger{% elif ckey in submitted_controls %}table-warning{% endif %}">
+{% if loop.first %}
+<td rowspan="{{ row_span }}"><strong>{{ ctrl.control|truncate(36, True, '') }}</strong><br><small class="text-muted">{{ ctrl.control_id }}</small></td>
+{% endif %}
+<td><strong>{{ ev.evidence_name|truncate(24, True, '') }}</strong></td>
+<td>{{ ev.application_name }}</td>
+<td class="small">
+{% if ckey in approved_controls %}<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
+{% elif ckey in rejected_controls %}<span class="ecs-wf-status-chip ecs-wf-chip-danger">RE-UPLOAD REQUIRED</span>
+{% elif ckey in submitted_controls %}<span class="ecs-wf-status-chip ecs-wf-chip-warning">SENT TO AUDITOR</span>
+{% else %}<span class="ecs-wf-status-chip ecs-wf-chip-secondary">DRAFT</span>{% endif %}
+</td>
+<td class="small">{{ ev.expiry_date|default('—') }}</td>
+<td>{% if ckey in approved_controls %}<span class="badge bg-success">Validated</span>{% elif ckey in rejected_controls %}<span class="badge bg-danger">Failed</span>{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}</td>
+{% if loop.first %}
+<td rowspan="{{ row_span }}">
+{% if ckey in approved_controls %}<span class="badge bg-success">Approved</span>
+{% elif ckey in rejected_controls %}<span class="badge bg-danger">Rejected</span>
+{% elif ckey in submitted_controls %}<span class="badge bg-warning text-dark">Pending Review</span>
+{% else %}<span class="badge bg-secondary">Draft</span>{% endif %}
+{% if ckey in rejected_controls %}<br><small class="text-danger">{{ rejected_controls[ckey].reason|truncate(40, True, '…') }}</small>{% endif %}
+</td>
+<td rowspan="{{ row_span }}" class="ecs-sticky-actions">
+{% if role == "owner" %}
+{% if ckey in approved_controls %}
+<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
+{% elif ckey in submitted_controls %}
+<span class="ecs-wf-status-chip ecs-wf-chip-warning">SENT TO AUDITOR</span>
+<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">View</a>
+{% elif ckey in rejected_controls %}
+<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-warning btn-sm ecs-wf-action-submit">Resubmit</a>
+{% else %}
+<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-primary btn-sm ecs-wf-action-submit">Submit</a>
+{% endif %}
+{% elif role == "auditor" %}
+{% if ckey in approved_controls %}
+<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
+{% elif ckey in submitted_controls %}
+<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">Review</a>
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ ctrl.control }}"><input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button class="btn btn-success btn-sm ecs-wf-action-approve" data-wf-action="approve">Approve</button></form>
+<button type="button" class="btn btn-danger btn-sm ecs-wf-action-reject" data-bs-toggle="modal" data-bs-target="#rejectModal{{ ctrl_idx }}">Reject</button>
+<a href="/mvp/workflow/assign-owner?role={{ role|urlencode }}&user={{ user|urlencode }}&framework={{ framework_name|urlencode }}&control={{ ctrl.control|urlencode }}&return_module=framework" class="btn btn-outline-secondary btn-sm">Assign</a>
+<form method="post" action="/evidence/review/request-reupload" class="d-inline">
+<input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="control_name" value="{{ ctrl.control }}">
+<input type="hidden" name="evidence_id" value="{{ primary_ev.evidence_id }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-warning btn-sm">Request Re-upload</button></form>
+<a href="/mvp/audit-prep?role={{ role }}&user={{ user|urlencode }}" class="btn btn-outline-danger btn-sm">Escalate</a>
+{% elif ckey in rejected_controls %}
+<span class="ecs-wf-status-chip ecs-wf-chip-danger">REJECTED</span>
+<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">View</a>
+{% else %}
+<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">View</a>
+{% endif %}
+{% else %}
+<a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">View</a>
+{% endif %}
+</td>
+{% endif %}
+</tr>
+{% endfor %}
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+{% for ctrl in framework_catalog_controls %}
+{% set ckey = framework_name ~ '::' ~ ctrl.control %}
+{% if role == 'auditor' and ckey in submitted_controls %}
+<div class="modal fade" id="rejectModal{{ loop.index }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">{{ wl.auditor_reject|default('Reject') }}: {{ ctrl.control }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<form method="post" action="/reject"><div class="modal-body">
+<input type="hidden" name="control_name" value="{{ ctrl.control }}"><input type="hidden" name="framework_name" value="{{ framework_name }}">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<label class="form-label">Reject reason (required)</label>
+<textarea class="form-control" name="reject_reason" rows="3" required placeholder="Describe the gap..."></textarea>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-danger">Confirm</button></div></form>
+</div></div></div>
+{% endif %}
+{% endfor %}

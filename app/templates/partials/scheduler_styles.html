@@ -1,0 +1,22 @@
+<style>
+.ecs-sched-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; margin-bottom: 0.5rem; }
+@media (max-width:992px) { .ecs-sched-summary { grid-template-columns: repeat(2, 1fr); } }
+.ecs-sched-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.35rem 0.45rem; text-align: center; }
+.ecs-sched-card strong { display: block; font-size: 0.95rem; color: #1e293b; }
+.ecs-sched-card span { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+.ecs-sched-live { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.45rem; border-radius: 999px; }
+.ecs-sched-live.is-running { background: #dcfce7; color: #166534; }
+.ecs-sched-live.is-paused { background: #fef3c7; color: #92400e; }
+.ecs-cron-row { font-size: 0.75rem; padding: 0.35rem 0; border-bottom: 1px solid #f1f5f9; }
+.ecs-cron-row:last-child { border-bottom: 0; }
+.ecs-sched-log { font-family: ui-monospace, monospace; font-size: 0.68rem; background: #0f172a; color: #94a3b8; padding: 0.5rem; border-radius: 6px; max-height: 140px; overflow-y: auto; }
+.ecs-sched-log .log-ok { color: #4ade80; }
+.ecs-sched-log .log-warn { color: #fbbf24; }
+.ecs-drill-section { margin-bottom: 0.5rem; }
+.ecs-drill-section h6 { font-size: 0.68rem; text-transform: uppercase; color: #64748b; margin-bottom: 0.25rem; }
+.ecs-drill-section ul { font-size: 0.75rem; margin-bottom: 0; padding-left: 1.1rem; }
+.ecs-integ-pill { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.68rem; padding: 0.2rem 0.45rem; border-radius: 4px; border: 1px solid #e2e8f0; margin: 0.15rem; background: #fff; }
+.ecs-integ-pill.is-healthy { border-color: #86efac; }
+.ecs-integ-pill.is-bad { border-color: #fca5a5; background: #fef2f2; }
+.ecs-integ-pill.is-warn { border-color: #fcd34d; background: #fffbeb; }
+</style>

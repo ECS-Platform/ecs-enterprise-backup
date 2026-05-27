@@ -590,8 +590,34 @@ def build_legacy_frameworks() -> dict[str, list[tuple[str, str]]]:
     return out
 
 
+FRAMEWORK_ALIASES: dict[str, str] = {
+    "PCI": "PCI DSS",
+    "OSB": "OS Baselining",
+    "NGX": "Nginx Baselining",
+    "DBB": "DB Baselining",
+}
+
+
+def get_merged_framework_catalog() -> dict[str, list[dict]]:
+    """Static + dynamically onboarded frameworks."""
+    from app import ecs_state
+    merged = dict(FRAMEWORK_CATALOG)
+    merged.update(ecs_state.dynamic_framework_catalog)
+    return merged
+
+
+def resolve_framework_name(framework_name: str) -> str:
+    """Map short route slugs (e.g. PCI) to catalog keys (PCI DSS)."""
+    if not framework_name:
+        return framework_name
+    merged = get_merged_framework_catalog()
+    if framework_name in merged:
+        return framework_name
+    return FRAMEWORK_ALIASES.get(framework_name, framework_name)
+
+
 def get_framework_controls(framework_name: str) -> list[dict]:
-    return FRAMEWORK_CATALOG.get(framework_name, [])
+    return get_merged_framework_catalog().get(resolve_framework_name(framework_name), [])
 
 
 def get_evidence_lookup(framework_name: str) -> dict[str, dict]:

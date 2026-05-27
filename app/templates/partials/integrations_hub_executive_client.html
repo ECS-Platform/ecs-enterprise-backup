@@ -1,0 +1,372 @@
+{# Enterprise Integration Command Center — dynamic filters, charts, connector detail #}
+<script>
+(function(){
+  if (window.__ecsIhFilterInit) return;
+  window.__ecsIhFilterInit = true;
+
+  var PAGE_SIZE = 10;
+  function getPageSize() { return window.__ecsTablePageSize || PAGE_SIZE; }
+  var dataset = null;
+  var logPage = 1;
+  var issuesShowAll = false;
+
+  function loadDataset() {
+    var el = document.getElementById('ecsIntegrationsHubDataset');
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch (e) { return null; }
+  }
+
+  function filterVals() {
+    var v = { framework: 'All Frameworks', application: 'All Applications' };
+    document.querySelectorAll('[data-filter-profile="integrations_hub"] .ecs-ws-filter').forEach(function(sel) {
+      v[sel.getAttribute('data-filter-key')] = sel.value;
+    });
+    return v;
+  }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function rowMatch(r, v) {
+    if (v.framework && v.framework.indexOf('All ') !== 0) {
+      var fw = r.framework || (r.frameworks && r.frameworks[0]) || (r.framework_list && r.framework_list[0]);
+      var fws = r.frameworks || r.framework_list || [];
+      if (fw !== v.framework && fws.indexOf(v.framework) < 0) return false;
+    }
+    if (v.application && v.application.indexOf('All ') !== 0) {
+      var apps = r.applications_list || r.applications;
+      if (Array.isArray(apps)) {
+        if (apps.indexOf(v.application) < 0) return false;
+      } else if (r.application && r.application !== v.application) return false;
+    }
+    return true;
+  }
+
+  function filterList(rows, v) { return (rows || []).filter(function(r) { return rowMatch(r, v); }); }
+
+  function statusDot(st) {
+    var cls = st === 'Healthy' ? 'ok' : st === 'Warning' ? 'warn' : 'crit';
+    return '<span class="ecs-ih-dot ' + cls + '"></span>' + esc(st);
+  }
+
+  function sevBadge(sev) {
+    var cls = sev === 'Critical' || sev === 'Error' ? 'bg-danger' : sev === 'Warning' ? 'bg-warning text-dark' : 'bg-secondary';
+    return '<span class="badge ' + cls + '">' + esc(sev) + '</span>';
+  }
+
+  function renderBarChart(items) {
+    if (window.ecsRenderCompactBarChart) {
+      window.ecsRenderCompactBarChart('ecsIhBarChart', (items || []).slice(0, 8).map(function(i) {
+        return { label: i.connector, value: i.count, tone: 'navy' };
+      }), { maxHeight: 48, barWidth: 12 });
+      return;
+    }
+    var el = document.getElementById('ecsIhBarChart');
+    if (!el) return;
+    if (!items.length) { el.innerHTML = '<span class="small text-muted">No connectors in scope.</span>'; return; }
+    var max = Math.max.apply(null, items.map(function(i) { return i.count; }).concat([1]));
+    el.innerHTML = items.slice(0, 8).map(function(i) {
+      var h = Math.round((i.count / max) * 48);
+      return '<div style="flex:1;text-align:center;min-width:0"><div class="ecs-ih-bar" style="height:' + Math.max(3,h) + 'px"></div><div class="ecs-ih-bar-lbl">' + esc(i.connector) + '</div></div>';
+    }).join('');
+  }
+
+  function renderTrend(items) {
+    if (window.ecsRenderSparkline) {
+      window.ecsRenderSparkline('ecsIhTrend', (items || []).map(function(i) {
+        return { label: i.day, value: i.pct };
+      }), { valKey: 'value', color: '#3b6ea5', height: 44 });
+      return;
+    }
+    var el = document.getElementById('ecsIhTrend');
+    if (!el) return;
+    if (!items.length) { el.innerHTML = ''; return; }
+    var vals = items.map(function(i) { return i.pct; });
+    var min = Math.min.apply(null, vals.concat([0]));
+    var max = Math.max.apply(null, vals.concat([1]));
+    var range = max - min || 1;
+    var w = 200;
+    var h = 44;
+    var pad = 4;
+    var pts = items.map(function(item, idx) {
+      var x = pad + (idx / Math.max(items.length - 1, 1)) * (w - pad * 2);
+      var y = pad + (1 - (item.pct - min) / range) * (h - pad * 2);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    var labels = items.map(function(item, idx) {
+      var x = pad + (idx / Math.max(items.length - 1, 1)) * (w - pad * 2);
+      return '<text x="' + x.toFixed(1) + '" y="' + (h + 10) + '" text-anchor="middle" font-size="7" fill="#94a3b8">' + esc(item.day) + '</text>';
+    }).join('');
+    el.innerHTML = '<svg class="ecs-ih-line-chart" viewBox="0 0 ' + w + ' ' + (h + 12) + '" preserveAspectRatio="none">' +
+      '<polyline fill="none" stroke="#2563eb" stroke-width="2" points="' + pts + '"/>' +
+      labels + '</svg>';
+  }
+
+  var logTotalPages = 1;
+
+  function renderDonut(donut, healthyCount, total) {
+    var el = document.getElementById('ecsIhDonut');
+    var val = document.getElementById('ecsIhDonutVal');
+    if (!el || !donut) return;
+    var ok = donut.success_pct || 0;
+    var warn = donut.partial_pct || 0;
+    el.style.setProperty('--ok', ok + '%');
+    el.style.setProperty('--warn', warn + '%');
+    if (val) val.textContent = ok + '%';
+  }
+
+  function renderIssueSummary(issues) {
+    var el = document.getElementById('ecsIhIssueSummary');
+    if (!el) return;
+    var open = issues.filter(function(i) { return i.status === 'Open'; }).slice(0, 4);
+    if (!open.length) { el.innerHTML = '<span class="small text-muted">No open issues in scope.</span>'; return; }
+    el.innerHTML = open.map(function(i) {
+      return '<div class="ecs-ih-issue"><strong>' + esc(i.connector) + '</strong> · ' + esc(i.application) +
+        '<br><span class="text-muted">' + esc(String(i.issue).slice(0, 55)) + '</span></div>';
+    }).join('');
+  }
+
+  function renderTable(tbodyId, rows, renderRow) {
+    var tb = document.querySelector('#' + tbodyId + ' tbody') || document.querySelector('#' + tbodyId + ' tbody');
+    var table = document.getElementById(tbodyId);
+    if (!table) return;
+    tb = table.querySelector('tbody');
+    if (!tb) return;
+    tb.innerHTML = rows.length ? rows.map(renderRow).join('') : '<tr><td colspan="9" class="text-muted small">No records for selected scope.</td></tr>';
+  }
+
+  function paginate(rows, page) {
+    var ps = getPageSize();
+    var start = (page - 1) * ps;
+    return { rows: rows.slice(start, start + ps), total: rows.length, pages: Math.max(1, Math.ceil(rows.length / ps)) };
+  }
+
+  function renderLogs(logs, page) {
+    var sev = (document.getElementById('ecsIhLogSeverity') || {}).value || '';
+    var conn = (document.getElementById('ecsIhLogConnector') || {}).value || '';
+    var filtered = logs.filter(function(l) {
+      if (sev && l.severity !== sev) return false;
+      if (conn && l.connector !== conn) return false;
+      return true;
+    });
+    var pg = paginate(filtered, page);
+    renderTable('ecsIhLogsTable', pg.rows, function(r) {
+      return '<tr><td class="small">' + esc(r.timestamp) + '</td><td>' + esc(r.connector) + '</td><td class="small">' + esc(r.application) +
+        '</td><td>' + sevBadge(r.severity) + '</td><td class="small">' + esc(r.message) + '</td></tr>';
+    });
+    var pager = document.getElementById('ecsIhLogsPager');
+    logTotalPages = pg.pages;
+    if (pager) pager.textContent = 'Page ' + page + ' of ' + pg.pages + ' · ' + pg.total + ' entries';
+    var prev = document.getElementById('ecsIhLogPrev');
+    var next = document.getElementById('ecsIhLogNext');
+    if (prev) prev.disabled = page <= 1;
+    if (next) next.disabled = page >= pg.pages;
+    logPage = page;
+  }
+
+  function renderProcessCards(cards) {
+    var el = document.getElementById('ecsIhProcessCards');
+    if (!el) return;
+    el.innerHTML = cards.map(function(c) {
+      var procs = (c.processes || []).map(function(p) { return '<li>' + esc(p) + '</li>'; }).join('');
+      return '<div class="col-md-6 col-lg-4"><div class="ecs-ih-bp-card" style="cursor:pointer" data-connector-full="' + esc(c.connector_full) + '">' +
+        '<div class="ecs-ih-bp-hdr">' + esc(c.connector) + '</div><ul class="ecs-ih-bp-list">' + procs + '</ul>' +
+        '<div class="ecs-ih-bp-meta">Applications: <strong>' + c.applications + '</strong><br>Evidence Collection: <strong>' + esc(c.evidence_collection) + '</strong></div></div></div>';
+    }).join('');
+  }
+
+  function updateKpis(v, hm, issues, logs) {
+    var strip = document.querySelector('.ecs-exec-strip-scroll');
+    if (!strip) return;
+    var active = hm.length;
+    var apps = hm.reduce(function(s, r) { return s + (r.apps || 0); }, 0);
+    var failed = hm.reduce(function(s, r) { return s + (r.failures || 0); }, 0);
+    var open = issues.filter(function(i) { return i.status === 'Open'; }).length;
+    var healthy = hm.filter(function(r) { return r.status === 'Healthy'; }).length;
+    var pct = active ? Math.round(healthy / active * 100) : 0;
+    var evToday = Math.max(1, Math.round(logs.length / 18));
+    var map = {
+      'Active Connectors': active,
+      'Applications Integrated': apps,
+      'Evidence Imports Today': evToday,
+      'Failed Syncs': failed,
+      'Open Connector Issues': open,
+      'Healthy Integrations %': pct + '%'
+    };
+    strip.querySelectorAll('.ecs-exec-kpi').forEach(function(kpi) {
+      var lbl = kpi.querySelector('.ecs-exec-kpi-lbl');
+      var val = kpi.querySelector('.ecs-exec-kpi-val');
+      if (lbl && val && map[lbl.textContent.trim()] != null) val.textContent = map[lbl.textContent.trim()];
+    });
+  }
+
+  function openDetail(fullName) {
+    if (!dataset || !dataset.connector_details) return;
+    var d = dataset.connector_details[fullName];
+    if (!d) return;
+    var overlay = document.getElementById('ecsIhDetailOverlay');
+    var title = document.getElementById('ecsIhDetailTitle');
+    var sub = document.getElementById('ecsIhDetailSub');
+    var body = document.getElementById('ecsIhDetailBody');
+    if (!overlay || !body) return;
+    if (title) title.textContent = d.label + ' Integration Details';
+    if (sub) sub.textContent = d.name + ' · ' + statusDot(d.status).replace(/<[^>]+>/g,'') + ' · Last sync ' + d.last_sync;
+    var v = filterVals();
+    var apps = d.applications.filter(function(a) {
+      return !v.application || v.application.indexOf('All ') === 0 || a === v.application;
+    });
+    body.innerHTML =
+      '<div class="ecs-ih-detail-grid">' +
+      section('Connected Applications', apps.map(function(a){ return '<span class="badge bg-light text-dark me-1 mb-1">' + esc(a) + '</span>'; }).join('') || '<span class="text-muted small">None in scope</span>') +
+      section('Connected Frameworks', d.frameworks.map(function(f){ return '<span class="badge bg-primary me-1 mb-1">' + esc(f) + '</span>'; }).join('')) +
+      '</div>' +
+      section('Evidence Types Imported', '<ul class="small mb-0">' + d.evidence_types.map(function(e){ return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>') +
+      section('Sync Status Timeline', timelineHtml(d.sync_timeline)) +
+      section('Failed Jobs', tableHtml(['Job','Application','Error','When'], d.failed_jobs, function(j){ return [j.job,j.application,j.error,j.when]; })) +
+      section('Open Issues', tableHtml(['Application','Issue','Impact'], d.open_issues, function(i){ return [i.application,i.issue,i.evidence_impact]; })) +
+      section('Business Processes Supported', '<ul class="small mb-0">' + d.business_processes.map(function(p){ return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>') +
+      section('Evidence Collection Capability', '<strong>' + esc(d.evidence_collection) + '</strong> · Success rate ' + d.success_pct + '%') +
+      section('Last 10 Sync Activities', tableHtml(['Time','Severity','Message'], d.sync_activities, function(a){ return [a.timestamp,a.severity,a.message]; }));
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function section(title, html) {
+    return '<div class="ecs-ih-detail-section"><h6>' + esc(title) + '</h6>' + html + '</div>';
+  }
+
+  function tableHtml(headers, rows, fn) {
+    if (!rows || !rows.length) return '<p class="small text-muted mb-0">None in current scope.</p>';
+    var th = headers.map(function(h){ return '<th>' + esc(h) + '</th>'; }).join('');
+    var tr = rows.map(function(r) {
+      var cols = fn(r);
+      return '<tr>' + cols.map(function(c){ return '<td class="small">' + esc(c) + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    return '<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead><tr>' + th + '</tr></thead><tbody>' + tr + '</tbody></table></div>';
+  }
+
+  function timelineHtml(items) {
+    if (!items || !items.length) return '<p class="small text-muted mb-0">No recent activity.</p>';
+    return items.map(function(t) {
+      return '<div class="small mb-1"><span class="text-muted">' + esc(t.time) + '</span> · ' + sevBadge(t.status) + ' ' + esc(t.event) + '</div>';
+    }).join('');
+  }
+
+  function closeDetail() {
+    var overlay = document.getElementById('ecsIhDetailOverlay');
+    if (overlay) { overlay.classList.remove('is-open'); overlay.setAttribute('aria-hidden', 'true'); }
+  }
+
+  function applyAll() {
+    dataset = dataset || loadDataset();
+    if (!dataset) return;
+    var v = filterVals();
+    var hm = filterList(dataset.health_matrix, v);
+    var status = filterList(dataset.connector_status, v);
+    var sync = filterList(dataset.sync_monitoring, v);
+    var evidence = filterList(dataset.evidence_collection, v);
+    var issues = filterList(dataset.open_issues, v);
+    var logs = filterList(dataset.connector_logs, v);
+    var cards = filterList(dataset.business_process_cards, v);
+
+    var barMap = {};
+    status.forEach(function(r) {
+      barMap[r.connector] = (barMap[r.connector] || 0) + (r.applications || 0);
+    });
+    var bars = Object.keys(barMap).map(function(k) { return { connector: k, count: barMap[k] }; }).sort(function(a,b){ return b.count - a.count; });
+
+    var healthy = status.filter(function(r) { return r.status === 'Healthy'; }).length;
+    var total = status.length || 1;
+    var warn = status.filter(function(r) { return r.status === 'Warning'; }).length;
+    var crit = status.filter(function(r) { return r.status === 'Critical'; }).length;
+    var donut = {
+      success_pct: Math.round(healthy / total * 100),
+      partial_pct: Math.round(warn / total * 100),
+      failed_pct: Math.round(crit / total * 100)
+    };
+
+    renderBarChart(bars);
+    renderDonut(donut);
+    renderTrend(dataset.insights.sync_trend || []);
+    renderIssueSummary(issues);
+    updateKpis(v, hm, issues, logs);
+
+    renderTable('ecsIhHealthMatrix', hm, function(r) {
+      return '<tr data-connector-full="' + esc(r.connector_full) + '" class="ecs-ih-matrix-row"><td><strong>' + esc(r.connector) + '</strong></td><td>' +
+        statusDot(r.status) + '</td><td>' + r.apps + '</td><td class="small text-muted">' + esc(r.last_sync) + '</td><td>' +
+        (r.failures ? '<span class="text-danger">' + r.failures + '</span>' : '0') + '</td></tr>';
+    });
+
+    renderTable('ecsIhConnectorTable', status, function(r) {
+      return '<tr><td><strong>' + esc(r.connector) + '</strong></td><td>' + statusDot(r.status) + '</td><td>' + r.applications +
+        '</td><td class="small">' + esc(r.frameworks) + '</td><td class="small">' + esc(r.last_sync) + '</td><td>' + r.success_pct +
+        '%</td><td><button type="button" class="btn btn-sm btn-outline-primary ecs-ih-view-btn" data-connector-full="' + esc(r.connector_full) + '">View</button></td></tr>';
+    });
+
+    renderTable('ecsIhSyncTable', paginate(sync, 1).rows, function(r) {
+      return '<tr><td>' + esc(r.connector) + '</td><td>' + esc(r.application) + '</td><td class="small">' + esc(r.framework) +
+        '</td><td class="small">' + esc(r.job_type) + '</td><td class="small">' + esc(r.last_run) + '</td><td>' + esc(r.status) +
+        '</td><td>' + r.records + '</td><td>' + r.duration_sec + 's</td></tr>';
+    });
+
+    renderTable('ecsIhEvidenceTable', paginate(evidence, 1).rows, function(r) {
+      return '<tr><td>' + esc(r.connector) + '</td><td>' + esc(r.application) + '</td><td class="small">' + esc(r.framework) +
+        '</td><td class="small">' + esc(r.evidence_type) + '</td><td>' + r.imported_today + '</td><td>' + r.success_pct +
+        '%</td><td>' + esc(r.status) + '</td></tr>';
+    });
+
+    var issueRows = issuesShowAll ? issues : issues.slice(0, 10);
+    renderTable('ecsIhIssuesTable', issueRows, function(r) {
+      var trCls = r.severity === 'Critical' ? 'table-danger' : r.severity === 'High' ? 'table-warning' : '';
+      return '<tr class="' + trCls + '"><td>' + esc(r.connector) + '</td><td>' + esc(r.application) + '</td><td class="small">' + esc(r.issue) +
+        '</td><td>' + sevBadge(r.severity) + '</td><td>' + esc(r.status) + '</td><td>' + esc(r.evidence_impact) + '</td></tr>';
+    });
+
+    renderProcessCards(cards);
+    renderLogs(logs, logPage);
+
+    var summary = document.getElementById('ecsIhFilterSummary');
+    if (summary) {
+      var parts = [];
+      if (v.framework.indexOf('All ') !== 0) parts.push(v.framework);
+      if (v.application.indexOf('All ') !== 0) parts.push(v.application);
+      summary.textContent = parts.length
+        ? 'Scoped to ' + parts.join(' · ') + ' — ' + status.length + ' connectors, ' + issues.filter(function(i){ return i.status === 'Open'; }).length + ' open issues.'
+        : 'Showing enterprise integration posture across all connectors.';
+    }
+    if (window.ecsEnhanceExecutiveTables) window.ecsEnhanceExecutiveTables();
+  }
+
+  window.ecsApplyIntegrationsHubFilters = applyAll;
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.ecs-ih-view-btn');
+    if (btn) { openDetail(btn.getAttribute('data-connector-full')); return; }
+    var row = e.target.closest('.ecs-ih-matrix-row');
+    if (row) { openDetail(row.getAttribute('data-connector-full')); return; }
+    if (e.target.id === 'ecsIhDetailBack' || e.target === document.getElementById('ecsIhDetailOverlay')) closeDetail();
+    if (e.target.id === 'ecsIhViewAllIssues') { issuesShowAll = true; applyAll(); }
+    if (e.target.id === 'ecsIhLogPrev' && logPage > 1) { logPage -= 1; applyAll(); }
+    if (e.target.id === 'ecsIhLogNext' && logPage < logTotalPages) { logPage += 1; applyAll(); }
+    var bpCard = e.target.closest('.ecs-ih-bp-card');
+    if (bpCard) openDetail(bpCard.getAttribute('data-connector-full'));
+  });
+
+  document.addEventListener('change', function(e) {
+    if (e.target.id === 'ecsIhLogSeverity' || e.target.id === 'ecsIhLogConnector') {
+      logPage = 1;
+      applyAll();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeDetail();
+  });
+
+  dataset = loadDataset();
+  if (dataset && dataset.insights) {
+    renderBarChart(dataset.insights.bar_chart || []);
+    renderTrend(dataset.insights.sync_trend || []);
+  }
+  applyAll();
+})();
+</script>

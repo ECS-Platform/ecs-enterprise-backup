@@ -1,21 +1,33 @@
 <!DOCTYPE html><html><head><title>CMDB / Assets</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-cmdb"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>CMDB / Asset Inventory</h1>
-<p class="text-muted small">Enterprise asset governance — applications, servers, databases, cloud, and ownership mapping</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
-{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
-{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
-{{ grc_kpis(module_view.kpis) }}
-<div class="card shadow-sm"><div class="table-responsive ecs-paginated-wrap"><table class="table table-sm table-striped mb-0 ecs-grc-table ecs-paginated-table">
-<thead><tr><th>Asset ID</th><th>Name</th><th>Type</th><th>Env</th><th>Criticality</th><th>Owner</th><th>Risk</th><th>Internet</th><th>DR</th><th>Monitoring</th><th>Actions</th></tr></thead>
-<tbody>{% for a in module_view.rows %}
-<tr class="{% if a.risk_rating in ['Critical','High'] %}table-warning{% endif %}">
-<td>{{ a.asset_id }}</td><td><strong>{{ a.name }}</strong></td><td>{{ a.type }}</td><td>{{ a.environment }}</td>
-<td>{{ a.criticality }}</td><td>{{ a.owner }}</td><td><span class="badge bg-{% if a.risk_rating in ['Critical','High'] %}danger{% else %}secondary{% endif %}">{{ a.risk_rating }}</span></td>
-<td>{% if a.internet_facing %}Yes{% else %}No{% endif %}</td><td>{% if a.dr_covered %}✓{% else %}<span class="text-danger">✗</span>{% endif %}</td>
-<td>{% if a.monitoring_enabled %}✓{% else %}<span class="text-warning">✗</span>{% endif %}</td>
-<td class="text-nowrap">{{ module_action('cmdb', 'open_asset', role, user, 'Open', 'btn-outline-primary btn-sm', a.asset_id) }}</td>
-</tr>{% endfor %}</tbody></table></div></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">CMDB / Asset Inventory</h1>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading CMDB assets…</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<p class="ecs-ws-summary">{{ module_view.rows|length }} assets in CMDB — criticality, DR, and monitoring coverage.</p>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('assets', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="cmdb-assets"><thead><tr><th>Asset ID</th><th>Name</th><th>Type</th><th>Env</th><th>Criticality</th><th>Owner</th><th>Risk</th><th>Actions</th></tr></thead><tbody>
+{% for a in module_view.rows %}
+<tr class="{% if a.risk_rating in ['Critical','High'] %}table-warning{% endif %}" data-ecs-filter-row data-filter-owner="{{ a.owner }}" data-filter-risk="{{ a.risk_rating }}">
+<td>{{ a.asset_id }}</td><td>{{ a.name }}</td><td>{{ a.type }}</td><td>{{ a.environment }}</td><td>{{ a.criticality }}</td><td>{{ a.owner }}</td>
+<td><span class="badge bg-{% if a.risk_rating in ['Critical','High'] %}danger{% else %}secondary{% endif %}">{{ a.risk_rating }}</span></td>
+<td>{{ module_action('cmdb', 'open_asset', role, user, 'Open', 'btn-outline-primary btn-sm', a.asset_id) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

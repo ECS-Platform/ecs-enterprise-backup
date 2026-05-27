@@ -1,0 +1,64 @@
+<!DOCTYPE html><html><head><title>Upload Evidence</title>{% include "partials/mvp_styles.html" %}{% include "partials/workflow_styles.html" %}</head>
+<body class="bg-light ecs-cap-audit"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 p-4">
+<div class="ecs-workflow-header"><a href="{{ return_url }}" class="small text-muted">&larr; Back</a>
+<h1 class="h3 mt-1">{{ workflow_title }}</h1>
+<p class="text-muted small mb-0">{{ framework }} · {{ application }}{% if observation_id %} · <code>{{ observation_id }}</code>{% endif %}</p></div>
+{% if notice %}<div class="alert alert-success">{{ notice }}</div>{% endif %}
+<div class="row g-3">
+<div class="col-lg-8">
+<form method="post" action="/mvp/workflow/upload-missing" enctype="multipart/form-data" class="card shadow-sm border-0">
+<div class="card-body">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="framework" value="{{ framework }}">
+<input type="hidden" name="control" value="{{ linked_control }}">
+<input type="hidden" name="observation_id" value="{{ observation_id|default('') }}">
+<input type="hidden" name="return_module" value="{{ request.query_params.get('return_module', 'audit_prep') }}">
+{% if observation_id %}
+<div class="alert alert-warning border small mb-3">
+<strong>Observation {{ observation_id }}</strong> — {{ missing_evidence_label|default(missing_evidence_type) }}<br>
+<span class="text-muted">Severity: {{ observation_severity|default('—') }} · Requested by: {{ requested_by|default('—') }} · Impact: {{ audit_impact|default('—') }}</span>
+</div>
+{% endif %}
+<div class="row g-2 mb-3 small">
+<div class="col-md-6"><span class="text-muted">Missing evidence</span><br><strong>{{ missing_evidence_label|default(missing_evidence_type) }}</strong></div>
+<div class="col-md-6"><span class="text-muted">Control description</span><br>{{ control_description|default(linked_control) }}</div>
+<div class="col-md-4"><span class="text-muted">Last uploaded version</span><br>{{ last_uploaded_version }}</div>
+<div class="col-md-4"><span class="text-muted">Evidence expiry / due</span><br><span class="text-danger">{{ evidence_expiry }}</span></div>
+<div class="col-md-4"><span class="text-muted">Required format</span><br>{{ required_format }}</div></div>
+<div class="alert alert-light border small mb-3"><strong>Auditor comments:</strong> {{ auditor_comments }}</div>
+<div class="mb-3"><label class="form-label fw-semibold">Upload file</label>
+<input type="file" class="form-control" name="evidence_file" accept=".pdf,.xlsx,.csv,.png,.jpg">
+<div class="form-text">Drag/drop supported · or select mock sample below</div></div>
+<div class="mb-3"><label class="form-label fw-semibold">Evidence category</label>
+<select class="form-select form-select-sm" name="evidence_category">
+<option value="Log Export">Log Export</option><option value="PDF Report">PDF Report</option><option value="Scan Report">Scan Report</option>
+<option value="Configuration Export">Configuration Export</option><option value="Access Review">Access Review</option><option value="Attestation Pack">Attestation Pack</option>
+</select></div>
+<div class="mb-3"><label class="form-label fw-semibold">Mock samples (click to select)</label>
+<div class="row g-2">{% for f in mock_files %}
+<div class="col-md-6"><label class="ecs-mock-file d-block mb-0"><input type="radio" name="mock_filename" value="{{ f.name }}" {% if loop.first %}checked{% endif %} class="me-2">
+<strong>{{ f.name }}</strong><br><span class="text-muted small">{{ f.type }} · {{ f.size }}</span></label></div>
+{% endfor %}</div></div>
+<div class="mb-3"><label class="form-label fw-semibold">Evidence comments</label>
+<textarea class="form-control" name="evidence_comments" rows="2" placeholder="Attestation, period covered, control mapping notes..."></textarea></div>
+<div class="row g-2 mb-3">
+<div class="col-md-6"><label class="form-label fw-semibold">Remediation owner</label>
+<input class="form-control form-control-sm" name="remediation_owner" value="{{ remediation_owner|default('') }}"></div>
+<div class="col-md-6"><label class="form-label fw-semibold">Expected closure date</label>
+<input type="date" class="form-control form-control-sm" name="expected_closure" value="{{ evidence_expiry }}"></div></div>
+<div class="row g-2 mb-3">
+<div class="col-md-4"><label class="form-label fw-semibold">Link SharePoint</label>
+<input class="form-control form-control-sm" name="sharepoint_link" value="{{ sharepoint_link }}"></div>
+<div class="col-md-4"><label class="form-label fw-semibold">Link ServiceNow</label>
+<input class="form-control form-control-sm" name="servicenow_ticket" value="{{ servicenow_ticket }}"></div>
+<div class="col-md-4"><label class="form-label fw-semibold">Link Jira remediation</label>
+<input class="form-control form-control-sm" name="jira_remediation" value="{{ jira_remediation }}"></div></div>
+<div class="d-flex flex-wrap gap-2">
+<button type="submit" name="submit_type" value="upload_draft" class="btn btn-outline-secondary">Upload Draft</button>
+<button type="submit" name="submit_type" value="submit_review" class="btn btn-primary">Submit to App Owner Review</button>
+<a href="{{ return_url }}" class="btn btn-link">Cancel</a>
+</div></div></form></div>
+<div class="col-lg-4">{% include "partials/workflow_guidance.html" %}</div></div></div></div></div>{% include "partials/chatbot_global.html" %}</body></html>

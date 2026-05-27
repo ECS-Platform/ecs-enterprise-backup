@@ -1,35 +1,92 @@
-<!DOCTYPE html><html><head><title>Bulk Upload</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Bulk Upload</title>{% include "partials/mvp_styles.html" %}
+</head>
 <body class="bg-light ecs-cap-upload"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Bulk Evidence Import Center</h1>
-<p class="text-muted small">Batch onboarding with parser validation, duplicate detection, and framework auto-mapping</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Bulk Evidence Import</h1>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<div class="ecs-module-actions">
-<form method="post" action="/mvp/upload/bulk" enctype="multipart/form-data" class="d-inline-flex gap-2 align-items-center">
-<input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}">
-<input type="file" name="files" multiple class="form-control form-control-sm" style="width:auto">
-<button class="btn btn-primary btn-sm">Upload Batch</button></form>
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="small text-muted mb-2" id="ecsOpsFilterSummary">Loading filtered upload data…</p>
+<div class="d-flex flex-wrap gap-2 mb-2">
+<button type="button" class="btn btn-primary btn-sm" data-upload-workflow>Open Upload Workflow</button>
+<button type="button" class="btn btn-outline-primary btn-sm" data-ecs-tab-switch="uploads">View Upload Batches</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-ecs-tab-switch="tracker">View Tracker</button>
+</div>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<div class="ecs-ws-metric-row mb-2">
+<span>Approved: <strong data-ecs-ops-kpi="Approved Uploads">0</strong></span>
+<span>Rejected: <strong data-ecs-ops-kpi="Rejected Evidence">0</strong></span>
+<span>Validating: <strong data-ecs-ops-kpi="Validating Now">0</strong></span>
+<span>Approval rate: <strong data-ecs-ops-kpi="Approval Rate">0%</strong></span>
+</div>
+<div class="chart-card mb-2"><div class="chart-card-title">Upload trends by framework (filtered)</div>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsUploadTrendBars"></div></div></div>
+<form method="post" action="/mvp/upload/bulk" enctype="multipart/form-data" class="d-flex gap-2 align-items-center flex-wrap mb-2" id="ecsBulkUploadForm">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="framework" id="ecsUploadFrameworkHidden" value="">
+<input type="hidden" name="application" id="ecsUploadApplicationHidden" value="">
+<input type="file" name="files" multiple class="form-control form-control-sm" style="max-width:280px">
+<button class="btn btn-primary btn-sm">Upload Batch</button>
 {{ module_action('upload','validate',role,user,'Validate All','btn-outline-primary btn-sm') }}
 {{ module_action('upload','reprocess',role,user,'Reprocess Errors','btn-outline-warning btn-sm') }}
-</div>
-<div class="row g-3">
-{% for b in module_view.rows %}
-<div class="col-md-6"><div class="card shadow-sm p-3 h-100">
-<div class="d-flex justify-content-between"><code>{{ b.batch_id }}</code><span class="badge bg-secondary">{{ b.status }}</span></div>
-<p class="small text-muted mb-1">{{ b.uploaded_at }} · {{ b.uploaded_by|default('App Owner') }}</p>
-<div class="batch-progress mb-2"><div class="batch-progress-bar" style="width:{{ b.progress_pct|default(100) }}%"></div></div>
-<div class="row small g-2"><div class="col-4"><strong>{{ b.file_count }}</strong> files</div>
-<div class="col-4">Parsing: {{ b.parsing_status }}</div><div class="col-4">Dupes: {{ b.duplicate_count|default(0) }}</div>
-<div class="col-12">Framework mapping: {{ b.framework_mapping }}</div>
-<div class="col-12 text-danger">Parser errors: {{ b.error_count|default(0) }}</div></div>
-<div class="mt-2">{{ module_action('upload','validate',role,user,'Validate','btn-sm btn-outline-primary',b.batch_id) }}
+</form>
+<h6 class="small text-muted text-uppercase mb-1">Sample Evidence Types</h6>
+<ul class="small mb-0">{% for s in module_view.mock_samples|default([]) %}
+<li>{{ s.name }} — {{ s.framework }} ({{ s.type }})</li>{% endfor %}</ul>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('uploads', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-ops-table="upload-batches"><thead><tr><th>Batch</th><th>Status</th><th>Files</th><th>Progress</th><th>Errors</th><th>Framework</th><th>Uploaded By</th><th>Uploaded</th><th>Actions</th></tr></thead><tbody>
+{% for b in module_view.rows[:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ b.framework|default('') }}" data-filter-application="{{ b.application|default('') }}" data-filter-status="{{ b.status }}" data-filter-owner="{{ b.owner|default('') }}" data-filter-risk="{{ b.risk|default('') }}">
+<td><code class="small">{{ b.batch_id }}</code></td><td>{{ b.status }}</td><td>{{ b.file_count }}</td><td>{{ b.progress_pct|default(100) }}%</td><td>{{ b.error_count|default(0) }}</td>
+<td class="small">{{ b.framework|default(b.framework_mapping|default('—')) }}</td><td class="small">{{ b.uploaded_by|default('—') }}</td><td class="small">{{ b.uploaded_at }}</td>
+<td class="text-nowrap">{{ module_action('upload','validate',role,user,'Validate','btn-sm btn-outline-primary',b.batch_id) }}
 {{ module_action('upload','reprocess',role,user,'Reprocess','btn-sm btn-outline-warning',b.batch_id) }}
-{{ module_action('upload','approve_import',role,user,'Approve Import','btn-sm btn-success',b.batch_id) }}</div>
-</div></div>
+{{ module_action('upload','approve_import',role,user,'Approve','btn-sm btn-success',b.batch_id) }}</td></tr>
 {% endfor %}
-</div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('tracker', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-ops-table="upload-tracker"><thead><tr>
+<th>File Name</th><th>Framework</th><th>Application</th><th>Uploaded By</th><th>Status</th><th>Timestamp</th>
+</tr></thead><tbody>
+{% for u in module_view.tracker_rows[:10] %}
+<tr data-ecs-filter-row data-filter-status="{{ u.status }}" data-filter-framework="{{ u.framework|default('') }}" data-filter-application="{{ u.application|default('') }}" data-filter-owner="{{ u.owner|default('') }}" data-filter-risk="{{ u.risk|default('') }}">
+<td class="small">{{ u.filename|default(u.evidence_name|default(''))|truncate(40, True, '') }}</td>
+<td class="small">{{ u.uploaded_at|default('—') }}</td>
+<td class="small">{{ u.uploaded_by|default('—') }}</td>
+<td class="small">{{ u.application|default(u.tags|default('—')) }}</td>
+<td>{{ u.framework|default('—') }}</td>
+<td><span class="badge {% if u.status=='Approved' %}bg-success{% elif u.status=='Rejected' %}bg-danger{% elif u.status=='Expired' %}bg-secondary{% elif u.status=='Pending Review' %}bg-warning text-dark{% else %}bg-primary{% endif %}">{{ u.status|default('Uploaded') }}</span></td>
+<td class="small"><code>{{ u.control_id|default(u.mapped_controls|default('—')) }}</code></td>
+<td class="small">{{ u.evidence_type|default('—') }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% if module_view.operations_dataset is defined %}
+<script type="application/json" id="ecsOperationsDataset">{{ module_view.operations_dataset|tojson }}</script>
+{% include "partials/operations_filter_client.html" %}
+{% include "partials/upload_simulation_client.html" %}
+{% endif %}
+{% include "partials/upload_modals.html" %}
+{% include "partials/chatbot_global.html" %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include "partials/evidence_upload_modal.html" %}
+{% if upload_prefill is defined and upload_prefill.framework %}
+<script>document.addEventListener('DOMContentLoaded',function(){
+  if(window.ecsOpenEvidenceUpload) window.ecsOpenEvidenceUpload({{ upload_prefill|tojson }});
+});</script>
+{% endif %}
+</body></html>

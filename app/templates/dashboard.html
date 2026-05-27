@@ -24,6 +24,10 @@
 {% from "partials/ecs_ux_macros.html" import page_header, kpi_card, accordion_section, priority_card, zone_open, zone_close %}
 
 {{ page_header(role.upper() ~ ' Dashboard', 'Governance posture and prioritized actions', user, role) }}
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
 
 {# ── TOP: KPI summary ── #}
 {{ zone_open('top') }}
@@ -91,6 +95,28 @@
 {% endfor %}
 </div>
 {% endif %}
+{% if role == 'auditor' and closed_observations_queue %}
+{% call accordion_section('Closed Observations (Historical)', 'dash-closed-obs', closed_observations_queue|length|string, false) %}
+<p class="small text-muted mb-2">Auditor-approved closures — evidence and audit trail retained for regulatory review.</p>
+<div class="table-responsive">
+<table class="table table-sm table-bordered bg-white mb-0 ecs-executive-table">
+<thead><tr><th>Observation ID</th><th>Application</th><th>Framework</th><th>Control</th><th>Closed</th><th>Approved By</th><th>Evidence</th><th></th></tr></thead>
+<tbody>
+{% for row in closed_observations_queue[:15] %}
+<tr>
+<td><code class="small">{{ row.observation_id }}</code></td>
+<td>{{ row.application }}</td>
+<td>{{ row.framework }}</td>
+<td class="small">{{ row.control_id or row.control[:30] }}</td>
+<td class="small">{{ row.closed_at }}</td>
+<td class="small">{{ row.closed_by }}</td>
+<td><code class="small">{{ row.evidence_id or '—' }}</code></td>
+<td><a href="{{ review_url(row.framework, row.control, row.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm py-0">View Evidence</a></td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+{% endcall %}
+{% endif %}
 
 {% call accordion_section('Notifications & Activity Feed', 'dash-notifications', '', true) %}
 {% include "partials/enterprise_widgets.html" %}
@@ -142,5 +168,7 @@
 </div>
 
 {% include "partials/chatbot_global.html" %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include "partials/evidence_upload_modal.html" %}
 </body>
 </html>

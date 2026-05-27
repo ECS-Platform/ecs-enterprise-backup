@@ -278,6 +278,10 @@ def _control_domain(framework: str, control: str) -> str:
         return "Capacity Management"
     if any(w in cl for w in ("availability", "uptime", "ha ", "redundancy")):
         return "Availability Management"
+    if any(w in cl for w in ("patch", "vulnerability", "kb ", "hotfix")):
+        return "Patch Governance"
+    if any(w in cl for w in ("vendor", "third party", "third-party", "sla", "contract")):
+        return "Vendor Governance"
     return "Operations Governance"
 
 
@@ -296,18 +300,26 @@ def _impl_deviation(check: str, status: str) -> str:
 
 
 def validation_summary(framework: str) -> dict:
-    rows = build_control_validations(framework, limit=20)
+    rows = build_control_validations(framework, limit=500)
     passed = sum(1 for r in rows if r["status"] == "PASS")
     failed = sum(1 for r in rows if r["status"] == "FAIL")
     warned = sum(1 for r in rows if r["status"] == "WARN")
     total = len(rows) or 1
+    controls = get_framework_controls(framework)
+    from app.framework_governance_data import get_framework_profile
+    apps = get_framework_profile(framework).get("applications", [])
     return {
         "total_checks": total,
         "passed": passed,
         "failed": failed,
         "warned": warned,
         "effectiveness_pct": round((passed / total) * 100, 1),
-        "failed_controls": list({r["control"] for r in rows if r["status"] == "FAIL"})[:8],
+        "failed_controls": list({r["control_id"] for r in rows if r["status"] == "FAIL"})[:12],
+        "scope_label": f"Across {len(controls)} {framework} controls and {len(apps)} applications",
+        "control_count": len(controls),
+        "application_count": len(apps),
+        "aggregation_type": "validation_checks",
+        "explanation": "Validation checks — config, evidence, policy, SLA runs. Not the same as governance control count.",
     }
 
 

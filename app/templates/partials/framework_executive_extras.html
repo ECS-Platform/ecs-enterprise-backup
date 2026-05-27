@@ -1,0 +1,43 @@
+{# Compact executive extras — implementation coverage, pending by owner, evidence aging #}
+{% if fw_dashboard is defined and fw_dashboard.executive_extras is defined %}
+{% set ex = fw_dashboard.executive_extras %}
+<div class="row g-3 mb-2">
+<div class="col-md-4">
+<div class="ecs-section-card h-100 mb-0 py-3">
+<h6 class="text-muted small text-uppercase mb-1">Control Implementation Coverage</h6>
+<p class="small text-muted mb-2">{{ ex.coverage_label|default('Required controls with valid evidence, ownership, and approval') }}</p>
+{% for item in ex.maturity_trend %}
+<div class="ecs-insight-bar mb-1">
+<div class="ecs-insight-bar-label"><span>{{ item.name }}</span><strong>{{ item.score }}%</strong></div>
+<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill bg-primary" style="width:{{ item.score }}%"></div></div>
+</div>
+{% endfor %}
+</div>
+</div>
+<div class="col-md-4">
+<div class="ecs-section-card h-100 mb-0 py-3">
+<h6 class="text-muted small text-uppercase mb-2">Pending with App Owner</h6>
+{% if ex.pending_by_owner %}
+<ul class="list-unstyled mb-0 small">
+{% for row in ex.pending_by_owner %}
+<li class="d-flex justify-content-between py-1 border-bottom"><span>{{ row.owner }}</span><span class="badge bg-warning text-dark">{{ row.count }}</span></li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="text-muted small mb-0">—</p>
+{% endif %}
+</div>
+</div>
+<div class="col-md-4">
+<div class="ecs-section-card h-100 mb-0 py-3">
+<h6 class="text-muted small text-uppercase mb-1">Active Evidence Age</h6>
+<p class="small text-muted mb-2">Current · stale · expired in this framework</p>
+<div class="d-flex gap-2 flex-wrap">
+<div class="ecs-module-card-stat flex-fill"><span class="ecs-module-card-stat-val text-success">{{ ex.audit_aging.current }}</span><span class="ecs-module-card-stat-lbl">Current</span></div>
+<div class="ecs-module-card-stat flex-fill"><span class="ecs-module-card-stat-val text-warning">{{ ex.audit_aging.stale }}</span><span class="ecs-module-card-stat-lbl">Stale</span></div>
+<div class="ecs-module-card-stat flex-fill"><span class="ecs-module-card-stat-val text-danger">{{ ex.audit_aging.expired }}</span><span class="ecs-module-card-stat-lbl">Expired</span></div>
+</div>
+</div>
+</div>
+</div>
+{% endif %}

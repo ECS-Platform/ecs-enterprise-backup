@@ -9,6 +9,26 @@ from app.control_validation_engine import _control_domain, validation_summary
 from app.framework_catalog import get_framework_controls
 from app.workflow_module import build_owner_work_queue
 
+ITPP_APPLICATIONS = [
+    "Net Banking", "Mobile Banking", "UPI", "Cards", "Treasury", "LOS", "CRM",
+]
+
+ITPP_LANDING_DOMAINS = [
+    "Disaster Recovery",
+    "Change Management",
+    "Incident Management",
+    "Problem Management",
+    "Capacity Management",
+    "Backup Management",
+    "Availability Management",
+    "Vendor Governance",
+]
+
+ITPP_DOMAIN_LABELS = {
+    "Backup Management": "Backup Governance",
+    "Availability Management": "Availability Governance",
+}
+
 ITPP_DOMAINS = {
     "Disaster Recovery": {
         "icon": "🛡",
@@ -44,6 +64,16 @@ ITPP_DOMAINS = {
         "icon": "✅",
         "summary": "Uptime SLAs, HA validation, redundancy configuration, and downtime reporting.",
         "kpis": ["uptime_pct", "ha_tests_passed", "downtime_events_qtr"],
+    },
+    "Patch Governance": {
+        "icon": "🔧",
+        "summary": "Patch compliance windows, emergency patching, vulnerability SLAs, and rollback validation.",
+        "kpis": ["patch_compliance_pct", "overdue_patches", "emergency_patches", "rollback_success_rate"],
+    },
+    "Vendor Governance": {
+        "icon": "🤝",
+        "summary": "Third-party risk reviews, SLA adherence, contract compliance, and vendor audit evidence.",
+        "kpis": ["vendor_reviews_due", "sla_breaches", "contract_gaps", "vendor_audit_pct"],
     },
 }
 
@@ -84,6 +114,16 @@ DOMAIN_ACTIONS = {
     "Availability Management": [
         ("Review Uptime", "review_uptime"),
         ("Escalate Availability Risk", "escalate_availability"),
+    ],
+    "Patch Governance": [
+        ("Review Patch Window", "review_patch"),
+        ("Escalate Overdue Patch", "escalate_patch"),
+        ("Upload Patch Evidence", "upload_patch"),
+    ],
+    "Vendor Governance": [
+        ("Review Vendor SLA", "review_vendor"),
+        ("Escalate Contract Gap", "escalate_vendor"),
+        ("Upload Vendor Audit", "upload_vendor"),
     ],
 }
 
@@ -145,6 +185,22 @@ def _simulation(domain: str, control: dict, idx: int) -> dict:
             "last_run": "2026-05-24 06:00 UTC",
             "detail": f"CPU avg 72% — {name} threshold review due.",
             "overdue": seed % 10 == 0,
+        }
+    if domain == "Patch Governance":
+        return {
+            "simulation_type": "Patch compliance scan",
+            "status": "Compliant" if seed % 4 else "Overdue",
+            "last_run": "2026-05-23 22:00 UTC",
+            "detail": f"Patch window validated — {name} within SLA.",
+            "overdue": seed % 6 == 0,
+        }
+    if domain == "Vendor Governance":
+        return {
+            "simulation_type": "Vendor SLA review",
+            "status": "Within SLA" if seed % 5 else "Breached",
+            "last_run": "2026-05-21 10:00 UTC",
+            "detail": f"Vendor contract review — {name} audit current.",
+            "overdue": seed % 8 == 0,
         }
     return {
         "simulation_type": "Uptime dashboard",
@@ -251,9 +307,9 @@ def _dr_readiness(domains: list[dict]) -> float:
 def _role_actions(domain: str, role: str) -> list[tuple[str, str]]:
     actions = DOMAIN_ACTIONS.get(domain, [])
     if role == "auditor":
-        return [(a, c) for a, c in actions if "Review" in a or "Approve" in a or "View" in a]
+        return [(a, c) for a, c in actions if any(w in a for w in ("Review", "Approve", "View", "Assign", "Reassign", "Escalate"))]
     if role in ("cio", "vertical_head", "compliance_head"):
-        return [(a, c) for a, c in actions if "Escalate" in a or "View" in a or "Review" in a]
+        return [(a, c) for a, c in actions if any(w in a for w in ("Escalate", "View", "Review"))]
     return actions
 
 
@@ -292,3 +348,96 @@ def execute_itpp_action(action: str, domain: str, user: str, role: str) -> str:
         detail=msg,
     )
     return msg
+
+
+def _seed_metric(seed: str, lo: int, hi: int) -> int:
+    return (hash(seed) % (hi - lo + 1)) + lo
+
+
+def build_itpp_landing_cards() -> list[dict]:
+    """Category cards for ITPP command center landing."""
+    cards = []
+    op = build_itpp_operational_view()
+    domain_map = {d["name"]: d for d in op["domains"]}
+    for domain in ITPP_LANDING_DOMAINS:
+        meta = ITPP_DOMAINS.get(domain, {"icon": "📋", "summary": ""})
+        d = domain_map.get(domain, {})
+        gaps = max(0, d.get("control_count", 0) - d.get("approved_count", 0))
+        cards.append({
+            "name": domain,
+            "label": ITPP_DOMAIN_LABELS.get(domain, domain),
+            "icon": meta["icon"],
+            "applications": _seed_metric(domain + "apps", 4, 7),
+            "controls_coverage": f"{d.get('maturity_pct', _seed_metric(domain + 'mat', 78, 94))}%",
+            "policy_compliance": f"{_seed_metric(domain + 'pol', 82, 97)}%",
+            "open_gaps": gaps or _seed_metric(domain + "gap", 1, 6),
+            "expired_reviews": _seed_metric(domain + "exp", 0, 3),
+            "tone": "danger" if gaps > 4 else ("warning" if gaps > 1 else "success"),
+        })
+    return cards
+
+
+def build_itpp_domain_view(domain: str) -> dict | None:
+    """DR maturity dashboard for a selected ITPP domain."""
+    if domain not in ITPP_DOMAINS:
+        return None
+    op = build_itpp_operational_view()
+    domain_data = next((d for d in op["domains"] if d["name"] == domain), None)
+    if not domain_data:
+        return None
+    apps = []
+    for idx, app_name in enumerate(ITPP_APPLICATIONS):
+        seed = domain + app_name
+        apps.append({
+            "name": app_name,
+            "dr_status": "Ready" if _seed_metric(seed + "dr", 0, 4) else "At Risk",
+            "test_success_pct": _seed_metric(seed + "tst", 82, 99),
+            "evidence_count": _seed_metric(seed + "ev", 2, 8),
+            "overdue": _seed_metric(seed + "od", 0, 3) == 0,
+            "pending_reviews": _seed_metric(seed + "pr", 0, 2),
+            "maturity_pct": _seed_metric(seed + "m", 75, 98),
+        })
+    return {
+        "domain": domain,
+        "icon": ITPP_DOMAINS[domain]["icon"],
+        "summary": ITPP_DOMAINS[domain]["summary"],
+        "maturity_pct": domain_data.get("maturity_pct", 0),
+        "control_count": domain_data.get("control_count", 0),
+        "approved_count": domain_data.get("approved_count", 0),
+        "dr_test_success_pct": _seed_metric(domain + "drsucc", 88, 98),
+        "overdue_applications": sum(1 for a in apps if a["overdue"]),
+        "pending_reviews": sum(a["pending_reviews"] for a in apps),
+        "applications": apps,
+        "controls": domain_data.get("controls", []),
+        "actions": domain_data.get("actions", []),
+        "kpis": op["kpis"],
+    }
+
+
+def build_itpp_app_view(domain: str, application: str, catalog_controls: list[dict] | None = None) -> dict | None:
+    """Application-wise controls and workflow for ITPP domain drill-down."""
+    if domain not in ITPP_DOMAINS or application not in ITPP_APPLICATIONS:
+        return None
+    controls = catalog_controls or get_framework_controls("ITPP")
+    domain_controls = [c for c in controls if _control_domain("ITPP", c["control"]) == domain]
+    rows = []
+    for ctrl in domain_controls:
+        app_evs = [ev for ev in ctrl.get("evidences", []) if ev.get("application_name") == application]
+        if not app_evs:
+            app_evs = ctrl.get("evidences", [])[:1]
+        ckey = f"ITPP::{ctrl['control']}"
+        rows.append({
+            "control": ctrl["control"],
+            "control_id": ctrl["control_id"],
+            "evidences": app_evs,
+            "workflow_status": ecs_state.control_status("ITPP", ctrl["control"]),
+            "ckey": ckey,
+        })
+    pending = sum(1 for r in rows if r["ckey"] in ecs_state.submitted_controls or r["ckey"] in ecs_state.rejected_controls)
+    return {
+        "domain": domain,
+        "application": application,
+        "controls": rows,
+        "pending_count": pending,
+        "maturity_pct": _seed_metric(domain + application + "mat", 78, 96),
+    }

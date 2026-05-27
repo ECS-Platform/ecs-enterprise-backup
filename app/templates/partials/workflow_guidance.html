@@ -1,0 +1,13 @@
+<div class="card shadow-sm border-0 ecs-workflow-guidance">
+<div class="card-header bg-dark text-white py-2"><strong class="small text-uppercase">Workflow Guidance</strong></div>
+<div class="card-body small">
+<div class="row g-2">
+<div class="col-6"><span class="text-muted">Status</span><br><span class="badge bg-secondary">{{ guidance.status }}</span></div>
+<div class="col-6"><span class="text-muted">Current Owner</span><br><strong>{{ guidance.owner }}</strong></div>
+<div class="col-12"><span class="text-muted">Next Action</span><br>{{ guidance.next_action }}</div>
+<div class="col-4"><span class="text-muted">Due Date</span><br>{{ guidance.due_date }}</div>
+<div class="col-4"><span class="text-muted">SLA Risk</span><br>
+<span class="badge {% if guidance.sla_risk == 'High' %}bg-danger{% elif guidance.sla_risk == 'Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ guidance.sla_risk }}</span></div>
+<div class="col-4"><span class="text-muted">Escalation Risk</span><br>
+<span class="badge {% if guidance.escalation_risk == 'High' %}bg-danger{% elif guidance.escalation_risk == 'Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ guidance.escalation_risk }}</span></div>
+</div></div></div>

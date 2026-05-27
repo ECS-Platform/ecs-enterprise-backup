@@ -1,0 +1,4 @@
+{% if module_view.standard_dataset is defined %}
+<script type="application/json" id="ecsStandardDataset">{{ module_view.standard_dataset|tojson }}</script>
+{% include "partials/standard_filter_client.html" %}
+{% endif %}

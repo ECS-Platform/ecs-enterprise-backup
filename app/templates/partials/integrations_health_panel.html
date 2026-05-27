@@ -1,0 +1,267 @@
+{# Framework-aware integration health dashboard — dynamic filters #}
+<script type="application/json" id="ecsIntegrationHealthData">{{ {
+  'health_rows': module_view.all_health_rows|default(module_view.health_rows|default([])),
+  'kpis': module_view.kpis|default([])
+}|tojson }}</script>
+
+<div class="ecs-exec-strip mb-2" id="ecsIntegKpiStrip"><div class="ecs-exec-strip-scroll">
+{% for k in module_view.kpis|default([]) %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}" data-integ-kpi="{{ k.label }}">
+<span class="ecs-exec-kpi-val">{{ k.value }}</span>
+<span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
+</div>
+{% endfor %}
+</div></div>
+
+<p class="small text-muted mb-2" id="ecsIntegFilterSummary">Showing all integration evidence flows across frameworks and applications.</p>
+
+<div class="compact-chart-grid mb-2">
+<div class="chart-card"><div class="chart-card-title">Connector usage by application (filtered)</div>
+<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsIntegBarChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Connector health distribution</div>
+<div id="ecsIntegHealthPie" class="ecs-integ-pie-wrap mb-1"></div>
+<ul class="list-unstyled small mb-0" id="ecsIntegHealthLegend"></ul></div>
+</div>
+
+<div class="chart-card mb-2">
+<div class="chart-card-title">Framework → integration dependencies</div>
+<div class="row g-1" id="ecsIntegDepGrid"></div>
+</div>
+
+<div class="chart-card mb-0">
+<div class="chart-card-title">Integration health &amp; evidence connectivity</div>
+<div class="table-responsive ecs-fit-view">
+<table class="table table-sm table-bordered ecs-fit-table ecs-compact-table mb-0" id="ecsIntegHealthTable">
+<thead><tr>
+<th>Timestamp</th><th>Framework</th><th>Application</th><th>Connector</th><th>Purpose</th>
+<th>Evidence Type</th><th>Health</th><th>Issue</th><th>Impact</th><th>Owner</th><th>Action</th><th>Sync Status</th>
+</tr></thead>
+<tbody id="ecsIntegHealthBody"></tbody>
+</table>
+</div></div>
+
+<script>
+(function(){
+  if (window.__ecsIntegFilterInit) return;
+  window.__ecsIntegFilterInit = true;
+
+  var data = { health_rows: [], kpis: [] };
+  try {
+    data = JSON.parse(document.getElementById('ecsIntegrationHealthData').textContent || '{}');
+  } catch (e) {}
+
+  function filterVals() {
+    var vals = {};
+    document.querySelectorAll('[data-ecs-workspace-filters] .ecs-ws-filter').forEach(function(sel){
+      vals[sel.getAttribute('data-filter-key')] = sel.value;
+    });
+    return vals;
+  }
+
+  function matchRow(r, v) {
+    if (v.framework && v.framework.indexOf('All ') !== 0 && r.framework !== v.framework) return false;
+    if (v.application && v.application.indexOf('All ') !== 0 && r.application !== v.application) return false;
+    if (v.owner && v.owner.indexOf('All ') !== 0 && r.owner !== v.owner) return false;
+    if (v.risk && v.risk.indexOf('All ') !== 0) {
+      if (v.risk === 'High') { if (r.risk !== 'High' && r.risk !== 'Critical') return false; }
+      else if (r.risk !== v.risk) return false;
+    }
+    if (v.status && v.status.indexOf('All ') !== 0) {
+      var st = r.status || r.health || r.sync_status;
+      if (st !== v.status && r.health !== v.status && r.sync_status !== v.status) return false;
+    }
+    return true;
+  }
+
+  function usageBars(rows) {
+    var counts = {};
+    rows.forEach(function(r) {
+      var short = r.connector.split(' ')[0];
+      if (r.connector.indexOf('SharePoint') >= 0) short = 'SharePoint';
+      else if (r.connector.indexOf('ServiceNow GRC') >= 0) short = 'ServiceNow';
+      else if (r.connector.indexOf('ServiceNow CMDB') >= 0) short = 'ServiceNow CMDB';
+      else if (r.connector.indexOf('Tripwire') >= 0) short = 'Tripwire';
+      else if (r.connector.indexOf('SonarQube') >= 0) short = 'SonarQube';
+      else if (r.connector.indexOf('Checkmarx') >= 0) short = 'Checkmarx';
+      else if (r.connector.indexOf('Prisma') >= 0) short = 'Prisma';
+      if (!counts[short]) counts[short] = new Set();
+      counts[short].add(r.application);
+    });
+    return Object.keys(counts).map(function(k) {
+      return { connector: k, application_count: counts[k].size };
+    }).sort(function(a, b) { return b.application_count - a.application_count; });
+  }
+
+  function healthDist(rows) {
+    var b = { Healthy: 0, Partial: 0, Failed: 0, Pending: 0 };
+    rows.forEach(function(r) {
+      if (r.health === 'Healthy') b.Healthy++;
+      else if (r.health === 'Partial') b.Partial++;
+      else if (r.health === 'Failed') b.Failed++;
+      else b.Pending++;
+    });
+    return b;
+  }
+
+  function frameworkDeps(rows) {
+    var d = {};
+    rows.forEach(function(r) {
+      if (!d[r.framework]) d[r.framework] = new Set();
+      var c = r.connector.indexOf('SharePoint') >= 0 ? 'SharePoint' : r.connector.split(' ')[0];
+      d[r.framework].add(c);
+    });
+    return d;
+  }
+
+  function computeKpis(rows) {
+    var connectors = {};
+    rows.forEach(function(r) { connectors[r.connector] = 1; });
+    return {
+      'Active Connectors': Object.keys(connectors).length,
+      'Healthy Integrations': rows.filter(function(r) { return r.health === 'Healthy'; }).length,
+      'Failed Syncs': rows.filter(function(r) { return r.health === 'Failed'; }).length,
+      'Evidence Flows': rows.length,
+      'Open Connector Issues': rows.filter(function(r) { return r.issue && r.issue !== '—'; }).length,
+      'Blocked Evidence': rows.filter(function(r) { return r.health === 'Failed' || r.health === 'Partial'; }).length
+    };
+  }
+
+  function healthBadge(h) {
+    if (h === 'Healthy') return 'success';
+    if (h === 'Partial') return 'warning text-dark';
+    if (h === 'Failed') return 'danger';
+    return 'secondary';
+  }
+
+  function renderTable(rows) {
+    var tb = document.getElementById('ecsIntegHealthBody');
+    if (!tb) return;
+    tb.innerHTML = rows.map(function(r) {
+      return '<tr data-ecs-integ-row data-filter-framework="' + r.framework + '" data-filter-application="' + r.application +
+        '" data-filter-risk="' + r.risk + '" data-filter-status="' + (r.status || r.sync_status) + '" data-filter-owner="' + r.owner + '">' +
+        '<td class="small">' + r.timestamp + '</td><td><span class="badge bg-light text-dark">' + r.framework + '</span></td>' +
+        '<td><strong>' + r.application + '</strong></td><td class="small">' + r.connector + '</td>' +
+        '<td class="small">' + r.purpose + '</td><td class="small">' + r.evidence_type + '</td>' +
+        '<td><span class="badge bg-' + healthBadge(r.health) + '">' + r.health + '</span></td>' +
+        '<td class="small">' + (r.issue === '—' ? '<span class="text-muted">—</span>' : r.issue) + '</td>' +
+        '<td class="small">' + r.impact + '</td><td class="small">' + r.owner + '</td>' +
+        '<td class="small">' + r.recommended_action + '</td>' +
+        '<td><span class="badge bg-secondary">' + r.sync_status + '</span></td></tr>';
+    }).join('');
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+  }
+
+  function renderBars(bars) {
+    if (window.ecsRenderCompactBarChart) {
+      window.ecsRenderCompactBarChart('ecsIntegBarChart', (bars || []).map(function(b) {
+        return { label: b.connector, value: b.application_count, tone: 'blue' };
+      }), { maxHeight: 64 });
+      return;
+    }
+    var el = document.getElementById('ecsIntegBarChart');
+    if (!el) return;
+    var max = Math.max.apply(null, bars.map(function(b) { return b.application_count; }).concat([1]));
+    el.innerHTML = bars.map(function(b) {
+      var h = Math.round((b.application_count / max) * 64);
+      return '<div class="ecs-bar-col"><span class="ecs-bar-val">' + b.application_count + '</span>' +
+        '<div class="ecs-bar-fill tone-blue" style="height:' + Math.max(3, h) + 'px"></div>' +
+        '<span class="ecs-bar-lbl">' + b.connector + '</span></div>';
+    }).join('');
+  }
+
+  function renderPie(dist) {
+    var total = dist.Healthy + dist.Partial + dist.Failed + dist.Pending || 1;
+    var pHealthy = Math.round((dist.Healthy / total) * 100);
+    var pPartial = Math.round((dist.Partial / total) * 100);
+    var pie = document.getElementById('ecsIntegHealthPie');
+    var leg = document.getElementById('ecsIntegHealthLegend');
+    if (pie) {
+      var g1 = pHealthy;
+      var g2 = g1 + pPartial;
+      pie.style.background = 'conic-gradient(#4a7c59 0 ' + g1 + '%, #c27803 ' + g1 + '% ' + g2 + '%, #b4534a ' + g2 + '% 100%)';
+      pie.innerHTML = '<span class="ecs-integ-pie-center">' + total + '</span>';
+    }
+    if (leg) {
+      leg.innerHTML = ['Healthy', 'Partial', 'Failed'].map(function(l) {
+        return '<li class="d-flex justify-content-between py-1"><span>' + l + '</span><strong>' + (dist[l] || 0) + '</strong></li>';
+      }).join('');
+    }
+  }
+
+  function renderDeps(deps) {
+    var grid = document.getElementById('ecsIntegDepGrid');
+    if (!grid) return;
+    var fws = Object.keys(deps).sort();
+    grid.innerHTML = fws.map(function(fw) {
+      return '<div class="col-md-6 col-lg-4"><div class="ecs-integ-dep-chip p-2 border rounded small h-100">' +
+        '<strong>' + fw + '</strong><br><span class="text-muted">' + Array.from(deps[fw]).join(' · ') + '</span></div></div>';
+    }).join('');
+  }
+
+  function renderKpis(kpiMap) {
+    document.querySelectorAll('#ecsIntegKpiStrip [data-integ-kpi]').forEach(function(el) {
+      var lbl = el.getAttribute('data-integ-kpi');
+      if (kpiMap[lbl] !== undefined) el.querySelector('.ecs-exec-kpi-val').textContent = kpiMap[lbl];
+    });
+  }
+
+  function filterSecondaryTables(v, rows) {
+    var connSet = {};
+    rows.forEach(function(r) { connSet[r.connector] = 1; });
+    document.querySelectorAll('.ecs-workspace-pane tbody tr[data-ecs-filter-row]').forEach(function(tr) {
+      var show = true;
+      ['framework','application','risk','status','owner'].forEach(function(key) {
+        var val = v[key];
+        if (!val || val.indexOf('All ') === 0) return;
+        var cell = tr.getAttribute('data-filter-' + key) || '';
+        if (key === 'risk' && val === 'High') {
+          if (cell.indexOf('High') === -1 && cell.indexOf('Critical') === -1) show = false;
+        } else if (cell && cell.indexOf(val) === -1) show = false;
+      });
+      if (show && tr.querySelector('td strong, td:first-child')) {
+        var connCell = tr.cells[1] ? tr.cells[1].textContent : '';
+        if (Object.keys(connSet).length && connCell) {
+          var matched = Object.keys(connSet).some(function(c) { return connCell.indexOf(c.split(' ')[0]) >= 0 || c.indexOf(connCell.trim()) >= 0; });
+          if (!matched && tr.closest('#ws-pane-connectors, #ws-pane-sync, #ws-pane-logs')) show = false;
+        }
+      }
+      tr.style.display = show ? '' : 'none';
+    });
+  }
+
+  function applyWithVals(v) {
+    var rows = (data.health_rows || []).filter(function(r) { return matchRow(r, v); });
+    renderTable(rows);
+    renderBars(usageBars(rows));
+    renderPie(healthDist(rows));
+    renderDeps(frameworkDeps(rows));
+    renderKpis(computeKpis(rows));
+    filterSecondaryTables(v, rows);
+    var sum = document.getElementById('ecsIntegFilterSummary');
+    if (sum) {
+      var parts = [];
+      if (v.framework && v.framework.indexOf('All ') !== 0) parts.push(v.framework);
+      if (v.application && v.application.indexOf('All ') !== 0) parts.push(v.application);
+      if (v.owner && v.owner.indexOf('All ') !== 0) parts.push('owner ' + v.owner);
+      sum.textContent = parts.length
+        ? 'Showing ' + rows.length + ' integration flow(s) for ' + parts.join(' · ')
+        : 'Showing all ' + rows.length + ' integration evidence flows across frameworks and applications.';
+    }
+  }
+
+  function apply() {
+    applyWithVals(filterVals());
+  }
+
+  window.ecsApplyIntegrationsFromOps = applyWithVals;
+
+  if (!document.getElementById('ecsOperationsDataset')) {
+    document.querySelectorAll('[data-ecs-workspace-filters] .ecs-ws-filter').forEach(function(sel) {
+      sel.addEventListener('change', function() {
+        apply();
+      });
+    });
+    apply();
+  }
+})();
+</script>

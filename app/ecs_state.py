@@ -22,12 +22,11 @@ BANKING_APPLICATIONS = [
 ]
 
 PAN_INDIA_REGIONS = [
-    {"region": "North", "score": 88.2, "branches": 1240, "applications": 6, "observations_open": 42},
-    {"region": "South", "score": 91.5, "branches": 1580, "applications": 6, "observations_open": 28},
-    {"region": "East", "score": 84.7, "branches": 980, "applications": 5, "observations_open": 51},
-    {"region": "West", "score": 89.3, "branches": 1320, "applications": 6, "observations_open": 35},
-    {"region": "Central", "score": 86.1, "branches": 1105, "applications": 6, "observations_open": 39},
-    {"region": "North-East", "score": 82.4, "branches": 420, "applications": 4, "observations_open": 22},
+    {"region": "North", "score": 86.8, "branches": 1240, "applications": 6, "observations_open": 38, "stale_evidence": 14, "failed_controls": 9, "audit_readiness_pct": 84.2},
+    {"region": "South", "score": 91.2, "branches": 1580, "applications": 6, "observations_open": 22, "stale_evidence": 8, "failed_controls": 5, "audit_readiness_pct": 89.5},
+    {"region": "East", "score": 82.4, "branches": 980, "applications": 5, "observations_open": 47, "stale_evidence": 19, "failed_controls": 12, "audit_readiness_pct": 79.8},
+    {"region": "West", "score": 71.6, "branches": 1320, "applications": 6, "observations_open": 56, "stale_evidence": 24, "failed_controls": 16, "audit_readiness_pct": 68.9},
+    {"region": "Central", "score": 78.9, "branches": 1105, "applications": 6, "observations_open": 41, "stale_evidence": 17, "failed_controls": 11, "audit_readiness_pct": 76.3},
 ]
 
 PAN_INDIA_BRANCH_TOTAL = sum(r["branches"] for r in PAN_INDIA_REGIONS)
@@ -53,6 +52,24 @@ owner_drafts = {}
 evidence_views = {}
 itpp_drill_log: list[dict] = []
 grc_action_log: dict = {}
+exception_registry: dict[str, dict] = {}
+evidence_approval_trail: dict[str, list] = {}
+missing_evidence_registry: dict[str, dict] = {}
+closed_observations: dict[str, dict] = {}
+export_registry: dict[str, dict] = {}
+export_history: list[dict] = []
+scheduler_failures: list[dict] = []
+scheduler_retry_log: list[dict] = []
+framework_onboarding_registry: dict[str, dict] = {}
+framework_onboarding_gaps: dict[str, list] = {}
+dynamic_framework_catalog: dict[str, list] = {}
+
+# Operational workflow outcomes (gap closure, assignments, uploads, mock audits)
+operational_closed_gaps: list[str] = []
+operational_assignments: list[dict] = []
+operational_uploads: list[dict] = []
+operational_mock_audits: list[dict] = []
+operational_readiness_boost: int = 0
 
 scheduler_data = [
     ("Net Banking", "PCI DSS", "Implemented", "R. Mehta", "2026-05-24 05:30 UTC"),
@@ -72,7 +89,8 @@ _CATALOG = catalog_stats()
 
 
 def control_key(framework_name: str, control_name: str) -> str:
-    return f"{framework_name}::{control_name}"
+    from app.framework_catalog import resolve_framework_name
+    return f"{resolve_framework_name(framework_name)}::{control_name}"
 
 
 def control_status(framework_name: str, control_name: str) -> str:

@@ -1,31 +1,137 @@
-<!DOCTYPE html><html><head><title>Completeness</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Completeness</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-complete-hint { font-size:0.62rem; color:#64748b; display:block; margin-top:2px; }
+</style></head>
 <body class="bg-light ecs-cap-completeness"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Coverage Gap Analysis</h1>
-<p class="text-muted small">Missing controls, incomplete applications, and audit readiness — gap remediation, not approval queue</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Framework Coverage &amp; Readiness Analysis</h1>
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_queue_pills %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
+<p class="small text-muted mb-2">Tracks framework implementation maturity, missing controls, pending evidence, and audit readiness across applications.</p>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
-{% from "partials/mvp_module_actions.html" import module_action %}
-<div class="row mb-4"><div class="col-md-3"><div class="readiness-ring"><span class="h4 mb-0">{{ module_view.kpis[2].value }}</span><small>Audit Ready</small></div></div>
-<div class="col-md-9"><div class="row g-2">{% for f in module_view.framework_rows %}
-<div class="col-md-4"><div class="card p-2 shadow-sm small"><strong>{{ f.framework }}</strong>
-<div class="chart-bar mt-1" style="width:{{ f.completeness_pct }}%"></div> {{ f.completeness_pct }}% · {{ f.gaps }} gaps</div></div>
-{% endfor %}</div></div></div>
-<h3 class="h6 text-uppercase text-muted">Missing Controls</h3>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-bordered bg-white mb-4 ecs-paginated-table"><thead><tr><th>Framework</th><th>Control</th><th>Evidence Required</th><th>Actions</th></tr></thead><tbody>
-{% for m in module_view.rows %}
-<tr class="table-danger"><td>{{m.framework}}</td><td>{{m.control}}</td><td>{{m.evidence}}</td>
-<td>{{ module_action('completeness','assign_gap',role,user,'Assign Gap','btn-sm btn-warning',m.control) }}
-{% if role=='owner' %}{{ module_action('completeness','upload_missing',role,user,'Upload Missing','btn-sm btn-primary',m.control) }}{% endif %}
-{{ module_action('completeness','request_owner',role,user,'Request Owner','btn-sm btn-outline-secondary',m.control) }}</td></tr>
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% from "partials/mvp_module_actions.html" import module_action, workflow_link %}
+{{ workspace_exec_strip(module_view) }}
+<div class="ecs-ws-metric-row mb-2 small text-muted">
+<span data-ecs-complete-hint>Framework scope</span> ·
+<span data-ecs-complete-hint>Maturity detail</span> ·
+<span data-ecs-complete-hint>Audit scope</span> ·
+<span data-ecs-complete-hint>Missing scope</span> ·
+<span data-ecs-complete-hint>Incomplete apps</span>
+</div>
+{{ workspace_filters(workspace, role, user) }}
+<p class="small text-muted mb-2" id="ecsCompleteFilterSummary">Loading coverage data…</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<h6 class="small text-muted text-uppercase mb-1">Application × Framework Readiness</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-complete-table="detail"><thead><tr>
+<th>Application</th><th>Framework</th><th>Readiness</th><th>Controls Impl.</th><th>Pending</th><th>Open Gaps</th><th>Failed Controls</th><th>Evidence Status</th><th>Trend</th>
+</tr></thead><tbody>
+{% for r in module_view.detail_rows[0:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application }}" data-filter-risk="{{ r.risk }}">
+<td><strong>{{ r.application }}</strong><br><span class="small text-muted">{{ r.readiness_label }}</span></td>
+<td>{{ r.framework }}</td><td>{{ r.readiness_pct }}%</td>
+<td>{{ r.implemented }}/{{ r.total_controls }}</td><td>{{ r.pending }}</td><td>{{ r.open_gaps }}</td><td>{{ r.failed_controls }}</td>
+<td><span class="badge bg-{% if r.evidence_status=='Healthy' %}success{% elif r.evidence_status=='Partial' %}warning text-dark{% else %}secondary{% endif %}">{{ r.evidence_status }}</span></td>
+<td>{{ r.trend }}</td></tr>
 {% endfor %}
 </tbody></table></div>
-<h3 class="h6 text-uppercase text-muted">Incomplete Applications</h3>
-<div class="row g-2">{% for a in module_view.application_rows %}
-{% if a.compliance_pct < 85 %}<div class="col-md-4"><div class="card p-2 shadow-sm small {% if a.compliance_pct < 70 %}border-danger{% endif %}">
-<strong>{{ a.application }}</strong> — {{ a.compliance_pct }}% · Risk: {{ a.risk }}</div></div>{% endif %}
+
+<h6 class="small text-muted text-uppercase mb-1">Framework Readiness Overview</h6>
+<div class="compact-chart-grid mb-2">{% for s in (module_view.framework_summaries|default([]))[:6] %}
+<div class="ecs-insight-bar"><div class="ecs-insight-bar-label"><span>{{ s.framework }}</span><strong>{{ s.avg_readiness }}%</strong></div>
+<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-{% if s.avg_readiness >= 85 %}success{% elif s.avg_readiness >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ s.avg_readiness }}%"></div></div></div>
 {% endfor %}</div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+
+<h6 class="small text-muted text-uppercase mb-1">Framework Summary</h6>
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-complete-table="summary"><thead><tr>
+<th>Framework</th><th>Applications Covered</th><th>Avg Readiness</th><th>Controls Approved</th><th>Missing Controls</th><th>Audit Risk</th>
+</tr></thead><tbody>
+{% for s in module_view.framework_summaries[0:8] %}
+<tr data-ecs-filter-row data-filter-framework="{{ s.framework }}">
+<td><strong>{{ s.framework }}</strong><br><span class="small text-muted">{{ s.maturity_label }}</span></td>
+<td class="small">{{ s.applications_covered }}</td><td>{{ s.avg_readiness }}%</td><td>{{ s.approved_display }}</td>
+<td>{{ s.missing_controls }}</td><td><span class="badge bg-{% if s.audit_risk=='Low' %}success{% elif s.audit_risk=='Medium' %}warning text-dark{% else %}danger{% endif %}">{{ s.audit_risk }}</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{% if workspace.tabs|selectattr('id','equalto','frameworks')|list %}
+{{ workspace_pane('frameworks', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-complete-table="summary"><thead><tr>
+<th>Framework</th><th>Applications Covered</th><th>Avg Readiness</th><th>Controls Approved</th><th>Missing Controls</th><th>Audit Risk</th>
+</tr></thead><tbody>
+{% for s in module_view.framework_summaries[0:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ s.framework }}"><td>{{ s.framework }}</td><td class="small">{{ s.applications_covered }}</td>
+<td>{{ s.avg_readiness }}%</td><td>{{ s.approved_display }}</td><td>{{ s.missing_controls }}</td><td>{{ s.audit_risk }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{{ workspace_pane('applications', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-complete-table="detail"><thead><tr>
+<th>Application</th><th>Framework</th><th>Readiness</th><th>Controls Impl.</th><th>Pending</th><th>Open Gaps</th><th>Failed</th><th>Evidence</th><th>Trend</th>
+</tr></thead><tbody>
+{% for r in module_view.detail_rows[0:10] %}
+<tr data-ecs-filter-row data-filter-application="{{ r.application }}" data-filter-framework="{{ r.framework }}" data-filter-risk="{{ r.risk }}">
+<td><strong>{{ r.application }}</strong></td><td>{{ r.framework }}</td><td>{{ r.readiness_pct }}%</td>
+<td>{{ r.implemented }}/{{ r.total_controls }}</td><td>{{ r.pending }}</td><td>{{ r.open_gaps }}</td><td>{{ r.failed_controls }}</td>
+<td>{{ r.evidence_status }}</td><td>{{ r.trend }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{% if workspace.tabs|selectattr('id','equalto','controls')|list %}
+{{ workspace_pane('controls', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-complete-table="detail"><thead><tr>
+<th>Application</th><th>Framework</th><th>Control</th><th>Readiness</th><th>Scope</th><th>Risk</th>
+</tr></thead><tbody>
+{% for c in module_view.detail_rows[0:15] %}
+<tr data-ecs-filter-row data-filter-framework="{{ c.framework }}" data-filter-application="{{ c.application }}" data-filter-risk="{{ c.risk }}">
+<td>{{ c.application }}</td><td>{{ c.framework }}</td><td><code class="small">{{ c.sample_control }}</code></td>
+<td>{{ c.readiness_pct }}%</td><td class="small">{{ c.control_scope }}</td><td>{{ c.risk }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{{ workspace_pane('gaps', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-complete-table="gaps"><thead><tr>
+<th>Framework</th><th>Control</th><th>Application</th><th>Evidence Required</th><th>Owner</th><th>Actions</th>
+</tr></thead><tbody>
+{% for m in module_view.rows[0:10] %}
+<tr class="table-danger" data-ecs-filter-row data-filter-framework="{{ m.framework }}" data-filter-application="{{ m.application|default('') }}" data-filter-owner="{{ m.owner|default('') }}">
+<td>{{ m.framework }}</td><td>{{ m.control }}</td><td>{{ m.application|default('—') }}</td><td class="small">{{ m.evidence }}</td><td>{{ m.owner|default('—') }}</td>
+<td class="text-nowrap">{{ workflow_link('assign-owner', role, user, 'Assign', 'btn-sm btn-warning', m.control, m.framework, 'completeness') }}
+{% if role=='owner' or perm_can_upload|default(false) %}{{ workflow_link('upload-missing', role, user, 'Upload', 'btn-sm btn-primary', m.control, m.framework, 'completeness') }}{% elif perm_is_auditor|default(role == 'auditor') %}{{ workflow_link('assign-owner', role, user, 'Assign', 'btn-sm btn-outline-primary', m.control, m.framework, 'completeness') }}{% endif %}
+{{ module_action('completeness','request_owner',role,user,'Request','btn-sm btn-outline-secondary',m.control) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{% if workspace.tabs|selectattr('id','equalto','uploads')|list %}
+{{ workspace_pane('uploads', false) }}
+{% set upload_kpis = module_view.upload_kpis|default({}, true) %}
+{% set missing_evidence_rows = module_view.missing_evidence_rows|default([], true) %}
+{% set return_module = 'completeness' %}
+{% include "partials/mvp_upload_missing_panel.html" %}
+{{ workspace_pane_end() }}
+{% endif %}
+
+</div></div></div>
+{% if module_view.completeness_dataset is defined %}
+<script type="application/json" id="ecsCompletenessDataset">{{ module_view.completeness_dataset|tojson }}</script>
+{% include "partials/completeness_filter_client.html" %}
+{% endif %}
+{% include "partials/chatbot_global.html" %}</body></html>

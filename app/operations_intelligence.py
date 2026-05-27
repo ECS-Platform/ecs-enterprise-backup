@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
-from app.chatbot_engine import get_context, record_exchange, set_chat_structured
+from app.chatbot_context_engine import execute_quick_action, render_quick_action_html
+from app.chatbot_engine import get_context, record_exchange, set_chat_structured, update_chat_context
 
 OUTAGE_FOLLOW_UPS = [
     ("Show impacted applications", "show_impacted_applications"),
@@ -266,6 +267,10 @@ def _parse_mode_command(q: str) -> tuple[str, str] | None:
     m2 = re.match(r"@outage-follow:([a-z_]+):([a-z_]+)", q.strip(), re.I)
     if m2:
         return m2.group(1), f"follow_{m2.group(2)}"
+    m3 = re.match(r"@chat-action:([a-z_]+)(?::([a-z_]+))?", q.strip(), re.I)
+    if m3:
+        scenario = m3.group(2) or ""
+        return scenario, f"follow_{m3.group(1)}"
     return None
 
 
@@ -290,8 +295,8 @@ def _build_summary_html(scenario: dict, scenario_key: str, role: str) -> str:
         for t, e in scenario.get("timeline", [])[:4]
     )
     follow_btns = "".join(
-        f'<button type="button" class="btn btn-outline-secondary btn-sm ecs-suggest-btn ecs-outage-mode-btn me-1 mb-1" '
-        f'data-q="@outage-follow:{scenario_key}:{key}">{label}</button>'
+        f'<button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" '
+        f'data-action="{key}" data-scenario="{scenario_key}">{label}</button>'
         for label, key in OUTAGE_FOLLOW_UPS[:4]
     )
     return f"""
@@ -363,19 +368,27 @@ def _build_mode_html(scenario: dict, mode: str, scenario_key: str) -> str:
     return body + f'<div class="mt-2">{back}</div>'
 
 
-def _build_follow_up_html(scenario: dict, follow_key: str) -> str:
+def _build_follow_up_html(scenario: dict, follow_key: str, role: str, scenario_key: str) -> str:
+    ctx = {
+        "framework": "Enterprise-wide",
+        "application": scenario.get("application", "Net Banking"),
+        "module": "Operations",
+        "severity": scenario.get("severity", "HIGH").title(),
+        "active_outage": scenario_key,
+    }
+    if follow_key in (
+        "show_impacted_applications", "show_related_incidents",
+        "show_open_high_risk_observations", "show_active_td_exceptions",
+    ):
+        return render_quick_action_html(follow_key, ctx, role, scenario_key)
     mapping = {
-        "show_impacted_applications": ("Impacted Applications", scenario["impacted_apps"]),
-        "show_related_incidents": ("Related Incidents", [s for s in scenario["correlated_signals"] if "ServiceNow" in s or "INC" in s]),
-        "show_open_high_risk_observations": ("High-Risk Observations", scenario["governance_observations"]),
-        "show_active_td_exceptions": ("Active TD Exceptions", [o for o in scenario["governance_observations"] if "TD" in o or "exception" in o.lower()]),
         "show_dr_readiness": ("DR Readiness", ["ITPP DR validation linked — review DR drill status", f"ETA recovery: {scenario['eta']}"]),
         "show_affected_business_units": ("Affected Business Units", scenario["business_units"]),
         "show_sla_breach_risk": ("SLA Breach Risk", ["P1 incident SLA governance review active", "ITPP incident SLA controls under escalation"]),
     }
     title, items = mapping.get(follow_key, ("Details", scenario["impacted_apps"]))
     lis = "".join(f"<li>{i}</li>" for i in items)
-    return f'<div class="ecs-ops-followup"><h6>{title}</h6><ul class="small ecs-paginated-list">{lis}</ul></div>'
+    return f'<div class="ecs-ops-followup"><h6>{title}</h6><ul class="small ecs-paginated-list">{lis or "<li>No items in scope.</li>"}</ul></div>'
 
 
 def _plain_summary(scenario: dict) -> str:
@@ -400,15 +413,26 @@ def try_operations_answer(query: str, role: str = "owner", user: str = "User") -
     parsed = _parse_mode_command(q)
     if parsed:
         scenario_key, mode_or_follow = parsed
-        scenario = OUTAGE_SCENARIOS.get(scenario_key)
+        scenario = OUTAGE_SCENARIOS.get(scenario_key) if scenario_key else None
+        if mode_or_follow.startswith("follow_"):
+            follow_key = mode_or_follow.removeprefix("follow_")
+            if scenario:
+                update_chat_context(user, role, q, application=scenario["application"], module="Operations", severity=scenario["severity"])
+                ctx["active_outage"] = scenario_key
+                html = _build_summary_html(scenario, scenario_key, role) + _build_follow_up_html(scenario, follow_key, role, scenario_key)
+                plain, _ = execute_quick_action(follow_key, user, role, scenario_key)
+            else:
+                update_chat_context(user, role, q)
+                plain, action_html = execute_quick_action(follow_key, user, role, ctx.get("active_outage", ""))
+                from app.chatbot_context_engine import render_governance_panel
+                html = render_governance_panel(get_context(user, role), role, plain[:120]) + action_html
+            set_chat_structured(user, role, html)
+            record_exchange(user, role, q, plain)
+            return plain
         if not scenario:
             return None
         ctx["active_outage"] = scenario_key
-        if mode_or_follow.startswith("follow_"):
-            follow_key = mode_or_follow[6:]
-            html = _build_summary_html(scenario, scenario_key, role) + _build_follow_up_html(scenario, follow_key)
-            plain = f"Follow-up: {follow_key.replace('_', ' ').title()}\n" + "\n".join(f"  • {x}" for x in scenario["impacted_apps"])
-        elif mode_or_follow in ("business", "technical", "customer"):
+        if mode_or_follow in ("business", "technical", "customer"):
             html = _build_summary_html(scenario, scenario_key, role) + _build_mode_html(scenario, mode_or_follow, scenario_key)
             plain = f"[{mode_or_follow.title()} View] — {scenario['application']}\nSee detailed response in copilot panel."
         else:
@@ -447,7 +471,7 @@ def try_operations_answer(query: str, role: str = "owner", user: str = "User") -
     if "which applications" in ql or "impacted application" in ql:
         scenario_key = scenario_key or "login_generic"
         scenario = OUTAGE_SCENARIOS[scenario_key]
-        html = _build_summary_html(scenario, scenario_key, role) + _build_follow_up_html(scenario, "show_impacted_applications")
+        html = _build_summary_html(scenario, scenario_key, role) + _build_follow_up_html(scenario, "show_impacted_applications", role, scenario_key)
         plain = "Impacted applications: " + ", ".join(scenario["impacted_apps"])
         set_chat_structured(user, role, html)
         record_exchange(user, role, q, plain)
@@ -470,6 +494,7 @@ def try_operations_answer(query: str, role: str = "owner", user: str = "User") -
         return None
 
     ctx["active_outage"] = scenario_key
+    update_chat_context(user, role, q, application=scenario["application"], module="Operations", severity=scenario["severity"])
     html = _build_summary_html(scenario, scenario_key, role)
     plain = _plain_summary(scenario)
     set_chat_structured(user, role, html)

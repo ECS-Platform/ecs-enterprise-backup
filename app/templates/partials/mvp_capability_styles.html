@@ -4,7 +4,7 @@
 .ecs-cap-scheduler .job-card.unhealthy { border-left-color: #dc3545; }
 .ecs-cap-scheduler .health-ring { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; background: conic-gradient(#198754 0 340deg, #e9ecef 340deg); }
 .ecs-cap-upload .batch-progress { height: 8px; border-radius: 4px; background: #e9ecef; overflow: hidden; }
-.ecs-cap-upload .batch-progress-bar { height: 100%; background: linear-gradient(90deg, #0d6efd, #6610f2); transition: width .3s; }
+.ecs-cap-upload .batch-progress-bar { height: 100%; background: var(--ecs-chart-blue, #3b6ea5) !important; transition: width .3s; }
 .ecs-cap-health .risk-pill { display: inline-block; padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; margin: 0.15rem; }
 .ecs-cap-health .risk-critical { background: #f8d7da; color: #842029; }
 .ecs-cap-health .risk-high { background: #fff3cd; color: #664d03; }
@@ -26,7 +26,7 @@
 .ecs-cap-comparison .heat-mid { background: #ffc107; color: #1a252f; }
 .ecs-cap-comparison .heat-low { background: #dc3545; }
 .ecs-cap-integrations .connector-group { margin-bottom: 1.25rem; }
-.ecs-cap-integrations .connector-card { border-left: 4px solid #6610f2; }
+.ecs-cap-integrations .connector-card { border-left: 4px solid #3b6ea5; }
 .ecs-cap-integrations .connector-card.siem { border-left-color: #dc3545; }
 .ecs-cap-integrations .connector-card.cmdb { border-left-color: #0dcaf0; }
 .ecs-cap-integrations .connector-card.sharepoint { border-left-color: #198754; }
@@ -43,14 +43,42 @@
 .ecs-cap-reports .report-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
 .ecs-cap-audit .readiness-score { font-size: 2.5rem; font-weight: 700; color: #198754; line-height: 1; }
 .ecs-cap-audit .audit-timeline-item { border-left: 3px solid #ffc107; padding: 0.5rem 0 0.5rem 1rem; margin-bottom: 0.5rem; font-size: 0.85rem; }
-.ecs-cap-trends .trend-chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding: 0.5rem 0; }
-.ecs-cap-trends .trend-bar { flex: 1; min-width: 24px; border-radius: 4px 4px 0 0; position: relative; }
-.ecs-cap-trends .trend-bar-label { position: absolute; bottom: -1.25rem; left: 50%; transform: translateX(-50%); font-size: 0.6rem; white-space: nowrap; color: #6c757d; }
-.ecs-cap-trends .trend-bar-val { position: absolute; top: -1rem; left: 50%; transform: translateX(-50%); font-size: 0.65rem; font-weight: 600; }
+.ecs-cap-trends .trend-chart { display:flex; align-items:flex-end; gap:4px; height:80px; max-height:80px; padding:0.15rem 0 1.1rem; overflow-x:auto; }
+.ecs-cap-trends .trend-bar { flex:0 0 auto; width:14px; max-width:14px; min-height:4px; border-radius:3px 3px 0 0; position:relative; background:#4a7c59; opacity:0.9; }
+.ecs-cap-trends .trend-bar-label { position:absolute; bottom:-1rem; left:50%; transform:translateX(-50%); font-size:0.48rem; color:#94a3b8; white-space:nowrap; }
+.ecs-cap-trends .trend-bar-val { position:absolute; top:-0.85rem; left:50%; transform:translateX(-50%); font-size:0.52rem; font-weight:600; color:#475569; }
+.ecs-metric-info { cursor: help; color: #6c757d; font-size: 0.85rem; }
+.ecs-kpi-hint { font-size: 0.68rem; color: #6c757d; margin-top: 0.15rem; }
+.ecs-analytics-filter-bar .form-label { color: #495057; }
 .ecs-cap-onboarding .stage-pipeline { display: flex; gap: 0; margin-bottom: 1.5rem; }
 .ecs-cap-onboarding .stage-step { flex: 1; text-align: center; padding: 0.75rem 0.5rem; background: #e9ecef; font-size: 0.75rem; position: relative; }
 .ecs-cap-onboarding .stage-step.active { background: #0d6efd; color: #fff; font-weight: 600; }
 .ecs-cap-onboarding .stage-step.done { background: #198754; color: #fff; }
+.ecs-onboard-intake { border-left: 4px solid #0d6efd; }
+.ecs-onboard-progress { height: 10px; border-radius: 999px; }
+.ecs-onboard-step-list { font-size: 0.82rem; }
+.ecs-onboard-step-item { padding: 0.35rem 0; color: #64748b; border-bottom: 1px solid #f1f5f9; }
+.ecs-onboard-step-item.active { color: #0d6efd; font-weight: 600; }
+.ecs-onboard-step-item.done { color: #198754; }
+.ecs-onboard-step-icon { display: inline-block; width: 1.2rem; }
+.ecs-onboard-spinner {
+  display: inline-block; width: 14px; height: 14px; border: 2px solid #cbd5e1;
+  border-top-color: #0d6efd; border-radius: 50%; animation: ecsOnboardSpin 0.8s linear infinite;
+}
+@keyframes ecsOnboardSpin { to { transform: rotate(360deg); } }
+.ecs-onboard-fw-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem 0.65rem; }
+.ecs-onboard-fw-animate { animation: ecsOnboardFadeIn 0.35s ease; }
+@keyframes ecsOnboardFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.ecs-onboard-results { border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; background: #fff; }
+.ecs-onboard-kpi { text-align: center; padding: 0.65rem; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; height: 100%; }
+.ecs-onboard-kpi-val { font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
+.ecs-onboard-kpi-lbl { font-size: 0.68rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
+.ecs-onboard-kpi-primary .ecs-onboard-kpi-val { color: #0d6efd; }
+.ecs-onboard-kpi-success .ecs-onboard-kpi-val { color: #198754; }
+.ecs-onboard-kpi-warning .ecs-onboard-kpi-val { color: #997404; }
+.ecs-onboard-kpi-danger .ecs-onboard-kpi-val { color: #dc3545; }
+.ecs-onboard-kpi-info .ecs-onboard-kpi-val { color: #0dcaf0; }
+.ecs-onboard-copilot { background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border-left: 4px solid #0d6efd; }
 .ecs-cap-table { font-size: 0.82rem; }
 .ecs-cap-table thead { background: #f8f9fa; }
 .ecs-module-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }

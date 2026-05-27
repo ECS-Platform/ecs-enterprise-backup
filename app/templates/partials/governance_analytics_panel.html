@@ -1,42 +1,58 @@
 {% if governance_analytics is defined and governance_analytics and (role in ['cio','vertical_head','compliance_head','functional_head'] or show_governance|default(false)) %}
+{% set ga = governance_analytics %}
+{% set tips = ga.kpi_tooltips if ga.kpi_tooltips is defined else {} %}
 <div class="ecs-governance-panel ecs-section-card mb-4">
 <div class="ecs-section-card-header">
 <h2 class="ecs-section-card-title">Enterprise Governance Analytics</h2>
-<span class="badge bg-secondary">Live</span>
+<span class="badge bg-secondary">Live · {{ ga.framework_coverage_label|default('Framework Implementation Coverage') }}</span>
 </div>
 <div class="card-body pt-0 px-0 pb-0">
 <div class="row g-3 mb-3">
-<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-primary"><div class="ecs-kpi-label">Audit Readiness</div><div class="ecs-kpi-value">{{ governance_analytics.audit_readiness_pct }}%</div></div></div>
-<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-warning"><div class="ecs-kpi-label">Stale Evidence</div><div class="ecs-kpi-value">{{ governance_analytics.stale_evidence_pct }}%</div></div></div>
-<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-danger"><div class="ecs-kpi-label">SLA Breaches</div><div class="ecs-kpi-value">{{ governance_analytics.sla_breaches }}</div></div></div>
-<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-teal"><div class="ecs-kpi-label">Escalated</div><div class="ecs-kpi-value">{{ governance_analytics.escalated }}</div></div></div>
-{% if governance_analytics.operational_maturity.itpp_effectiveness is defined %}
-<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-primary"><div class="ecs-kpi-label">ITPP Effectiveness</div><div class="ecs-kpi-value">{{ governance_analytics.operational_maturity.itpp_effectiveness }}%</div></div></div>
-<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-success"><div class="ecs-kpi-label">DR Readiness</div><div class="ecs-kpi-value">{{ governance_analytics.operational_maturity.dr_readiness }}%</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-primary"><div class="ecs-kpi-label">Audit Readiness <span class="ecs-metric-info" title="{{ tips.audit_readiness|default('Approved controls with active evidence.') }}">ⓘ</span></div><div class="ecs-kpi-value">{{ ga.audit_readiness_pct }}%</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-warning"><div class="ecs-kpi-label">Stale Evidence <span class="ecs-metric-info" title="{{ tips.stale_evidence|default('Evidences due for refresh or expired.') }}">ⓘ</span></div><div class="ecs-kpi-value">{{ ga.stale_evidence_pct }}%</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-danger"><div class="ecs-kpi-label">SLA Breaches <span class="ecs-metric-info" title="{{ tips.sla_breaches|default('Remediation tasks past agreed SLA.') }}">ⓘ</span></div><div class="ecs-kpi-value">{{ ga.sla_breaches }}</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-teal"><div class="ecs-kpi-label">Escalated <span class="ecs-metric-info" title="{{ tips.escalated|default('Executive queue escalations.') }}">ⓘ</span></div><div class="ecs-kpi-value">{{ ga.escalated }}</div></div></div>
+{% if ga.implementation_coverage_pct is defined %}
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-success"><div class="ecs-kpi-label">Impl. Coverage <span class="ecs-metric-info" title="Controls with valid evidence, ownership, and approval.">ⓘ</span></div><div class="ecs-kpi-value">{{ ga.implementation_coverage_pct }}%</div></div></div>
+{% endif %}
+{% if ga.open_findings is defined %}
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-danger"><div class="ecs-kpi-label">Open Findings <span class="ecs-metric-info" title="Unresolved observations and evidence gaps.">ⓘ</span></div><div class="ecs-kpi-value">{{ ga.open_findings }}</div></div></div>
+{% endif %}
+{% if ga.operational_maturity.itpp_effectiveness is defined %}
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-primary"><div class="ecs-kpi-label">ITPP Effectiveness</div><div class="ecs-kpi-value">{{ ga.operational_maturity.itpp_effectiveness }}%</div></div></div>
+<div class="col-md-2"><div class="ecs-kpi-modern ecs-kpi-success"><div class="ecs-kpi-label">DR Readiness</div><div class="ecs-kpi-value">{{ ga.operational_maturity.dr_readiness }}%</div></div></div>
 {% endif %}
 </div>
 <div class="row g-3">
-<div class="col-md-6">
+<div class="col-md-4">
 <h6 class="text-muted small">Top Risky Controls</h6>
 <ul class="list-unstyled small mb-0">
-{% for r in governance_analytics.top_risky_controls[:5] %}
+{% for r in ga.top_risky_controls[:5] %}
 <li class="mb-1"><span class="badge bg-danger ecs-val-badge">{{ r.risk }}</span> {{ r.framework }} — {{ r.control[:40] }} <span class="text-muted">({{ r.aging_days }}d)</span></li>
 {% endfor %}
 </ul>
 </div>
-<div class="col-md-6">
+<div class="col-md-4">
 <h6 class="text-muted small">Control Effectiveness by Framework</h6>
-<div class="row g-1">
-{% for fw, pct in governance_analytics.control_effectiveness.items() %}
-<div class="col-6"><small>{{ fw }}: <strong>{{ pct }}%</strong></small>
-<div class="progress" style="height:6px"><div class="progress-bar {% if pct >= 85 %}bg-success{% elif pct >= 70 %}bg-warning{% else %}bg-danger{% endif %}" style="width:{{ pct }}%"></div></div></div>
+<div class="compact-chart-grid">{% for fw, pct in ga.control_effectiveness.items() %}
+<div class="ecs-insight-bar"><div class="ecs-insight-bar-label"><span>{{ fw }}</span><strong>{{ pct }}%</strong></div>
+<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-{% if pct >= 85 %}success{% elif pct >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ pct }}%"></div></div></div>
+{% endfor %}</div>
+</div>
+<div class="col-md-4">
+<h6 class="text-muted small">Top Risk Applications</h6>
+<ul class="list-unstyled small mb-0">
+{% for a in ga.top_risk_applications[:5] if ga.top_risk_applications is defined %}
+<li class="mb-1"><strong>{{ a.application }}</strong> {{ a.compliance_pct }}% · Obs {{ a.open_observations }} · SLA {{ a.sla_breaches }}</li>
+{% else %}
+<li class="text-muted">—</li>
 {% endfor %}
+</ul>
 </div>
 </div>
-</div>
-{% if governance_analytics.most_reused_evidence %}
+{% if ga.most_reused_evidence %}
 <div class="mt-3"><h6 class="text-muted small">Most Reused Evidence (cross-framework)</h6>
-{% for r in governance_analytics.most_reused_evidence[:4] %}
+{% for r in ga.most_reused_evidence[:4] %}
 <span class="badge bg-info text-dark me-1 mb-1">{{ r.evidence_id }} → {{ r.frameworks|join(', ') }}</span>
 {% endfor %}
 </div>

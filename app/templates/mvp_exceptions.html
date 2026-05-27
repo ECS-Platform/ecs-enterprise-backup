@@ -1,21 +1,95 @@
 <!DOCTYPE html><html><head><title>Exceptions / TD</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-exceptions"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Exceptions &amp; Technical Debt</h1>
-<p class="text-muted small">TD expiry, compensating controls, risk exceptions, and renewal workflow</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
-{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
-{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
-{{ grc_kpis(module_view.kpis) }}
-<div class="card shadow-sm"><div class="table-responsive ecs-paginated-wrap"><table class="table table-sm table-striped mb-0 ecs-grc-table ecs-paginated-table">
-<thead><tr><th>Exception ID</th><th>Control</th><th>Framework</th><th>Justification</th><th>Compensating Control</th><th>TD Expiry</th><th>Residual Risk</th><th>Status</th><th>Actions</th></tr></thead>
-<tbody>{% for e in module_view.rows %}
-<tr class="{% if e.expired %}table-danger{% elif e.residual_risk in ['Critical','High'] %}table-warning{% endif %}">
-<td>{{ e.exception_id }}</td><td><strong>{{ e.control }}</strong></td><td>{{ e.framework }}</td>
-<td><small>{{ e.justification[:55] }}…</small></td><td><small>{{ e.compensating_control }}</small></td>
-<td>{{ e.td_expiry }}</td><td><span class="badge bg-danger">{{ e.residual_risk }}</span></td>
-<td>{% if e.expired %}<span class="badge bg-danger">TD Expired</span>{% else %}<span class="badge bg-success">{{ e.status }}</span>{% endif %}</td>
-<td class="text-nowrap">{% for a in module_view.actions[:3] %}{{ module_action('exceptions_td', a, role, user, a|replace('_',' ')|title, 'btn-outline-primary btn-sm', e.exception_id) }}{% endfor %}</td>
-</tr>{% endfor %}</tbody></table></div></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Exceptions &amp; Technical Debt</h1>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+<div class="mb-2">
+<button type="button" class="btn btn-warning btn-sm" data-ecs-raise-exception data-role="{{ role }}" data-user="{{ user }}"
+  data-framework="PCI DSS" data-application="Net Banking">+ Raise Exception</button>
+</div>
+{% include "partials/role_metrics_strip.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading exceptions…</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<p class="ecs-ws-summary">{{ module_view.rows|length }} exceptions tracked — observation-linked TD with compensating controls and expiry monitoring.</p>
+<div class="row g-2 mb-2" id="ecsExceptionStatusCounters">
+{% for st, lbl in [('Approved','Approved'),('Rejected','Rejected'),('Under Review','Pending Review'),('Submitted','Submitted'),('Expired','Expired')] %}
+<div class="col-auto"><span class="badge bg-{% if st=='Approved' %}success{% elif st=='Rejected' %}danger{% elif st=='Expired' %}dark{% elif st in ['Under Review','Submitted'] %}warning text-dark{% else %}secondary{% endif %}" data-ecs-wf-count="{{ lbl }}">{{ lbl }}: {{ module_view.rows|selectattr('status','equalto',st)|list|length }}</span></div>
+{% endfor %}
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('active', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-std-table="exceptions-list"><thead><tr>
+<th>Obs ID</th><th>Observation Title</th><th>Control</th><th>Framework</th><th>Application</th><th>Risk</th><th>Status</th><th>Owner</th><th>Due</th><th>Actions</th>
+</tr></thead><tbody>
+{% for e in module_view.rows if not e.expired %}
+<tr class="{% if e.residual_risk in ['Critical','High'] %}table-warning{% endif %}" data-ecs-filter-row data-filter-framework="{{ e.framework }}" data-filter-application="{{ e.application|default('') }}" data-filter-risk="{{ e.residual_risk }}" data-filter-status="{{ e.status }}" data-filter-owner="{{ e.owner|default('') }}" data-filter-severity="{{ e.residual_risk }}">
+<td><code class="small">{{ e.observation_id|default(e.exception_id) }}</code></td>
+<td class="small"><strong>{{ (e.observation_title|default(e.control))|truncate(45, True, '') }}</strong><br><span class="text-muted">{{ e.observation_description|default(e.justification, true)|truncate(55) }}</span></td>
+<td class="small">{{ (e.control_name|default(e.control))|truncate(35, True, '') }}</td><td>{{ e.framework }}</td><td>{{ e.application|default('—') }}</td>
+<td><span class="badge bg-danger">{{ e.risk_rating|default(e.residual_risk) }}</span></td>
+<td><span class="badge bg-{% if e.status=='Approved' %}success{% elif e.status=='Rejected' %}danger{% elif e.status in ['Under Review','Submitted'] %}warning text-dark{% elif e.status=='Draft' %}secondary{% else %}info{% endif %}">{{ e.status }}</span></td>
+<td class="small">{{ e.owner|default('—') }}</td><td class="small">{{ e.due_date|default(e.td_expiry) }}</td>
+<td class="text-nowrap ecs-sticky-actions">
+<button type="button" class="btn btn-sm btn-outline-primary ecs-ex-detail-btn" data-bs-toggle="modal" data-bs-target="#ecsExDetailModal" data-ex-id="{{ e.exception_id }}">View</button>
+{% for a in module_view.actions[:2] %}{{ module_action('exceptions_td', a, role, user, a|replace('_',' ')|title, 'btn-outline-secondary btn-sm', e.exception_id) }}{% endfor %}
+</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('expired', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="exceptions-expired"><thead><tr><th>ID</th><th>Observation</th><th>Framework</th><th>TD Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for e in module_view.rows if e.expired %}
+<tr class="table-danger"><td>{{ e.exception_id }}</td><td class="small">{{ (e.observation_title|default(e.control))|truncate(40, True, '') }}</td><td>{{ e.framework }}</td><td>{{ e.td_expiry }}</td>
+<td><span class="badge bg-dark">{{ e.status|default('Expired') }}</span></td>
+<td>{% for a in module_view.actions[:2] %}{{ module_action('exceptions_td', a, role, user, a|replace('_',' ')|title, 'btn-sm btn-outline-danger', e.exception_id) }}{% endfor %}</td></tr>
+{% else %}<tr><td colspan="6" class="text-muted small">No expired TD items</td></tr>{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+
+<div class="modal fade" id="ecsExDetailModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title">Exception / Observation Detail</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body small" id="ecsExDetailBody">
+<p class="text-muted mb-0">Select View on an exception row to inspect observation linkage, TD description, and audit trail.</p>
+</div>
+<div class="modal-footer py-1">
+{% for a in module_view.actions[:4] %}
+<button type="button" class="btn btn-sm btn-outline-primary" disabled>{{ a|replace('_',' ')|title }}</button>
+{% endfor %}
+</div></div></div></div>
+
+<script>
+(function(){
+  var rows = {{ module_view.rows|tojson }};
+  document.querySelectorAll('.ecs-ex-detail-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var id = btn.getAttribute('data-ex-id');
+      var e = rows.find(function(r){ return r.exception_id === id; });
+      var body = document.getElementById('ecsExDetailBody');
+      if (!e || !body) return;
+      body.innerHTML = '<dl class="row mb-0">' +
+        '<dt class="col-sm-3">Observation ID</dt><dd class="col-sm-9"><code>' + (e.observation_id || id) + '</code></dd>' +
+        '<dt class="col-sm-3">Title</dt><dd class="col-sm-9">' + (e.observation_title || e.control) + '</dd>' +
+        '<dt class="col-sm-3">Description</dt><dd class="col-sm-9">' + (e.observation_description || e.justification || '—') + '</dd>' +
+        '<dt class="col-sm-3">TD Description</dt><dd class="col-sm-9">' + (e.td_description || e.compensating_control || '—') + '</dd>' +
+        '<dt class="col-sm-3">Framework</dt><dd class="col-sm-9">' + e.framework + ' · ' + (e.application || '—') + '</dd>' +
+        '<dt class="col-sm-3">Risk / Status</dt><dd class="col-sm-9">' + (e.risk_rating || e.residual_risk) + ' · ' + e.status + '</dd>' +
+        '<dt class="col-sm-3">Owner / Due</dt><dd class="col-sm-9">' + (e.owner || '—') + ' · Due ' + (e.due_date || e.td_expiry) + '</dd></dl>';
+    });
+  });
+})();
+</script>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

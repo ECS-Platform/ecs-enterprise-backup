@@ -1,52 +1,89 @@
 <!DOCTYPE html><html><head><title>Search</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-search"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Enterprise Evidence Discovery</h1>
-<p class="text-muted small">Intelligent search, semantic matching, and reuse mapping — discovery only, no submit workflow</p>
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Enterprise Evidence Discovery</h1>
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<form class="card p-3 mb-3 shadow-sm" method="get" action="/mvp/search">
-<input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}">
-<div class="row g-2 align-items-end">
-<div class="col-md-3"><label class="form-label small">Semantic / keyword</label><input name="q" value="{{q}}" class="form-control form-control-sm" placeholder="e.g. encryption firewall scan"></div>
-<div class="col-md-2"><label class="form-label small">Framework</label><select name="framework" class="form-select form-select-sm"><option value="">All</option>
-{% for fw in module_view.framework_filters %}<option value="{{fw}}" {% if framework==fw %}selected{% endif %}>{{fw}}</option>{% endfor %}</select></div>
-<div class="col-md-2"><label class="form-label small">Application</label><input name="application" value="{{application}}" class="form-control form-control-sm"></div>
-<div class="col-md-2"><label class="form-label small">Owner</label><input name="owner" value="{{owner}}" class="form-control form-control-sm"></div>
-<div class="col-md-2"><button class="btn btn-primary btn-sm w-100">Discover</button></div></div></form>
-<div class="row g-3">
-<div class="col-md-8">
-<div class="discovery-panel">
-<h6 class="text-uppercase text-muted small">Search Results & Semantic Matches</h6>
-<ul class="list-unstyled ecs-paginated-list mb-0">
-{% for r in semantic_matches|default(results) %}
-<li class="border-bottom py-2">
-<div class="d-flex justify-content-between"><strong>{{ r.evidence[:45] }}</strong>
-{% if r.match_type %}<span class="semantic-tag">{{ r.match_type }}</span>{% endif %}</div>
-<small class="text-muted">{{ r.framework }} · {{ r.control[:40] }} · {{ r.application }}</small>
-{% if r.semantic_score %}<div class="match-score">Match confidence: {{ r.semantic_score }}%</div>{% endif %}
-<div class="mt-1">{{ module_action('search','open',role,user,'Open','btn-sm btn-outline-primary',r.evidence_id|default('')) }}
+{{ workspace_exec_strip(module_view) }}
+<div class="ecs-workspace-filters sticky-top bg-light py-1 mb-2" data-ecs-workspace-filters>
+<div class="row g-1 align-items-end">
+<div class="col-md-2"><label class="form-label ecs-ws-filter-lbl">Framework</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="framework"><option>All Frameworks</option>{% for fw in module_view.framework_filters %}<option>{{ fw }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label class="form-label ecs-ws-filter-lbl">Application</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="application"><option>All Applications</option>{% for a in workspace.applications[1:] %}<option>{{ a }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label class="form-label ecs-ws-filter-lbl">Risk</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="risk"><option>All Risk</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+<div class="col-md-2"><label class="form-label ecs-ws-filter-lbl">Status</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="status"><option>All Status</option><option>Approved</option><option>Pending</option><option>Submitted</option></select></div>
+<div class="col-md-2"><label class="form-label ecs-ws-filter-lbl">Owner</label>
+<select class="form-select form-select-sm ecs-ws-filter" data-filter-key="owner"><option>All Owners</option>{% for o in workspace.owners[1:] %}<option>{{ o }}</option>{% endfor %}</select></div>
+</div></div>
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading search results…</p>
+<form class="d-none" method="get" action="/mvp/search" id="searchServerForm">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="q" value="{{ q }}"></form>
+{{ workspace_tab_nav(workspace) }}
+{% set hits = semantic_matches|default(results)|default(module_view.default_results) %}
+
+{{ workspace_pane('overview', true) }}
+<p class="ecs-ws-summary">{{ module_view.kpis[0].value }} indexed artefacts · {{ hits|length }} results in catalogue preview.</p>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Evidence</th><th>Framework</th><th>Application</th><th>Owner</th><th>Status</th></tr></thead><tbody>
+{% for r in hits[:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application|default('') }}" data-filter-owner="{{ r.owner|default('') }}">
+<td>{{ r.evidence[:40] }}</td><td>{{ r.framework }}</td><td>{{ r.application|default('—') }}</td><td>{{ r.owner|default('—') }}</td><td>{{ r.status|default('—') }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('results', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="search-results"><thead><tr><th>Evidence</th><th>Framework</th><th>Control</th><th>Application</th><th>Owner</th><th>Match</th><th>Actions</th></tr></thead><tbody>
+{% for r in hits %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application|default('') }}" data-filter-owner="{{ r.owner|default('') }}">
+<td>{{ r.evidence[:45] }}</td><td>{{ r.framework }}</td><td class="small">{{ r.control[:40] }}</td><td>{{ r.application|default('—') }}</td><td>{{ r.owner|default('—') }}</td>
+<td>{% if r.match_type %}<span class="badge bg-info text-dark">{{ r.match_type }}</span>{% if r.semantic_score %} {{ r.semantic_score }}%{% endif %}{% else %}Catalog{% endif %}</td>
+<td class="text-nowrap">{{ module_action('search','open',role,user,'Open','btn-sm btn-outline-primary',r.evidence_id|default('')) }}
 {{ module_action('search','map_framework',role,user,'Map','btn-sm btn-outline-secondary',r.evidence_id|default('')) }}
 {{ module_action('search','reuse',role,user,'Reuse','btn-sm btn-outline-success',r.evidence_id|default('')) }}
-{{ module_action('search','compare',role,user,'Compare','btn-sm btn-outline-info',r.evidence_id|default('')) }}</div>
-</li>
-{% else %}<li class="text-muted small list-unstyled">Enter criteria to discover evidences across the enterprise catalogue.</li>{% endfor %}
-</ul>
-</div></div>
-<div class="col-md-4">
-<div class="discovery-panel mb-3"><h6 class="text-uppercase text-muted small">Reuse Suggestions</h6>
-<ul class="list-unstyled ecs-paginated-list mb-0">
-{% for s in reuse_suggestions|default([]) %}
-<li class="small border-bottom py-2"><strong>{{ s.filename[:30] }}</strong><br>
-{{ s.frameworks|join(', ') }} · {{ s.controls_count }} controls · ~{{ s.savings_hours }}h saved</li>
-{% endfor %}</ul></div>
-<div class="discovery-panel"><h6 class="text-uppercase text-muted small">Related Evidences</h6>
-<ul class="list-unstyled ecs-paginated-list mb-0">
-{% for r in related_evidences|default([]) %}
-<li class="small py-1">{{ r.evidence[:35] }} <span class="text-muted">({{ r.framework }})</span></li>
-{% else %}<li class="small text-muted">Run a search to see related artefacts</li>{% endfor %}
-</ul>
+{{ module_action('search','compare',role,user,'Compare','btn-sm btn-outline-info',r.evidence_id|default('')) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('controls', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Framework</th><th>Control Cluster</th><th>Applications Mapped</th><th>Action</th></tr></thead><tbody>
+{% for c in module_view.control_lookup %}
+<tr data-ecs-filter-row data-filter-framework="{{ c.framework }}"><td>{{ c.framework }}</td><td>{{ c.control }}</td><td>{{ c.applications }}</td>
+<td><a href="/mvp/search?role={{ role }}&user={{ user }}&framework={{ c.framework }}" class="btn btn-sm btn-outline-primary">Filter</a></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('findings', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Finding ID</th><th>Framework</th><th>Application</th><th>Summary</th><th>Severity</th></tr></thead><tbody>
+{% for f in module_view.findings %}
+<tr data-ecs-filter-row data-filter-framework="{{ f.framework }}" data-filter-application="{{ f.application }}" data-filter-risk="{{ f.severity }}">
+<td>{{ f.finding_id }}</td><td>{{ f.framework }}</td><td>{{ f.application }}</td><td>{{ f.summary }}</td>
+<td><span class="badge {% if f.severity=='High' %}bg-danger{% elif f.severity=='Medium' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ f.severity }}</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('reuse', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>File</th><th>Frameworks</th><th>Controls</th><th>Savings</th><th>Action</th></tr></thead><tbody>
+{% for s in reuse_suggestions|default(module_view.reuse_suggestions|default([])) %}
+<tr><td>{{ s.filename[:35] }}</td><td>{{ s.frameworks|join(', ') }}</td><td>{{ s.controls_count }}</td><td>~{{ s.savings_hours }}h</td>
+<td><a href="/mvp/reuse?role={{ role }}&user={{ user }}" class="btn btn-sm btn-outline-success">Open Reuse</a></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
 </div></div></div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

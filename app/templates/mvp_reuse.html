@@ -1,26 +1,83 @@
 <!DOCTYPE html><html><head><title>Evidence Reuse</title>{% include "partials/mvp_styles.html" %}</head>
 <body class="bg-light ecs-cap-reuse"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Cross-Framework Evidence Reuse Engine</h1>
-<p class="text-muted small">Map once, satisfy multiple controls — duplicate reduction and audit effort savings</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Cross-Framework Evidence Reuse</h1>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
-<div class="savings-banner mb-4"><div class="row"><div class="col-md-3"><h4>{{ module_view.kpis[0].value }}</h4><small>Reuse Rate</small></div>
-<div class="col-md-3"><h4>{{ module_view.kpis[2].value }}</h4><small>Duplicates Avoided</small></div>
-<div class="col-md-3"><h4>{{ module_view.kpis[3].value }}h</h4><small>Audit Effort Saved</small></div>
-<div class="col-md-3"><h4>{{ module_view.kpis[1].value }}</h4><small>Reuse Groups</small></div></div></div>
-<div class="row g-3">{% for g in module_view.rows %}
-<div class="col-md-6"><div class="card shadow-sm p-3">
-<div class="d-flex justify-content-between"><code>{{ g.group_id }}</code>
-<span class="badge {% if g.status=='Approved' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ g.status }}</span></div>
-<h6 class="mt-2">{{ g.filename }}</h6>
-<p class="small mb-1">{{ g.frameworks_mapped }} frameworks · {{ g.controls_linked }} controls · {{ g.duplicate_avoided }} dupes avoided</p>
-{% if g.linked_controls %}<div class="small text-muted mb-2">{% for l in g.linked_controls[:3] %}{{ l.framework }} → {{ l.control[:25] }}; {% endfor %}</div>{% endif %}
-{{ module_action('reuse','reuse_across',role,user,'Reuse Evidence','btn-sm btn-success',g.group_id) }}
-{{ module_action('reuse','link',role,user,'Link Framework','btn-sm btn-outline-primary',g.group_id) }}
-{{ module_action('reuse','approve_reuse',role,user,'Approve Mapping','btn-sm btn-outline-success',g.group_id) }}
-</div></div>{% endfor %}</div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading reuse mappings…</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<div class="ecs-ws-metric-row mb-1">
+<span><strong>{{ module_view.rows|length }}</strong> reusable groups</span>
+{% set dup_ns = namespace(n=0) %}{% for g in module_view.rows %}{% set dup_ns.n = dup_ns.n + g.duplicate_avoided %}{% endfor %}
+<span><strong>{{ dup_ns.n }}</strong> duplications avoided</span>
+<span><strong>{{ reuse_metrics.top_saving_hours }}h</strong> audit savings</span>
+</div>
+{% set rows = module_view.rows[:8] %}{% include "partials/mvp_reuse_table.html" with context %}{% set rows = module_view.rows %}
+{{ workspace_pane_end() }}
+
+{% if workspace.tabs|selectattr('id','equalto','candidates')|list %}
+{{ workspace_pane('candidates', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="reuse-candidates"><thead><tr><th>Evidence</th><th>Source FW</th><th>Target FW</th><th>Confidence</th><th>Dupes Avoided</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for c in module_view.candidates %}
+<tr data-ecs-filter-row data-filter-framework="{{ c.source_framework }}" data-filter-status="{{ c.status }}">
+<td>{{ c.evidence[:40] }}</td><td>{{ c.source_framework }}</td><td>{{ c.target_framework }}</td><td>{{ c.mapping_confidence }}%</td>
+<td>{{ c.duplicate_avoided }}</td><td><span class="badge {% if c.status=='Approved' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ c.status }}</span></td>
+<td>{{ module_action('reuse','reuse_across',role,user,'Reuse','btn-sm btn-success',c.group_id) }}
+{{ module_action('reuse','approve_reuse',role,user,'Approve','btn-sm btn-outline-success',c.group_id) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{{ workspace_pane('mappings', false) }}
+{% set reuse_table_id = 'reuse-mappings' %}{% include "partials/mvp_reuse_table.html" with context %}
+{{ workspace_pane_end() }}
+
+{% if workspace.tabs|selectattr('id','equalto','workbench')|list %}
+{{ workspace_pane('workbench', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="reuse-workbench"><thead><tr><th>Mapping ID</th><th>Source Control</th><th>Target Control</th><th>Similarity</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for w in module_view.workbench %}
+<tr data-ecs-filter-row data-filter-status="{{ w.status }}">
+<td>{{ w.mapping_id }}</td><td class="small">{{ w.source_framework }} → {{ w.source_control[:35] }}</td>
+<td class="small">{{ w.target_framework }} → {{ w.target_control[:35] }}</td>
+<td><div class="progress" style="height:6px;width:60px;display:inline-block;vertical-align:middle"><div class="progress-bar bg-success" style="width:{{ w.similarity_pct }}%"></div></div> {{ w.similarity_pct }}%</td>
+<td>{{ w.status }}</td>
+<td>{{ module_action('reuse','link',role,user,'Link','btn-sm btn-outline-primary',w.group_id) }}
+{{ module_action('reuse','approve_reuse',role,user,'Approve','btn-sm btn-outline-success',w.group_id) }}
+<button type="button" class="btn btn-sm btn-outline-danger">Reject</button></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{{ workspace_pane('pending', false) }}
+{% set rows = module_view.pending_rows %}
+{% set reuse_table_id = 'reuse-pending' %}{% include "partials/mvp_reuse_table.html" with context %}
+{% set rows = module_view.rows %}
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('analytics', false) }}
+<div class="ecs-ws-metric-row mb-2">
+<div><strong>Reuse rate</strong> 34.5%</div><div><strong>Groups</strong> {{ module_view.rows|length }}</div>
+<div><strong>Avg factor</strong> {{ reuse_metrics.avg_reuse_factor }}x</div><div><strong>Hours saved</strong> {{ reuse_metrics.top_saving_hours }}h</div>
+</div>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="reuse-analytics"><thead><tr><th>Framework</th><th>Reuse Groups</th><th>Controls Linked</th><th>Pending</th><th>Approved</th></tr></thead><tbody>
+{% for f in module_view.framework_breakdown|default([]) %}
+<tr><td>{{ f.framework }}</td><td>{{ f.reuse_groups }}</td><td>{{ f.controls_linked }}</td><td>{{ f.pending }}</td><td>{{ f.approved }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

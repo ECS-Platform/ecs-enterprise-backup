@@ -1,0 +1,58 @@
+{# Bulk upload workflow modal #}
+{% from "partials/mvp_module_actions.html" import module_action %}
+<div class="modal fade" id="uploadWorkflowModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title">Evidence Upload Workflow</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<div class="border border-dashed rounded p-3 mb-2 text-center bg-light" id="uploadDropZone">
+<p class="small mb-1"><strong>Drag & drop evidence files</strong> or use the file picker below</p>
+<p class="text-muted ecs-ws-summary mb-0">Supported: PDF, XLSX, CSV, JSON, ZIP</p></div>
+<form method="post" action="/mvp/upload/bulk" enctype="multipart/form-data" id="uploadWorkflowForm">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label ecs-ws-filter-lbl">Framework</label>
+<select name="framework" class="form-select form-select-sm">
+<option>PCI DSS</option><option>ITPP</option><option>VAPT</option><option>AppSec</option><option>CSITE</option><option>DPSC</option>
+</select></div>
+<div class="col-md-6"><label class="form-label ecs-ws-filter-lbl">Application</label>
+<select name="application" class="form-select form-select-sm">
+<option>Net Banking</option><option>Mobile Banking</option><option>UPI</option><option>Treasury</option><option>Loan Origination</option><option>Wealth Portal</option>
+</select></div>
+<div class="col-md-6"><label class="form-label ecs-ws-filter-lbl">Control Mapping</label>
+<input name="control" class="form-control form-control-sm" placeholder="e.g. Req 1.2 — Firewall config"></div>
+<div class="col-md-6"><label class="form-label ecs-ws-filter-lbl">Uploader</label>
+<input class="form-control form-control-sm" value="{{ user }}" readonly></div>
+<div class="col-md-12"><label class="form-label ecs-ws-filter-lbl">Evidence Tags</label>
+<input class="form-control form-control-sm" placeholder="audit-q2, firewall, dr-plan"></div>
+<div class="col-md-12"><label class="form-label ecs-ws-filter-lbl">Files</label>
+<input type="file" name="files" multiple class="form-control form-control-sm"></div>
+</div>
+<h6 class="small text-muted text-uppercase mb-1">Sample Evidence Types</h6>
+<ul class="small mb-0">{% for s in module_view.mock_samples|default([]) %}
+<li>{{ s.name }} — <span class="text-muted">{{ s.framework }} / {{ s.type }}</span></li>
+{% endfor %}</ul>
+</form></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+<button type="submit" form="uploadWorkflowForm" class="btn btn-primary btn-sm">Upload Evidence</button>
+</div></div></div></div>
+
+<script>
+(function(){
+  document.querySelectorAll('[data-upload-workflow]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      new bootstrap.Modal(document.getElementById('uploadWorkflowModal')).show();
+    });
+  });
+  var zone = document.getElementById('uploadDropZone');
+  if (zone) {
+    zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('border-primary'); });
+    zone.addEventListener('dragleave', function(){ zone.classList.remove('border-primary'); });
+    zone.addEventListener('drop', function(e){
+      e.preventDefault(); zone.classList.remove('border-primary');
+      var input = document.querySelector('#uploadWorkflowForm input[type=file]');
+      if (input && e.dataTransfer.files.length) input.files = e.dataTransfer.files;
+    });
+  }
+})();
+</script>

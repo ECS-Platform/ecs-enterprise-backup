@@ -1,33 +1,377 @@
-<!DOCTYPE html><html><head><title>Audit Prep</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Audit Prep — Readiness Command Center</title>
+{% include "partials/mvp_styles.html" %}{% include "partials/workflow_styles.html" %}
+<style>
+.ecs-audit-readiness-bar { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.5rem; }
+.ecs-audit-readiness-chip { font-size:0.72rem; padding:0.25rem 0.5rem; border-radius:6px; border:1px solid #e2e8f0; background:#fff; }
+.ecs-audit-readiness-chip strong { color:var(--ecs-navy,#1e293b); }
+.ecs-audit-section-title { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#64748b; margin:0.5rem 0 0.25rem; }
+.ecs-audit-countdown { background:linear-gradient(135deg,#1e3a5f,#2563eb); color:#fff; border-radius:8px; padding:0.5rem 0.75rem; font-size:0.78rem; }
+</style>
+</head>
 <body class="bg-light ecs-cap-audit"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Audit Readiness Cockpit</h1>
-<p class="text-muted small">Upcoming audits, readiness scoring, and auditor request tracking</p>
-{% if notice %}<div class="alert alert-success">{{notice}}</div>{% endif %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Audit Readiness Command Center</h1>
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
+<p class="ecs-exec-desc mb-1">Bank-wide audit war room — application-aware readiness before regulator &amp; external audits</p>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
-{% include "partials/mvp_module_header.html" %}
-{% from "partials/mvp_module_actions.html" import module_action %}
-<div class="row mb-4"><div class="col-md-3 text-center"><div class="readiness-score">{{ module_view.kpis[0].value }}</div><small class="text-muted">Readiness Score</small></div>
-<div class="col-md-9"><h3 class="h6 text-uppercase text-muted">Upcoming Audits</h3>
-{% for a in module_view.upcoming_audits %}
-<div class="audit-timeline-item"><strong>{{ a.framework }}</strong> — {{ a.date }} ({{ a.days_out }} days) · Auditor: {{ a.auditor }}
-<div class="chart-bar mt-1" style="width:{{ a.readiness }}%"></div><small>Readiness {{ a.readiness }}%</small></div>
-{% endfor %}</div></div>
-<h3 class="h6 text-uppercase text-muted">Pending Auditor Requests</h3>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-sm bg-white mb-4 ecs-paginated-table"><thead><tr><th>Request</th><th>Framework</th><th>Due</th><th>Owner</th></tr></thead><tbody>
-{% for p in module_view.pending_auditor_requests %}<tr><td>{{ p.request }}</td><td>{{ p.framework }}</td><td>{{ p.due }}</td><td>{{ p.owner }}</td></tr>{% endfor %}
-</tbody></table></div>
-<h3 class="h6 text-uppercase text-muted">Missing Evidence Gaps</h3>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-cap-table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Framework</th><th>Control</th><th>Priority</th><th>Actions</th></tr></thead><tbody>
-{% for c in module_view.rows %}
-<tr class="{% if c.priority=='High' %}table-warning{% endif %}"><td>{{ c.framework }}</td><td>{{ c.control|default(c.action) }}</td><td>{{ c.priority }}</td>
-<td>{{ module_action('audit_prep','close_gap',role,user,'Close Gap','btn-sm btn-success',c.control|default('')) }}
-{{ module_action('audit_prep','assign_owner',role,user,'Assign Owner','btn-sm btn-outline-primary',c.control|default('')) }}
-{{ module_action('audit_prep','upload_missing',role,user,'Upload Missing','btn-sm btn-outline-warning',c.control|default('')) }}</td></tr>
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% from "partials/mvp_module_actions.html" import workflow_link, module_action %}
+{% set mv = module_view %}
+{% set fq = '?role=' ~ role ~ '&user=' ~ user %}
+{% set af = audit_filters|default({}) %}
+
+{# Filter bar — server-side refresh for KPIs + tables #}
+<form method="get" action="/mvp/audit-prep" class="ecs-workspace-filters sticky-top bg-light py-1 mb-2" id="auditPrepFilters" data-ecs-workspace-filters>
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<div class="row g-1 align-items-end">
+<div class="col-6 col-md-2"><label class="form-label ecs-ws-filter-lbl">Framework</label>
+<select name="fw_filter" class="form-select form-select-sm ecs-ws-filter" data-filter-key="framework">
+{% for f in workspace.frameworks %}
+<option value="{% if loop.first %}{% else %}{{ f }}{% endif %}" {% if (af.framework|default('') == f) or (loop.first and not af.framework) %}selected{% endif %}>{{ f }}</option>
 {% endfor %}
+</select></div>
+<div class="col-6 col-md-2"><label class="form-label ecs-ws-filter-lbl">Application</label>
+<select name="app_filter" class="form-select form-select-sm ecs-ws-filter" data-filter-key="application">
+{% for a in workspace.applications %}
+<option value="{% if loop.first %}{% else %}{{ a }}{% endif %}" {% if (af.application|default('') == a) or (loop.first and not af.application) %}selected{% endif %}>{{ a }}</option>
+{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Risk</label>
+<select name="risk_filter" class="form-select form-select-sm ecs-ws-filter" data-filter-key="risk">
+{% for r in workspace.risks %}
+<option value="{% if loop.first %}{% else %}{{ r }}{% endif %}" {% if (af.risk|default('') == r) or (loop.first and not af.risk) %}selected{% endif %}>{{ r }}</option>
+{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Status</label>
+<select name="status_filter" class="form-select form-select-sm ecs-ws-filter" data-filter-key="status">
+{% for s in workspace.statuses %}
+<option value="{% if loop.first %}{% else %}{{ s }}{% endif %}" {% if (af.status|default('') == s) or (loop.first and not af.status) %}selected{% endif %}>{{ s }}</option>
+{% endfor %}
+</select></div>
+<div class="col-4 col-md-2"><label class="form-label ecs-ws-filter-lbl">Owner</label>
+<select name="owner_filter" class="form-select form-select-sm ecs-ws-filter" data-filter-key="owner">
+{% for o in workspace.owners %}
+<option value="{% if loop.first %}{% else %}{{ o }}{% endif %}" {% if (af.owner|default('') == o) or (loop.first and not af.owner) %}selected{% endif %}>{{ o }}</option>
+{% endfor %}
+</select></div>
+</div></form>
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading audit prep data…</p>
+
+{{ workspace_exec_strip(mv) }}
+{{ workspace_tab_nav(workspace) }}
+
+{# ── OVERVIEW ── #}
+{{ workspace_pane('overview', true) }}
+<h6 class="small fw-bold text-muted mb-1">Executive audit readiness overview</h6>
+{% if mv.filters_active %}<p class="small text-info mb-1">Filtered view: {{ mv.active_filter_summary }}</p>{% endif %}
+<p class="ecs-ws-summary"><strong>{{ mv.readiness_label|default('Audit readiness') }}</strong> · Weighted average <strong>{{ mv.weighted_readiness_pct }}%</strong> · {{ mv.missing_controls_total }} unresolved control gaps across {{ mv.readiness_by_application|length }} applications</p>
+
+{% if mv.next_audit_countdown %}
+<div class="ecs-audit-countdown mb-2">
+<strong>Next audit:</strong> {{ mv.next_audit_countdown.framework }} · {{ mv.next_audit_countdown.application }} · {{ mv.next_audit_countdown.auditor }}
+· <strong>{{ mv.next_audit_countdown.days_remaining }} days</strong> · {{ mv.next_audit_countdown.readiness_pct }}% ready · {{ mv.next_audit_countdown.blockers }} blockers
+</div>
+{% endif %}
+
+<div class="ecs-audit-section-title">Readiness by application</div>
+<div class="ecs-audit-readiness-bar mb-2">
+{% for a in mv.readiness_by_application %}
+<span class="ecs-audit-readiness-chip"><strong>{{ a.application }}</strong> → {{ a.readiness_pct }}% <small class="text-muted">({{ a.owner }})</small></span>
+{% endfor %}
+</div>
+
+{% if mv.audit_heatmaps is defined %}
+<div class="ecs-audit-section-title">Framework × Application Readiness Heatmap — click cell for drill-down</div>
+<div class="ecs-heat-legend mb-1">
+<span class="lg-green">≥85% Ready</span><span class="lg-amber">75–84% Watch</span><span class="lg-red">65–74% At Risk</span><span class="lg-dark-red">&lt;65% Critical</span>
+</div>
+<div class="ecs-heat-matrix mb-2" id="ecsAuditPrepHeatGrid"></div>
+<div class="row g-2 mb-2">
+<div class="col-md-6"><div class="ecs-audit-section-title">Stale Evidence</div>
+<p class="small mb-0"><strong>{{ mv.audit_heatmaps.stale_total|default(0) }}</strong> stale items · Weighted readiness <strong>{{ mv.audit_heatmaps.weighted_readiness|default(mv.weighted_readiness_pct) }}%</strong></p></div>
+<div class="col-md-6"><div class="ecs-audit-section-title">Upcoming Audits</div>
+<ul class="small mb-0">{% for a in mv.audit_heatmaps.upcoming_audits|default([]) %}
+<li>{{ a.application }} · {{ a.framework }} · {{ a.days_remaining }}d · {{ a.readiness_pct }}%</li>
+{% endfor %}</ul></div>
+</div>
+{% endif %}
+
+<div class="row g-2 mb-2">
+<div class="col-md-6">
+<div class="ecs-audit-section-title">Readiness by framework</div>
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Framework</th><th>Readiness</th><th>Apps</th><th>Gaps</th></tr></thead>
+<tbody>{% for f in mv.readiness_by_framework %}
+<tr data-ecs-filter-row data-filter-framework="{{ f.framework }}"><td>{{ f.framework }}</td><td>{{ f.readiness_pct }}%</td><td>{{ f.applications }}</td><td>{{ f.gap_count }}</td></tr>
+{% endfor %}</tbody></table>
+</div>
+<div class="col-md-6">
+<div class="ecs-audit-section-title">Unresolved control gaps by framework</div>
+<p class="small mb-1">{{ mv.missing_controls_total }} gaps across {{ mv.readiness_by_application|length }} applications</p>
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Framework</th><th>Gaps</th></tr></thead>
+<tbody>{% for fw, cnt in mv.missing_controls_breakdown.items() %}
+<tr><td>{{ fw }}</td><td>{{ cnt }} controls</td></tr>
+{% endfor %}</tbody></table>
+</div>
+</div>
+
+{% if mv.missing_control_details %}
+<div class="ecs-audit-section-title">Missing control details</div>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0">
+<thead><tr><th>Application</th><th>Framework</th><th>Control</th><th>Owner</th><th>Due Date</th><th>Evidence Missing</th><th>Audit Dependency</th></tr></thead>
+<tbody>{% for m in mv.missing_control_details[:10] %}
+<tr data-ecs-filter-row data-filter-framework="{{ m.framework }}" data-filter-application="{{ m.application }}" data-filter-owner="{{ m.owner }}" data-filter-risk="{{ m.priority }}">
+<td>{{ m.application }}</td><td>{{ m.framework }}</td><td><code>{{ m.control_id }}</code></td><td>{{ m.owner }}</td>
+<td>{{ m.due_date|default('2026-06-05') }}</td><td class="small">{{ m.evidence_missing|truncate(40, True, '') }}</td><td class="small">{{ m.audit_dependency }}</td></tr>
+{% endfor %}</tbody></table></div>
+{% endif %}
+
+{% if mv.below_threshold_apps %}
+<div class="ecs-audit-section-title">Applications below {{ 75 }}% readiness threshold</div>
+<div class="ecs-audit-readiness-bar mb-2">
+{% for a in mv.below_threshold_apps %}
+<span class="ecs-audit-readiness-chip border-warning"><strong>{{ a.application }}</strong> → {{ a.readiness_pct }}% <small class="text-danger">({{ a.owner }})</small></span>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if mv.owner_delays %}
+<div class="ecs-audit-section-title">Owners delaying readiness</div>
+<table class="table table-sm table-bordered bg-white mb-2"><thead><tr><th>Owner</th><th>Open Gaps</th><th>Overdue Requests</th><th>SLA Breaches</th><th>Applications</th></tr></thead>
+<tbody>{% for o in mv.owner_delays %}
+<tr data-ecs-filter-row data-filter-owner="{{ o.owner }}"><td><strong>{{ o.owner }}</strong></td><td>{{ o.open_gaps }}</td><td>{{ o.overdue_requests }}</td><td>{{ o.sla_breaches }}</td><td class="small">{{ o.applications }}</td></tr>
+{% endfor %}</tbody></table>
+{% endif %}
+
+<div class="ecs-audit-section-title">Critical blockers</div>
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-2"><thead><tr><th>Application</th><th>Framework</th><th>Control</th><th>Gap</th><th>Owner</th><th>Audit Impact</th></tr></thead>
+<tbody>{% for b in mv.critical_blockers %}
+<tr class="table-danger" data-ecs-filter-row data-filter-framework="{{ b.framework }}" data-filter-application="{{ b.application }}" data-filter-owner="{{ b.owner }}" data-filter-risk="{{ b.priority }}">
+<td>{{ b.application }}</td><td>{{ b.framework }}</td><td><code>{{ b.control_id }}</code></td><td class="small">{{ b.gap_description|truncate(45, True, '') }}</td><td>{{ b.owner }}</td><td>{{ b.audit_impact }}</td></tr>
+{% endfor %}</tbody></table>
+
+<div class="ecs-audit-section-title">Top contributors to poor readiness</div>
+<table class="table table-sm table-bordered bg-white mb-2"><thead><tr><th>Application</th><th>Framework</th><th>Readiness</th><th>Owner</th><th>Contributing factors</th></tr></thead>
+<tbody>{% for c in mv.poor_readiness_contributors %}
+<tr data-ecs-filter-row data-filter-application="{{ c.application }}" data-filter-framework="{{ c.framework }}" data-filter-owner="{{ c.owner }}">
+<td>{{ c.application }}</td><td>{{ c.framework }}</td><td>{{ c.readiness_pct }}%</td><td>{{ c.owner }}</td><td class="small">{{ c.summary }}</td></tr>
+{% endfor %}</tbody></table>
+
+<div class="ecs-audit-section-title">Evidence freshness risk</div>
+<div class="ecs-ws-metric-row mb-1">
+<span><strong>Stale</strong> {{ mv.evidence_freshness.stale_count }}</span>
+<span><strong>Expiring</strong> {{ mv.evidence_freshness.expiring_count }}</span>
+<span><strong>Rejected</strong> {{ mv.evidence_freshness.rejected_count }}</span>
+<span><strong>Reuse nearing expiry</strong> {{ mv.evidence_freshness.reuse_expiring|length }}</span>
+</div>
+<div class="row g-2 mb-2">
+<div class="col-md-6">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Stale / Failed Evidence</th><th>App</th><th>Control</th></tr></thead>
+<tbody>{% for e in mv.evidence_freshness.stale[:5] %}
+<tr><td class="small">{{ e.name|default(e.get('name',''))|truncate(30, True, '') }}</td><td>{{ e.application }}</td><td><code>{{ e.control_id }}</code></td></tr>
+{% endfor %}</tbody></table>
+</div>
+<div class="col-md-6">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Rejected / Pending</th><th>App</th><th>Framework</th></tr></thead>
+<tbody>{% for e in mv.evidence_freshness.rejected[:3] %}
+<tr class="table-danger"><td class="small">{{ e.name }}</td><td>{{ e.application }}</td><td>{{ e.framework|default('—') }}</td></tr>
+{% endfor %}
+{% for e in mv.evidence_freshness.expiring[:2] %}
+<tr class="table-warning"><td class="small">{{ e.name }}</td><td>{{ e.application }}</td><td>{{ e.framework|default('—') }}</td></tr>
+{% endfor %}
+</tbody></table>
+</div>
+</div>
+
+<div class="ecs-audit-section-title">Auditor request backlog ({{ mv.auditor_requests|length }})</div>
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-2"><thead><tr><th>Request</th><th>Application</th><th>Framework</th><th>Control</th><th>Auditor</th><th>Due</th><th>Owner</th></tr></thead>
+<tbody>{% for p in mv.auditor_requests[:6] %}
+<tr data-ecs-filter-row data-filter-framework="{{ p.framework }}" data-filter-application="{{ p.application }}" data-filter-owner="{{ p.owner }}">
+<td class="small">{{ p.request|truncate(40, True, '') }}</td><td>{{ p.application }}</td><td>{{ p.framework }}</td>
+<td><code>{{ p.linked_control }}</code></td><td>{{ p.auditor }}</td><td>{{ p.due }}</td><td>{{ p.owner }}</td></tr>
+{% endfor %}</tbody></table>
+
+{% if mv.overdue_gaps %}
+<div class="ecs-audit-section-title">High-risk overdue gaps</div>
+<table class="table table-sm table-bordered bg-white mb-2"><thead><tr><th>Application</th><th>Framework</th><th>Control</th><th>Owner</th><th>SLA</th><th>Days Left</th><th>Audit Dependency</th></tr></thead>
+<tbody>{% for g in mv.overdue_gaps %}
+<tr class="table-danger" data-ecs-filter-row data-filter-framework="{{ g.framework }}" data-filter-application="{{ g.application }}" data-filter-owner="{{ g.owner }}">
+<td>{{ g.application }}</td><td>{{ g.framework }}</td><td><code>{{ g.control_id }}</code></td><td>{{ g.owner }}</td>
+<td>{{ g.sla }}</td><td>{{ g.days_remaining }}d</td><td class="small">{{ g.audit_dependency|truncate(35, True, '') }}</td></tr>
+{% endfor %}</tbody></table>
+{% endif %}
+
+<div class="d-flex flex-wrap gap-1 mt-1">
+<button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#mockAuditModal">Start Mock Audit</button>
+{{ workflow_link('mock-audit', role, user, 'Full Mock Audit Workflow', 'btn-outline-primary btn-sm') }}
+{{ module_action('audit_prep','generate_package',role,user,'Generate Audit Package','btn-outline-primary btn-sm') }}
+{{ module_action('audit_prep','export_pdf',role,user,'Export Evidence Bundle','btn-outline-secondary btn-sm') }}
+</div>
+{{ workspace_pane_end() }}
+
+{# ── MY GAPS / HIGH RISK / OPEN GAPS ── #}
+{% if workspace.tabs|selectattr('id','equalto','gaps')|list %}
+{{ workspace_pane('gaps', false) }}
+<p class="small text-muted mb-1">Actionable gaps only — mapped to application, control, evidence, and audit dependency</p>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="audit-gaps">
+<thead><tr><th>Application</th><th>Framework</th><th>Control ID</th><th>Gap Description</th><th>Evidence Missing</th><th>SLA</th><th>Owner</th><th>Days Left</th><th>Audit Impact</th><th>Priority</th><th>Actions</th></tr></thead>
+<tbody>{% for g in mv.actionable_gaps %}
+<tr class="{% if g.priority == 'Critical' %}table-danger{% elif g.priority == 'High' %}table-warning{% endif %}"
+ data-ecs-filter-row data-filter-framework="{{ g.framework }}" data-filter-application="{{ g.application }}" data-filter-owner="{{ g.owner }}" data-filter-risk="{{ g.priority }}" data-filter-status="{{ g.status }}">
+<td><strong>{{ g.application }}</strong></td><td>{{ g.framework }}</td><td><code>{{ g.control_id }}</code></td>
+<td class="small">{{ g.gap_description|truncate(40, True, '') }}</td><td class="small">{{ g.evidence_missing|truncate(30, True, '') }}</td>
+<td><span class="badge {% if g.sla == 'Breached' %}bg-danger{% elif g.sla == 'At Risk' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ g.sla }}</span></td>
+<td>{{ g.owner }}</td><td>{{ g.days_remaining }}d</td><td>{{ g.audit_impact }}</td><td>{{ g.priority }}</td>
+<td class="text-nowrap">
+{% if perm_can_upload|default(role == 'owner') %}
+{{ workflow_link('upload-missing', role, user, 'Upload', 'btn-sm btn-primary', g.control_name, g.framework) }}
+{% elif perm_is_auditor|default(role == 'auditor') %}
+{{ workflow_link('assign-owner', role, user, 'Assign', 'btn-sm btn-outline-primary', g.control_name, g.framework) }}
+{{ workflow_link('assign-owner', role, user, 'Reassign', 'btn-sm btn-outline-secondary', g.control_name, g.framework) }}
+<form method="post" action="/mvp/workflow/request-reupload" class="d-inline">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="framework" value="{{ g.framework }}"><input type="hidden" name="control" value="{{ g.control_name }}">
+<input type="hidden" name="return_module" value="audit_prep">
+<button class="btn btn-sm btn-warning py-0">Request Re-upload</button></form>
+{% endif %}
+{% if perm_can_upload|default(role == 'owner') %}
+{{ workflow_link('close-gap', role, user, 'Close', 'btn-sm btn-success', g.control_name, g.framework) }}
+{% endif %}
+<a href="/mvp/exceptions{{ fq }}" class="btn btn-sm btn-outline-warning py-0">Exception</a>
+<button type="button" class="btn btn-sm btn-outline-danger py-0" data-bs-toggle="modal" data-bs-target="#escalateModal" data-owner="{{ g.owner }}" data-control="{{ g.control_id }}">Escalate</button>
+<button type="button" class="btn btn-sm btn-outline-info py-0" data-bs-toggle="tooltip" title="{{ g.audit_dependency }}">Audit Dep.</button>
+</td></tr>
+{% endfor %}</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{# ── UPLOAD MISSING ── #}
+{% if workspace.tabs|selectattr('id','equalto','uploads')|list %}
+{{ workspace_pane('uploads', false) }}
+{% set upload_kpis = mv.upload_kpis|default({}, true) %}
+{% set missing_evidence_rows = mv.missing_evidence_rows|default(mv.upload_queue, true) %}
+{% set return_module = 'audit_prep' %}
+{% include "partials/mvp_upload_missing_panel.html" %}
+{{ workspace_pane_end() }}
+{% endif %}
+
+{# ── UPCOMING AUDITS ── #}
+{% for tab_id in ['audits','readiness'] %}
+{% if workspace.tabs|selectattr('id','equalto',tab_id)|list %}
+{{ workspace_pane(tab_id, false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="audit-upcoming">
+<thead><tr><th>Application</th><th>Framework</th><th>Auditor</th><th>Scope</th><th>Audit Type</th><th>Start Date</th><th>Days Left</th><th>Readiness</th><th>Blockers</th><th>Evidence %</th><th>Escalation</th><th>Owner</th></tr></thead>
+<tbody>{% for a in mv.upcoming_audits %}
+<tr class="{% if a.readiness_pct < 75 %}table-warning{% endif %}" data-ecs-filter-row data-filter-framework="{{ a.framework }}" data-filter-application="{{ a.application }}" data-filter-owner="{{ a.owner }}">
+<td><strong>{{ a.application }}</strong></td><td>{{ a.framework }}</td><td>{{ a.auditor }}</td>
+<td class="small">{{ a.audit_scope|truncate(35, True, '') }}</td><td class="small">{{ a.audit_type }}</td>
+<td>{{ a.date }}</td><td><strong>{{ a.days_remaining }}d</strong></td><td>{{ a.readiness_pct }}%</td>
+<td>{% if a.blockers %}<span class="badge bg-danger">{{ a.blockers }}</span>{% else %}0{% endif %}</td>
+<td>{{ a.evidence_completion_pct }}%</td><td>{{ a.escalation }}</td><td>{{ a.owner }}</td></tr>
+{% endfor %}</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+{% endfor %}
+
+{# ── AUDITOR REQUESTS / QUEUE ── #}
+{% for tab_id in ['queue','requests'] %}
+{% if workspace.tabs|selectattr('id','equalto',tab_id)|list %}
+{{ workspace_pane(tab_id, false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0">
+<thead><tr><th>Requested Evidence</th><th>Auditor</th><th>Application</th><th>Framework</th><th>Control</th><th>Due</th><th>Owner</th><th>Priority</th><th>Escalation</th><th></th></tr></thead>
+<tbody>{% for p in mv.auditor_requests %}
+<tr class="{% if p.priority == 'Critical' %}table-danger{% elif p.days_overdue %}table-warning{% endif %}"
+ data-ecs-filter-row data-filter-framework="{{ p.framework }}" data-filter-application="{{ p.application }}" data-filter-owner="{{ p.owner }}" data-filter-risk="{{ p.priority }}">
+<td><strong>{{ p.request }}</strong><br><span class="small text-muted">{{ p.requested_evidence }}</span></td>
+<td>{{ p.auditor }}</td><td>{{ p.application }}</td><td>{{ p.framework }}</td>
+<td><code>{{ p.linked_control }}</code></td><td>{{ p.due }}{% if p.days_overdue %} <span class="badge bg-danger">{{ p.days_overdue }}d overdue</span>{% endif %}</td>
+<td>{{ p.owner }}</td><td>{{ p.priority }}</td><td>{{ p.escalation }}</td>
+<td>
+{% if perm_can_upload|default(role == 'owner') %}
+{{ workflow_link('upload-missing', role, user, 'Upload', 'btn-sm btn-primary', p.linked_control, p.framework) }}
+{% elif perm_is_auditor|default(role == 'auditor') %}
+{{ workflow_link('assign-owner', role, user, 'Assign', 'btn-sm btn-outline-primary', p.linked_control, p.framework) }}
+<button type="button" class="btn btn-sm btn-warning py-0" disabled title="App Owner coordinates re-upload">Re-upload Pending</button>
+{% else %}
+<span class="small text-muted">—</span>
+{% endif %}
+</td>
+</tr>
+{% endfor %}</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+{% endfor %}
+
+{# ── PENDING SUBMISSIONS ── #}
+{% if workspace.tabs|selectattr('id','equalto','submissions')|list %}
+{{ workspace_pane('submissions', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0">
+<thead><tr><th>Submission ID</th><th>Application</th><th>Framework</th><th>Control</th><th>Owner</th><th>Status</th><th>Due</th></tr></thead>
+<tbody>{% for s in mv.pending_submissions %}
+<tr data-ecs-filter-row data-filter-framework="{{ s.framework }}" data-filter-application="{{ s.application }}" data-filter-status="{{ s.status }}" data-filter-owner="{{ s.owner }}">
+<td>{{ s.submission_id }}</td><td>{{ s.application }}</td><td>{{ s.framework }}</td>
+<td><code>{{ s.control_id }}</code> {{ s.control|truncate(25, True, '') }}</td><td>{{ s.owner }}</td>
+<td><span class="badge {% if s.status=='Approved' %}bg-success{% elif s.status=='Rejected' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ s.status }}</span></td><td>{{ s.due }}</td></tr>
+{% endfor %}</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{# ── TRENDS (CIO) ── #}
+{% if workspace.tabs|selectattr('id','equalto','heatmaps')|list %}
+{{ workspace_pane('heatmaps', false) }}
+<p class="small text-muted mb-2">Audit readiness heatmaps — framework and application scope with stale evidence indicators</p>
+<div class="ecs-heat-matrix mb-3" id="ecsAuditHeatTabGrid"></div>
+<div class="table-responsive ecs-paginated-wrap"><table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Framework</th><th>Readiness</th><th>Apps</th><th>Gaps</th></tr></thead><tbody>
+{% for f in mv.readiness_by_framework %}<tr><td>{{ f.framework }}</td><td>{{ f.readiness_pct }}%</td><td>{{ f.applications }}</td><td>{{ f.gap_count }}</td></tr>{% endfor %}
 </tbody></table></div>
-<div class="mt-2">{{ module_action('audit_prep','mock_audit',role,user,'Start Mock Audit','btn-primary btn-sm') }}</div>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+{{ workspace_pane_end() }}
+{% endif %}
+
+{# ── ACTIONS ── #}
+{% if workspace.tabs|selectattr('id','equalto','actions')|list %}
+{{ workspace_pane('actions', false) }}
+<div class="d-flex flex-wrap gap-1 mb-2">
+{{ workflow_link('mock-audit', role, user, 'Start Mock Audit', 'btn-primary btn-sm') }}
+{{ module_action('audit_prep','generate_package',role,user,'Generate Audit Package','btn-outline-primary btn-sm') }}
+{{ module_action('audit_prep','export_pdf',role,user,'Export Evidence Bundle','btn-outline-secondary btn-sm') }}
+</div>
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0">
+<thead><tr><th>Application</th><th>Framework</th><th>Control</th><th>Owner</th><th>Progress</th><th>SLA</th></tr></thead>
+<tbody>{% for r in mv.remediation_progress %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application }}" data-filter-owner="{{ r.owner }}">
+<td>{{ r.application }}</td><td>{{ r.framework }}</td><td>{{ r.control|truncate(35, True, '') }}</td>
+<td>{{ r.owner }}</td><td>{{ r.progress_pct }}%</td>
+<td><span class="badge {% if r.sla_status=='Breached' %}bg-danger{% elif r.sla_status=='At Risk' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ r.sla_status }}</span></td></tr>
+{% endfor %}</tbody></table></div>
+{{ workspace_pane_end() }}
+{% endif %}
+
+</div></div></div>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/audit_prep_modals.html" %}
+<script>
+(function(){
+  var hm = {{ module_view.audit_heatmaps|default({})|tojson }};
+  if (hm.matrix && window.ecsRenderAuditMatrix) {
+    ecsRenderAuditMatrix('ecsAuditPrepHeatGrid', hm.matrix);
+    var tabGrid = document.getElementById('ecsAuditHeatTabGrid');
+    if (tabGrid) ecsRenderAuditMatrix('ecsAuditHeatTabGrid', hm.matrix);
+  }
+})();
+</script>
+{% include "partials/chatbot_global.html" %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% if perm_can_upload|default(role == 'owner') %}
+{% include "partials/evidence_upload_modal.html" %}
+{% endif %}
+</body></html>

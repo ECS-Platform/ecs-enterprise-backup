@@ -1,0 +1,342 @@
+<!DOCTYPE html><html><head>
+<title>Framework Administration — ECS</title>
+{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-fw-wizard{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;margin-bottom:1rem}
+.ecs-fw-steps{display:flex;gap:.35rem;margin-bottom:1rem;flex-wrap:wrap}
+.ecs-fw-step{flex:1;min-width:90px;text-align:center;padding:.4rem .3rem;font-size:.62rem;font-weight:600;border-radius:6px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+.ecs-fw-step.is-active{background:#2563eb;color:#fff;border-color:#2563eb}
+.ecs-fw-step.is-done{background:#dcfce7;color:#166534;border-color:#86efac}
+.ecs-fw-drop{border:2px dashed #cbd5e1;border-radius:8px;padding:1.5rem;text-align:center;background:#f8fafc;cursor:pointer}
+.ecs-fw-drop.is-dragover{border-color:#2563eb;background:#eff6ff}
+.ecs-fw-kpi{display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0}
+.ecs-fw-kpi-card{flex:1 1 110px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.5rem;text-align:center}
+.ecs-fw-kpi-val{font-size:1.1rem;font-weight:700;color:#0f172a}
+.ecs-fw-kpi-lbl{font-size:.58rem;text-transform:uppercase;color:#64748b;font-weight:600}
+.ecs-fw-reuse-panel{background:linear-gradient(135deg,#f0f9ff,#ecfdf5);border:1px solid #bae6fd;border-radius:8px;padding:.75rem;margin:.5rem 0}
+.ecs-fw-ai-badge{font-size:.58rem;background:#1e3a5f;color:#fff;padding:.15em .45em;border-radius:4px;font-weight:600}
+.ecs-sidebar-btn-accent{background:rgba(37,99,235,.15)!important;color:#93c5fd!important;font-weight:600}
+.ecs-sidebar-btn-admin{font-size:.72rem!important}
+</style>
+</head>
+<body class="bg-light ecs-cap-framework-admin"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<div class="d-flex justify-content-between align-items-start mb-2">
+<div>
+<h1 class="ecs-workspace-title h5 mb-0">Framework Administration</h1>
+<p class="small text-muted mb-0">Enterprise framework ingestion · control normalization · reuse intelligence</p>
+</div>
+{% if perm_can_manage_frameworks|default(false) %}
+<button type="button" class="btn btn-primary btn-sm" id="ecsFwOpenWizard">+ Add New Framework</button>
+{% endif %}
+</div>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{{ workspace_exec_strip(module_view) }}
+
+{# ── Onboarding Wizard ── #}
+<div class="ecs-fw-wizard{% if not show_wizard %} d-none{% endif %}" id="ecsFwWizard">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<strong>Framework Onboarding Wizard</strong><span class="ecs-fw-ai-badge">AI-ASSISTED INGESTION</span>
+<button type="button" class="btn-close btn-sm" id="ecsFwCloseWizard"></button>
+</div>
+<div class="ecs-fw-steps" id="ecsFwStepBar">
+<span class="ecs-fw-step is-active" data-step="1">1 · Details</span>
+<span class="ecs-fw-step" data-step="2">2 · Upload</span>
+<span class="ecs-fw-step" data-step="3">3 · Parse &amp; Map</span>
+<span class="ecs-fw-step" data-step="4">4 · Reuse</span>
+<span class="ecs-fw-step" data-step="5">5 · Activate</span>
+</div>
+
+<div class="ecs-fw-pane" data-pane="1">
+<div class="row g-2">
+<div class="col-md-6"><label class="form-label small mb-0">Framework Name *</label>
+<input class="form-control form-control-sm" id="ecsFwName" placeholder="e.g. RBI Cyber Security"></div>
+<div class="col-md-3"><label class="form-label small mb-0">Version *</label>
+<input class="form-control form-control-sm" id="ecsFwVersion" placeholder="4.0"></div>
+<div class="col-md-3"><label class="form-label small mb-0">Category</label>
+<select class="form-select form-select-sm" id="ecsFwCategory">{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label small mb-0">Regulator / Authority *</label>
+<input class="form-control form-control-sm" id="ecsFwRegulator" placeholder="RBI / ISO / SWIFT"></div>
+<div class="col-md-6"><label class="form-label small mb-0">Effective Date</label>
+<input type="date" class="form-control form-control-sm" id="ecsFwEffective" value="2026-06-01"></div>
+</div>
+<button type="button" class="btn btn-primary btn-sm mt-2" data-ecs-fw-next="2">Continue →</button>
+</div>
+
+<div class="ecs-fw-pane d-none" data-pane="2">
+<p class="small text-muted">Upload control assessment sheet or control list (Excel, CSV, DOCX, PDF)</p>
+<div class="ecs-fw-drop" id="ecsFwDrop">
+<input type="file" id="ecsFwFile" accept=".csv,.xlsx,.xls,.pdf,.docx,.doc" class="d-none">
+<p class="mb-1"><strong>Upload Controls / Assessment Document</strong></p>
+<p class="small text-muted mb-2">Expected: control list, descriptions, sections, evidence requirements</p>
+<button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('ecsFwFile').click()">Upload File</button>
+<span class="small ms-2" id="ecsFwFileName"></span>
+</div>
+<button type="button" class="btn btn-outline-secondary btn-sm mt-2" data-ecs-fw-next="1">← Back</button>
+<button type="button" class="btn btn-primary btn-sm mt-2" id="ecsFwParseBtn">Parse Controls →</button>
+<span class="spinner-border spinner-border-sm d-none ms-2" id="ecsFwParseSpinner"></span>
+</div>
+
+<div class="ecs-fw-pane d-none" data-pane="3">
+<div id="ecsFwParseErrors" class="alert alert-danger py-1 small d-none"></div>
+<div id="ecsFwParseWarnings" class="alert alert-warning py-1 small d-none"></div>
+<div class="ecs-fw-kpi" id="ecsFwAnalysisKpi"></div>
+<div class="table-responsive" style="max-height:280px">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr>
+<th>Control ID</th><th>Control Name</th><th>Section</th><th>Criticality</th><th>State</th><th>Reuse %</th>
+</tr></thead><tbody id="ecsFwControlsTable"></tbody></table>
+</div>
+<button type="button" class="btn btn-outline-secondary btn-sm mt-2" data-ecs-fw-next="2">← Back</button>
+<button type="button" class="btn btn-primary btn-sm mt-2" data-ecs-fw-next="4">Review Reuse →</button>
+</div>
+
+<div class="ecs-fw-pane d-none" data-pane="4">
+<div id="ecsFwReusePanel"></div>
+{% if role == 'owner' or perm_can_upload|default(false) %}
+<p class="small fw-semibold mt-2">App Owner — Evidence Reuse Decision</p>
+<div class="d-flex flex-wrap gap-2" id="ecsFwReuseActions">
+<button type="button" class="btn btn-success btn-sm" data-reuse-decision="reuse">Reuse Existing Evidence</button>
+<button type="button" class="btn btn-outline-primary btn-sm" data-reuse-decision="upload_new">Upload New Evidence</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-reuse-decision="compare">Compare Evidence</button>
+</div>
+{% endif %}
+<button type="button" class="btn btn-outline-secondary btn-sm mt-2" data-ecs-fw-next="3">← Back</button>
+<button type="button" class="btn btn-primary btn-sm mt-2" data-ecs-fw-next="5">Summary →</button>
+</div>
+
+<div class="ecs-fw-pane d-none" data-pane="5">
+<div id="ecsFwSummary"></div>
+<div class="d-flex flex-wrap gap-2 mt-2">
+{% if perm_can_manage_frameworks|default(false) %}
+<button type="button" class="btn btn-outline-primary btn-sm" id="ecsFwBtnMap">Mark Mapped</button>
+<button type="button" class="btn btn-outline-info btn-sm" id="ecsFwBtnReview">Submit for Review</button>
+{% endif %}
+{% if role == 'auditor' or perm_can_manage_frameworks|default(false) %}
+<button type="button" class="btn btn-success btn-sm" id="ecsFwBtnApprove">Approve Onboarding</button>
+<button type="button" class="btn btn-warning btn-sm" id="ecsFwBtnActivate">Activate Framework</button>
+{% endif %}
+<a href="#" class="btn btn-outline-danger btn-sm d-none" id="ecsFwExportPdf">Export PDF</a>
+<a href="#" class="btn btn-outline-success btn-sm d-none" id="ecsFwExportExcel">Export Excel</a>
+<a href="#" class="btn btn-outline-secondary btn-sm d-none" id="ecsFwExportCsv">Export CSV</a>
+</div>
+</div>
+</div>
+
+{{ workspace_tab_nav(workspace) }}
+{{ workspace_pane('overview', true) }}
+<p class="ecs-ws-summary">{{ module_view.catalog_frameworks|length }} frameworks in ECS catalog · {{ module_view.rows|length }} onboarding records · AI-assisted control intelligence enabled.</p>
+<div class="ecs-fw-kpi">
+{% for k in module_view.kpis %}
+<div class="ecs-fw-kpi-card"><div class="ecs-fw-kpi-val">{{ k.value }}</div><div class="ecs-fw-kpi-lbl">{{ k.label }}</div></div>
+{% endfor %}
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('catalog', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Framework</th><th>Controls (catalog)</th><th>Status</th></tr></thead><tbody>
+{% for fw in module_view.catalog_frameworks %}
+<tr><td>{{ fw }}</td><td>{{ module_view.rows|selectattr('framework_name','equalto',fw)|list|length or '—' }}</td>
+<td><span class="badge bg-success">Active</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('onboarded', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr>
+<th>Framework</th><th>Version</th><th>Controls</th><th>Coverage</th><th>Lifecycle</th><th>Created</th><th>Actions</th>
+</tr></thead><tbody>
+{% for f in module_view.rows %}
+<tr>
+<td><strong>{{ f.framework_name }}</strong><br><span class="small text-muted">{{ f.regulator|default('') }}</span></td>
+<td>{{ f.version|default('—') }}</td>
+<td>{{ f.analysis.total_controls|default(0) if f.analysis is defined else '—' }}</td>
+<td>{{ f.analysis.implementation_coverage_pct|default(0) if f.analysis is defined else '—' }}%</td>
+<td><span class="badge {% if f.lifecycle_state=='Active' %}bg-success{% elif f.lifecycle_state in ['Imported','Mapped'] %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ f.lifecycle_state }}</span></td>
+<td class="small">{{ f.created_at|default('—') }}</td>
+<td class="text-nowrap">
+<a href="/mvp/framework-admin?role={{ role|urlencode }}&user={{ user|urlencode }}&framework_id={{ f.framework_id }}" class="btn btn-sm btn-outline-primary py-0">View</a>
+<a href="/mvp/framework-admin/export/{{ f.framework_id }}?format=pdf&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-danger py-0">PDF</a>
+</td></tr>
+{% else %}<tr><td colspan="7" class="text-muted small">No frameworks onboarded yet — click <strong>+ Add New Framework</strong></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('mapping', false) }}
+{% if selected_framework %}
+<div class="table-responsive">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr>
+<th>New Control</th><th>Existing Framework</th><th>Existing Control</th><th>Evidence</th><th>Confidence</th>
+</tr></thead><tbody>
+{% for m in selected_framework.mapping_matrix[:30] %}
+<tr><td><code class="small">{{ m.new_control_id }}</code><br>{{ m.new_control_name }}</td>
+<td>{{ m.existing_framework }}</td><td><code class="small">{{ m.existing_control_id }}</code></td>
+<td class="small">{{ m.linked_evidence }}</td>
+<td><span class="badge {% if m.reuse_confidence_pct >= 75 %}bg-success{% elif m.reuse_confidence_pct >= 50 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ m.reuse_confidence_pct }}%</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}<p class="small text-muted">Select an onboarded framework to view control mapping matrix.</p>{% endif %}
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('gaps', false) }}
+{% if selected_framework %}
+<div class="table-responsive">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr>
+<th>Gap ID</th><th>Control</th><th>Type</th><th>Severity</th><th>Expected Evidence</th><th>Status</th>
+</tr></thead><tbody>
+{% for g in selected_framework.gaps[:25] %}
+<tr><td><code class="small">{{ g.gap_id }}</code></td><td class="small">{{ g.control_name[:40] }}</td>
+<td>{{ g.gap_type }}</td><td>{{ g.severity }}</td><td class="small">{{ g.expected_evidence }}</td>
+<td><span class="badge bg-warning text-dark">{{ g.status }}</span></td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}<p class="small text-muted">Gaps and onboarding tasks appear after framework import.</p>{% endif %}
+{{ workspace_pane_end() }}
+
+</div></div></div>
+{% include "partials/chatbot_global.html" %}
+<script>
+(function(){
+  var role = '{{ role|e }}', user = '{{ user|e }}';
+  var currentStep = 1, currentFrameworkId = '{{ selected_framework.framework_id if selected_framework else "" }}';
+  var importResult = null;
+
+  function showStep(n) {
+    currentStep = n;
+    document.querySelectorAll('.ecs-fw-pane').forEach(function(p){ p.classList.toggle('d-none', parseInt(p.getAttribute('data-pane')) !== n); });
+    document.querySelectorAll('.ecs-fw-step').forEach(function(s){
+      var sn = parseInt(s.getAttribute('data-step'));
+      s.classList.toggle('is-active', sn === n);
+      s.classList.toggle('is-done', sn < n);
+    });
+  }
+  document.querySelectorAll('[data-ecs-fw-next]').forEach(function(btn){
+    btn.addEventListener('click', function(){ showStep(parseInt(btn.getAttribute('data-ecs-fw-next'))); });
+  });
+  document.getElementById('ecsFwOpenWizard') && document.getElementById('ecsFwOpenWizard').addEventListener('click', function(){
+    document.getElementById('ecsFwWizard').classList.remove('d-none');
+    showStep(1);
+  });
+  document.getElementById('ecsFwCloseWizard') && document.getElementById('ecsFwCloseWizard').addEventListener('click', function(){
+    document.getElementById('ecsFwWizard').classList.add('d-none');
+  });
+  {% if show_wizard %}document.getElementById('ecsFwWizard').classList.remove('d-none'); showStep(1);{% endif %}
+
+  var drop = document.getElementById('ecsFwDrop');
+  var fileInput = document.getElementById('ecsFwFile');
+  if (drop && fileInput) {
+    drop.addEventListener('click', function(e){ if (e.target.tagName !== 'BUTTON') fileInput.click(); });
+    drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('is-dragover'); });
+    drop.addEventListener('dragleave', function(){ drop.classList.remove('is-dragover'); });
+    drop.addEventListener('drop', function(e){ e.preventDefault(); drop.classList.remove('is-dragover'); if (e.dataTransfer.files[0]) { fileInput.files = e.dataTransfer.files; document.getElementById('ecsFwFileName').textContent = e.dataTransfer.files[0].name; } });
+    fileInput.addEventListener('change', function(){ document.getElementById('ecsFwFileName').textContent = fileInput.files[0] ? fileInput.files[0].name : ''; });
+  }
+
+  function renderAnalysis(rec) {
+    var a = rec.analysis || {};
+    document.getElementById('ecsFwAnalysisKpi').innerHTML =
+      '<div class="ecs-fw-kpi-card"><div class="ecs-fw-kpi-val">' + (a.total_controls||0) + '</div><div class="ecs-fw-kpi-lbl">Total Controls</div></div>' +
+      '<div class="ecs-fw-kpi-card"><div class="ecs-fw-kpi-val">' + (a.implemented||0) + '</div><div class="ecs-fw-kpi-lbl">Implemented</div></div>' +
+      '<div class="ecs-fw-kpi-card"><div class="ecs-fw-kpi-val">' + (a.reusable_controls||0) + '</div><div class="ecs-fw-kpi-lbl">Reusable</div></div>' +
+      '<div class="ecs-fw-kpi-card"><div class="ecs-fw-kpi-val">' + (a.new_evidence_required||0) + '</div><div class="ecs-fw-kpi-lbl">New Evidence</div></div>' +
+      '<div class="ecs-fw-kpi-card"><div class="ecs-fw-kpi-val">' + (a.implementation_coverage_pct||0) + '%</div><div class="ecs-fw-kpi-lbl">Coverage</div></div>';
+    var tb = document.getElementById('ecsFwControlsTable');
+    tb.innerHTML = '';
+    (rec.controls || []).slice(0, 40).forEach(function(c){
+      tb.innerHTML += '<tr><td><code class="small">' + c.control_id + '</code></td><td class="small">' + c.control_name.substring(0,45) + '</td><td>' + (c.section||'') + '</td><td>' + (c.criticality||'') + '</td><td>' + (c.implementation_state||'') + '</td><td>' + (c.reuse_confidence_pct||0) + '%</td></tr>';
+    });
+    var rp = document.getElementById('ecsFwReusePanel');
+    var reusable = (rec.controls || []).filter(function(c){ return c.reuse_recommended; }).slice(0, 5);
+    rp.innerHTML = '<h6 class="small fw-bold">Control Reuse Suggestions</h6>';
+    reusable.forEach(function(c){
+      var bm = c.best_match;
+      if (!bm) return;
+      rp.innerHTML += '<div class="ecs-fw-reuse-panel"><strong>' + c.control_id + '</strong> → similar to <code>' + bm.control_id + '</code> (' + bm.framework + ')<br>Confidence: <strong>' + c.reuse_confidence_pct + '%</strong> · Match: ' + bm.match_type + '</div>';
+    });
+    document.getElementById('ecsFwSummary').innerHTML =
+      '<h6>Framework Onboarding Summary</h6><p class="small mb-1"><strong>' + rec.framework_name + '</strong> · ' + (a.total_controls||0) + ' controls · ' + (a.implementation_coverage_pct||0) + '% coverage</p>' +
+      '<p class="small text-muted">Critical missing: ' + (a.critical_missing||0) + ' · Gaps created: ' + (rec.gaps_count||0) + '</p>';
+    ['ecsFwExportPdf','ecsFwExportExcel','ecsFwExportCsv'].forEach(function(id, i){
+      var el = document.getElementById(id); var fmt = ['pdf','excel','csv'][i];
+      if (el && currentFrameworkId) { el.classList.remove('d-none'); el.href = '/mvp/framework-admin/export/' + currentFrameworkId + '?format=' + fmt + '&role=' + encodeURIComponent(role) + '&user=' + encodeURIComponent(user); }
+    });
+  }
+
+  document.getElementById('ecsFwParseBtn') && document.getElementById('ecsFwParseBtn').addEventListener('click', function(){
+    var sp = document.getElementById('ecsFwParseSpinner');
+    sp.classList.remove('d-none');
+    var fd = new FormData();
+    fd.append('role', role); fd.append('user', user);
+    fd.append('framework_name', document.getElementById('ecsFwName').value);
+    fd.append('version', document.getElementById('ecsFwVersion').value);
+    fd.append('regulator', document.getElementById('ecsFwRegulator').value);
+    fd.append('effective_date', document.getElementById('ecsFwEffective').value);
+    fd.append('category', document.getElementById('ecsFwCategory').value);
+    if (fileInput && fileInput.files[0]) fd.append('control_file', fileInput.files[0]);
+    fetch('/api/framework-onboarding/import', { method: 'POST', body: fd })
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); })
+      .then(function(res){
+        sp.classList.add('d-none');
+        var errEl = document.getElementById('ecsFwParseErrors');
+        var warnEl = document.getElementById('ecsFwParseWarnings');
+        if (!res.ok) {
+          errEl.textContent = (res.body.errors || [res.body.error || 'Import failed']).join('; ');
+          errEl.classList.remove('d-none');
+          return;
+        }
+        errEl.classList.add('d-none');
+        currentFrameworkId = res.body.framework_id;
+        importResult = res.body.record;
+        if (res.body.record.warnings && res.body.record.warnings.length) {
+          warnEl.textContent = res.body.record.warnings.join(' ');
+          warnEl.classList.remove('d-none');
+        }
+        renderAnalysis(res.body.record);
+        showStep(3);
+        if (window.ecsShowWorkflowToast) ecsShowWorkflowToast({ title: '✓ Controls Parsed', body: importResult.controls_count + ' controls imported and normalized.' });
+      }).catch(function(){ sp.classList.add('d-none'); });
+  });
+
+  function lifecycle(action) {
+    if (!currentFrameworkId) return;
+    fetch('/api/framework-onboarding/lifecycle', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ framework_id: currentFrameworkId, action: action, role: role, user: user })
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (window.ecsShowWorkflowToast) ecsShowWorkflowToast({ title: 'Framework Updated', body: j.message });
+      if (action === 'activate') setTimeout(function(){ location.reload(); }, 1200);
+    });
+  }
+  document.getElementById('ecsFwBtnMap') && document.getElementById('ecsFwBtnMap').addEventListener('click', function(){ lifecycle('map'); });
+  document.getElementById('ecsFwBtnReview') && document.getElementById('ecsFwBtnReview').addEventListener('click', function(){ lifecycle('review'); });
+  document.getElementById('ecsFwBtnApprove') && document.getElementById('ecsFwBtnApprove').addEventListener('click', function(){ lifecycle('approve'); });
+  document.getElementById('ecsFwBtnActivate') && document.getElementById('ecsFwBtnActivate').addEventListener('click', function(){ lifecycle('activate'); });
+
+  document.querySelectorAll('[data-reuse-decision]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (!currentFrameworkId || !importResult) return;
+      var c = (importResult.controls || []).find(function(x){ return x.reuse_recommended; });
+      if (!c) return;
+      fetch('/api/framework-onboarding/reuse-decision', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ framework_id: currentFrameworkId, control_id: c.control_id, decision: btn.getAttribute('data-reuse-decision'), role: role, user: user })
+      }).then(function(r){ return r.json(); }).then(function(j){
+        if (window.ecsShowWorkflowToast) ecsShowWorkflowToast({ title: 'Evidence Decision Recorded', body: j.message });
+      });
+    });
+  });
+
+  {% if selected_framework %}
+  importResult = {{ selected_framework|tojson }};
+  currentFrameworkId = '{{ selected_framework.framework_id }}';
+  renderAnalysis(importResult);
+  {% endif %}
+  {% if toast == 'fw_ok' and window.ecsShowWorkflowToast is defined %}{% endif %}
+})();
+</script>
+</body></html>

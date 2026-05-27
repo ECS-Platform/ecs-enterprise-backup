@@ -37,6 +37,8 @@
 </div>
 
 <div class="ecs-chat-body" id="ecsChatBody">
+<div class="ecs-chat-split">
+<div class="ecs-chat-answer-panel">
 <div class="ecs-chat-history" id="ecsChatHistory">
 {% if chat_history is defined and chat_history %}
 {% for h in chat_history %}
@@ -45,11 +47,24 @@
 {% endfor %}
 {% endif %}
 </div>
+<div class="ecs-chat-answer-main" id="ecsChatAnswerMain">
 {% if chat_response_html is defined and chat_response_html %}
-<div class="ecs-chat-response ecs-chat-response-html alert alert-light border mt-2 mb-2" id="ecsChatLatest" style="font-size: 0.82rem; max-height: 420px; overflow-y: auto;">{{ chat_response_html|safe }}</div>
+<div class="ecs-chat-response ecs-chat-response-html" id="ecsChatLatest">{{ chat_response_html|safe }}</div>
 {% elif response %}
-<div class="ecs-chat-response alert alert-light border mt-2 mb-2" id="ecsChatLatest" style="white-space: pre-wrap; font-size: 0.82rem; max-height: 320px; overflow-y: auto;">{{ response }}</div>
+<div class="ecs-chat-response" id="ecsChatLatest" style="white-space: pre-wrap;">{{ response }}</div>
 {% endif %}
+</div>
+</div>
+<div class="ecs-chat-ref-panel" id="ecsChatRefPanel">
+<div class="ecs-chat-ref-header">
+<button type="button" class="ecs-chat-ref-toggle btn btn-link btn-sm p-0" id="ecsChatRefToggle" title="Collapse references">◀</button>
+<span>References &amp; Evidence</span>
+</div>
+<div class="ecs-chat-ref-body" id="ecsChatRefBody">
+<p class="text-muted small mb-0">Citations, evidence links, and linked observations appear here when Copilot responds.</p>
+</div>
+</div>
+</div>
 <div class="ecs-chat-suggestions mb-2">
 <small class="text-muted d-block mb-1">Quick asks:</small>
 <div class="d-flex flex-wrap gap-1">
@@ -66,9 +81,10 @@
 {% endif %}
 </div>
 </div>
-<form method="post" action="/chat" id="ecsChatForm">
+<form method="post" action="/mvp/chat" id="ecsChatForm">
 <input type="hidden" name="role" value="{{role}}">
 <input type="hidden" name="user" value="{{user}}">
+<input type="hidden" name="return_url" id="ecsChatReturnUrl" value="">
 {% if framework_name is defined and framework_name %}
 <input type="hidden" name="framework_name" value="{{framework_name}}">
 {% endif %}
@@ -159,6 +175,80 @@
       btn.addEventListener('click', function(){
         var input = document.getElementById('ecsChatInput');
         if (input) { input.value = btn.getAttribute('data-q'); document.getElementById('ecsChatForm').submit(); }
+      });
+    });
+  }
+
+  function splitCopilotPanels() {
+    var latest = document.getElementById('ecsChatLatest');
+    var refBody = document.getElementById('ecsChatRefBody');
+    if (!latest || !refBody) return;
+    var clone = latest.cloneNode(true);
+    var refs = clone.querySelectorAll('a, .chart-card, .btn, ul, ol');
+    var refHtml = [];
+    refs.forEach(function(el) {
+      if (el.tagName === 'A' || el.classList.contains('btn') || el.classList.contains('chart-card')) {
+        refHtml.push(el.outerHTML);
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }
+    });
+    if (refHtml.length) {
+      refBody.innerHTML = '<div class="ecs-chat-ref-cards">' + refHtml.join('') + '</div>';
+    }
+    var summary = clone.textContent.trim().substring(0, 600);
+    if (summary && latest.textContent.length > 400) {
+      var sumEl = document.createElement('div');
+      sumEl.className = 'ecs-chat-summary small text-muted mb-2';
+      sumEl.textContent = summary.substring(0, 220) + (summary.length > 220 ? '…' : '');
+      if (!latest.querySelector('.ecs-chat-summary')) latest.insertBefore(sumEl, latest.firstChild);
+    }
+  }
+
+  function ensureLatestPanel() {
+    var main = document.getElementById('ecsChatAnswerMain');
+    var el = document.getElementById('ecsChatLatest');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'ecsChatLatest';
+    el.className = 'ecs-chat-response ecs-chat-response-html';
+    if (main) main.appendChild(el);
+    else {
+      var bodyEl = document.getElementById('ecsChatBody');
+      var form = document.getElementById('ecsChatForm');
+      if (bodyEl && form) bodyEl.insertBefore(el, form);
+    }
+    return el;
+  }
+
+  function bindQuickActions(root) {
+    (root || document).querySelectorAll('.ecs-chat-quick-action').forEach(function(btn){
+      if (btn._ecsQuickBound) return;
+      btn._ecsQuickBound = true;
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var action = btn.getAttribute('data-action');
+        var scenario = btn.getAttribute('data-scenario') || '';
+        if (!action) return;
+        btn.disabled = true;
+        var fd = new FormData();
+        fd.append('action', action);
+        fd.append('role', role);
+        fd.append('user', user);
+        fd.append('scenario', scenario);
+        fetch('/mvp/api/chat-action', { method: 'POST', body: fd })
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            if (!data || !data.html) return;
+            var panel = ensureLatestPanel();
+            panel.innerHTML = data.html;
+            panel.scrollTop = panel.scrollHeight;
+            splitCopilotPanels();
+            bindQuickActions(panel);
+            bindSuggestButtons(panel);
+            if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+          })
+          .catch(function(err){ console.error('Quick action failed', err); })
+          .finally(function(){ btn.disabled = false; });
       });
     });
   }
@@ -279,7 +369,20 @@
   }
 
   bindSuggestButtons(document);
-  if (latest) bindSuggestButtons(latest);
+  bindQuickActions(document);
+  splitCopilotPanels();
+  var refToggle = document.getElementById('ecsChatRefToggle');
+  var refPanel = document.getElementById('ecsChatRefPanel');
+  if (refToggle && refPanel) {
+    refToggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      refPanel.classList.toggle('is-collapsed');
+      refToggle.textContent = refPanel.classList.contains('is-collapsed') ? '▶' : '◀';
+    });
+  }
+  if (latest) { bindSuggestButtons(latest); bindQuickActions(latest); }
+  var returnUrlInput = document.getElementById('ecsChatReturnUrl');
+  if (returnUrlInput) returnUrlInput.value = window.location.pathname + window.location.search;
   initFromStorage();
   if (window.ecsRefreshPagination) window.ecsRefreshPagination();
 

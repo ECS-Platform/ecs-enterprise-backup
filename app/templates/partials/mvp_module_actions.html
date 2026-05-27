@@ -8,3 +8,7 @@
 <button class="btn {{ btn_class }}">{{ label }}</button>
 </form>
 {% endmacro %}
+
+{% macro workflow_link(flow, role, user, label, btn_class='btn-outline-primary btn-sm', control='', framework='', return_module='audit_prep', observation_id='') %}
+<a href="/mvp/workflow/{{ flow }}?role={{ role|urlencode }}&user={{ user|urlencode }}{% if control %}&control={{ control|urlencode }}{% endif %}{% if framework %}&framework={{ framework|urlencode }}{% endif %}{% if observation_id %}&observation_id={{ observation_id|urlencode }}{% endif %}&return_module={{ return_module|urlencode }}" class="btn {{ btn_class }}">{{ label }}</a>
+{% endmacro %}

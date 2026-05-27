@@ -1,34 +1,275 @@
-<!DOCTYPE html><html><head><title>Integrations Hub</title>{% include "partials/mvp_styles.html" %}</head>
-<body class="bg-light ecs-enterprise-body ecs-cap-hub"><div class="container-fluid"><div class="row">
+<!DOCTYPE html><html><head><title>Integration Command Center</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-cap-hub .ecs-workspace-main { padding-bottom:0.5rem; height:calc(100vh - 0.25rem); overflow:hidden; display:flex; flex-direction:column; }
+.ecs-ih-kpi-strip .ecs-exec-kpi { box-shadow:0 1px 4px rgba(15,23,42,0.06); max-width:none; flex:1 1 0; min-width:0; }
+.ecs-ih-kpi-icon { font-size:0.75rem; opacity:0.55; margin-bottom:0.1rem; display:block; color:#1e3a8a; }
+.ecs-ih-workspace { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.ecs-cap-hub .ecs-workspace-tab-nav { flex-shrink:0; }
+.ecs-cap-hub .ecs-workspace-panes { flex:1; min-height:0; overflow:hidden; }
+.ecs-cap-hub .tab-pane { max-height:100%; overflow-y:auto; }
+.ecs-ih-exec-row { flex-shrink:0; }
+.ecs-ih-matrix-wrap { max-height:220px; overflow-y:auto; }
+.ecs-ih-log-pager { display:flex; align-items:center; gap:0.5rem; margin-top:0.35rem; }
+.ecs-ih-line-chart { width:100%; height:48px; }
+.ecs-ih-chip { background:linear-gradient(180deg,#f8fafc,#f1f5f9); }
+.ecs-ih-header { margin-bottom:0.65rem; }
+.ecs-ih-title { font-size:1.15rem; font-weight:700; color:#0f172a; margin:0; letter-spacing:-0.01em; }
+.ecs-ih-sub { font-size:0.78rem; color:#64748b; margin:0.25rem 0 0.5rem; max-width:920px; line-height:1.45; }
+.ecs-ih-chips { display:flex; flex-wrap:wrap; gap:0.35rem; }
+.ecs-ih-chip { font-size:0.62rem; font-weight:600; padding:0.2rem 0.55rem; border-radius:999px; background:#f1f5f9; color:#334155; border:1px solid #e2e8f0; }
+.ecs-ih-panel { background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 1px 3px rgba(15,23,42,0.04); padding:0.65rem; height:100%; }
+.ecs-ih-panel-title { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#475569; margin-bottom:0.45rem; }
+.ecs-ih-matrix { font-size:0.72rem; margin:0; }
+.ecs-ih-matrix th { font-size:0.62rem; text-transform:uppercase; color:#64748b; font-weight:600; padding:0.35rem 0.45rem; background:#f8fafc; border-color:#e2e8f0; }
+.ecs-ih-matrix td { padding:0.35rem 0.45rem; vertical-align:middle; border-color:#f1f5f9; }
+.ecs-ih-matrix tbody tr { cursor:pointer; transition:background 0.15s; }
+.ecs-ih-matrix tbody tr:hover { background:#f8fafc; }
+.ecs-ih-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+.ecs-ih-dot.ok { background:#16a34a; }
+.ecs-ih-dot.warn { background:#ea580c; }
+.ecs-ih-dot.crit { background:#dc2626; }
+.ecs-ih-insights { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+.ecs-ih-insight { border:1px solid #f1f5f9; border-radius:6px; padding:0.45rem; background:#fafbfc; min-height:88px; }
+.ecs-ih-insight-lbl { font-size:0.6rem; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:0.35rem; }
+.ecs-ih-bar-row { display:flex; align-items:flex-end; gap:4px; height:56px; max-height:56px; overflow-x:auto; }
+.ecs-ih-bar { width:12px; max-width:12px; background:var(--ecs-chart-blue,#3b6ea5); border-radius:2px 2px 0 0; min-height:3px; margin:0 auto; opacity:0.88; }
+.ecs-ih-bar-lbl { font-size:0.48rem; color:#94a3b8; text-align:center; margin-top:2px; line-height:1.05; word-break:break-word; }
+.ecs-ih-donut-wrap { display:flex; align-items:center; gap:0.5rem; }
+.ecs-ih-donut { width:48px; height:48px; border-radius:50%; background:conic-gradient(#4a7c59 0 var(--ok), #c27803 var(--ok) calc(var(--ok) + var(--warn)), #b4534a calc(var(--ok) + var(--warn)) 100%); position:relative; flex-shrink:0; }
+.ecs-ih-donut::after { content:''; position:absolute; inset:12px; background:#fafbfc; border-radius:50%; }
+.ecs-ih-donut-val { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:0.58rem; font-weight:700; color:#334155; z-index:1; }
+.ecs-ih-issue { font-size:0.65rem; padding:0.25rem 0; border-bottom:1px solid #f1f5f9; line-height:1.3; }
+.ecs-ih-issue:last-child { border-bottom:none; }
+.ecs-ih-trend { display:flex; align-items:flex-end; gap:3px; height:48px; }
+.ecs-ih-trend-col { flex:1; display:flex; flex-direction:column; align-items:center; }
+.ecs-ih-trend-bar { width:100%; max-width:18px; background:#2563eb; border-radius:2px 2px 0 0; min-height:3px; opacity:0.85; }
+.ecs-ih-trend-lbl { font-size:0.5rem; color:#94a3b8; margin-top:2px; }
+.ecs-ih-exec-row { margin-bottom:0.55rem; }
+.ecs-ih-bp-card { border:1px solid #e2e8f0; border-radius:8px; padding:0.65rem; background:#fff; height:100%; box-shadow:0 1px 2px rgba(15,23,42,0.03); }
+.ecs-ih-bp-hdr { font-size:0.82rem; font-weight:700; color:#1e3a8a; border-bottom:1px solid #e2e8f0; padding-bottom:0.35rem; margin-bottom:0.45rem; }
+.ecs-ih-bp-list { font-size:0.72rem; color:#334155; margin:0 0 0.5rem; padding-left:1rem; }
+.ecs-ih-bp-meta { font-size:0.68rem; color:#64748b; }
+.ecs-ih-detail-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:1050; align-items:center; justify-content:center; padding:1rem; }
+.ecs-ih-detail-overlay.is-open { display:flex; }
+.ecs-ih-detail-panel { background:#fff; border-radius:10px; max-width:880px; width:100%; max-height:90vh; overflow:auto; box-shadow:0 20px 50px rgba(15,23,42,0.2); border:1px solid #e2e8f0; }
+.ecs-ih-detail-hdr { padding:0.75rem 1rem; border-bottom:1px solid #e2e8f0; background:linear-gradient(180deg,#f8fafc,#fff); position:sticky; top:0; z-index:2; }
+.ecs-ih-detail-body { padding:0.75rem 1rem; }
+.ecs-ih-detail-section { margin-bottom:0.75rem; }
+.ecs-ih-detail-section h6 { font-size:0.68rem; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:0.35rem; }
+.ecs-ih-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+.ecs-ih-log-filters { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.45rem; }
+.ecs-cap-hub .ecs-fit-table th, .ecs-cap-hub .ecs-fit-table td { font-size:0.72rem; white-space:normal; vertical-align:middle; }
+.ecs-cap-hub .ecs-workspace-tab-nav { margin-bottom:0.35rem; }
+@media (max-width:991px) { .ecs-ih-insights { grid-template-columns:1fr; } .ecs-ih-detail-grid { grid-template-columns:1fr; } .ecs-cap-hub .ecs-workspace-main { height:auto; overflow:visible; } }
+</style></head>
+<body class="bg-light ecs-cap-hub"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 ecs-main-content">
-{% from "partials/ecs_ux_macros.html" import page_header, zone_open, zone_close %}
-{{ page_header('Enterprise Integrations Hub', 'ServiceNow · SharePoint · Teams · Confluence · Jira · Prisma · Tripwire · SonarQube · Checkmarx', user, role) }}
-{% if notice %}<div class="alert alert-success py-2">{{notice}}</div>{% endif %}
-{% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
-{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
-{{ grc_kpis(module_view.kpis) }}
+<div class="col-md-10 ecs-workspace-main">
+<div class="ecs-ih-header">
+<h1 class="ecs-ih-title">Enterprise Integration Command Center</h1>
+<p class="ecs-ih-sub">Enterprise-wide evidence ingestion, workflow orchestration, governance synchronization, and connector intelligence across ECS.</p>
+<div class="ecs-ih-chips">{% for chip in module_view.connector_chips|default([]) %}<span class="ecs-ih-chip">{{ chip }}</span>{% endfor %}</div>
+</div>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% from "partials/mvp_module_actions.html" import module_action %}
+{% if module_view.kpis %}
+<div class="ecs-exec-strip ecs-ih-kpi-strip mb-2"><div class="ecs-exec-strip-scroll">
+{% for k in module_view.kpis %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}" data-ecs-ops-kpi="{{ k.label }}" title="{{ k.hint|default('') }}">
+{% if k.icon|default('') %}<span class="ecs-ih-kpi-icon" aria-hidden="true">{{ k.icon }}</span>{% endif %}
+<span class="ecs-exec-kpi-val">{{ k.value|default(0) }}</span>
+<span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
+</div>
+{% endfor %}
+</div></div>
+{% endif %}
+{{ workspace_filters(workspace, role, user) }}
+<p class="small text-muted mb-2" id="ecsIhFilterSummary">Showing enterprise integration posture across all connectors.</p>
 
-{{ zone_open('middle', 'Connector Status') }}
-{% set groups = [('servicenow','ServiceNow'),('sharepoint','SharePoint'),('collaboration','Teams / Confluence'),('jira','Jira'),('cloud','Prisma Cloud'),('tripwire','Tripwire'),('appsec','SonarQube / Checkmarx'),('siem','SIEM'),('cmdb','CMDB')] %}
-{% for key, label in groups %}{% if module_view.grouped.get(key) %}
-<div class="mb-4"><h6 class="ecs-zone-label">{{ label }}</h6>
-<div class="row g-3">{% for c in module_view.grouped[key] %}
-<div class="col-md-6 col-lg-4"><div class="ecs-connector-card">
-<div class="d-flex justify-content-between align-items-start mb-2">
-<div><span class="ecs-connector-health {% if c.sync_health == 'Healthy' %}ok{% else %}warn{% endif %}"></span><strong>{{ c.name }}</strong></div>
-<span class="badge {% if c.sync_health == 'Healthy' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ c.sync_health|default('Healthy') }}</span>
+<div class="row g-2 ecs-ih-exec-row">
+<div class="col-lg-6">
+<div class="ecs-ih-panel">
+<div class="ecs-ih-panel-title">Connector Health Matrix</div>
+<div class="table-responsive ecs-ih-matrix-wrap"><table class="table table-sm ecs-ih-matrix mb-0" id="ecsIhHealthMatrix"><thead><tr>
+<th>Connector</th><th>Status</th><th>Apps</th><th>Last Sync</th><th>Failures</th>
+</tr></thead><tbody>
+{% for r in module_view.health_matrix|default([]) %}
+<tr data-connector-full="{{ r.connector_full }}" class="ecs-ih-matrix-row">
+<td><strong>{{ r.connector }}</strong></td>
+<td><span class="ecs-ih-dot {% if r.status == 'Healthy' %}ok{% elif r.status == 'Warning' %}warn{% else %}crit{% endif %}"></span>{{ r.status }}</td>
+<td>{{ r.apps }}</td>
+<td class="small text-muted">{{ r.last_sync }}</td>
+<td>{% if r.failures %}<span class="text-danger">{{ r.failures }}</span>{% else %}0{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+</div></div>
+<div class="col-lg-6">
+<div class="ecs-ih-panel">
+<div class="ecs-ih-panel-title">Integration Insights</div>
+<div class="ecs-ih-insights">
+<div class="ecs-ih-insight">
+<div class="ecs-ih-insight-lbl">Applications Connected by Connector</div>
+<div class="ecs-ih-bar-row" id="ecsIhBarChart"></div>
 </div>
-<small class="text-muted d-block mb-2">{{ c.type }} · Last sync: {{ c.last_sync }}</small>
-<div class="row small g-2 mb-2">
-<div class="col-6"><span class="text-muted">Records</span><br><strong>{{ c.records_pulled|default(c.records) }}</strong></div>
-<div class="col-6"><span class="text-muted">Mapped</span><br><strong>{{ c.mapped_controls|default(0) }}</strong></div>
+<div class="ecs-ih-insight">
+<div class="ecs-ih-insight-lbl">Evidence Collection Success %</div>
+{% set ih_insights = module_view.insights|default({}) %}
+{% set ih_donut = ih_insights.evidence_donut|default({}) %}
+{% set donut_ok = ih_donut.success_pct|default(0) %}
+{% set donut_warn = ih_donut.partial_pct|default(0) %}
+{% set donut_fail = ih_donut.failed_pct|default(0) %}
+<div class="ecs-ih-donut-wrap">
+<div class="ecs-ih-donut" id="ecsIhDonut" style="--ok:{{ donut_ok }}%; --warn:{{ donut_warn }}%; --fail:{{ donut_fail }}%">
+<span class="ecs-ih-donut-val" id="ecsIhDonutVal">{{ donut_ok }}%</span>
 </div>
-{% if c.ingestion %}<div class="mb-2">{% for i in c.ingestion[:3] %}<span class="badge bg-light text-dark me-1">{{ i }}</span>{% endfor %}</div>{% endif %}
-<div class="d-flex flex-wrap gap-1">{{ module_action('integrations_hub','test_connection',role,user,'Test','btn-sm btn-outline-primary',c.name) }}
-<form method="post" action="/mvp/integrations-hub/sync" class="d-inline"><input type="hidden" name="connector" value="{{c.name}}"><input type="hidden" name="role" value="{{role}}"><input type="hidden" name="user" value="{{user}}"><button class="btn btn-sm btn-success">Sync</button></form>
-{{ module_action('integrations_hub','view_logs',role,user,'Logs','btn-sm btn-outline-secondary',c.name) }}</div>
-</div></div>{% endfor %}</div></div>
-{% endif %}{% endfor %}
-{{ zone_close() }}
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+<div class="small text-muted" style="font-size:0.62rem;line-height:1.35">
+<span style="color:#16a34a">●</span> Healthy {{ donut_ok }}%<br>
+<span style="color:#ea580c">●</span> Degraded {{ donut_warn }}%<br>
+<span style="color:#dc2626">●</span> Critical {{ donut_fail }}%
+</div></div></div>
+<div class="ecs-ih-insight">
+<div class="ecs-ih-insight-lbl">Open Integration Issues</div>
+<div id="ecsIhIssueSummary">
+{% set issue_summary_rows = (ih_insights.issue_summary|default([], true))[:4] %}
+{% for i in issue_summary_rows %}
+<div class="ecs-ih-issue"><strong>{{ i.connector|default('') }}</strong> · {{ i.application|default('') }}<br><span class="text-muted">{{ i.issue|default('')|truncate(55) }}</span></div>
+{% else %}
+<span class="small text-muted">No open issues.</span>
+{% endfor %}
+</div></div>
+<div class="ecs-ih-insight">
+<div class="ecs-ih-insight-lbl">Sync Health Trend</div>
+<div class="ecs-ih-trend" id="ecsIhTrend"></div>
+</div></div></div></div></div>
+
+<div class="ecs-ih-workspace">
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('connectors', true) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-fit-table ecs-paginated-table mb-0" id="ecsIhConnectorTable" data-ecs-ih-table="connectors"><thead><tr>
+<th>Connector</th><th>Status</th><th>Applications</th><th>Frameworks</th><th>Last Sync</th><th>Success %</th><th>View</th>
+</tr></thead><tbody>
+{% for r in module_view.connector_status|default([]) %}
+<tr><td><strong>{{ r.connector }}</strong></td>
+<td><span class="ecs-ih-dot {% if r.status == 'Healthy' %}ok{% elif r.status == 'Warning' %}warn{% else %}crit{% endif %}"></span>{{ r.status }}</td>
+<td>{{ r.applications }}</td>
+<td class="small">{{ r.frameworks }}</td>
+<td class="small">{{ r.last_sync }}</td>
+<td>{{ r.success_pct }}%</td>
+<td><button type="button" class="btn btn-sm btn-outline-primary ecs-ih-view-btn" data-connector-full="{{ r.connector_full }}">View</button></td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('sync', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-fit-table ecs-paginated-table mb-0" id="ecsIhSyncTable" data-ecs-ih-table="sync"><thead><tr>
+<th>Connector</th><th>Application</th><th>Framework</th><th>Job Type</th><th>Last Run</th><th>Status</th><th>Records</th><th>Duration</th>
+</tr></thead><tbody>
+{% set sync_rows = (module_view.sync_monitoring|default([], true))[:10] %}
+{% for r in sync_rows %}
+<tr><td>{{ r.connector|default('') }}</td><td>{{ r.application|default('') }}</td><td class="small">{{ r.framework|default('') }}</td><td class="small">{{ r.job_type|default('') }}</td>
+<td class="small">{{ r.last_run|default('') }}</td><td>{{ r.status|default('') }}</td><td>{{ r.records|default(0) }}</td><td>{{ r.duration_sec|default(0) }}s</td></tr>
+{% else %}
+<tr><td colspan="8" class="text-muted small">No sync jobs in scope.</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('evidence', false) }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-fit-table ecs-paginated-table mb-0" id="ecsIhEvidenceTable" data-ecs-ih-table="evidence"><thead><tr>
+<th>Connector</th><th>Application</th><th>Framework</th><th>Evidence Type</th><th>Imported Today</th><th>Success %</th><th>Status</th>
+</tr></thead><tbody>
+{% set evidence_rows = (module_view.evidence_collection|default([], true))[:10] %}
+{% for r in evidence_rows %}
+<tr><td>{{ r.connector|default('') }}</td><td>{{ r.application|default('') }}</td><td class="small">{{ r.framework|default('') }}</td><td class="small">{{ r.evidence_type|default('') }}</td>
+<td>{{ r.imported_today|default(0) }}</td><td>{{ r.success_pct|default(0) }}%</td><td>{{ r.status|default('') }}</td></tr>
+{% else %}
+<tr><td colspan="7" class="text-muted small">No evidence imports in scope.</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('processes', false) }}
+<div class="row g-2" id="ecsIhProcessCards">
+{% for c in module_view.business_process_cards|default([]) %}
+<div class="col-md-6 col-lg-4"><div class="ecs-ih-bp-card" data-connector-full="{{ c.connector_full }}">
+<div class="ecs-ih-bp-hdr">{{ c.connector }}</div>
+<ul class="ecs-ih-bp-list">{% for p in c.processes %}<li>{{ p }}</li>{% endfor %}</ul>
+<div class="ecs-ih-bp-meta">Applications: <strong>{{ c.applications }}</strong><br>Evidence Collection: <strong>{{ c.evidence_collection }}</strong></div>
+</div></div>
+{% endfor %}
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('issues', false) }}
+<div class="d-flex justify-content-between align-items-center mb-1">
+<h6 class="small text-muted text-uppercase mb-0">Top Connector Issues</h6>
+<button type="button" class="btn btn-link btn-sm p-0" id="ecsIhViewAllIssues">View All</button>
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-fit-table ecs-paginated-table mb-0" id="ecsIhIssuesTable" data-ecs-ih-table="issues"><thead><tr>
+<th>Connector</th><th>Application</th><th>Issue</th><th>Severity</th><th>Status</th><th>Evidence Impact</th>
+</tr></thead><tbody>
+{% set open_issue_rows = (module_view.open_issues|default([], true))[:10] %}
+{% for r in open_issue_rows %}
+<tr class="{% if r.severity == 'Critical' %}table-danger{% elif r.severity == 'High' %}table-warning{% endif %}">
+<td>{{ r.connector|default('') }}</td><td>{{ r.application|default('') }}</td><td class="small">{{ r.issue|default('') }}</td>
+<td><span class="badge {% if r.severity == 'Critical' %}bg-danger{% elif r.severity == 'High' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ r.severity|default('') }}</span></td>
+<td>{{ r.status|default('') }}</td><td>{{ r.evidence_impact|default('') }}</td></tr>
+{% else %}
+<tr><td colspan="6" class="text-muted small">No open issues in scope.</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('logs', false) }}
+<div class="ecs-ih-log-filters">
+<select class="form-select form-select-sm" style="width:auto;min-width:120px" id="ecsIhLogSeverity"><option value="">All Severity</option><option>Info</option><option>Warning</option><option>Error</option><option>Critical</option></select>
+<select class="form-select form-select-sm" style="width:auto;min-width:120px" id="ecsIhLogConnector">
+    <option value="">All Connectors</option>
+    {% for chip in module_view.connector_chips | default([]) %}
+    <option>{{ chip }}</option>
+    {% endfor %}
+    </select>
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-fit-table ecs-paginated-table mb-0" id="ecsIhLogsTable" data-ecs-ih-table="logs"><thead><tr>
+<th>Timestamp</th><th>Connector</th><th>Application</th><th>Severity</th><th>Message</th>
+</tr></thead><tbody>
+{% set connector_log_rows = (module_view.connector_logs|default([], true))[:10] %}
+{% for r in connector_log_rows %}
+<tr><td class="small">{{ r.timestamp|default('') }}</td><td>{{ r.connector|default('') }}</td><td class="small">{{ r.application|default('') }}</td>
+<td><span class="badge {% if r.severity == 'Critical' %}bg-danger{% elif r.severity == 'Error' %}bg-danger{% elif r.severity == 'Warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ r.severity|default('Info') }}</span></td>
+<td class="small">{{ r.message|default('') }}</td></tr>
+{% else %}
+<tr><td colspan="5" class="text-muted small">No log entries in scope.</td></tr>
+{% endfor %}
+</tbody></table></div>
+<div class="ecs-ih-log-pager">
+<button type="button" class="btn btn-sm btn-outline-secondary" id="ecsIhLogPrev">← Prev</button>
+<span class="small text-muted" id="ecsIhLogsPager">Page 1</span>
+<button type="button" class="btn btn-sm btn-outline-secondary" id="ecsIhLogNext">Next →</button>
+</div>
+{{ workspace_pane_end() }}
+
+</div>
+</div></div></div>
+
+<div class="ecs-ih-detail-overlay" id="ecsIhDetailOverlay" aria-hidden="true">
+<div class="ecs-ih-detail-panel" role="dialog" aria-labelledby="ecsIhDetailTitle">
+<div class="ecs-ih-detail-hdr d-flex justify-content-between align-items-start">
+<div><h2 class="h6 mb-1" id="ecsIhDetailTitle">Connector Details</h2>
+<p class="small text-muted mb-0" id="ecsIhDetailSub"></p></div>
+<button type="button" class="btn btn-sm btn-outline-secondary" id="ecsIhDetailBack">← Back to Integration Hub</button>
+</div>
+<div class="ecs-ih-detail-body" id="ecsIhDetailBody"></div>
+</div></div>
+
+<script type="application/json" id="ecsIntegrationsHubDataset">{{ module_view.operations_dataset|default({})|tojson }}</script>
+{% include "partials/integrations_hub_executive_client.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

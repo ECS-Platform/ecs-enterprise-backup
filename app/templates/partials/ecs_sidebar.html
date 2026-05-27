@@ -1,40 +1,21 @@
-{# Unified enterprise sidebar — frameworks, modules, role dashboard, logout #}
-{% from "partials/nav_badge.html" import nav_badge %}
+{# Unified enterprise sidebar — grouped navigation, role context, logout #}
 <div class="col-md-2 col-lg-2 ecs-sidebar text-white">
 <div class="ecs-sidebar-inner">
 
 <div class="ecs-sidebar-brand">{{ sidebar_brand|default('ECS') }}</div>
-
-{% if role == "cio" %}
-<a href="/dashboard/cio?role={{role}}&user={{user}}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Evidence Analytics {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
-{% elif role == "vertical_head" %}
-<a href="/dashboard/vertical-head?role={{role}}&user={{user}}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Vertical Head Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
-{% elif role == "compliance_head" or role == "compliance_officer" %}
-<a href="/dashboard/compliance-head?role=compliance_head&user={{user}}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Compliance Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
-{% elif role == "functional_head" %}
-<a href="/dashboard/functional-head?role={{role}}&user={{user}}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Functional Head Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
-{% endif %}
-
-<div class="ecs-sidebar-section-label">Frameworks</div>
-<nav class="ecs-sidebar-nav" aria-label="Compliance frameworks">
-{% for framework in frameworks %}
-<a href="/framework/{{framework}}?role={{role}}&user={{user}}" class="ecs-sidebar-btn{% if framework_name is defined and framework_name == framework %} is-active{% endif %}" title="{{ nav_counters.framework_tooltips[framework] if nav_counters is defined and nav_counters.framework_tooltips is defined else '' }}">{{framework}} {{ nav_badge(nav_counters.frameworks[framework] if nav_counters is defined and nav_counters.frameworks is defined else 0, nav_counters.framework_tooltips[framework] if nav_counters is defined and nav_counters.framework_tooltips is defined else '') }}</a>
-{% endfor %}
-</nav>
+<p class="ecs-sidebar-tagline">ECS</p>
 
 {% if show_back_dashboard|default(false) %}
+<div class="ecs-sidebar-back mb-2">
 {% if role == "cio" %}
-<a href="/dashboard/cio?role={{role}}&user={{user}}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard">Back to CIO Analytics</a>
+<a href="/dashboard/cio?role={{role}}&user={{user}}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard ecs-sidebar-btn-compact">← CIO Analytics</a>
 {% else %}
-<a href="/dashboard?role={{role}}&user={{user}}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard">Back Dashboard</a>
+<a href="/dashboard?role={{role}}&user={{user}}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard ecs-sidebar-btn-compact">← Main Dashboard</a>
 {% endif %}
+</div>
 {% endif %}
 
-<div class="ecs-sidebar-divider" role="presentation"></div>
-
-<nav class="ecs-sidebar-nav ecs-sidebar-nav-modules" aria-label="ECS modules">
-{% include "partials/mvp_quick_links.html" %}
-</nav>
+{% include "partials/ecs_nav_groups.html" %}
 
 <div class="ecs-sidebar-footer">
 <a href="/logout" class="ecs-sidebar-btn ecs-sidebar-btn-danger">Logout</a>

@@ -86,7 +86,20 @@ def _session_key(user: str, role: str) -> str:
 
 
 def get_context(user: str, role: str) -> dict:
-    return _context.setdefault(_session_key(user, role), {"framework": "", "topic": ""})
+    return _context.setdefault(_session_key(user, role), {"framework": "", "topic": "", "application": "", "module": "", "severity": "", "user_role": role})
+
+
+def update_chat_context(user: str, role: str, query: str = "", **extra) -> dict:
+    """Merge parsed query context for quick-action scoping."""
+    from app.chatbot_context_engine import parse_query_context
+
+    ctx = get_context(user, role)
+    ctx["user_role"] = role
+    if query:
+        parsed = parse_query_context(query, ctx)
+        ctx.update(parsed)
+    ctx.update({k: v for k, v in extra.items() if v})
+    return ctx
 
 
 def get_chat_history(user: str, role: str, limit: int = 6) -> list[dict]:
@@ -666,7 +679,7 @@ def _combination_answer(q: str, framework: str, role: str) -> str | None:
 def process_query(query: str, role: str = "owner", user: str = "User") -> str:
     q = query.strip()
     ql = q.lower()
-    ctx = get_context(user, role)
+    ctx = update_chat_context(user, role, q)
     framework = _detect_framework(ql, ctx)
     topic = _detect_topic(ql)
 
@@ -688,6 +701,30 @@ def process_query(query: str, role: str = "owner", user: str = "User") -> str:
         ctx["framework"] = framework
     if topic:
         ctx["topic"] = topic
+
+    from app.chatbot_context_engine import render_governance_panel
+
+    def _with_governance_panel(title: str, body: str, **fmt_kw) -> str:
+        ans = _format_response(title, body, framework=framework, role=role, **fmt_kw)
+        html = render_governance_panel(ctx, role, body[:200] if body else title)
+        set_chat_structured(user, role, html)
+        record_exchange(user, role, q, ans)
+        return ans
+
+    if any(w in ql for w in ("gap", "gaps", "pending", "missing")) and (framework or ctx.get("application")):
+        m = _fw_metrics(framework) if framework else {}
+        app = ctx.get("application", "enterprise scope")
+        body = (
+            f"{framework or 'Enterprise'} pending gaps for {app}: "
+            f"{m.get('open_observations', m.get('pending', 12))} open observations, "
+            f"{m.get('high_risk_count', 4)} high-risk items."
+        )
+        return _with_governance_panel(
+            f"{framework or 'Governance'} Pending Gaps",
+            body,
+            metrics=m or {"open_observations": 12, "high_risk_count": 4},
+            insights=[f"Use quick actions below to drill into {app} impact, incidents, and TD exceptions."],
+        )
 
     for mod, desc in MODULE_DEFINITIONS.items():
         if mod.lower() in ql and any(p in ql for p in ("what is", "explain", "define")):

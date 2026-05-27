@@ -1,0 +1,184 @@
+{# Enterprise Upload Missing — observation-linked queue with executive KPIs #}
+{% from "partials/mvp_module_actions.html" import workflow_link %}
+<style>
+.ecs-upload-kpi-row{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:.5rem}
+.ecs-upload-kpi{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:.35rem .55rem;min-width:110px;flex:1 1 110px}
+.ecs-upload-kpi .lbl{font-size:.58rem;text-transform:uppercase;color:#64748b;font-weight:600;letter-spacing:.03em}
+.ecs-upload-kpi .val{font-size:.95rem;font-weight:700;line-height:1.2;color:#0f172a}
+.ecs-upload-table{font-size:.68rem}
+.ecs-upload-table th,.ecs-upload-table td{padding:.22rem .32rem;vertical-align:middle}
+.ecs-upload-detail-panel{position:fixed;top:0;right:-440px;width:420px;max-width:94vw;height:100vh;background:#fff;border-left:1px solid #e2e8f0;box-shadow:-4px 0 16px rgba(15,23,42,.08);z-index:1055;transition:right .25s ease;padding:.75rem;overflow-y:auto;font-size:.75rem}
+.ecs-upload-detail-panel.is-open{right:0}
+.ecs-upload-row-highlight{outline:2px solid #3b6ea5;background:#f0f7ff!important}
+</style>
+
+<div class="ecs-upload-kpi-row" id="ecsUploadKpiRow">
+<div class="ecs-upload-kpi"><div class="lbl">Total Missing</div><div class="val" data-ecs-upload-kpi="total_missing">{{ (upload_kpis.total_missing|default(0)) }}</div></div>
+<div class="ecs-upload-kpi"><div class="lbl">Critical Missing</div><div class="val text-danger" data-ecs-upload-kpi="critical_missing">{{ upload_kpis.critical_missing|default(0) }}</div></div>
+<div class="ecs-upload-kpi"><div class="lbl">Uploads Pending</div><div class="val text-warning" data-ecs-upload-kpi="uploads_pending">{{ upload_kpis.uploads_pending|default(0) }}</div></div>
+<div class="ecs-upload-kpi"><div class="lbl">Overdue Uploads</div><div class="val text-danger" data-ecs-upload-kpi="overdue_uploads">{{ upload_kpis.overdue_uploads|default(0) }}</div></div>
+<div class="ecs-upload-kpi"><div class="lbl">Apps Blocked</div><div class="val" data-ecs-upload-kpi="applications_blocked">{{ upload_kpis.applications_blocked|default(0) }}</div></div>
+<div class="ecs-upload-kpi"><div class="lbl">Audit Closure Impact</div><div class="val" data-ecs-upload-kpi="audit_closure_impact">{{ upload_kpis.audit_closure_impact|default(0) }}</div></div>
+</div>
+<p class="small text-muted mb-1" id="ecsUploadFilterSummary">Observation-linked missing evidence — every row maps to audit impact, requester, and remediation state.</p>
+{% if missing_evidence_rows %}
+<script type="application/json" id="ecsUploadMissingDataset">{{ missing_evidence_rows|tojson }}</script>
+{% endif %}
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table ecs-executive-table ecs-upload-table mb-0" data-ecs-complete-table="uploads"><thead><tr>
+<th>Observation ID</th><th>Application</th><th>Framework</th><th>Control ID</th><th>Control Description</th>
+<th>Missing Evidence</th><th>Evidence Type</th><th>Risk</th><th>Observation Severity</th>
+<th>Requested By</th><th>Due Date</th><th>Audit Impact</th><th>Status</th><th>Upload Action</th>
+</tr></thead><tbody>
+{% for r in (missing_evidence_rows|default([], true))[:10] %}
+<tr class="{% if r.observation_severity=='Critical' %}table-danger{% elif r.observation_severity=='Major' %}table-warning{% endif %} ecs-upload-data-row"
+ data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application }}" data-filter-risk="{{ r.risk }}" data-filter-status="{{ r.status }}">
+<td><button type="button" class="btn btn-link btn-sm p-0 ecs-upload-obs-link" data-obs-id="{{ r.observation_id }}"><code>{{ r.observation_id }}</code></button></td>
+<td><strong>{{ r.application }}</strong></td><td>{{ r.framework }}</td><td><code class="small">{{ r.control_id }}</code></td>
+<td class="small">{{ r.control_description|truncate(42, True, '') }}</td>
+<td class="small"><strong>{{ r.missing_evidence|truncate(38, True, '') }}</strong></td>
+<td>{{ r.evidence_type }}</td>
+<td><span class="badge bg-{% if r.risk in ['Critical','High'] %}danger{% elif r.risk=='Medium' %}warning text-dark{% else %}secondary{% endif %}">{{ r.risk }}</span></td>
+<td>{{ r.observation_severity }}</td><td class="small">{{ r.requested_by }}</td><td>{{ r.due_date }}</td>
+<td class="small">{{ r.audit_impact|truncate(28, True, '') }}</td>
+<td><span class="badge bg-{% if r.status=='Overdue' %}danger{% elif r.status=='Submitted for Review' %}info{% elif r.status=='Awaiting App Owner' %}warning text-dark{% else %}secondary{% endif %}">{{ r.status }}</span></td>
+<td class="text-nowrap">
+{% if perm_can_upload|default(role == 'owner') %}
+<button type="button" class="btn btn-sm btn-primary py-0 ecs-upload-evidence-btn" data-obs-id="{{ r.observation_id }}">Upload Evidence</button>
+{% elif perm_is_auditor|default(role == 'auditor') %}
+<button type="button" class="btn btn-sm btn-outline-secondary py-0 ecs-upload-obs-link" data-obs-id="{{ r.observation_id }}">Review</button>
+<form method="post" action="/mvp/workflow/request-reupload" class="d-inline">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="observation_id" value="{{ r.observation_id }}"><input type="hidden" name="return_module" value="{{ return_module|default('completeness') }}">
+<button class="btn btn-sm btn-warning py-0">Request Re-upload</button></form>
+{{ workflow_link('assign-owner', role, user, 'Assign', 'btn-sm btn-outline-primary', r.control_id, r.framework, return_module|default('completeness')) }}
+{{ workflow_link('assign-owner', role, user, 'Reassign', 'btn-sm btn-outline-secondary', r.control_id, r.framework, return_module|default('completeness')) }}
+{% else %}
+<button type="button" class="btn btn-sm btn-outline-secondary py-0 ecs-upload-obs-link" data-obs-id="{{ r.observation_id }}">View</button>
+{% endif %}
+</td></tr>
+{% endfor %}
+</tbody></table></div>
+
+<div class="ecs-upload-detail-panel" id="ecsUploadDetailPanel">
+<button type="button" class="btn btn-sm btn-outline-secondary mb-2" id="ecsUploadDetailClose">&times; Close</button>
+<h6 class="mb-1" id="ecsUploadDetailTitle">Observation Detail</h6>
+<div id="ecsUploadDetailBody" class="small"></div>
+</div>
+
+{% if perm_can_upload|default(false) %}
+<div class="modal fade" id="ecsUploadEvidenceModal" tabindex="-1">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title">Upload Evidence</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<form method="post" action="/mvp/workflow/upload-missing" enctype="multipart/form-data">
+<div class="modal-body small">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="return_module" value="{{ return_module|default('completeness') }}">
+<input type="hidden" name="observation_id" id="ecsUploadModalObsId" value="">
+<input type="hidden" name="framework" id="ecsUploadModalFramework" value="">
+<input type="hidden" name="control" id="ecsUploadModalControl" value="">
+<div class="alert alert-light border py-2 mb-2" id="ecsUploadModalContext"></div>
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label fw-semibold">Upload file</label>
+<input type="file" class="form-control form-control-sm" name="evidence_file" accept=".pdf,.xlsx,.csv,.png,.jpg"></div>
+<div class="col-md-6"><label class="form-label fw-semibold">Evidence category</label>
+<select class="form-select form-select-sm" name="evidence_category" id="ecsUploadModalCategory">
+<option value="Log Export">Log Export</option><option value="PDF Report">PDF Report</option><option value="Scan Report">Scan Report</option>
+<option value="Configuration Export">Configuration Export</option><option value="Access Review">Access Review</option><option value="Attestation Pack">Attestation Pack</option>
+</select></div></div>
+<div class="mb-2"><label class="form-label fw-semibold">Comments</label>
+<textarea class="form-control form-control-sm" name="evidence_comments" rows="2" placeholder="Attestation, period covered, control mapping…"></textarea></div>
+<div class="row g-2 mb-2">
+<div class="col-md-6"><label class="form-label fw-semibold">Remediation owner</label>
+<input class="form-control form-control-sm" name="remediation_owner" id="ecsUploadModalOwner" value=""></div>
+<div class="col-md-6"><label class="form-label fw-semibold">Expected closure date</label>
+<input type="date" class="form-control form-control-sm" name="expected_closure" id="ecsUploadModalClosure" value="2026-06-10"></div></div>
+<input type="hidden" name="mock_filename" value="evidence_upload.pdf">
+</div>
+<div class="modal-footer py-2">
+<button type="submit" name="submit_type" value="upload_draft" class="btn btn-outline-secondary btn-sm">Save Draft</button>
+<button type="submit" name="submit_type" value="submit_review" class="btn btn-primary btn-sm">Submit for Review</button>
+</div></form></div></div></div>
+{% endif %}
+
+<script>
+(function(){
+  if (window.__ecsUploadMissingPanelInit) return;
+  window.__ecsUploadMissingPanelInit = true;
+  var panel = document.getElementById('ecsUploadDetailPanel');
+  var body = document.getElementById('ecsUploadDetailBody');
+  var title = document.getElementById('ecsUploadDetailTitle');
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function showDetail(rec) {
+    if (!rec || !panel) return;
+    title.textContent = rec.observation_id + ' — ' + rec.application;
+    body.innerHTML = '<p><strong>Control:</strong> ' + esc(rec.control_id) + ' — ' + esc(rec.control_description) + '</p>' +
+      '<p><strong>Missing:</strong> ' + esc(rec.missing_evidence) + ' (' + esc(rec.evidence_type) + ')</p>' +
+      '<p><strong>Audit impact:</strong> ' + esc(rec.audit_impact) + ' · <strong>Severity:</strong> ' + esc(rec.observation_severity) + '</p>' +
+      '<p><strong>Requested by:</strong> ' + esc(rec.requested_by) + ' · <strong>Due:</strong> ' + esc(rec.due_date) + '</p>' +
+      '<hr class="my-2"><h6 class="small text-muted">Prior uploads</h6><ul class="mb-2">' +
+      ((rec.prior_uploads||[]).map(function(u){ return '<li>'+esc(u)+'</li>'; }).join('') || '<li>None</li>') + '</ul>' +
+      '<h6 class="small text-muted">Audit comments</h6><p>' + esc(rec.audit_comments||'—') + '</p>' +
+      (rec.rejection_reason ? '<h6 class="small text-danger">Rejection reason</h6><p class="text-danger">'+esc(rec.rejection_reason)+'</p>' : '') +
+      '<h6 class="small text-muted">Evidence history</h6><ul>' +
+      ((rec.history||[]).map(function(h){ return '<li>'+esc(h.date)+' — '+esc(h.action)+' ('+esc(h.actor)+')</li>'; }).join('') || '<li>No history</li>') + '</ul>' +
+      '<h6 class="small text-muted">Remediation notes</h6><p>' + esc(rec.remediation_notes||'—') + '</p>';
+    panel.classList.add('is-open');
+  }
+  function loadDataset() {
+    var el = document.getElementById('ecsCompletenessDataset') || document.getElementById('ecsUploadMissingDataset');
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch (e) { return null; }
+  }
+  function findObs(id) {
+    var el = document.getElementById('ecsCompletenessDataset');
+    if (el) {
+      var ds = loadDataset();
+      if (ds && ds.missing_evidence_rows) {
+        for (var i = 0; i < ds.missing_evidence_rows.length; i++) {
+          if (ds.missing_evidence_rows[i].observation_id === id) return ds.missing_evidence_rows[i];
+        }
+      }
+    }
+    var raw = document.getElementById('ecsUploadMissingDataset');
+    if (raw) {
+      try {
+        var rows = JSON.parse(raw.textContent || '[]');
+        for (var j = 0; j < rows.length; j++) {
+          if (rows[j].observation_id === id) return rows[j];
+        }
+      } catch (e2) {}
+    }
+    return null;
+  }
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('.ecs-upload-obs-link');
+    if (link) {
+      var row = link.closest('.ecs-upload-data-row');
+      var rec = findObs(link.getAttribute('data-obs-id') || '');
+      if (rec) { showDetail(rec); document.querySelectorAll('.ecs-upload-data-row').forEach(function(r){ r.classList.remove('ecs-upload-row-highlight'); }); if (row) row.classList.add('ecs-upload-row-highlight'); }
+      return;
+    }
+    var up = e.target.closest('.ecs-upload-evidence-btn');
+    if (up) {
+      var rec2 = findObs(up.getAttribute('data-obs-id') || '') || {};
+      document.getElementById('ecsUploadModalObsId').value = rec2.observation_id||'';
+      document.getElementById('ecsUploadModalFramework').value = rec2.framework||'';
+      document.getElementById('ecsUploadModalControl').value = rec2.control_id||'';
+      document.getElementById('ecsUploadModalCategory').value = rec2.evidence_type||'PDF Report';
+      document.getElementById('ecsUploadModalOwner').value = rec2.remediation_owner||'';
+      document.getElementById('ecsUploadModalClosure').value = rec2.due_date||'';
+      document.getElementById('ecsUploadModalContext').innerHTML = '<strong>'+esc(rec2.observation_id)+'</strong> · '+esc(rec2.application)+' · '+esc(rec2.framework)+
+        '<br>Missing: <strong>'+esc(rec2.missing_evidence)+'</strong> · Impact: '+esc(rec2.audit_impact);
+      if (window.bootstrap) new bootstrap.Modal(document.getElementById('ecsUploadEvidenceModal')).show();
+    }
+  });
+  var closeBtn = document.getElementById('ecsUploadDetailClose');
+  if (closeBtn) closeBtn.addEventListener('click', function(){ panel.classList.remove('is-open'); document.querySelectorAll('.ecs-upload-data-row').forEach(function(r){ r.classList.remove('ecs-upload-row-highlight'); }); });
+  window.ecsShowUploadDetail = showDetail;
+  window.ecsOpenUploadModal = function(rec) {
+    document.querySelector('.ecs-upload-evidence-btn[data-obs-id="'+rec.observation_id+'"]')?.click();
+  };
+})();
+</script>

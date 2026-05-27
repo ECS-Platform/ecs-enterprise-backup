@@ -1,0 +1,745 @@
+{# Centralized standard-profile filter engine — all governance modules, all roles #}
+<script>
+(function(){
+  if (window.__ecsStdFilterInit) return;
+  window.__ecsStdFilterInit = true;
+
+  var PAGE_SIZE = 10;
+  function getPageSize() { return window.__ecsTablePageSize || PAGE_SIZE; }
+  var dataset = null;
+  var pageState = {};
+
+  function loadDataset() {
+    var el = document.getElementById('ecsStandardDataset');
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch (e) { return null; }
+  }
+
+  function filterVals() {
+    var vals = {};
+    document.querySelectorAll('[data-ecs-workspace-filters] .ecs-ws-filter').forEach(function(sel){
+      vals[sel.getAttribute('data-filter-key')] = sel.value;
+    });
+    return vals;
+  }
+
+  var FILTER_STORAGE_KEY = 'ecs_global_filters';
+
+  function saveFilterState(vals) {
+    try { sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(vals)); } catch(e) {}
+  }
+
+  function restoreFilterState() {
+    try {
+      var raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+      if (!raw) return;
+      var vals = JSON.parse(raw);
+      document.querySelectorAll('[data-ecs-workspace-filters] .ecs-ws-filter').forEach(function(sel){
+        var key = sel.getAttribute('data-filter-key');
+        if (vals[key] !== undefined) {
+          var opts = Array.prototype.slice.call(sel.options).map(function(o){ return o.value; });
+          if (opts.indexOf(vals[key]) >= 0) sel.value = vals[key];
+        }
+      });
+    } catch(e) {}
+  }
+
+  function matchRow(r, v) {
+    var fw = v.framework || '';
+    var app = v.application || '';
+    var owner = v.owner || '';
+    var risk = v.risk || '';
+    var status = v.status || '';
+    var region = v.region || '';
+    var severity = v.severity || '';
+    if (fw && fw.indexOf('All ') !== 0) {
+      if (r.framework !== fw && String(r.framework_mapping || '').indexOf(fw) === -1 && r.source_framework !== fw) return false;
+    }
+    if (app && app.indexOf('All ') !== 0 && r.application !== app) return false;
+    if (owner && owner.indexOf('All ') !== 0 && r.owner !== owner) return false;
+    if (region && region.indexOf('All ') !== 0) {
+      var rg = r.region || r.zone || '';
+      if (rg && rg !== region && String(rg).indexOf(region) === -1) return false;
+    }
+    if (severity && severity.indexOf('All ') !== 0) {
+      var sev = r.severity || r.residual_risk || r.risk || r.risk_level || '';
+      if (severity === 'High') { if (sev !== 'High' && sev !== 'Critical') return false; }
+      else if (sev !== severity) return false;
+    }
+    if (risk && risk.indexOf('All ') !== 0) {
+      var rr = r.risk || r.risk_level || r.residual_risk || '';
+      if (risk === 'High') { if (rr !== 'High' && rr !== 'Critical') return false; }
+      else if (rr !== risk) return false;
+    }
+    if (status && status.indexOf('All ') !== 0) {
+      var cands = [r.status, r.health, r.issue, r.reuse_status, r.stage, r.evidence_status].filter(Boolean);
+      var hit = cands.some(function(st){ return String(st).toLowerCase().indexOf(status.toLowerCase()) !== -1; });
+      if (!hit) return false;
+    }
+    return true;
+  }
+
+  function filterList(rows, v) { return (rows || []).filter(function(r){ return matchRow(r, v); }); }
+
+  function statusBadge(st) {
+    var cls = 'secondary';
+    if (st === 'Approved') cls = 'success';
+    else if (st === 'Rejected') cls = 'danger';
+    else if (st === 'Expired') cls = 'dark';
+    else if (st === 'Under Review' || st === 'Submitted' || st === 'Pending Validation') cls = 'warning text-dark';
+    else if (st === 'Draft' || st === 'Closed') cls = 'secondary';
+    else if (st === 'Stale') cls = 'dark';
+    return '<span class="badge bg-' + cls + '">' + esc(st || '—') + '</span>';
+  }
+
+  function exceptionBadge(st) { return statusBadge(st); }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function countTds(rowHtml) {
+    return (rowHtml.match(/<td/gi) || []).length;
+  }
+
+  function assertRowCols(tableId, rowHtml, expected) {
+    if (!expected) return;
+    var n = countTds(rowHtml);
+    if (n !== expected && typeof console !== 'undefined') {
+      console.warn('[ECS table schema] ' + tableId + ': expected ' + expected + ' columns, got ' + n);
+    }
+  }
+
+  function renderKpis(kpis) {
+    document.querySelectorAll('[data-ecs-ops-kpi]').forEach(function(el) {
+      var key = el.getAttribute('data-ecs-ops-kpi');
+      if (kpis[key] !== undefined) {
+        var valEl = el.querySelector('.ecs-exec-kpi-val') || el;
+        valEl.textContent = kpis[key];
+      }
+    });
+  }
+
+  function paginateHtml(tableId, total, page) {
+    var ps = getPageSize();
+    var pages = Math.max(1, Math.ceil(total / ps));
+    if (total <= ps) return '';
+    return '<div class="ecs-ops-pager d-flex align-items-center gap-2 mt-1 mb-0 small" data-pager-for="' + tableId + '">' +
+      '<button type="button" class="btn btn-outline-secondary btn-sm py-0 ecs-std-pg-prev" data-table="' + tableId + '" ' + (page <= 1 ? 'disabled' : '') + '>&lsaquo; Prev</button>' +
+      '<span>Page ' + page + ' of ' + pages + ' (' + total + ' rows)</span>' +
+      '<button type="button" class="btn btn-outline-secondary btn-sm py-0 ecs-std-pg-next" data-table="' + tableId + '" ' + (page >= pages ? 'disabled' : '') + '>Next &rsaquo;</button></div>';
+  }
+
+  function renderTable(tableId, rows, rowFn, colspan) {
+    var tables = document.querySelectorAll('[data-ecs-std-table="' + tableId + '"]');
+    if (!tables.length) return;
+    pageState[tableId] = pageState[tableId] || 1;
+    var page = pageState[tableId];
+    var ps = getPageSize();
+    var pages = Math.max(1, Math.ceil(rows.length / ps));
+    if (page > pages) page = pageState[tableId] = pages;
+    var slice = rows.slice((page - 1) * ps, page * ps);
+    var html = slice.length ? slice.map(function(r) {
+      var row = rowFn(r);
+      assertRowCols(tableId, row, colspan);
+      return row;
+    }).join('') :
+      '<tr><td colspan="' + (colspan || 8) + '" class="text-muted small text-center py-2">No records match the current filters.</td></tr>';
+    tables.forEach(function(table) {
+      var tb = table.querySelector('tbody');
+      if (tb) tb.innerHTML = html;
+    });
+    document.querySelectorAll('[data-pager-for="' + tableId + '"]').forEach(function(el){ el.remove(); });
+    var lastWrap = tables[tables.length - 1].closest('.ecs-ops-table-wrap') || tables[tables.length - 1].closest('.table-responsive');
+    if (lastWrap && rows.length > ps) {
+      lastWrap.insertAdjacentHTML('beforeend', paginateHtml(tableId, rows.length, page));
+    }
+    if (window.ecsEnhanceExecutiveTables) window.ecsEnhanceExecutiveTables();
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+  }
+
+  function riskBadge(risk) {
+    if (risk === 'High' || risk === 'Critical') return 'danger';
+    if (risk === 'Medium') return 'warning text-dark';
+    return 'success';
+  }
+
+  function applyEnterprise(v, rec) {
+    var fw = filterList(rec.frameworks, v);
+    var bu = filterList(rec.business_units, v);
+    var buAnalytics = filterList(rec.banking_bu || bu, v);
+    var gaps = filterList(rec.gaps, v);
+    var avg = fw.length ? Math.round(fw.reduce(function(a,r){ return a+r.maturity_pct; }, 0) / fw.length * 10) / 10 : 0;
+    var atRisk = fw.filter(function(r){ return r.risk === 'High'; }).length;
+    renderKpis({
+      'Enterprise Compliance': avg + '%',
+      'National Score': rec.national_score + '%',
+      'Open Observations': Math.max(1, Math.round(rec.open_observations * fw.length / Math.max(rec.frameworks.length, 1))),
+      'Frameworks at Risk': atRisk,
+    });
+    var sum = document.getElementById('ecsStdFilterSummary');
+    if (sum) sum.textContent = 'Showing ' + fw.length + ' frameworks · ' + buAnalytics.length + ' business units · ' + gaps.length + ' open gaps (filtered).';
+    var overview = document.getElementById('ecsEntOverviewMetrics');
+    if (overview) {
+      overview.innerHTML = buAnalytics.slice(0, 4).map(function(b){
+        return '<span><strong>' + esc(b.unit) + '</strong> ' + b.compliance_pct + '% · readiness ' + (b.audit_readiness||b.compliance_pct) + '%</span>';
+      }).join('') || '<span class="text-muted small">No business units in filter scope.</span>';
+    }
+    if (window.ecsInitBuCards && buAnalytics.length) ecsInitBuCards('ecsEntBuCards', buAnalytics);
+    if (window.ecsRenderCompactBarChart && buAnalytics.length) {
+      ecsRenderCompactBarChart('ecsEntBuCompChart', buAnalytics.map(function(b){ return {label:b.unit.substring(0,10), value:b.compliance_pct, tone:'green', suffix:'%'}; }), {suffix:'%'});
+      ecsRenderCompactBarChart('ecsEntBuReadyChart', buAnalytics.map(function(b){ return {label:b.unit.substring(0,8), value:b.audit_readiness||b.compliance_pct, tone:'teal', suffix:'%'}; }), {suffix:'%'});
+      ecsRenderCompactBarChart('ecsEntBuGapsChart', buAnalytics.map(function(b){ return {label:b.unit.substring(0,8), value:b.open_gaps, tone:'orange'}; }), {});
+      ecsRenderCompactBarChart('ecsEntBuObsChart', buAnalytics.map(function(b){ return {label:b.unit.substring(0,8), value:b.observations||0, tone:'red'}; }), {});
+      ecsRenderCompactBarChart('ecsEntBuRiskChart', buAnalytics.map(function(b){ return {label:b.unit.substring(0,8), value:b.risk_score||0, tone:'navy'}; }), {});
+    }
+    renderTable('ent-frameworks', fw, function(r) {
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-risk="' + esc(r.risk) + '">' +
+        '<td>' + esc(r.framework) + '</td><td>' + r.maturity_pct + '%</td><td>' + r.open_items + '</td>' +
+        '<td><span class="badge bg-' + riskBadge(r.risk) + '">' + esc(r.risk) + '</span></td><td></td></tr>';
+    }, 5);
+    renderTable('ent-business-units', bu, function(b) {
+      return '<tr data-ecs-filter-row data-filter-risk="' + esc(b.risk) + '"><td>' + esc(b.unit) + '</td><td>' + b.compliance_pct + '%</td><td>' + esc(b.risk) + '</td><td>' + b.open_gaps + '</td></tr>';
+    }, 4);
+    var heatmap = document.getElementById('ecsEntHeatmapBars');
+    if (heatmap && window.ecsRenderHorizontalBars) {
+      window.ecsRenderHorizontalBars(heatmap, fw.slice(0, 8).map(function(r){
+        return { label: r.framework, value: r.maturity_pct, suffix: '%', tone: r.risk === 'High' ? 'red' : (r.risk === 'Medium' ? 'orange' : 'teal') };
+      }), { maxWidth: 55 });
+    }
+  }
+
+  function applyPanIndia(v, rec) {
+    var regions = filterList(rec.regions, v);
+    var matrix = filterList(rec.framework_matrix, v);
+    renderKpis({
+      'Regions': regions.length,
+      'Branches': regions.reduce(function(a,r){ return a + r.branches; }, 0),
+      'Open Observations': regions.reduce(function(a,r){ return a + r.observations_open; }, 0),
+      'SLA Breaches': regions.reduce(function(a,r){ return a + r.sla_breaches; }, 0),
+    });
+    var sum = document.getElementById('ecsStdFilterSummary');
+    if (sum) sum.textContent = 'Showing ' + regions.length + ' regions · ' + matrix.length + ' framework posture rows (filtered).';
+    var overview = document.getElementById('ecsPanOverviewMetrics');
+    if (overview) {
+      overview.innerHTML = regions.map(function(z){
+        return '<span><strong>' + esc(z.zone) + '</strong> ' + z.score + '% PCI ' +
+          (matrix.find(function(m){ return m.region === z.zone && m.framework === 'PCI DSS'; }) || {}).readiness_pct + '% · ' +
+          z.observations_open + ' obs</span>';
+      }).join('');
+    }
+    renderTable('pan-regions', regions, function(r) {
+      return '<tr class="ecs-pan-drill" data-zone="' + esc(r.zone) + '" data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-risk="' + esc(r.risk_level) + '" data-filter-region="' + esc(r.zone) + '">' +
+        '<td><strong>' + esc(r.zone) + '</strong></td><td>' + r.compliance_pct + '%</td><td>' + (r.pci_readiness||r.compliance_pct) + '%</td>' +
+        '<td>' + (r.audit_score||r.audit_readiness_pct||'—') + '%</td><td>' + (r.framework_posture||'—') + '%</td>' +
+        '<td>' + r.branches + '</td><td>' + r.observations_open + '</td><td>' + (r.critical_observations||0) + '</td><td>' + r.sla_breaches + '</td><td></td></tr>';
+    }, 10);
+    if (window.__ecsPanChartRefresh) __ecsPanChartRefresh(regions);
+    renderTable('pan-sla', regions.filter(function(r){ return r.sla_breaches > 0; }), function(r) {
+      return '<tr class="table-warning"><td>' + esc(r.zone) + '</td><td>' + r.sla_breaches + '</td><td>' + r.compliance_pct + '%</td><td>' + esc(r.risk_level) + '</td></tr>';
+    }, 4);
+    var tiles = document.getElementById('ecsPanZoneTiles');
+    if (tiles) {
+      tiles.innerHTML = regions.map(function(z) {
+        var cls = z.risk_level === 'High' ? 'zone-high' : (z.risk_level === 'Medium' ? 'zone-mid' : 'zone-low');
+        return '<div class="zone-tile ' + cls + '"><strong>' + esc(z.zone) + '</strong><br>' + z.score + '%<br><small>' + esc(z.risk_level) + '</small><br><small class="text-muted">' + z.stale_evidence + ' stale</small></div>';
+      }).join('');
+    }
+    var fwChart = document.getElementById('ecsPanFwChart');
+    if (fwChart && window.ecsRenderCompactBarChart) {
+      var pci = matrix.filter(function(m){ return m.framework === 'PCI DSS'; });
+      window.ecsRenderCompactBarChart(fwChart, pci.map(function(m){
+        return { label: m.region, value: m.readiness_pct, suffix: '%', tone: 'navy', tooltip: m.region + ' PCI DSS: ' + m.readiness_pct + '%' };
+      }), { maxHeight: 64 });
+    }
+  }
+
+  function reuseRowFn(g) {
+    var st = g.reuse_status || g.status || '—';
+    var bc = st === 'Approved' ? 'success' : 'warning text-dark';
+    var savings = g.audit_savings || (g.audit_savings_hrs != null ? (g.audit_savings_hrs + ' hrs') : '—');
+    return '<tr data-ecs-filter-row data-filter-framework="' + esc(g.source_framework) + '" data-filter-status="' + esc(st) + '" data-filter-risk="' + esc(g.risk || 'Low') + '" data-filter-owner="' + esc(g.owner || '') + '" data-filter-application="' + esc(g.application || '') + '">' +
+      '<td><code class="small">' + esc(g.reuse_id || g.group_id) + '</code></td>' +
+      '<td>' + esc(g.source_framework) + '</td>' +
+      '<td>' + esc(g.target_framework) + '</td>' +
+      '<td class="small">' + esc(g.application || '—') + '</td>' +
+      '<td class="small"><code>' + esc(g.control_id || '—') + '</code></td>' +
+      '<td class="small">' + esc((g.control_name || g.reused_control || '').substring(0, 35)) + '</td>' +
+      '<td class="small">' + esc((g.reused_evidence_file || g.filename || g.reused_evidence || '').substring(0, 42)) + '</td>' +
+      '<td class="small">' + esc(g.reuse_type || 'Cross-framework') + '</td>' +
+      '<td><span class="badge bg-' + bc + '">' + esc(st) + '</span></td>' +
+      '<td class="small">' + esc(g.approved_by || '—') + '</td>' +
+      '<td class="small">' + esc(g.last_reviewed || g.last_refresh || '—') + '</td>' +
+      '<td>' + esc(savings) + '</td>' +
+      '<td></td></tr>';
+  }
+
+  function applyReuse(v, rec) {
+    var rows = filterList(rec.rows, v);
+    var pending = rows.filter(function(r){ return (r.reuse_status || r.status) !== 'Approved'; });
+    var candidates = filterList(rec.candidates, v);
+    var workbench = filterList(rec.workbench, v);
+    var savingsHrs = rows.reduce(function(a,r){ return a + (Number(r.audit_savings_hrs) || 8); }, 0);
+    renderKpis({
+      'Reuse Groups': rows.length,
+      'Mapped Controls': rows.reduce(function(a,r){ return a + (r.controls_linked || 0); }, 0),
+      'Pending Approval': pending.length,
+      'Hours Saved': savingsHrs || Math.round(rows.length * 2.4),
+    });
+    var sum = document.getElementById('ecsStdFilterSummary');
+    if (sum) sum.textContent = 'Showing ' + rows.length + ' reuse mappings · ' + candidates.length + ' candidates (filtered).';
+    renderTable('reuse-main', rows, reuseRowFn, 13);
+    renderTable('reuse-mappings', rows, reuseRowFn, 13);
+    renderTable('reuse-pending', pending, reuseRowFn, 13);
+    renderTable('reuse-candidates', candidates, function(c) {
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(c.source_framework) + '" data-filter-application="' + esc(c.application || '') + '" data-filter-status="' + esc(c.status) + '">' +
+        '<td class="small">' + esc((c.evidence || '').substring(0, 40)) + '</td><td>' + esc(c.source_framework) + '</td><td>' + esc(c.target_framework) + '</td>' +
+        '<td>' + (c.mapping_confidence || 0) + '%</td><td>' + (c.duplicate_avoided || 0) + '</td><td>' + esc(c.status) + '</td><td></td></tr>';
+    }, 7);
+    renderTable('reuse-workbench', workbench, function(w) {
+      return '<tr data-ecs-filter-row data-filter-status="' + esc(w.status) + '"><td>' + esc(w.mapping_id) + '</td>' +
+        '<td class="small">' + esc(w.source_framework) + ' → ' + esc((w.source_control || '').substring(0, 30)) + '</td>' +
+        '<td class="small">' + esc(w.target_framework) + ' → ' + esc((w.target_control || '').substring(0, 30)) + '</td>' +
+        '<td>' + (w.similarity_pct || 0) + '%</td><td>' + esc(w.status) + '</td><td></td></tr>';
+    }, 6);
+    var fwBreak = {};
+    rows.forEach(function(r) {
+      var fw = r.source_framework;
+      if (!fwBreak[fw]) fwBreak[fw] = { framework: fw, reuse_groups: 0, controls_linked: 0, pending: 0, approved: 0 };
+      fwBreak[fw].reuse_groups++;
+      fwBreak[fw].controls_linked += r.controls_linked || 0;
+      if ((r.reuse_status || r.status) === 'Approved') fwBreak[fw].approved++; else fwBreak[fw].pending++;
+    });
+    renderTable('reuse-analytics', Object.keys(fwBreak).map(function(k){ return fwBreak[k]; }), function(f) {
+      return '<tr><td>' + esc(f.framework) + '</td><td>' + f.reuse_groups + '</td><td>' + f.controls_linked + '</td><td>' + f.pending + '</td><td>' + f.approved + '</td></tr>';
+    }, 5);
+  }
+
+  function applyHealth(v, rec) {
+    var queue = filterList(rec.queue, v);
+    if (window.__ecsHealthFilterIssue) {
+      queue = queue.filter(function(r){ return r.issue === window.__ecsHealthFilterIssue; });
+    }
+    var stale = queue.filter(function(r){ return r.issue === 'Stale'; }).length;
+    var risky = queue.filter(function(r){ return r.risk === 'Critical' || r.risk === 'High'; }).length;
+    var expiring = queue.filter(function(r){ return r.issue === 'Expiring Soon'; }).length;
+    var rejected = queue.filter(function(r){ return r.issue === 'Rejected'; }).length;
+    var missing = queue.filter(function(r){ return r.validation_status === 'Not Submitted'; }).length;
+    var withObs = queue.filter(function(r){ return r.observation_id; }).length;
+    var revalidated = queue.filter(function(r){ return r.validation_status === 'Revalidation Required'; }).length;
+    var avg = queue.length ? Math.round(queue.reduce(function(a,r){ return a + r.health_score; }, 0) / queue.length) : 0;
+    renderKpis({
+      'Health Score': avg + '%',
+      'Controls Missing Evidence': missing,
+      'Evidence w/ Open Observations': withObs,
+      'High-Risk Failures': risky,
+      'Expiring Evidence': expiring,
+      'Rejected Evidence': rejected,
+      'Revalidated Evidence': revalidated,
+      'Stale Evidence': stale,
+    });
+    var sum = document.getElementById('ecsStdFilterSummary');
+    if (sum) sum.textContent = 'Showing ' + queue.length + ' evidence health records with control & observation linkage (filtered).';
+    function wfChip(r) {
+      var st = String(r.workflow_status || r.validation_status || r.issue || '').toLowerCase();
+      if (/approv|pass/.test(st)) return '<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>';
+      if (/reject|re-upload|fail/.test(st)) return '<span class="ecs-wf-status-chip ecs-wf-chip-danger">RE-UPLOAD REQUIRED</span>';
+      if (/submitted|pending review|sent|under validation/.test(st)) return '<span class="ecs-wf-status-chip ecs-wf-chip-warning">SENT TO AUDITOR</span>';
+      return '<span class="ecs-wf-status-chip ecs-wf-chip-secondary">DRAFT</span>';
+    }
+    function healthRow(r) {
+      var trCls = r.risk === 'Critical' ? 'table-danger' : (r.risk === 'High' ? 'table-warning' : '');
+      var rb = r.risk === 'Critical' || r.risk === 'High' ? 'danger' : (r.risk === 'Medium' ? 'warning text-dark' : 'success');
+      return '<tr class="ecs-health-data-row ' + trCls + '" id="row-' + esc(r.evidence_id) + '" data-evidence="' + esc(JSON.stringify(r)) + '" data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application || '') + '" data-filter-risk="' + esc(r.risk) + '" data-filter-owner="' + esc(r.owner || '') + '" data-filter-status="' + esc(r.issue) + '">' +
+        '<td><code class="small">' + esc(r.evidence_id) + '</code></td><td>' + esc((r.evidence_name || '').substring(0, 32)) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application || '—') + '</td>' +
+        '<td class="small">' + esc(r.control_id || '—') + '</td><td class="small">' + esc((r.control_name || '').substring(0, 30)) + '</td>' +
+        '<td class="small">' + esc(r.observation_id || '—') + '</td><td class="small">' + esc((r.observation_summary || '').substring(0, 40)) + '</td><td class="small">' + esc(r.owner || '—') + '</td>' +
+        '<td>' + esc(r.issue) + '</td><td><span class="badge bg-' + rb + '">' + esc(r.risk) + '</span></td><td>' + r.health_score + '%</td>' +
+        '<td>' + wfChip(r) + '</td><td class="small">' + esc(r.last_reviewed || '—') + '</td><td>' + esc(r.expiry_status || r.expiry_date || '—') + '</td>' +
+        '<td><button type="button" class="btn btn-sm btn-outline-primary ecs-health-detail-btn" data-evidence-id="' + esc(r.evidence_id) + '">View</button></td></tr>';
+    }
+    renderTable('health-queue', queue, healthRow, 16);
+    var catFn = function(r) {
+      return '<tr data-ecs-filter-row><td>' + esc((r.evidence_name || '').substring(0, 35)) + '</td><td>' + esc(r.framework) + '</td><td class="small">' + esc(r.control_id || '—') + '</td><td class="small">' + esc(r.observation_id || '—') + '</td><td>' + esc(r.owner || '—') + '</td><td>' + r.health_score + '%</td><td></td></tr>';
+    };
+    renderTable('health-stale', queue.filter(function(r){ return r.issue === 'Stale'; }), catFn, 7);
+    renderTable('health-expired', queue.filter(function(r){ return r.issue === 'Expired'; }), catFn, 7);
+    renderTable('health-frameworks', rec.framework_breakdown || [], function(f) {
+      return '<tr><td><strong>' + esc(f.framework) + '</strong></td><td>' + (f.total || 0) + '</td><td>' + (f.mapped_controls || 0) + '</td><td>' + (f.linked_observations || 0) + '</td><td>' + (f.stale || 0) + '</td><td>' + (f.rejected || 0) + '</td><td>' + (f.health_score || '—') + '%</td><td></td></tr>';
+    }, 8);
+    var chart = document.getElementById('ecsHealthRejectionChart');
+    if (chart && window.ecsRenderCompactBarChart && rec.rejection_trends) {
+      window.ecsRenderCompactBarChart(chart, rec.rejection_trends.map(function(t){
+        return { label: t.month, value: t.rate_pct, suffix: '%', tone: 'orange' };
+      }), { maxHeight: 56 });
+    }
+    var staleChart = document.getElementById('ecsHealthStaleChart');
+    if (staleChart && window.ecsRenderCompactBarChart && rec.stale_aging) {
+      window.ecsRenderCompactBarChart(staleChart, rec.stale_aging, { maxHeight: 56, defaultTone: 'red' });
+    }
+  }
+
+  function applyAll() {
+    if (!dataset) return;
+    var v = filterVals();
+    var rec = dataset.records || {};
+    var mod = dataset.module;
+    if (mod === 'enterprise') applyEnterprise(v, rec);
+    else if (mod === 'pan_india') applyPanIndia(v, rec);
+    else if (mod === 'reuse') applyReuse(v, rec);
+    else if (mod === 'evidence_health') applyHealth(v, rec);
+    else if (mod === 'reports') {
+      var rep = filterList(rec.reports, v);
+      var sched = filterList(rec.scheduled || rec.reports, v).filter(function(r){ return r.schedule && r.schedule !== 'On Demand'; });
+      var hist = filterList(rec.history || rec.reports, v);
+      renderKpis({
+        'Available Reports': rep.length,
+        'Generated': rep.filter(function(r){ return r.status === 'Generated' || r.status === 'Downloaded'; }).length,
+        'Scheduled': sched.length,
+        'Pending': rep.filter(function(r){ return r.status !== 'Generated' && r.status !== 'Downloaded'; }).length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + rep.length + ' reports · ' + sched.length + ' scheduled · ' + hist.length + ' history (filtered).';
+      var repFn = function(r) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-risk="' + esc(r.risk) + '" data-filter-status="' + esc(r.status) + '">' +
+          '<td><strong>' + esc(r.title || r.id) + '</strong><br><span class="small text-muted">' + esc((r.description || '').substring(0, 55)) + '</span></td>' +
+          '<td>' + esc(r.format) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td>' +
+          '<td>' + esc(r.schedule) + '</td><td><span class="badge bg-secondary">' + esc(r.status) + '</span></td><td></td></tr>';
+      };
+      renderTable('reports-catalog', rep, repFn, 7);
+      renderTable('reports-scheduled', sched, function(r) {
+        return '<tr><td>' + esc(r.title || r.id) + '</td><td>' + esc(r.schedule) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.status) + '</td></tr>';
+      }, 4);
+      renderTable('reports-history', hist, function(r) {
+        return '<tr><td>' + esc(r.title || r.id) + '</td><td>' + esc(r.format) + '</td><td>' + esc(r.framework || '—') + '</td><td class="small">' + esc(r.generated_at || '') + '</td><td>' + esc(r.downloaded_by || r.generated_by || '—') + '</td><td>' + esc(r.status) + '</td></tr>';
+      }, 6);
+      var obs = filterList(rec.observations || [], v);
+      renderTable('reports-observations', obs, function(o) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(o.framework) + '" data-filter-application="' + esc(o.application) + '" data-filter-owner="' + esc(o.owner) + '" data-filter-status="' + esc(o.evidence_status) + '">' +
+          '<td><code class="small">' + esc(o.observation_id) + '</code></td><td class="small">' + esc((o.observation_title || '').substring(0, 45)) + '</td>' +
+          '<td>' + esc(o.framework) + '</td><td>' + esc(o.application) + '</td><td>' + esc(o.evidence_id) + '</td>' +
+          '<td class="small">' + esc(o.evidence_type) + '</td><td><span class="badge bg-secondary">' + esc(o.evidence_status) + '</span></td>' +
+          '<td class="small">' + esc(o.owner) + '</td><td class="small">' + esc(o.generated_date) + '</td></tr>';
+      }, 9);
+    }
+    else if (mod === 'cmdb') {
+      var assets = filterList(rec.assets, v);
+      renderKpis({
+        'Total Assets': assets.length,
+        'Critical (Tier-1)': assets.filter(function(r){ return r.criticality === 'Tier-1'; }).length,
+        'Internet Facing': assets.filter(function(r){ return r.internet_facing; }).length,
+        'Unmonitored': assets.filter(function(r){ return !r.monitoring_enabled; }).length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + assets.length + ' CMDB assets (filtered).';
+      renderTable('cmdb-assets', assets, function(r) {
+        var rr = r.risk || r.risk_rating || 'Medium';
+        return '<tr class="' + (rr === 'Critical' || rr === 'High' ? 'table-warning' : '') + '" data-ecs-filter-row data-filter-owner="' + esc(r.owner) + '" data-filter-risk="' + esc(rr) + '" data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '">' +
+          '<td>' + esc(r.asset_id) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.environment) + '</td>' +
+          '<td>' + esc(r.criticality) + '</td><td>' + esc(r.owner) + '</td><td><span class="badge bg-' + riskBadge(rr) + '">' + esc(rr) + '</span></td><td></td></tr>';
+      }, 8);
+    }
+    else if (mod === 'audit_prep') {
+      var gaps = filterList(rec.gaps, v);
+      var audits = filterList(rec.audits, v);
+      var requests = filterList(rec.requests, v);
+      var apps = filterList(rec.readiness_apps, v);
+      var readiness = apps.length ? Math.round(apps.reduce(function(a,r){ return a + (r.readiness_pct || 0); }, 0) / apps.length) : rec.weighted_readiness;
+      renderKpis({
+        'Audit Readiness': readiness + '%',
+        'Unresolved Control Gaps': gaps.length,
+        'Upcoming Audits': audits.length,
+        'Auditor Requests': requests.length,
+        'Stale Evidence': gaps.filter(function(g){ return (g.gap_description || '').indexOf('stale') !== -1; }).length || Math.max(1, Math.floor(gaps.length / 4)),
+        'Below Threshold': apps.filter(function(a){ return a.readiness_pct < 75; }).length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + gaps.length + ' gaps · ' + audits.length + ' audits · readiness ' + readiness + '% (filtered).';
+      renderTable('audit-gaps', gaps, function(g) {
+        var slaCls = g.sla === 'Breached' ? 'danger' : (g.sla === 'At Risk' ? 'warning text-dark' : 'success');
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(g.framework) + '" data-filter-application="' + esc(g.application) + '" data-filter-owner="' + esc(g.owner) + '" data-filter-risk="' + esc(g.priority || g.risk) + '" data-filter-status="' + esc(g.status) + '">' +
+          '<td><strong>' + esc(g.application) + '</strong></td><td>' + esc(g.framework) + '</td><td><code class="small">' + esc(g.control_id || g.control_name || '') + '</code></td>' +
+          '<td class="small">' + esc((g.gap_description || g.control_name || '').substring(0, 40)) + '</td><td class="small">' + esc((g.evidence_missing || '—').substring(0, 30)) + '</td>' +
+          '<td><span class="badge bg-' + slaCls + '">' + esc(g.sla || '—') + '</span></td><td>' + esc(g.owner) + '</td><td>' + esc(g.days_remaining != null ? g.days_remaining + 'd' : '—') + '</td>' +
+          '<td>' + esc(g.audit_impact || g.priority || '—') + '</td><td>' + esc(g.priority || '—') + '</td><td></td></tr>';
+      }, 11);
+      renderTable('audit-upcoming', audits, function(a) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(a.framework) + '" data-filter-application="' + esc(a.application) + '" data-filter-owner="' + esc(a.owner || '') + '">' +
+          '<td><strong>' + esc(a.application) + '</strong></td><td>' + esc(a.framework) + '</td><td>' + esc(a.auditor || '—') + '</td>' +
+          '<td class="small">' + esc((a.audit_scope || a.scope || '').substring(0, 35)) + '</td><td class="small">' + esc(a.audit_type || '—') + '</td>' +
+          '<td>' + esc(a.date || a.start_date || '—') + '</td><td><strong>' + esc(a.days_remaining != null ? a.days_remaining + 'd' : '—') + '</strong></td>' +
+          '<td>' + (a.readiness_pct || 0) + '%</td><td>' + esc(a.blockers != null ? a.blockers : 0) + '</td><td>' + esc(a.evidence_pct != null ? a.evidence_pct + '%' : '—') + '</td>' +
+          '<td>' + esc(a.escalation || '—') + '</td><td>' + esc(a.owner || '—') + '</td></tr>';
+      }, 12);
+    }
+    else if (mod === 'search') {
+      var results = filterList(rec.results, v);
+      renderKpis({
+        'Indexed Artefacts': rec.total_indexed || results.length,
+        'Frameworks Mapped': 12,
+        'Reuse Suggestions': Math.max(3, Math.floor(results.length / 5)),
+        'Search Results': results.length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + results.length + ' discovery results (filtered).';
+      renderTable('search-results', results, function(r) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-owner="' + esc(r.owner) + '" data-filter-status="' + esc(r.status) + '">' +
+          '<td>' + esc((r.evidence || r.evidence_name || '').substring(0, 45)) + '</td><td>' + esc(r.framework) + '</td>' +
+          '<td class="small">' + esc((r.control || r.control_id || '').substring(0, 40)) + '</td><td>' + esc(r.application) + '</td><td>' + esc(r.owner) + '</td>' +
+          '<td>' + esc(r.match_score || r.status || '—') + '</td><td></td></tr>';
+      }, 7);
+      renderTable('search-controls', filterList(rec.controls, v), function(r) {
+        return '<tr><td>' + esc(r.control_id || r.control) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application || 'All') + '</td><td>' + esc(r.status || 'Active') + '</td></tr>';
+      }, 4);
+      renderTable('search-findings', filterList(rec.findings, v), function(r) {
+        return '<tr><td>' + esc(r.finding_id || r.id) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td><td>' + esc(r.severity || r.risk) + '</td><td>' + esc(r.status) + '</td></tr>';
+      }, 5);
+    }
+    else if (mod === 'exceptions_td') {
+      var allEx = filterList(rec.exceptions, v);
+      var ex = allEx.filter(function(r){ return !r.expired && r.status !== 'Expired'; });
+      var expired = allEx.filter(function(r){ return r.expired || r.status === 'Expired'; });
+      renderKpis({
+        'Active Exceptions': ex.length,
+        'Approved': ex.filter(function(r){ return r.status === 'Approved'; }).length,
+        'Rejected': ex.filter(function(r){ return r.status === 'Rejected'; }).length,
+        'Pending Review': ex.filter(function(r){ return r.status === 'Under Review' || r.status === 'Submitted'; }).length,
+        'Expired TD': expired.length,
+      });
+      document.querySelectorAll('[data-ecs-wf-count]').forEach(function(el) {
+        var lbl = el.getAttribute('data-ecs-wf-count');
+        if (lbl === 'Approved') el.textContent = 'Approved: ' + ex.filter(function(r){ return r.status === 'Approved'; }).length;
+        else if (lbl === 'Rejected') el.textContent = 'Rejected: ' + ex.filter(function(r){ return r.status === 'Rejected'; }).length;
+        else if (lbl === 'Pending Review') el.textContent = 'Pending Review: ' + ex.filter(function(r){ return r.status === 'Under Review' || r.status === 'Submitted'; }).length;
+        else if (lbl === 'Submitted') el.textContent = 'Submitted: ' + ex.filter(function(r){ return r.status === 'Submitted'; }).length;
+        else if (lbl === 'Expired') el.textContent = 'Expired: ' + expired.length;
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + ex.length + ' active exceptions (filtered) — observation-linked TD register.';
+      renderTable('exceptions-list', ex, function(r) {
+        var approver = r.approved_by ? (esc(r.approved_by) + '<br><span class="text-muted small">' + esc(r.approved_at || '') + '</span>') : (r.rejected_by ? esc(r.rejected_by) : esc(r.owner || '—'));
+        return '<tr class="' + (r.risk === 'Critical' || r.risk === 'High' || r.residual_risk === 'Critical' || r.residual_risk === 'High' ? 'table-warning' : '') + '" data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application || '') + '" data-filter-risk="' + esc(r.residual_risk || r.risk) + '" data-filter-status="' + esc(r.status) + '" data-filter-owner="' + esc(r.owner || '') + '" data-filter-severity="' + esc(r.residual_risk || r.risk) + '">' +
+          '<td><code class="small">' + esc(r.observation_id || r.exception_id) + '</code></td>' +
+          '<td class="small"><strong>' + esc((r.observation_title || r.control || '').substring(0, 40)) + '</strong><br><span class="text-muted">' + esc((r.observation_description || r.justification || '').substring(0, 50)) + '</span></td>' +
+          '<td class="small">' + esc((r.control_name || r.control || '').substring(0, 30)) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application || '—') + '</td>' +
+          '<td><span class="badge bg-danger">' + esc(r.risk_rating || r.residual_risk || r.risk) + '</span></td><td>' + exceptionBadge(r.status) + '</td>' +
+          '<td class="small">' + approver + '</td><td class="small">' + esc(r.due_date || r.td_expiry) + '</td><td></td></tr>';
+      }, 10);
+      renderTable('exceptions-expired', expired, function(r) {
+        return '<tr class="table-danger"><td>' + esc(r.exception_id) + '</td><td class="small">' + esc((r.control || '').substring(0, 40)) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.td_expiry) + '</td><td>' + exceptionBadge(r.status || 'Expired') + '</td><td></td></tr>';
+      }, 6);
+    }
+    else if (mod === 'evidence_approval') {
+      var approved = filterList(rec.approved, v);
+      var rejected = filterList(rec.rejected, v);
+      var pending = filterList(rec.pending, v);
+      var stale = filterList(rec.stale, v);
+      var total = approved.length + rejected.length + pending.length + stale.length;
+      var apprRate = total ? Math.round(approved.length / total * 1000) / 10 : 0;
+      renderKpis({
+        'Total Evidence Submitted': total,
+        'Approved Evidence': approved.length,
+        'Rejected Evidence': rejected.length,
+        'Pending Validation': pending.length,
+        'Approval Success %': apprRate + '%',
+        'Rejection Rate %': (total ? Math.round(rejected.length / total * 1000) / 10 : 0) + '%',
+        'Stale Evidence Count': stale.length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + total + ' evidence approval records (filtered).';
+      renderTable('evidence-approved', approved, function(r) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-owner="' + esc(r.owner || '') + '" data-filter-status="' + esc(r.status) + '">' +
+          '<td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td><td class="small">' + esc((r.control || '').substring(0, 35)) + '</td><td>' + esc((r.evidence_name || '').substring(0, 40)) + '</td>' +
+          '<td class="small">' + esc(r.submitted_by || '—') + '</td><td class="small">' + esc(r.approved_by || '—') + '</td><td class="small">' + esc(r.approval_date || '—') + '</td>' +
+          '<td>' + (r.quality_score || '—') + '%</td><td>' + statusBadge(r.status) + '</td></tr>';
+      }, 9);
+      renderTable('evidence-rejected', rejected, function(r) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '">' +
+          '<td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td><td class="small">' + esc((r.control || '').substring(0, 35)) + '</td><td>' + esc((r.evidence_name || '').substring(0, 40)) + '</td>' +
+          '<td class="small">' + esc(r.rejected_by || '—') + '</td><td class="small">' + esc((r.rejection_reason || '—').substring(0, 50)) + '</td><td class="small">' + esc(r.rejection_date || '—') + '</td><td>' + esc(r.resubmission_status || '—') + '</td></tr>';
+      }, 8);
+      renderTable('evidence-pending', pending, function(r) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-risk="' + esc(r.priority || r.risk) + '">' +
+          '<td>' + esc(r.framework) + '</td><td>' + esc(r.application) + '</td><td>' + esc((r.evidence_name || '').substring(0, 40)) + '</td><td class="small">' + esc(r.submitted_at || '—') + '</td>' +
+          '<td class="small">' + esc(r.reviewer || 'Unassigned') + '</td><td>' + esc(r.sla_remaining_days || '—') + 'd</td><td><span class="badge bg-' + ((r.priority || r.risk) === 'Critical' || (r.priority || r.risk) === 'High' ? 'danger' : 'warning text-dark') + '">' + esc(r.priority || r.risk) + '</span></td></tr>';
+      }, 7);
+      if (window.ecsRenderCompactBarChart) {
+        ecsRenderCompactBarChart('ecsApprovalTrendChart', filterList(rec.approval_trend, v), {suffix: '%', defaultTone: 'teal'});
+        ecsRenderCompactBarChart('ecsRejectionTrendChart', filterList(rec.rejection_trend, v), {defaultTone: 'orange'});
+      }
+    }
+    else if (mod === 'exception_governance') {
+      var excAll = filterList(rec.exceptions, v);
+      var excApproved = filterList(rec.approved_recent, v);
+      var excRejected = filterList(rec.rejected_recent, v);
+      var excExpiring = filterList(rec.expiring_month, v);
+      var excCab = filterList(rec.pending_cab, v);
+      renderKpis({
+        'Active Exceptions': excAll.filter(function(r){ return !r.expired && r.status !== 'Closed'; }).length,
+        'Approved TDs': excAll.filter(function(r){ return r.status === 'Approved'; }).length,
+        'Rejected Exceptions': excAll.filter(function(r){ return r.status === 'Rejected'; }).length,
+        'Expiring This Month': excExpiring.length,
+        'High-Risk Open TDs': excAll.filter(function(r){ return !r.expired && (r.residual_risk === 'Critical' || r.residual_risk === 'High'); }).length,
+        'Pending CAB': excCab.length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Exception governance — ' + excAll.length + ' records (filtered). State persists after approval/rejection.';
+      renderTable('exc-approved-recent', excApproved, function(r) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application || '') + '">' +
+          '<td>' + esc(r.exception_id) + '</td><td class="small">' + esc((r.control || '').substring(0, 40)) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application || '—') + '</td>' +
+          '<td class="small">' + esc(r.approved_by || '—') + '</td><td class="small">' + esc(r.approved_at || '—') + '</td><td>' + esc(r.td_expiry) + '</td><td>' + exceptionBadge(r.status) + '</td></tr>';
+      }, 8);
+      renderTable('exc-rejected-recent', excRejected, function(r) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '">' +
+          '<td>' + esc(r.exception_id) + '</td><td class="small">' + esc((r.control || '').substring(0, 40)) + '</td><td>' + esc(r.framework) + '</td>' +
+          '<td class="small">' + esc(r.rejected_by || '—') + '</td><td class="small">' + esc((r.rejection_reason || '—').substring(0, 55)) + '</td><td class="small">' + esc(r.rejected_at || '—') + '</td><td>' + esc(r.resubmission_count || 0) + '</td></tr>';
+      }, 7);
+      renderTable('exc-expiring', excExpiring, function(r) {
+        return '<tr class="table-warning" data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application || '') + '">' +
+          '<td>' + esc(r.exception_id) + '</td><td class="small">' + esc((r.control || '').substring(0, 40)) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application || '—') + '</td>' +
+          '<td class="small">' + esc(r.owner || '—') + '</td><td>' + esc(r.td_expiry) + '</td><td><span class="badge bg-danger">' + esc(r.residual_risk) + '</span></td><td></td></tr>';
+      }, 8);
+      renderTable('exc-pending-cab', excCab, function(r) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-status="' + esc(r.status) + '">' +
+          '<td>' + esc(r.exception_id) + '</td><td class="small">' + esc((r.control || '').substring(0, 40)) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application || '—') + '</td>' +
+          '<td class="small">' + esc(r.owner || '—') + '</td><td>' + esc(r.renewal_status || 'Pending') + '</td><td>' + exceptionBadge(r.status) + '</td><td></td></tr>';
+      }, 8);
+      renderTable('exc-all', excAll, function(r) {
+        return '<tr class="' + (r.expired ? 'table-danger' : '') + '" data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application || '') + '" data-filter-status="' + esc(r.status) + '">' +
+          '<td>' + esc(r.exception_id) + '</td><td class="small">' + esc((r.control || '').substring(0, 35)) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.application || '—') + '</td>' +
+          '<td class="small">' + esc(r.owner || '—') + '</td><td>' + esc(r.td_expiry) + '</td><td><span class="badge bg-danger">' + esc(r.residual_risk) + '</span></td><td>' + exceptionBadge(r.status) + '</td><td></td></tr>';
+      }, 9);
+    }
+    else if (mod === 'risk_register') {
+      var risks = filterList(rec.risks, v);
+      renderKpis({
+        'Total Risks': risks.length,
+        'High / Critical': risks.filter(function(r){ return r.risk === 'High' || r.risk === 'Critical' || r.residual_risk === 'High'; }).length,
+        'Open': risks.filter(function(r){ return r.status === 'Open' || r.status === 'Escalated'; }).length,
+        'Accepted': risks.filter(function(r){ return r.status === 'Accepted'; }).length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + risks.length + ' enterprise risks (filtered).';
+      if (window.ecsRenderCompactBarChart) {
+        var catCounts = {};
+        risks.forEach(function(r){ catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
+        var sevData = Object.keys(catCounts).map(function(k){ return {label: k.replace(' Risk',''), value: catCounts[k], tone: 'blue'}; });
+        ecsRenderCompactBarChart('ecsRiskSeverityChart', sevData.slice(0, 7), {suffix: ''});
+        var buckets = ['0-30d','31-60d','61-90d','91-120d','121-180d','180+d'];
+        var agingData = buckets.map(function(b, i){
+          var lo = [0,31,61,91,121,181][i], hi = [30,60,90,120,180,9999][i];
+          return {label: b, value: risks.filter(function(r){ return r.aging_days >= lo && r.aging_days <= hi; }).length, tone: 'orange'};
+        });
+        ecsRenderCompactBarChart('ecsRiskAgingChart', agingData, {suffix: ''});
+      }
+      renderTable('risk-register', risks, function(r) {
+        return '<tr class="' + (r.residual_risk === 'Critical' || r.residual_risk === 'High' ? 'table-danger' : '') + '" data-ecs-filter-row data-filter-framework="' + esc(r.framework || r.linked_framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-risk="' + esc(r.residual_risk || r.risk) + '" data-filter-status="' + esc(r.status) + '">' +
+          '<td>' + esc(r.risk_id) + '</td><td><strong>' + esc(r.title) + '</strong></td><td>' + esc(r.category) + '</td><td>' + esc(r.application) + '</td>' +
+          '<td>' + esc(r.residual_risk || r.risk) + '</td><td>' + (r.aging_days || 0) + 'd</td><td>' + esc(r.status) + '</td><td></td></tr>';
+      }, 8);
+    }
+    else if (mod === 'regulatory_mapping') {
+      var maps = filterList(rec.mappings, v);
+      renderKpis({
+        'Mapped Themes': maps.length,
+        'Avg Coverage': maps.length ? Math.round(maps.reduce(function(a,m){ return a + (m.coverage_pct || 0); }, 0) / maps.length) + '%' : '0%',
+        'Gap Themes': maps.filter(function(m){ return (m.coverage_pct || 100) < 85; }).length,
+        'Reusable Evidence': maps.length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + maps.length + ' regulatory mapping themes (filtered).';
+      renderTable('regulatory-mapping', maps, function(m) {
+        return '<tr data-ecs-filter-row data-filter-framework="' + esc(m.framework) + '" data-filter-status="' + esc(m.status) + '">' +
+          '<td><strong>' + esc(m.control_theme) + '</strong></td><td>' + esc(m.framework) + '</td><td>' + esc(m.shared_evidence) + '</td>' +
+          '<td>' + (m.coverage_pct || 0) + '%</td><td>' + esc(m.status) + '</td><td></td></tr>';
+      }, 6);
+    }
+    else if (mod === 'executive_heatmaps') {
+      var fwH = filterList(rec.framework_heatmap, v);
+      var appH = filterList(rec.application_heatmap, v);
+      var regH = filterList(rec.regional_heatmap, v);
+      renderKpis({
+        'Frameworks': fwH.length,
+        'Applications': appH.length,
+        'Regions': regH.length,
+        'At Risk': appH.filter(function(h){ return h.risk === 'High' || h.risk === 'Critical'; }).length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + fwH.length + ' frameworks · ' + appH.length + ' apps · ' + regH.length + ' regions (filtered).';
+      var fwBars = document.getElementById('ecsHeatmapFwBars');
+      if (fwBars && window.ecsRenderHorizontalBars) {
+        window.ecsRenderHorizontalBars(fwBars, fwH.slice(0, 9).map(function(h){
+          return { label: h.name || h.framework, value: h.score, suffix: '%', tone: h.score < 75 ? 'red' : (h.score < 85 ? 'orange' : 'teal') };
+        }), { maxWidth: 55 });
+      }
+      var appGrid = document.getElementById('ecsHeatmapAppGrid');
+      if (appGrid) {
+        appGrid.innerHTML = appH.slice(0, 12).map(function(h) {
+          var cls = h.risk === 'High' || h.risk === 'Critical' ? 'high' : (h.score < 80 ? 'mid' : 'low');
+          return '<div class="ecs-heatmap-tile ecs-heat-' + cls + '"><strong>' + esc(h.name || h.application) + '</strong><br>' + h.score + '% · ' + esc(h.risk) + '</div>';
+        }).join('') || '<span class="text-muted small">No applications in filter scope.</span>';
+      }
+      var regGrid = document.getElementById('ecsHeatmapRegGrid');
+      if (regGrid) {
+        regGrid.innerHTML = regH.map(function(h) {
+          var cls = h.score < 75 ? 'high' : (h.score < 85 ? 'mid' : 'low');
+          return '<div class="ecs-heatmap-tile ecs-heat-' + cls + '"><strong>' + esc(h.region) + '</strong><br>' + h.score + '% · ' + (h.observations || 0) + ' obs</div>';
+        }).join('');
+      }
+    }
+    else if (mod === 'correlation') {
+      var chains = filterList(rec.chains, v);
+      renderKpis({
+        'Correlation Chains': chains.length,
+        'Open': chains.filter(function(c){ return c.status === 'Open'; }).length,
+        'Critical': chains.filter(function(c){ return c.severity === 'Critical'; }).length,
+        'Closed': chains.filter(function(c){ return c.status === 'Closed'; }).length,
+      });
+      var sum = document.getElementById('ecsStdFilterSummary');
+      if (sum) sum.textContent = 'Showing ' + chains.length + ' cross-tool correlation chains (filtered).';
+      var container = document.getElementById('ecsCorrelationChains');
+      if (container) {
+        container.innerHTML = chains.map(function(c) {
+          var border = c.severity === 'Critical' ? 'border-danger' : (c.status === 'Open' ? 'border-warning' : '');
+          var links = (c.links || []).map(function(l) {
+            return '<div class="col-md-6"><div class="border rounded p-2 small"><strong>' + esc(l.tool) + '</strong> — ' + esc(l.record) + '<br><span class="badge bg-secondary">' + esc(l.status) + '</span></div></div>';
+          }).join('');
+          return '<div class="card shadow-sm mb-3 ' + border + '"><div class="card-header d-flex justify-content-between py-2">' +
+            '<div><strong>' + esc(c.chain_id) + '</strong> — ' + esc(c.title) + '<br><small class="text-muted">' + esc(c.application) + ' · ' + esc(c.framework) + '</small></div>' +
+            '<span class="badge bg-' + (c.severity === 'Critical' ? 'danger' : 'warning text-dark') + '">' + esc(c.severity) + '</span></div>' +
+            '<div class="card-body py-2"><div class="row g-2">' + links + '</div></div></div>';
+        }).join('') || '<p class="text-muted small">No correlation chains match filters.</p>';
+      }
+    }
+  }
+
+  window.ecsApplyStandardFilters = function() {
+    if (!dataset) dataset = loadDataset();
+    pageState = {};
+    saveFilterState(filterVals());
+    applyAll();
+  };
+
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('ecs-ws-filter')) {
+      saveFilterState(filterVals());
+      if (window.ecsApplyStandardFilters) window.ecsApplyStandardFilters();
+    }
+  });
+
+  document.addEventListener('click', function(e) {
+    var prev = e.target.closest('.ecs-std-pg-prev');
+    var next = e.target.closest('.ecs-std-pg-next');
+    if (prev || next) {
+      var tid = (prev || next).getAttribute('data-table');
+      pageState[tid] = pageState[tid] || 1;
+      pageState[tid] += prev ? -1 : 1;
+      applyAll();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    restoreFilterState();
+    dataset = loadDataset();
+    if (dataset) applyAll();
+  });
+})();
+</script>
