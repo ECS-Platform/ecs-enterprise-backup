@@ -529,6 +529,31 @@ def _vapt_catalog() -> list[dict]:
     return _generic_catalog("VAP", "VAPT", tpl)
 
 
+def _itdrm_catalog() -> list[dict]:
+    """IT Disaster Recovery Management — resilience, recovery, and continuity controls."""
+    tpl = [
+        ("BCM Policy Approved", "Business continuity policy v2026", "Board BCM approval minutes", 0, 0),
+        ("BIA Refreshed Annually", "Business Impact Analysis workbook", "Critical app criticality matrix", 4, 9),
+        ("RTO/RPO Validation", "RTO/RPO compliance attestation", "Tier-1 application recovery metrics", 0, 0),
+        ("Multi-Region DR Replication", "Cross-region replication monitoring", "Replication lag dashboard export", 0, 4),
+        ("Recovery Runbook Library", "Production runbook catalog", "Runbook review attestation Q2", 1, 2),
+        ("DR Drill — Full Failover", "Full failover drill execution report", "Failover validation signoff", 0, 4),
+        ("DR Drill — Tabletop Walkthrough", "Tabletop exercise minutes", "Lessons learned action tracker", 1, 7),
+        ("Backup Encryption Validation", "Backup encryption attestation", "Key custodian dual-control proof", 0, 4),
+        ("Restore SLA Compliance", "Restore SLA dashboard", "Failed restore incident register", 2, 4),
+        ("Critical Vendor Recovery Assessment", "TPSP DR capability questionnaire", "Vendor BCM evidence inventory", 3, 5),
+        ("Crisis Communication Plan", "Crisis comm tree document", "War-room activation log", 0, 7),
+        ("Disaster Recovery Site Hardening", "DR site security baseline", "DR site access control review", 0, 4),
+        ("Cyber Resilience Playbook", "Ransomware recovery playbook", "Cyber drill execution report", 1, 7),
+        ("DR Data Integrity Validation", "Post-failover data integrity hash", "Reconciliation completeness proof", 0, 4),
+        ("Recovery Testing Automation", "Automated recovery test runs", "Continuous resilience dashboard", 0, 4),
+        ("Third-Party DR Dependency Map", "Vendor dependency register", "Single-point-of-failure remediation", 3, 5),
+        ("DR Incident Postmortem", "DR event postmortem catalog", "Improvement action closure tracker", 0, 7),
+        ("Regulatory DR Reporting", "RBI BCM self-assessment", "Regulator status briefings", 4, 9),
+    ]
+    return _generic_catalog("DRM", "ITDRM", tpl)
+
+
 def _itpp_catalog() -> list[dict]:
     """Information Technology Policies & Procedures — operational governance controls."""
     tpl = [
@@ -569,6 +594,151 @@ def _itpp_catalog() -> list[dict]:
     return _generic_catalog("ITP", "ITPP", tpl)
 
 
+def _soc2_catalog() -> list[dict]:
+    """SOC2 Trust Services Criteria (Security, Availability, Confidentiality, PI)."""
+    tpl = [
+        ("CC1.1 — Governance Tone at the Top", "Board governance attestation", "Code of conduct policy signoff", 0, 0),
+        ("CC2.1 — Information & Communication", "Information flow diagram v3", "Comms policy attestation", 1, 7),
+        ("CC3.1 — Risk Assessment", "Annual risk register", "Risk treatment plan signoff", 0, 9),
+        ("CC4.1 — Monitoring Activities", "Continuous control monitoring dashboard", "Quarterly KCI review", 1, 7),
+        ("CC5.1 — Control Activities", "Control matrix walkthrough", "Operating effectiveness sample", 0, 0),
+        ("CC6.1 — Logical Access — MFA", "MFA enforcement evidence", "Privileged access recertification", 3, 0),
+        ("CC6.2 — User Access Provisioning", "Access provisioning workflow proof", "New joiner SoD validation", 5, 2),
+        ("CC6.3 — Access Removal", "Termination access removal log", "Quarterly orphan account scan", 0, 0),
+        ("CC6.6 — Boundary Protection", "Firewall rule set audit", "WAF/Reverse-proxy rule review", 0, 6),
+        ("CC6.7 — Data in Transit", "TLS configuration export", "Certificate inventory & expiry tracker", 0, 6),
+        ("CC6.8 — Malware Protection", "Endpoint EDR coverage report", "Malware nil incident attestation", 1, 2),
+        ("CC7.1 — Vulnerability Management", "Internal vuln scan report", "Critical vuln aging tracker", 0, 0),
+        ("CC7.2 — Continuous Monitoring", "SIEM alert volume dashboard", "Use-case effectiveness review", 0, 7),
+        ("CC7.3 — Incident Response", "P1/P2 incident playbook", "Major incident postmortem Q1", 1, 7),
+        ("CC7.4 — Recovery from Incidents", "Recovery test execution log", "Lessons learned action tracker", 0, 4),
+        ("CC8.1 — Change Management", "CAB minutes — quarterly", "Emergency change PIR samples", 0, 0),
+        ("CC9.1 — Risk Mitigation", "Risk mitigation tracker", "Treatment progress report", 1, 7),
+        ("CC9.2 — Vendor Management", "Vendor risk assessment summary", "TPSP remediation tracker", 3, 5),
+        ("A1.1 — Availability Monitoring", "Uptime SLA dashboard", "Downtime root cause summary", 0, 0),
+        ("A1.2 — Capacity Planning", "Capacity plan document", "Peak load forecast", 0, 0),
+        ("A1.3 — Backup & Recovery", "Backup success rate dashboard", "Restore test attestation", 0, 4),
+        ("C1.1 — Confidential Information Identification", "Data classification inventory", "PII scan results", 1, 3),
+        ("C1.2 — Confidential Data Disposal", "Secure disposal certificate", "Media destruction log", 5, 1),
+        ("PI1.1 — Processing Integrity", "Reconciliation report — settlement", "Mismatch closure register", 4, 3),
+        ("PI1.2 — System Inputs Controls", "Input validation test results", "Reject queue review log", 2, 1),
+        ("PI1.3 — System Output Controls", "Output reconciliation evidence", "Variance investigation log", 4, 9),
+    ]
+    return _generic_catalog("SOC", "SOC2", tpl)
+
+
+def _iso27001_catalog() -> list[dict]:
+    """ISO/IEC 27001:2022 Annex A controls — information security management."""
+    tpl = [
+        ("A.5.1 — Information Security Policy", "ISMS policy v2026", "Top management policy signoff", 0, 0),
+        ("A.5.7 — Threat Intelligence", "TI feed ingestion proof", "IOC match closure report", 0, 7),
+        ("A.5.15 — Access Control Policy", "Access control policy attestation", "Recertification cycle evidence", 5, 2),
+        ("A.5.23 — Cloud Services Security", "Cloud baseline audit", "Cloud service approval log", 1, 6),
+        ("A.5.24 — Incident Management Planning", "Incident response plan v2026", "Plan walkthrough attendance", 1, 7),
+        ("A.5.30 — ICT Readiness for BCM", "ICT BCM playbook", "DR drill execution report", 0, 4),
+        ("A.6.3 — Information Security Awareness", "Training completion by department", "Phishing simulation results", 5, 1),
+        ("A.8.2 — Privileged Access Rights", "PAM access list", "Quarterly privileged access review", 3, 0),
+        ("A.8.5 — Secure Authentication", "MFA enforcement report", "Auth strength policy attestation", 0, 0),
+        ("A.8.7 — Protection Against Malware", "EDR coverage report", "Malware drill results", 1, 2),
+        ("A.8.8 — Management of Technical Vulnerabilities", "VA scan dashboard", "Patch SLA compliance", 0, 0),
+        ("A.8.9 — Configuration Management", "Configuration baseline export", "Drift detection report", 0, 0),
+        ("A.8.10 — Information Deletion", "Secure deletion attestation", "Storage decommission log", 5, 1),
+        ("A.8.11 — Data Masking", "Masking rule catalog", "Non-prod scan for PII", 2, 4),
+        ("A.8.12 — Data Leakage Prevention", "DLP incident register", "Policy effectiveness review", 0, 3),
+        ("A.8.16 — Monitoring Activities", "SIEM use-case catalog", "Alert correlation dashboard", 0, 7),
+        ("A.8.20 — Network Security", "Firewall rule audit", "Network segmentation diagram", 0, 6),
+        ("A.8.23 — Web Filtering", "Web filter category report", "Block bypass investigation log", 1, 1),
+        ("A.8.24 — Cryptography", "Cryptographic standard attestation", "Key management policy review", 0, 4),
+        ("A.8.25 — Secure Development Lifecycle", "Secure SDLC policy", "Gate failure remediation log", 0, 0),
+        ("A.8.28 — Secure Coding", "Secure coding training attendance", "Code review checklist sample", 0, 0),
+        ("A.8.29 — Security Testing in Development", "SAST/DAST pipeline output", "Critical finding closure proof", 0, 0),
+        ("A.8.30 — Outsourced Development Security", "Vendor security clauses", "Source code escrow attestation", 4, 3),
+        ("A.8.32 — Change Management", "CAB minutes", "Emergency change tracker", 0, 0),
+        ("A.8.33 — Test Information", "Test data masking proof", "Test data refresh log", 2, 4),
+    ]
+    return _generic_catalog("ISO", "ISO27001", tpl)
+
+
+def _rbi_cyber_catalog() -> list[dict]:
+    """RBI Cyber Security Framework for Indian banks."""
+    tpl = [
+        ("Annex 1.1 — Cyber Security Policy", "Board-approved cyber security policy", "Annual policy review minutes", 0, 0),
+        ("Annex 1.2 — Cyber Crisis Management Plan", "CCMP document v2026", "Crisis drill execution report", 0, 7),
+        ("Annex 1.3 — Inventory of Assets", "CMDB reconciliation report", "Critical asset classification", 4, 5),
+        ("Annex 1.4 — Network Security", "Firewall rule audit", "Network segmentation diagram v4", 0, 6),
+        ("Annex 1.5 — Secure Configuration", "OS baseline scan results", "Configuration drift report", 0, 0),
+        ("Annex 1.6 — Application Security Lifecycle", "Secure SDLC walkthrough", "Pre-deployment security signoff", 0, 0),
+        ("Annex 1.7 — Patch Management", "WSUS/SCCM patch report", "Emergency patch bulletin closure", 0, 3),
+        ("Annex 1.8 — User Access Control", "Quarterly access recertification", "SoD conflict closure log", 5, 2),
+        ("Annex 1.9 — Authentication Framework", "MFA enforcement screenshot", "Authentication policy review", 0, 0),
+        ("Annex 1.10 — Secure Mail Gateway", "Mail gateway scan stats", "Phishing detection metrics", 1, 1),
+        ("Annex 1.11 — Removable Media Policy", "USB blocking attestation", "Exception register review", 0, 0),
+        ("Annex 1.12 — Anti-Phishing", "Phishing simulation outcomes", "Repeat offender coaching", 1, 1),
+        ("Annex 1.13 — Data Leak Prevention", "DLP incident register", "Cross-border transfer log", 0, 3),
+        ("Annex 1.14 — Vulnerability Management", "VA & VAPT report", "Critical vuln aging tracker", 0, 0),
+        ("Annex 1.15 — Logs & Monitoring", "SIEM alert dashboard", "Log retention policy attestation", 0, 7),
+        ("Annex 1.16 — IT Operations", "Operations runbook catalog", "Operational metrics dashboard", 0, 0),
+        ("Annex 1.17 — Forensic Readiness", "Forensic capability assessment", "Chain of custody procedure", 1, 7),
+        ("Annex 1.18 — Customer Awareness", "Customer awareness campaign metrics", "Channel-specific advisory log", 0, 0),
+        ("Annex 1.19 — Risk Based Transaction Monitoring", "Transaction monitoring rules", "Anomaly investigation log", 2, 4),
+        ("Annex 1.20 — Cyber Insurance", "Cyber insurance policy document", "Claim readiness checklist", 4, 9),
+        ("Annex 1.21 — Cyber Drill Exercises", "Annual cyber drill report", "Drill scenario library", 0, 7),
+        ("Annex 1.22 — Vendor Risk Management", "TPSP cyber assessment", "Critical vendor remediation tracker", 3, 5),
+        ("Annex 1.23 — Incident Reporting to RBI", "RBI incident notification log", "Reportable incident matrix", 4, 9),
+        ("Annex 1.24 — Continuous Surveillance", "24x7 SOC coverage proof", "SOC quality metrics", 1, 7),
+    ]
+    return _generic_catalog("RBI", "RBI Cyber Security", tpl)
+
+
+def _isg_catalog() -> list[dict]:
+    """Information Security Governance — internal enterprise policy framework."""
+    tpl = [
+        ("ISG-01 — ISG Charter", "ISG charter approval", "Annual review minutes", 0, 0),
+        ("ISG-02 — Roles & Responsibilities", "RACI matrix v2026", "RACI walkthrough attendance", 5, 1),
+        ("ISG-03 — Information Classification", "Classification policy attestation", "Application scope mapping", 1, 3),
+        ("ISG-04 — Risk Management Framework", "Risk treatment plan", "Quarterly risk review minutes", 0, 9),
+        ("ISG-05 — Policy Exception Workflow", "Exception register", "Exception expiry log", 0, 0),
+        ("ISG-06 — Security Architecture Review", "SAR submission log", "Architecture board minutes", 0, 6),
+        ("ISG-07 — Third-Party Onboarding Security", "Vendor onboarding security checklist", "TPSP escalation register", 3, 5),
+        ("ISG-08 — Internal Audit Cycle", "Audit plan v2026", "Audit closure tracker", 0, 7),
+        ("ISG-09 — Regulator Liaison", "Regulator engagement log", "Inspection follow-through tracker", 4, 9),
+        ("ISG-10 — Internal Reporting Cadence", "ISG dashboard pack", "Compliance KPI tracker", 0, 7),
+        ("ISG-11 — Security Awareness Programme", "Training schedule", "Department completion stats", 5, 1),
+        ("ISG-12 — Cyber Defence Exercises", "Cyber drill scenarios", "Drill effectiveness report", 1, 7),
+        ("ISG-13 — Continuous Improvement", "CI tracker", "Improvement implementation evidence", 0, 0),
+        ("ISG-14 — Annual ISG Maturity Review", "Maturity assessment scorecard", "Maturity improvement plan", 0, 7),
+        ("ISG-15 — KRI Dashboard", "Key risk indicator dashboard", "Trend analysis report", 0, 9),
+        ("ISG-16 — Sensitive Data Inventory", "Sensitive data inventory log", "Discovery scan output", 1, 4),
+        ("ISG-17 — Records Management", "Records retention policy", "Legal hold procedure", 4, 9),
+        ("ISG-18 — ISG-SOC Liaison", "SOC monthly review minutes", "Joint use-case tuning log", 1, 7),
+    ]
+    return _generic_catalog("ISG", "ISG", tpl)
+
+
+def _asst_catalog() -> list[dict]:
+    """Application Security Self-assessment — internal pre-assessment framework."""
+    tpl = [
+        ("ASST-01 — Application Security Posture", "ASST checklist completion", "Sign-off by application owner", 0, 0),
+        ("ASST-02 — Asset Coverage", "ASST asset coverage attestation", "CMDB cross-check", 0, 5),
+        ("ASST-03 — Risk Rating Validation", "App risk rating worksheet", "Compliance team review log", 1, 7),
+        ("ASST-04 — Encryption Posture", "Encryption status questionnaire", "Crypto algorithm inventory", 0, 4),
+        ("ASST-05 — Authentication Strength", "Auth mechanism inventory", "MFA coverage matrix", 0, 0),
+        ("ASST-06 — Data Protection Controls", "Data protection self-assessment", "DLP rule coverage", 0, 3),
+        ("ASST-07 — Logging & Monitoring Coverage", "Logging coverage worksheet", "SIEM integration proof", 1, 7),
+        ("ASST-08 — Incident Response Readiness", "IR readiness questionnaire", "Tabletop participation proof", 1, 7),
+        ("ASST-09 — Patch & Vulnerability Posture", "Patch posture self-attestation", "VA scan attestation", 0, 0),
+        ("ASST-10 — DR & Business Continuity", "DR posture worksheet", "RPO/RTO declaration", 0, 4),
+        ("ASST-11 — Third-Party Dependencies", "Third-party inventory", "Vendor security review", 3, 5),
+        ("ASST-12 — Change & Release Discipline", "Release process attestation", "Last 5 change reviews", 0, 0),
+        ("ASST-13 — Identity Lifecycle", "Joiner/mover/leaver attestation", "Orphan account scan", 5, 2),
+        ("ASST-14 — Container & Cloud Coverage", "Cloud asset registration", "Container security posture", 1, 6),
+        ("ASST-15 — Mobile App Security", "Mobile app store presence audit", "Pen test attestation", 1, 2),
+        ("ASST-16 — Privileged Tool Usage", "Privileged tool register", "Quarterly access proof", 3, 0),
+        ("ASST-17 — Sensitive Data Inventory", "Sensitive data discovery", "Owner attestation", 0, 3),
+    ]
+    return _generic_catalog("ASS", "ASST", tpl)
+
+
 FRAMEWORK_CATALOG: dict[str, list[dict]] = {
     "PCI DSS": _pci_catalog(),
     "DPSC": _dpsc_catalog(),
@@ -579,6 +749,12 @@ FRAMEWORK_CATALOG: dict[str, list[dict]] = {
     "VAPT": _vapt_catalog(),
     "CSITE": _csite_catalog(),
     "ITPP": _itpp_catalog(),
+    "ITDRM": _itdrm_catalog(),
+    "SOC2": _soc2_catalog(),
+    "ISO27001": _iso27001_catalog(),
+    "RBI Cyber Security": _rbi_cyber_catalog(),
+    "ISG": _isg_catalog(),
+    "ASST": _asst_catalog(),
 }
 
 
@@ -595,6 +771,11 @@ FRAMEWORK_ALIASES: dict[str, str] = {
     "OSB": "OS Baselining",
     "NGX": "Nginx Baselining",
     "DBB": "DB Baselining",
+    "ISO": "ISO27001",
+    "ISO 27001": "ISO27001",
+    "SOC": "SOC2",
+    "RBI": "RBI Cyber Security",
+    "RBI Cyber": "RBI Cyber Security",
 }
 
 

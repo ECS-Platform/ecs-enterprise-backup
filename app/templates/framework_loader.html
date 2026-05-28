@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Framework Loader — ECS</title>
+{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-fl-kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.55rem; margin-bottom: 1.1rem; }
+@media (max-width: 1280px) { .ecs-fl-kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px)  { .ecs-fl-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+.ecs-fl-kpi {
+  background: #fff; border: 1px solid #e2e8f0; border-left-width: 3px;
+  border-radius: 6px; padding: 0.55rem 0.75rem; font-size: 0.78rem;
+  display: flex; flex-direction: column; gap: 0.15rem;
+}
+.ecs-fl-kpi-label { color: #64748b; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.ecs-fl-kpi-value { font-size: 1.35rem; font-weight: 700; color: #0f172a; line-height: 1; }
+.ecs-fl-kpi-hint  { font-size: 0.68rem; color: #94a3b8; }
+.ecs-fl-kpi.tone-primary    { border-left-color: #2563eb; }
+.ecs-fl-kpi.tone-info       { border-left-color: #0891b2; }
+.ecs-fl-kpi.tone-success    { border-left-color: #16a34a; }
+.ecs-fl-kpi.tone-warning    { border-left-color: #f59e0b; }
+.ecs-fl-kpi.tone-secondary  { border-left-color: #6b7280; }
+.ecs-fl-kpi.tone-danger     { border-left-color: #dc2626; }
+
+.ecs-fl-section {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 0.9rem 1rem; margin-bottom: 1rem;
+}
+.ecs-fl-section h6 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; margin-bottom: 0.65rem; }
+
+.ecs-fl-dropzone {
+  border: 1px dashed #94a3b8; background: #f8fafc; border-radius: 8px;
+  padding: 1.5rem; text-align: center; color: #475569; cursor: pointer; transition: all 0.18s ease;
+}
+.ecs-fl-dropzone.is-drag { background: #e0f2fe; border-color: #0284c7; color: #0c4a6e; }
+.ecs-fl-dropzone input[type="file"] { display: none; }
+.ecs-fl-dropzone .ecs-fl-drop-icon { font-size: 1.8rem; }
+.ecs-fl-dropzone .ecs-fl-drop-hint { font-size: 0.7rem; color: #64748b; margin-top: 0.35rem; }
+.ecs-fl-dropzone .ecs-fl-filename { margin-top: 0.4rem; font-size: 0.78rem; color: #0f172a; font-weight: 600; }
+
+.ecs-fl-progress-card {
+  border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.85rem 1rem; background: #f8fafc;
+}
+.ecs-fl-progress-bar-wrap { background: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden; }
+.ecs-fl-progress-bar { background: linear-gradient(90deg, #2563eb, #0ea5e9); height: 100%; width: 0%; transition: width 0.25s ease; }
+.ecs-fl-progress-log { max-height: 110px; overflow-y: auto; font-size: 0.72rem; color: #475569; font-family: ui-monospace, monospace; margin-top: 0.55rem; }
+.ecs-fl-progress-log div { padding: 0.12rem 0; }
+.ecs-fl-progress-log .is-done::before { content: '✔ '; color: #16a34a; }
+.ecs-fl-progress-log .is-active::before { content: '➤ '; color: #2563eb; }
+
+.ecs-fl-stages { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ecs-fl-stage {
+  padding: 0.35rem 0.65rem; border-radius: 16px; font-size: 0.7rem;
+  border: 1px solid #cbd5e1; background: #f1f5f9; color: #475569;
+}
+.ecs-fl-stage.is-complete { background: #dcfce7; color: #166534; border-color: #86efac; }
+.ecs-fl-stage.is-active { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; font-weight: 600; }
+
+.ecs-fl-table { font-size: 0.74rem; }
+.ecs-fl-table th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; }
+.ecs-fl-match-bar-wrap { background: #e2e8f0; border-radius: 3px; height: 5px; width: 60px; }
+.ecs-fl-match-bar { background: #16a34a; height: 100%; border-radius: 3px; }
+.ecs-fl-match-bar.tone-amber { background: #f59e0b; }
+.ecs-fl-match-bar.tone-red   { background: #dc2626; }
+
+.ecs-fl-heatmap-row {
+  display: grid; grid-template-columns: 1fr repeat(3, 60px) 70px; gap: 0.35rem;
+  font-size: 0.7rem; padding: 0.35rem 0; border-bottom: 1px solid #f1f5f9;
+}
+.ecs-fl-heatmap-row.header { font-weight: 600; color: #64748b; border-bottom: 2px solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.04em; }
+.ecs-fl-heatmap-row .cell {
+  background: #f1f5f9; padding: 0.25rem 0.45rem; border-radius: 4px;
+  text-align: center; font-weight: 600; color: #475569;
+}
+.ecs-fl-heatmap-row .cell.tone-green { background: #bbf7d0; color: #166534; }
+.ecs-fl-heatmap-row .cell.tone-amber { background: #fde68a; color: #92400e; }
+.ecs-fl-heatmap-row .cell.tone-red   { background: #fecaca; color: #991b1b; }
+.ecs-fl-overlap-cell {
+  padding: 0.25rem 0.45rem; border-radius: 4px; text-align: center; font-weight: 600;
+}
+.ecs-fl-overlap-cell.tone-green { background: #bbf7d0; color: #166534; }
+.ecs-fl-overlap-cell.tone-amber { background: #fde68a; color: #92400e; }
+.ecs-fl-overlap-cell.tone-red   { background: #fecaca; color: #991b1b; }
+
+.ecs-fl-callouts { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.78rem; color: #1f2937; }
+.ecs-fl-callout-row { display: flex; align-items: center; gap: 0.5rem; }
+.ecs-fl-callout-row .dot { width: 7px; height: 7px; border-radius: 50%; background: #2563eb; flex-shrink: 0; }
+
+.ecs-fl-readiness-bar { background: #e2e8f0; border-radius: 4px; height: 8px; overflow: hidden; margin-top: 0.35rem; }
+.ecs-fl-readiness-bar > div { height: 100%; transition: width 0.3s ease; }
+
+.ecs-fl-record-table td, .ecs-fl-record-table th { font-size: 0.74rem; vertical-align: middle; }
+.ecs-fl-state-pill {
+  font-size: 0.7rem; padding: 0.2rem 0.55rem; border-radius: 12px; font-weight: 600;
+  background: #e2e8f0; color: #334155;
+}
+.ecs-fl-state-pill.is-active { background: #dcfce7; color: #166534; }
+.ecs-fl-state-pill.is-review { background: #fde68a; color: #92400e; }
+
+/* Evidence Reuse Dashboard */
+.ecs-fl-reuse-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.55rem; }
+@media (max-width: 1024px) { .ecs-fl-reuse-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .ecs-fl-reuse-grid { grid-template-columns: repeat(2, 1fr); } }
+.ecs-fl-reuse-tile {
+  background: #fff; border: 1px solid #e2e8f0; border-left-width: 3px; border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+}
+.ecs-fl-reuse-tile.tone-primary  { border-left-color: #2563eb; }
+.ecs-fl-reuse-tile.tone-success  { border-left-color: #16a34a; }
+.ecs-fl-reuse-tile.tone-danger   { border-left-color: #dc2626; }
+.ecs-fl-reuse-tile.tone-info     { border-left-color: #0891b2; }
+.ecs-fl-reuse-tile.tone-warning  { border-left-color: #f59e0b; }
+.ecs-fl-reuse-tile .v { font-size: 1.35rem; font-weight: 700; color: #0f172a; line-height: 1; }
+.ecs-fl-reuse-tile .l { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; }
+.ecs-fl-reuse-tile .h { font-size: 0.65rem; color: #94a3b8; }
+
+/* Overlap matrix */
+.ecs-fl-matrix-wrap { overflow-x: auto; }
+.ecs-fl-matrix { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.ecs-fl-matrix th, .ecs-fl-matrix td { padding: 0.32rem 0.45rem; border-bottom: 1px solid #f1f5f9; text-align: center; }
+.ecs-fl-matrix th:first-child, .ecs-fl-matrix td:first-child { text-align: left; }
+.ecs-fl-matrix thead th { background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; position: sticky; top: 0; }
+.ecs-fl-matrix tbody tr:hover { background: #f8fafc; cursor: pointer; }
+.ecs-fl-matrix .cell-yes { color: #16a34a; font-weight: 700; }
+.ecs-fl-matrix .cell-no  { color: #cbd5e1; }
+.ecs-fl-matrix .reusable-yes { background: #dcfce7; color: #166534; padding: 0.12rem 0.4rem; border-radius: 10px; font-size: 0.65rem; font-weight: 600; }
+.ecs-fl-matrix .reusable-no  { background: #fef3c7; color: #92400e; padding: 0.12rem 0.4rem; border-radius: 10px; font-size: 0.65rem; font-weight: 600; }
+.ecs-fl-matrix .theme-cat { font-size: 0.62rem; color: #94a3b8; display: block; margin-top: 0.1rem; }
+
+/* Control heatmap */
+.ecs-fl-heat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.4rem; }
+.ecs-fl-heat-tile {
+  border-radius: 6px; padding: 0.5rem 0.6rem; font-size: 0.72rem; cursor: pointer;
+  border: 1px solid transparent; transition: transform 0.12s ease;
+}
+.ecs-fl-heat-tile:hover { transform: translateY(-1px); }
+.ecs-fl-heat-tile.tone-green { background: #dcfce7; color: #166534; border-color: #86efac; }
+.ecs-fl-heat-tile.tone-amber { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.ecs-fl-heat-tile.tone-red   { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.ecs-fl-heat-tile .ht { font-weight: 600; font-size: 0.74rem; }
+.ecs-fl-heat-tile .hc { font-size: 0.62rem; opacity: 0.85; }
+.ecs-fl-heat-tile .hd { font-size: 0.66rem; margin-top: 0.18rem; opacity: 0.9; }
+
+/* Reuse traceability tree */
+.ecs-fl-trace { display: flex; flex-direction: column; gap: 0.6rem; }
+.ecs-fl-trace-node {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 0.55rem 0.7rem; font-size: 0.74rem;
+}
+.ecs-fl-trace-title { font-weight: 600; color: #0f172a; font-size: 0.8rem; cursor: pointer; }
+.ecs-fl-trace-meta  { color: #64748b; font-size: 0.68rem; margin-top: 0.1rem; }
+.ecs-fl-trace-row   { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; align-items: center; }
+.ecs-fl-trace-row .label { color: #64748b; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.3rem; }
+.ecs-fl-trace-chip { background: #e0f2fe; color: #0c4a6e; padding: 0.1rem 0.45rem; border-radius: 10px; font-size: 0.65rem; }
+.ecs-fl-trace-chip.app   { background: #ecfccb; color: #3f6212; }
+.ecs-fl-trace-chip.reuse { background: #fae8ff; color: #6b21a8; }
+.ecs-fl-trace-chip.ev    { background: #fff7ed; color: #9a3412; }
+
+/* Application scan */
+.ecs-fl-appscan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.55rem; }
+.ecs-fl-appscan-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.6rem 0.7rem;
+  font-size: 0.72rem;
+}
+.ecs-fl-appscan-card .app-name { font-weight: 600; color: #0f172a; font-size: 0.82rem; }
+.ecs-fl-appscan-card .ec-count { color: #2563eb; font-weight: 600; font-size: 0.7rem; }
+.ecs-fl-appscan-card .theme-list { display: flex; flex-wrap: wrap; gap: 0.22rem; margin-top: 0.35rem; }
+.ecs-fl-appscan-card .theme-pill {
+  background: #f1f5f9; color: #475569; padding: 0.12rem 0.4rem;
+  border-radius: 10px; font-size: 0.62rem;
+}
+.ecs-fl-appscan-card .scan-log {
+  background: #0f172a; color: #d1fae5; font-family: ui-monospace, monospace;
+  font-size: 0.62rem; border-radius: 4px; padding: 0.35rem 0.45rem; margin-top: 0.45rem;
+  min-height: 50px;
+}
+.ecs-fl-appscan-card .scan-log .ok::before { content: '✔ '; color: #34d399; }
+
+/* Drill modal */
+.ecs-fl-drill-list { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.ecs-fl-drill-list .chip {
+  background: #f1f5f9; color: #334155; padding: 0.18rem 0.55rem;
+  border-radius: 12px; font-size: 0.7rem;
+}
+.ecs-fl-drill-list .chip.app   { background: #ecfccb; color: #3f6212; }
+.ecs-fl-drill-list .chip.fw    { background: #e0f2fe; color: #0c4a6e; }
+.ecs-fl-drill-list .chip.cycle { background: #ede9fe; color: #5b21b6; }
+.ecs-fl-drill-table th, .ecs-fl-drill-table td { font-size: 0.72rem; vertical-align: middle; }
+
+.ecs-fl-section-heading {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;
+}
+.ecs-fl-section-heading h6 { margin-bottom: 0; }
+.ecs-fl-section-heading .meta { font-size: 0.68rem; color: #94a3b8; }
+</style>
+</head>
+<body class="bg-light ecs-enterprise-body">
+<div class="container-fluid">
+<div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-main-content ecs-workspace-main">
+{% from "partials/ecs_ux_macros.html" import page_header, empty_state %}
+{{ page_header('Framework Loader & Dynamic Framework Onboarding', 'Upload assessment documents to dynamically onboard new frameworks, identify reusable controls, generate ECS mappings, and calculate implementation readiness.', user, role) }}
+{% if notice %}<div class="alert alert-info py-2 small mb-3">{{ notice }}</div>{% endif %}
+
+{# ─── KPI strip ──────────────────────────────────────────────────────────── #}
+<div class="ecs-fl-kpi-grid" role="region" aria-label="Framework Loader KPI Strip">
+{% for k in loader.kpi_cards %}
+<div class="ecs-fl-kpi tone-{{ k.tone|default('primary') }}">
+<div class="ecs-fl-kpi-label">{{ k.icon|default('') }} {{ k.label }}</div>
+<div class="ecs-fl-kpi-value">{{ k.value }}</div>
+<div class="ecs-fl-kpi-hint">Live registry</div>
+</div>
+{% endfor %}
+</div>
+
+{# ─── Evidence Reuse Dashboard ──────────────────────────────────────────── #}
+{% if loader.intelligence is defined %}
+{% set intel = loader.intelligence %}
+<div class="ecs-fl-section">
+<div class="ecs-fl-section-heading">
+<h6>Evidence Reuse Dashboard</h6>
+<span class="meta">{{ intel.stats.controls_total|default(0) }} controls · {{ intel.stats.themes_total|default(0) }} themes · {{ intel.stats.frameworks_total|default(0) }} frameworks · {{ intel.stats.applications_scanned|default(0) }} apps</span>
+</div>
+<div class="ecs-fl-reuse-grid">
+{% for k in intel.evidence_reuse_dashboard|default([]) %}
+<div class="ecs-fl-reuse-tile tone-{{ k.tone|default('primary') }}">
+<div class="l">{{ k.label|default('') }}</div>
+<div class="v">{{ k.value|default(0) }}</div>
+<div class="h">{{ k.hint|default('') }}</div>
+</div>
+{% endfor %}
+</div>
+</div>
+
+{# ─── Control Overlap Matrix ────────────────────────────────────────────── #}
+<div class="ecs-fl-section">
+<div class="ecs-fl-section-heading">
+<h6>Cross-Framework Control Overlap Matrix</h6>
+<span class="meta">Click any row for theme drill-down (frameworks · apps · evidence · observations)</span>
+</div>
+<div class="ecs-fl-matrix-wrap" style="max-height: 360px;">
+<table class="ecs-fl-matrix">
+<thead><tr>
+<th>Control Theme</th>
+{% for fw in intel.overlap_matrix.frameworks|default([]) %}<th>{{ fw|default('—') }}</th>{% endfor %}
+<th>Reusable</th><th>Coverage</th>
+</tr></thead>
+<tbody>
+{% for row in intel.overlap_matrix.rows|default([]) %}
+<tr class="ecs-fl-drill-trigger" data-theme="{{ row.theme_key }}" data-label="{{ row.theme_label }}">
+<td><strong>{{ row.theme_label|default('—') }}</strong><span class="theme-cat">{{ row.category|default('—') }}</span></td>
+{% for cell in row.cells|default([]) %}
+<td>{% if cell.present %}<span class="cell-yes" title="{{ cell.count }} control{{ 's' if cell.count != 1 else '' }} — {{ cell.control_names|join(' · ') }}">✓</span>{% else %}<span class="cell-no">✗</span>{% endif %}</td>
+{% endfor %}
+<td>{% if row.reusable %}<span class="reusable-yes">YES</span>{% else %}<span class="reusable-no">NO</span>{% endif %}</td>
+<td><strong>{{ row.frameworks_covered|default(0) }}/{{ row.frameworks_total|default(0) }}</strong></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+
+{# ─── Control Heatmap ───────────────────────────────────────────────────── #}
+<div class="ecs-fl-section">
+<div class="ecs-fl-section-heading">
+<h6>Control Theme Heatmap</h6>
+<span class="meta">Green = high reuse · Amber = partial · Red = needs new evidence</span>
+</div>
+<div class="ecs-fl-heat-grid">
+{% for cell in intel.control_heatmap|default([]) %}
+<div class="ecs-fl-heat-tile {{ cell.tone|default('tone-amber') }} ecs-fl-drill-trigger" data-theme="{{ cell.theme_key }}" data-label="{{ cell.theme_label }}">
+<div class="ht">{{ cell.theme_label|default('—') }}</div>
+<div class="hc">{{ cell.category|default('—') }}</div>
+<div class="hd">{{ cell.label|default('') }} · {{ cell.frameworks_covered|default(0) }}/{{ cell.frameworks_total|default(0) }} frameworks</div>
+</div>
+{% endfor %}
+</div>
+</div>
+
+{# ─── Reuse Traceability Tree ───────────────────────────────────────────── #}
+<div class="ecs-fl-section">
+<div class="ecs-fl-section-heading">
+<h6>Reuse Traceability — Top Reusable Themes</h6>
+<span class="meta">Source framework → controls → evidence → reusable for other frameworks</span>
+</div>
+<div class="ecs-fl-trace">
+{% for t in intel.reuse_traceability|default([]) %}
+<div class="ecs-fl-trace-node">
+<div class="ecs-fl-trace-title ecs-fl-drill-trigger" data-theme="{{ t.theme_key }}" data-label="{{ t.theme_label }}">{{ t.theme_label|default('—') }} <span class="badge bg-light text-dark border ms-1">{{ t.reuse_confidence_pct|default(0) }}% confidence</span></div>
+<div class="ecs-fl-trace-meta">Sourced from <strong>{{ t.source_framework|default('—') }}</strong> · {{ t.frameworks|default([])|length }} frameworks · {{ t.applications|default([])|length }} applications</div>
+<div class="ecs-fl-trace-row"><span class="label">Frameworks</span>{% for fw in t.frameworks|default([]) %}<span class="ecs-fl-trace-chip">{{ fw }}</span>{% endfor %}</div>
+<div class="ecs-fl-trace-row"><span class="label">Applications</span>{% for app in t.applications|default([]) %}<span class="ecs-fl-trace-chip app">{{ app }}</span>{% endfor %}</div>
+<div class="ecs-fl-trace-row"><span class="label">Evidence</span>{% for ev in t.evidence_samples|default([]) %}<span class="ecs-fl-trace-chip ev" title="{{ ev.framework }} — {{ ev.application }}">{{ ev.evidence_name|default(ev.evidence_id) }}</span>{% endfor %}</div>
+{% if t.reusable_for %}<div class="ecs-fl-trace-row"><span class="label">Reusable For</span>{% for fw in t.reusable_for|default([]) %}<span class="ecs-fl-trace-chip reuse">{{ fw }}</span>{% endfor %}</div>{% endif %}
+</div>
+{% endfor %}
+</div>
+</div>
+
+{# ─── Application Evidence Scan ─────────────────────────────────────────── #}
+<div class="ecs-fl-section">
+<div class="ecs-fl-section-heading">
+<h6>Application Evidence Scan</h6>
+<span class="meta">Real-time discovery of reusable evidence across onboarded banking applications</span>
+</div>
+<div class="ecs-fl-appscan-grid" id="ecsFlAppScanGrid">
+{% for a in intel.application_scan|default([]) %}
+<div class="ecs-fl-appscan-card">
+<div class="d-flex justify-content-between align-items-baseline">
+<div class="app-name">{{ a.application|default('—') }}</div>
+<div class="ec-count">{{ a.evidence_count|default(0) }} evidence</div>
+</div>
+<div class="theme-list">
+{% for t in a.themes_covered|default([]) %}<span class="theme-pill" title="{{ t.count }} control{{ 's' if t.count != 1 else '' }}">{{ t.theme_label|default(t.theme_key) }} · {{ t.count }}</span>{% endfor %}
+</div>
+<div class="scan-log" data-app="{{ a.application }}">
+<div>Scanning {{ a.application }}…</div>
+{% for ev in a.evidence_samples|default([]) %}
+<div class="ok">Found {{ ev.evidence_name|default(ev.evidence_id) }} <span style="opacity:0.6">({{ ev.framework|default('—') }})</span></div>
+{% endfor %}
+</div>
+</div>
+{% endfor %}
+</div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+{# ─── Upload form ──────────────────────────────────────────────────────── #}
+<div class="col-lg-5">
+<div class="ecs-fl-section">
+<h6>Upload Framework Assessment</h6>
+<form id="ecsFrameworkLoaderForm" enctype="multipart/form-data">
+<div class="mb-2">
+<label class="form-label small mb-1">Framework Name</label>
+<input type="text" name="framework_name" class="form-control form-control-sm" required placeholder="e.g. ASST, ISG, Secure SDLC, Zero Trust" list="ecsFrameworkSuggestions" />
+<datalist id="ecsFrameworkSuggestions">
+<option value="ASST">
+<option value="ISG">
+<option value="Secure SDLC">
+<option value="Cloud Governance">
+<option value="Zero Trust">
+<option value="Vendor Risk">
+<option value="RBI Addendum">
+</datalist>
+</div>
+<div class="mb-2">
+<label class="form-label small mb-1">Framework Type</label>
+<select name="framework_type" class="form-select form-select-sm" required>
+{% for t in loader.framework_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+</select>
+</div>
+<div class="mb-2">
+<label class="form-label small mb-1">Framework Owner</label>
+<input type="text" name="framework_owner" class="form-control form-control-sm" required placeholder="e.g. Compliance Office, CISO Office, Vendor Risk" />
+</div>
+<div class="mb-2">
+<label class="form-label small mb-1">Upload Assessment Document</label>
+<label class="ecs-fl-dropzone" id="ecsFlDropzone" tabindex="0">
+<div class="ecs-fl-drop-icon" aria-hidden="true">📄</div>
+<div>Drag &amp; drop or click to select</div>
+<div class="ecs-fl-drop-hint">Supports .pdf, .docx, .xlsx, .csv</div>
+<div class="ecs-fl-filename" id="ecsFlFileName">No file chosen — a deterministic mock dataset will be used.</div>
+<input type="file" name="control_file" id="ecsFlFileInput" accept=".pdf,.docx,.xlsx,.xls,.csv" />
+</label>
+</div>
+<input type="hidden" name="role" value="{{ role }}" />
+<input type="hidden" name="user" value="{{ user }}" />
+<button type="submit" class="btn btn-primary btn-sm w-100" id="ecsFlSubmitBtn">Parse &amp; Analyze Framework</button>
+</form>
+</div>
+
+<div class="ecs-fl-section" id="ecsFlProgressCard" style="display: none;">
+<h6>Document Processing Pipeline</h6>
+<div class="ecs-fl-progress-card">
+<div class="d-flex justify-content-between small mb-1"><span id="ecsFlProgressLabel">Initializing pipeline…</span><strong id="ecsFlProgressPct">0%</strong></div>
+<div class="ecs-fl-progress-bar-wrap"><div class="ecs-fl-progress-bar" id="ecsFlProgressBar"></div></div>
+<div class="ecs-fl-progress-log" id="ecsFlProgressLog"></div>
+</div>
+</div>
+
+{# ─── Loaded frameworks ─────────────────────────────────────────────── #}
+<div class="ecs-fl-section">
+<h6>Loaded Frameworks</h6>
+{% if loader.loader_records %}
+<div class="table-responsive">
+<table class="table table-sm ecs-fl-record-table mb-0">
+<thead><tr><th>Framework</th><th>Type</th><th>Owner</th><th>Controls</th><th>Reusable</th><th>Coverage</th><th>State</th></tr></thead>
+<tbody>
+{% for r in loader.loader_records %}
+<tr>
+<td><a href="/mvp/framework-loader?role={{ role }}&user={{ user|urlencode }}&framework_id={{ r.framework_id }}" class="text-decoration-none"><strong>{{ r.framework_name|default('Untitled') }}</strong></a></td>
+<td><span class="badge bg-light text-dark border">{{ r.framework_type|default('Security') }}</span></td>
+<td>{{ r.framework_owner|default('—') }}</td>
+<td>{{ r.controls_count|default(0) }}</td>
+<td>{{ r.reusable_controls|default(0) }}</td>
+<td>{{ r.coverage_pct|default(0) }}%</td>
+<td>{% set st = r.lifecycle_state|default('Imported') %}<span class="ecs-fl-state-pill {% if st == 'Active' %}is-active{% elif st in ['Imported', 'Mapped', 'Reviewed'] %}is-review{% endif %}">{{ st }}</span></td>
+</tr>
+{% endfor %}
+</tbody></table>
+</div>
+{% else %}
+{{ empty_state('No frameworks loaded yet. Upload an assessment document to begin.') }}
+{% endif %}
+</div>
+</div>
+
+{# ─── Right column: selected framework analysis ─────────────────────── #}
+<div class="col-lg-7">
+<div id="ecsFlAnalysisCard">
+{% if loader.selected %}
+{% set sel = loader.selected %}
+<div class="ecs-fl-section">
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+<div>
+<h6 class="mb-1">{{ sel.framework_name|default('Framework') }}</h6>
+<div class="small text-muted">{{ sel.framework_type|default('Security Baseline') }} · Owner: {{ sel.framework_owner|default('—') }} · Loaded {{ sel.created_at|default('—') }}</div>
+</div>
+<div class="d-flex gap-2 align-items-center">
+<span class="ecs-fl-state-pill {% if sel.is_active %}is-active{% else %}is-review{% endif %}">{{ sel.lifecycle_state|default('Imported') }}</span>
+{% if not sel.is_active %}
+<form method="post" action="/mvp/framework-loader/activate" class="d-inline">
+<input type="hidden" name="framework_id" value="{{ sel.framework_id }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-success btn-sm" type="submit">Activate Framework</button>
+</form>
+{% else %}
+<a href="/framework/{{ sel.framework_name|urlencode }}?role={{ role }}&user={{ user|urlencode }}" class="btn btn-outline-primary btn-sm">Open Framework Dashboard</a>
+{% endif %}
+</div>
+</div>
+
+{# Workflow stages #}
+<div class="ecs-fl-stages mt-3">
+{% for s in sel.workflow_stages|default([]) %}
+<span class="ecs-fl-stage {% if s.state == 'complete' %}is-complete{% elif s.state == 'active' %}is-active{% endif %}">{{ s.label }}</span>
+{% endfor %}
+</div>
+</div>
+
+{# Readiness breakdown #}
+<div class="ecs-fl-section">
+<h6>Implementation Readiness</h6>
+<div class="row g-2">
+{% for r in sel.kpi_strip|default([]) %}
+<div class="col-md-4 col-6">
+<div class="small text-muted">{{ r.label|default('') }}</div>
+<div class="d-flex align-items-baseline gap-2"><strong>{{ r.value }}</strong><span class="small text-muted">{{ r.pct|default(0) }}%</span></div>
+<div class="ecs-fl-readiness-bar"><div style="width: {{ r.pct|default(0) }}%; background: var(--bs-{{ r.tone|default('primary') }}, #2563eb);"></div></div>
+</div>
+{% endfor %}
+</div>
+<div class="ecs-fl-callouts mt-3">
+{% for callout in sel.implementation_callouts|default([]) %}
+<div class="ecs-fl-callout-row"><span class="dot"></span><span>{{ callout }}</span></div>
+{% endfor %}
+</div>
+</div>
+
+{# Parsed controls table #}
+<div class="ecs-fl-section">
+<h6>Parsed Controls · {{ sel.controls_count|default(0) }} extracted</h6>
+{% if sel.parsed_controls %}
+<div class="table-responsive" style="max-height: 360px;">
+<table class="table table-sm ecs-fl-table mb-0">
+<thead class="sticky-top bg-white"><tr><th>ECS Control ID</th><th>Uploaded Control</th><th>Similar Existing FW</th><th>Match</th><th>Reusable</th></tr></thead>
+<tbody>
+{% for c in sel.parsed_controls %}
+{% set pct = c.match_pct|default(0)|int %}
+{% set tone = 'tone-amber' if pct >= 50 and pct < 75 else ('tone-red' if pct < 50 else '') %}
+<tr>
+<td><code class="small">{{ c.ecs_control_id|default('ECS-???') }}</code></td>
+<td>{{ c.uploaded_control|default('—') }}</td>
+<td><span class="badge bg-light text-dark border">{{ c.similar_existing_framework|default('New Control') }}</span></td>
+<td><div class="d-flex align-items-center gap-2"><div class="ecs-fl-match-bar-wrap"><div class="ecs-fl-match-bar {{ tone }}" style="width: {{ pct }}%;"></div></div><span class="small">{{ pct }}%</span></div></td>
+<td>{% set re = c.reusable|default('No') %}<span class="badge bg-{% if re == 'Yes' %}success{% elif re == 'Partial' %}warning text-dark{% else %}secondary{% endif %}">{{ re }}</span></td>
+</tr>
+{% endfor %}
+</tbody></table>
+</div>
+{% else %}
+{{ empty_state('No parsed controls available.') }}
+{% endif %}
+</div>
+
+{# Cross-framework overlap heatmap #}
+<div class="ecs-fl-section">
+<h6>Cross-Framework Reuse Heatmap</h6>
+{% if sel.overlap_heatmap %}
+<div class="ecs-fl-heatmap-row header"><div>Framework</div><div>Strong</div><div>Moderate</div><div>Weak</div><div>Overlap</div></div>
+{% for o in sel.overlap_heatmap %}
+<div class="ecs-fl-heatmap-row">
+<div class="small text-truncate" title="{{ o.framework|default('—') }}">{{ o.framework|default('—') }}</div>
+<div class="cell tone-green">{{ o.strong|default(0) }}</div>
+<div class="cell tone-amber">{{ o.moderate|default(0) }}</div>
+<div class="cell tone-red">{{ o.weak|default(0) }}</div>
+<div class="ecs-fl-overlap-cell {{ o.intensity|default('tone-amber') }}">{{ o.overlap_total|default(0) }}</div>
+</div>
+{% endfor %}
+{% else %}
+{{ empty_state('No cross-framework overlap detected yet.') }}
+{% endif %}
+</div>
+
+{# Audit effort saved #}
+<div class="ecs-fl-section">
+<h6>Estimated Audit Effort Saved</h6>
+{% set ae = sel.audit_effort|default({}) %}
+<div class="row g-3 small">
+<div class="col-md-3 col-6"><div class="text-muted">Hours Saved</div><strong>{{ ae.hours_saved|default(0) }}</strong></div>
+<div class="col-md-3 col-6"><div class="text-muted">Days Saved</div><strong>{{ ae.days_saved|default(0) }}</strong></div>
+<div class="col-md-3 col-6"><div class="text-muted">Reusable Controls</div><strong>{{ ae.reusable_controls|default(0) }}</strong></div>
+<div class="col-md-3 col-6"><div class="text-muted">Auditor Review Required</div><strong>{{ ae.auditor_review_required|default(0) }}</strong></div>
+</div>
+</div>
+
+{% else %}
+<div class="ecs-fl-section">
+{{ empty_state('Upload a framework to view parsed controls, reuse analytics, and the activation workflow.') }}
+</div>
+{% endif %}
+</div>
+</div>
+</div>
+
+{% include "partials/chatbot_global.html" %}
+</div>
+</div>
+</div>
+
+{# ─── Drill-down modal ─────────────────────────────────────────────────── #}
+<div class="modal fade" id="ecsFlDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="ecsFlDrillTitle">Control Theme Drill-down</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body small" id="ecsFlDrillBody">
+<p class="text-muted">Loading…</p>
+</div>
+<div class="modal-footer py-1">
+<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+(function() {
+  var form        = document.getElementById('ecsFrameworkLoaderForm');
+  var dropzone    = document.getElementById('ecsFlDropzone');
+  var fileInput   = document.getElementById('ecsFlFileInput');
+  var fileNameEl  = document.getElementById('ecsFlFileName');
+  var progressCard= document.getElementById('ecsFlProgressCard');
+  var progressBar = document.getElementById('ecsFlProgressBar');
+  var progressPct = document.getElementById('ecsFlProgressPct');
+  var progressLog = document.getElementById('ecsFlProgressLog');
+  var progressLab = document.getElementById('ecsFlProgressLabel');
+  var submitBtn   = document.getElementById('ecsFlSubmitBtn');
+
+  if (!form) return;
+
+  var stages = [
+    'Reading controls from uploaded framework…',
+    'Normalizing control statements…',
+    'Generating ECS Control IDs…',
+    'Matching reusable controls across frameworks…',
+    'Cross-framework mapping analysis…',
+    'Calculating implementation overlap…',
+    'Persisting framework registry…'
+  ];
+
+  ['dragenter', 'dragover'].forEach(function(ev) {
+    dropzone.addEventListener(ev, function(e) { e.preventDefault(); dropzone.classList.add('is-drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function(ev) {
+    dropzone.addEventListener(ev, function(e) { e.preventDefault(); dropzone.classList.remove('is-drag'); });
+  });
+  dropzone.addEventListener('drop', function(e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      fileNameEl.textContent = fileInput.files[0].name;
+    }
+  });
+  fileInput.addEventListener('change', function() {
+    if (fileInput.files.length) fileNameEl.textContent = fileInput.files[0].name;
+  });
+
+  function logStage(label, isActive) {
+    var line = document.createElement('div');
+    line.className = isActive ? 'is-active' : 'is-done';
+    line.textContent = label;
+    progressLog.appendChild(line);
+    progressLog.scrollTop = progressLog.scrollHeight;
+  }
+
+  function animateProgress(targetPct, label) {
+    progressLab.textContent = label;
+    progressPct.textContent = targetPct + '%';
+    progressBar.style.width = targetPct + '%';
+  }
+
+  function runProgressSimulation(onDone) {
+    progressLog.innerHTML = '';
+    progressBar.style.width = '0%';
+    progressPct.textContent = '0%';
+    progressCard.style.display = 'block';
+    var idx = 0;
+    function next() {
+      if (idx >= stages.length) { onDone(); return; }
+      logStage(stages[idx], true);
+      animateProgress(Math.round(((idx + 1) / stages.length) * 100), stages[idx]);
+      idx++;
+      setTimeout(next, 420 + Math.floor(Math.random() * 320));
+    }
+    next();
+  }
+
+  // ── Drill-down handler ────────────────────────────────────────────────
+  var drillModalEl = document.getElementById('ecsFlDrillModal');
+  var drillBody    = document.getElementById('ecsFlDrillBody');
+  var drillTitle   = document.getElementById('ecsFlDrillTitle');
+
+  function chipList(items, cls) {
+    if (!items || !items.length) return '<span class="text-muted">—</span>';
+    return '<div class="ecs-fl-drill-list">' + items.map(function(it) {
+      return '<span class="chip ' + (cls || '') + '">' + it + '</span>';
+    }).join('') + '</div>';
+  }
+
+  function evidenceTable(rows) {
+    if (!rows || !rows.length) return '<p class="text-muted">No evidence linked.</p>';
+    var head = '<thead><tr><th>Framework</th><th>Control</th><th>Evidence</th><th>Application</th><th>Audit Status</th></tr></thead>';
+    var body = '<tbody>' + rows.map(function(r) {
+      return '<tr>' +
+        '<td>' + (r.framework || '—') + '</td>' +
+        '<td><code class="small">' + (r.control_id || '') + '</code><br>' + (r.control_name || '') + '</td>' +
+        '<td>' + (r.evidence_name || r.evidence_id || '—') + '</td>' +
+        '<td>' + (r.application || '—') + '</td>' +
+        '<td><span class="badge bg-light text-dark border">' + (r.audit_status || '—') + '</span></td>' +
+        '</tr>';
+    }).join('') + '</tbody>';
+    return '<div class="table-responsive"><table class="table table-sm ecs-fl-drill-table">' + head + body + '</table></div>';
+  }
+
+  function obsTable(rows) {
+    if (!rows || !rows.length) return '<p class="text-muted">No observations linked.</p>';
+    return '<div class="table-responsive"><table class="table table-sm ecs-fl-drill-table"><thead><tr><th>Observation</th><th>Framework</th><th>Control</th><th>Status</th><th>Summary</th></tr></thead><tbody>' +
+      rows.map(function(r) {
+        return '<tr>' +
+          '<td><code>' + (r.observation_id || '—') + '</code></td>' +
+          '<td>' + (r.framework || '—') + '</td>' +
+          '<td><code class="small">' + (r.control_id || '') + '</code></td>' +
+          '<td><span class="badge bg-' + (r.status === 'Closed' ? 'success' : 'warning text-dark') + '">' + (r.status || '—') + '</span></td>' +
+          '<td>' + (r.summary || '—') + '</td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table></div>';
+  }
+
+  function renderDrill(data) {
+    if (!data || !data.ok) {
+      drillBody.innerHTML = '<p class="text-danger">' + ((data && data.error) || 'Drill-down unavailable.') + '</p>';
+      return;
+    }
+    drillTitle.textContent = (data.theme_label || 'Control Theme') + ' — Drill-down';
+    drillBody.innerHTML =
+      '<div class="row g-2 mb-3">' +
+        '<div class="col-md-3"><div class="text-muted small">Category</div><strong>' + (data.category || '—') + '</strong></div>' +
+        '<div class="col-md-3"><div class="text-muted small">Reuse Confidence</div><strong>' + (data.reuse_confidence_pct || 0) + '%</strong></div>' +
+        '<div class="col-md-3"><div class="text-muted small">Frameworks</div><strong>' + ((data.linked_frameworks || []).length) + '</strong></div>' +
+        '<div class="col-md-3"><div class="text-muted small">Applications</div><strong>' + ((data.linked_applications || []).length) + '</strong></div>' +
+      '</div>' +
+      '<h6 class="text-muted small text-uppercase mb-2">Linked Frameworks</h6>' + chipList(data.linked_frameworks, 'fw') +
+      '<h6 class="text-muted small text-uppercase mt-3 mb-2">Linked Applications</h6>' + chipList(data.linked_applications, 'app') +
+      '<h6 class="text-muted small text-uppercase mt-3 mb-2">Audit Cycles</h6>' + chipList(data.audit_cycles, 'cycle') +
+      '<h6 class="text-muted small text-uppercase mt-3 mb-2">Reusable Evidence (' + ((data.linked_evidence || []).length) + ')</h6>' + evidenceTable(data.linked_evidence) +
+      '<h6 class="text-muted small text-uppercase mt-3 mb-2">Linked Observations</h6>' + obsTable(data.linked_observations);
+  }
+
+  document.querySelectorAll('.ecs-fl-drill-trigger').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var theme = el.getAttribute('data-theme');
+      var label = el.getAttribute('data-label');
+      if (!theme) return;
+      drillTitle.textContent = (label || 'Theme') + ' — Loading…';
+      drillBody.innerHTML = '<p class="text-muted">Fetching drill-down…</p>';
+      if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(drillModalEl).show();
+      fetch('/api/framework-loader/control-drill?theme=' + encodeURIComponent(theme))
+        .then(function(r) { return r.json(); })
+        .then(renderDrill)
+        .catch(function(err) {
+          drillBody.innerHTML = '<p class="text-danger">Failed to load: ' + err.message + '</p>';
+        });
+    });
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Parsing…';
+    var fd = new FormData(form);
+    runProgressSimulation(function() {
+      fetch('/mvp/framework-loader/upload', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok && data.framework_id) {
+            window.location.href = '/mvp/framework-loader?role=' + encodeURIComponent(fd.get('role') || '{{ role }}') +
+                                   '&user=' + encodeURIComponent(fd.get('user') || '{{ user|urlencode }}') +
+                                   '&framework_id=' + encodeURIComponent(data.framework_id) +
+                                   '&notice=' + encodeURIComponent('Framework ' + (data.framework_name || '') + ' parsed and ready for review.');
+          } else {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Parse & Analyze Framework';
+            progressLab.textContent = (data.errors && data.errors.join(' · ')) || 'Upload failed.';
+          }
+        })
+        .catch(function(err) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Parse & Analyze Framework';
+          progressLab.textContent = 'Upload error: ' + err.message;
+        });
+    });
+  });
+})();
+</script>
+</body>
+</html>

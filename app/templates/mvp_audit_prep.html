@@ -6,6 +6,86 @@
 .ecs-audit-readiness-chip strong { color:var(--ecs-navy,#1e293b); }
 .ecs-audit-section-title { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#64748b; margin:0.5rem 0 0.25rem; }
 .ecs-audit-countdown { background:linear-gradient(135deg,#1e3a5f,#2563eb); color:#fff; border-radius:8px; padding:0.5rem 0.75rem; font-size:0.78rem; }
+
+/* Clickable KPI counters / cards */
+.ecs-wf-counter[data-ecs-kpi-link], .ecs-wf-analytic-card[data-ecs-kpi-link],
+.ecs-wf-queue-pill[data-ecs-kpi-link] { cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.ecs-wf-counter[data-ecs-kpi-link]:hover, .ecs-wf-analytic-card[data-ecs-kpi-link]:hover {
+  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+.ecs-wf-counter[data-ecs-kpi-link]::after,
+.ecs-wf-analytic-card[data-ecs-kpi-link]::after {
+  content: '↗'; font-size: 0.6rem; opacity: 0.45;
+  position: absolute; top: 4px; right: 6px;
+}
+.ecs-wf-counter, .ecs-wf-analytic-card { position: relative; }
+
+/* Audit calendar */
+.ecs-audit-cal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+@media (max-width: 992px) { .ecs-audit-cal-grid { grid-template-columns: repeat(2, 1fr); } }
+.ecs-audit-cal-card {
+  background: #fff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1;
+  border-radius: 6px; padding: 0.55rem 0.7rem; font-size: 0.72rem;
+}
+.ecs-audit-cal-card.is-current { border-left-color: #2563eb; background: #eff6ff; }
+.ecs-audit-cal-card.is-hot { border-left-color: #dc2626; }
+.ecs-audit-cal-card .cal-q { font-weight: 700; color: #0f172a; font-size: 0.85rem; }
+.ecs-audit-cal-card .cal-meta { color: #64748b; font-size: 0.66rem; margin-top: 0.05rem; }
+.ecs-audit-cal-card .cal-stats { display: flex; gap: 0.4rem; margin: 0.3rem 0; }
+.ecs-audit-cal-card .cal-stats span { background: #f1f5f9; color: #334155; padding: 0.08rem 0.4rem; border-radius: 10px; font-size: 0.62rem; }
+.ecs-audit-cal-card .cal-list { list-style: none; padding: 0; margin: 0; max-height: 110px; overflow-y: auto; }
+.ecs-audit-cal-card .cal-list li { padding: 0.18rem 0; border-top: 1px solid #f1f5f9; cursor: pointer; font-size: 0.7rem; }
+.ecs-audit-cal-card .cal-list li:first-child { border-top: 0; }
+.ecs-audit-cal-card .cal-list li:hover { color: #2563eb; }
+.ecs-audit-cal-card .cal-list .fw { font-weight: 600; color: #0f172a; }
+
+/* Audit table — clickable rows */
+.ecs-audit-table tbody tr { cursor: pointer; }
+.ecs-audit-table .read-bar {
+  display: inline-block; width: 56px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;
+  vertical-align: middle; margin-right: 0.3rem;
+}
+.ecs-audit-table .read-bar .fill { height: 100%; background: #16a34a; }
+.ecs-audit-table .read-bar .fill.warn { background: #f59e0b; }
+.ecs-audit-table .read-bar .fill.risk { background: #dc2626; }
+.ecs-audit-stage-pill {
+  display: inline-block; font-size: 0.62rem; padding: 0.08rem 0.4rem; border-radius: 10px;
+  background: #e2e8f0; color: #475569; font-weight: 600;
+}
+.ecs-audit-stage-pill.stage-Closure   { background: #e0e7ff; color: #3730a3; }
+.ecs-audit-stage-pill.stage-Hot-Stage { background: #fee2e2; color: #991b1b; }
+.ecs-audit-stage-pill.stage-Active-Prep { background: #fef3c7; color: #92400e; }
+.ecs-audit-stage-pill.stage-Planning { background: #dbeafe; color: #1e40af; }
+
+/* Pipeline visualization */
+.ecs-pipeline-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
+@media (max-width: 768px) { .ecs-pipeline-grid { grid-template-columns: repeat(2, 1fr); } }
+.ecs-pipeline-card {
+  background: #fff; border: 1px solid #e2e8f0; border-left: 3px solid #94a3b8;
+  border-radius: 6px; padding: 0.5rem 0.65rem;
+}
+.ecs-pipeline-card.tone-danger  { border-left-color: #dc2626; }
+.ecs-pipeline-card.tone-warning { border-left-color: #f59e0b; }
+.ecs-pipeline-card.tone-success { border-left-color: #16a34a; }
+.ecs-pipeline-card.tone-primary { border-left-color: #2563eb; }
+.ecs-pipeline-card.tone-info    { border-left-color: #0891b2; }
+.ecs-pipeline-card .v { font-size: 1.25rem; font-weight: 700; color: #0f172a; line-height: 1; }
+.ecs-pipeline-card .l { font-size: 0.66rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Baselining history strip */
+.ecs-baseline-strip { display:flex; flex-wrap:wrap; gap:0.35rem; }
+.ecs-baseline-strip .bl-card {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 0.45rem 0.55rem; font-size: 0.68rem; min-width: 175px;
+}
+.ecs-baseline-strip .bl-card .head { font-weight: 600; color: #0f172a; font-size: 0.74rem; }
+.ecs-baseline-strip .bl-card .meta { color: #64748b; }
+
+/* Role banner */
+.ecs-role-banner {
+  background: #eff6ff; border-left: 3px solid #2563eb; border-radius: 6px;
+  padding: 0.4rem 0.6rem; font-size: 0.72rem; color: #1e3a8a; margin-bottom: 0.4rem;
+}
 </style>
 </head>
 <body class="bg-light ecs-cap-audit"><div class="container-fluid"><div class="row">
@@ -13,8 +93,31 @@
 <div class="col-md-10 ecs-workspace-main">
 <h1 class="ecs-workspace-title h5">Audit Readiness Command Center</h1>
 {% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
-{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
-{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics) }}{% endif %}
+{% if evidence_workflow is defined and evidence_workflow.summary and evidence_workflow.summary.counters %}
+<div class="ecs-wf-counter-strip mb-2" id="ecsWorkflowCounterStrip" data-ecs-wf-counters>
+{% for c in evidence_workflow.summary.counters %}
+{% set slug = c.label|lower|replace(' ','_')|replace('-','_') %}
+{% set kpi_metric = ('draft' if 'draft' in slug else 'submitted' if 'submitt' in slug else 'reupload' if 'reupload' in slug or 're_upload' in slug else 'approval_rate' if 'approv' in slug else 'pending_aging' if 'pending' in slug or 'review' in slug or 'aging' in slug else '') %}
+<div class="ecs-wf-counter ecs-wf-counter-{{ c.tone|default('primary') }}"{% if kpi_metric %} data-ecs-kpi-link data-ecs-kpi-metric="{{ kpi_metric }}" title="Click to drill into {{ c.label }}"{% endif %}>
+<div class="ecs-wf-counter-val">{{ c.value }}</div>
+<div class="ecs-wf-counter-lbl">{{ c.label }}</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+{% if evidence_workflow is defined and evidence_workflow.analytics and evidence_workflow.analytics.cards %}
+<div class="ecs-wf-analytics-row mb-2">
+{% for card in evidence_workflow.analytics.cards[:5] %}
+{% set slug = card.label|lower|replace(' ','_') %}
+{% set kpi_metric = ('approval_rate' if 'approv' in slug else 'avg_review_time' if 'review' in slug else 'rejection_trend' if 'reject' in slug else 'pending_aging' if 'aging' in slug or 'pending' in slug else 'avg_review_time' if 'sla' in slug else '') %}
+<div class="ecs-wf-analytic-card ecs-wf-analytic-{{ card.tone|default('primary') }}"{% if kpi_metric %} data-ecs-kpi-link data-ecs-kpi-metric="{{ kpi_metric }}" title="Click to drill into {{ card.label }}"{% endif %}>
+<div class="ecs-wf-analytic-val">{{ card.value }}</div>
+<div class="ecs-wf-analytic-lbl">{{ card.label }}</div>
+<div class="ecs-wf-analytic-hint">{{ card.hint|default('') }}</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
 {% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
 <p class="ecs-exec-desc mb-1">Bank-wide audit war room — application-aware readiness before regulator &amp; external audits</p>
 {% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
@@ -265,17 +368,93 @@
 {% for tab_id in ['audits','readiness'] %}
 {% if workspace.tabs|selectattr('id','equalto',tab_id)|list %}
 {{ workspace_pane(tab_id, false) }}
+
+{# ─── Role banner ───────────────────────────────────────────────── #}
+{% if role == 'owner' %}<div class="ecs-role-banner"><strong>App Owner view</strong> — focus on upload pending evidence &amp; close readiness gaps before scheduled audits.</div>
+{% elif role == 'auditor' %}<div class="ecs-role-banner"><strong>Auditor view</strong> — track audit readiness, approve/reject evidence, monitor blockers across all applications.</div>
+{% elif role == 'compliance_head' %}<div class="ecs-role-banner"><strong>Compliance Head view</strong> — enterprise readiness posture and escalation heatmaps across all frameworks.</div>
+{% elif role == 'cio' %}<div class="ecs-role-banner"><strong>CIO view</strong> — executive readiness posture, enterprise risk impact, regulator timelines.</div>
+{% endif %}
+
+{# ─── Summary strip ─────────────────────────────────────────────── #}
+{% set asum = mv.audit_summary|default({}) %}
+<div class="d-flex flex-wrap gap-2 mb-2 small">
+<span class="ecs-audit-readiness-chip"><strong>Upcoming audits</strong> {{ mv.upcoming_audits|length }}</span>
+<span class="ecs-audit-readiness-chip"><strong>Frameworks in scope</strong> {{ asum.frameworks_in_scope|length|default(0) }}</span>
+<span class="ecs-audit-readiness-chip"><strong>Applications in scope</strong> {{ asum.applications_in_scope|length|default(0) }}</span>
+<span class="ecs-audit-readiness-chip"><strong>This quarter</strong> {{ asum.this_quarter.label|default('—') }} · {{ asum.this_quarter.audit_count|default(0) }} audits · {{ asum.this_quarter.avg_readiness_pct|default(0) }}% ready</span>
+<span class="ecs-audit-readiness-chip"><strong>Quarterly frameworks</strong> {{ asum.quarterly_frameworks|join(', ')|default('—') }}</span>
+<span class="ecs-audit-readiness-chip"><strong>Annual frameworks</strong> {{ asum.annual_frameworks|join(', ')|default('—') }}</span>
+</div>
+
+{# ─── Audit calendar ────────────────────────────────────────────── #}
+<div class="ecs-audit-section-title">Audit Calendar — Rolling 4 Quarters</div>
+<div class="ecs-audit-cal-grid">
+{% for q in mv.audit_calendar|default([]) %}
+<div class="ecs-audit-cal-card {% if q.is_current %}is-current{% endif %} {% if q.avg_readiness_pct < 70 and q.audit_count %}is-hot{% endif %}">
+<div class="cal-q">{{ q.label }}{% if q.is_current %} <span class="badge bg-primary ms-1" style="font-size:0.55rem;">CURRENT</span>{% endif %}</div>
+<div class="cal-meta">{{ q.start_date }} → {{ q.end_date }}</div>
+<div class="cal-stats">
+<span title="Audits scheduled">{{ q.audit_count }} audit{{ 's' if q.audit_count != 1 else '' }}</span>
+<span title="Average readiness across these audits">Ready {{ q.avg_readiness_pct }}%</span>
+<span title="Frameworks">{{ q.frameworks_in_scope|length }} FW</span>
+</div>
+<ul class="cal-list">
+{% for a in q.audits %}
+<li class="ecs-audit-drill" data-audit-id="{{ a.audit_id }}" title="{{ a.framework }} — {{ a.application }}: {{ a.readiness_pct }}% ready"><span class="fw">{{ a.framework }}</span> · {{ a.application }} · {{ a.start_date }} ({{ a.days_remaining }}d)</li>
+{% endfor %}
+{% if not q.audits %}<li class="text-muted small">No audits scheduled.</li>{% endif %}
+</ul>
+</div>
+{% endfor %}
+</div>
+
+{# ─── Audit preparation pipeline ────────────────────────────────── #}
+{% set pipe = mv.audit_pipeline|default({}) %}
+<div class="ecs-audit-section-title">Audit Preparation Pipeline</div>
+<div class="ecs-pipeline-grid mb-2">
+<div class="ecs-pipeline-card tone-warning"><div class="v">{{ pipe.controls_pending_review|default(0) }}</div><div class="l">Controls pending review</div></div>
+<div class="ecs-pipeline-card tone-danger"><div class="v">{{ pipe.evidence_pending_upload|default(0) }}</div><div class="l">Evidence pending upload</div></div>
+<div class="ecs-pipeline-card tone-success"><div class="v">{{ pipe.reusable_evidence_found|default(0) }}</div><div class="l">Reusable evidence found</div></div>
+<div class="ecs-pipeline-card tone-info"><div class="v">{{ pipe.auditor_requests|default(0) }}</div><div class="l">Auditor requests</div></div>
+<div class="ecs-pipeline-card tone-danger"><div class="v">{{ pipe.blockers|default(0) }}</div><div class="l">Blockers</div></div>
+</div>
+
+{# ─── Upcoming Audits table ─────────────────────────────────────── #}
+<div class="ecs-audit-section-title">Upcoming Audits — click any row for drill-down</div>
 <div class="table-responsive ecs-paginated-wrap">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="audit-upcoming">
-<thead><tr><th>Application</th><th>Framework</th><th>Auditor</th><th>Scope</th><th>Audit Type</th><th>Start Date</th><th>Days Left</th><th>Readiness</th><th>Blockers</th><th>Evidence %</th><th>Escalation</th><th>Owner</th></tr></thead>
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-audit-table mb-0" data-ecs-std-table="audit-upcoming">
+<thead><tr><th>Application</th><th>Framework</th><th>Auditor</th><th>Scope</th><th>Audit Type</th><th>Start Date</th><th>Days Left</th><th>Readiness</th><th>Blockers</th><th>Evidence %</th><th>Escalation</th><th>Owner</th><th>Stage</th></tr></thead>
 <tbody>{% for a in mv.upcoming_audits %}
-<tr class="{% if a.readiness_pct < 75 %}table-warning{% endif %}" data-ecs-filter-row data-filter-framework="{{ a.framework }}" data-filter-application="{{ a.application }}" data-filter-owner="{{ a.owner }}">
+<tr class="ecs-audit-drill {% if a.readiness_pct < 70 %}table-danger{% elif a.readiness_pct < 80 %}table-warning{% endif %}" data-audit-id="{{ a.audit_id }}" data-ecs-filter-row data-filter-framework="{{ a.framework }}" data-filter-application="{{ a.application }}" data-filter-owner="{{ a.owner }}">
 <td><strong>{{ a.application }}</strong></td><td>{{ a.framework }}</td><td>{{ a.auditor }}</td>
 <td class="small">{{ a.audit_scope|truncate(35, True, '') }}</td><td class="small">{{ a.audit_type }}</td>
-<td>{{ a.date }}</td><td><strong>{{ a.days_remaining }}d</strong></td><td>{{ a.readiness_pct }}%</td>
+<td>{{ a.start_date }}</td>
+<td><strong>{{ a.days_remaining }}d</strong></td>
+<td><span class="read-bar"><span class="fill {% if a.readiness_pct < 70 %}risk{% elif a.readiness_pct < 80 %}warn{% endif %}" style="width: {{ a.readiness_pct }}%"></span></span>{{ a.readiness_pct }}%</td>
 <td>{% if a.blockers %}<span class="badge bg-danger">{{ a.blockers }}</span>{% else %}0{% endif %}</td>
-<td>{{ a.evidence_completion_pct }}%</td><td>{{ a.escalation }}</td><td>{{ a.owner }}</td></tr>
-{% endfor %}</tbody></table></div>
+<td>{{ a.evidence_completion_pct }}%</td><td>{{ a.escalation }}</td><td>{{ a.owner }}</td>
+<td><span class="ecs-audit-stage-pill stage-{{ (a.stage|default('Planning'))|replace(' ', '-') }}">{{ a.stage|default('Planning') }}</span></td>
+</tr>
+{% endfor %}
+{% if not mv.upcoming_audits %}
+<tr><td colspan="13" class="text-center small text-muted py-3">No upcoming audits match the current filters.</td></tr>
+{% endif %}
+</tbody></table></div>
+
+{# ─── Baselining history ────────────────────────────────────────── #}
+<div class="ecs-audit-section-title">Baselining History — Last 3 Quarters</div>
+<div class="ecs-baseline-strip mb-2">
+{% for h in mv.baselining_history|default([]) %}
+<div class="bl-card">
+<div class="head">{{ h.framework }} · {{ h.application }}</div>
+<div class="meta">{{ h.quarter_label }} · Closed {{ h.closed_on }}</div>
+<div class="meta">Ready <strong>{{ h.readiness_pct }}%</strong> · {{ h.evidence_count }} evidence · {{ h.stale_evidence }} stale · {{ h.findings }} findings</div>
+<div class="meta text-muted small">Auditor: {{ h.auditor }} · Owner: {{ h.owner }}</div>
+</div>
+{% endfor %}
+</div>
+
 {{ workspace_pane_end() }}
 {% endif %}
 {% endfor %}
@@ -359,6 +538,27 @@
 </div></div></div>
 {% include "partials/standard_filter_include.html" %}
 {% include "partials/audit_prep_modals.html" %}
+
+{# ─── KPI drilldown modal ─────────────────────────────────────────── #}
+<div class="modal fade" id="ecsAuditKpiModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-xl modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="ecsAuditKpiTitle">KPI Drill-down</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+<div class="modal-body small" id="ecsAuditKpiBody"><p class="text-muted">Loading…</p></div>
+<div class="modal-footer py-1"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+
+{# ─── Audit drilldown modal ───────────────────────────────────────── #}
+<div class="modal fade" id="ecsAuditDetailModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-xl modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="ecsAuditDetailTitle">Audit Preparation Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+<div class="modal-body small" id="ecsAuditDetailBody"><p class="text-muted">Loading…</p></div>
+<div class="modal-footer py-1"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+
 <script>
 (function(){
   var hm = {{ module_view.audit_heatmaps|default({})|tojson }};
@@ -367,6 +567,148 @@
     var tabGrid = document.getElementById('ecsAuditHeatTabGrid');
     if (tabGrid) ecsRenderAuditMatrix('ecsAuditHeatTabGrid', hm.matrix);
   }
+
+  // ── KPI counter clickable drill-down ─────────────────────────────
+  var kpiModal  = document.getElementById('ecsAuditKpiModal');
+  var kpiTitle  = document.getElementById('ecsAuditKpiTitle');
+  var kpiBody   = document.getElementById('ecsAuditKpiBody');
+
+  function tableHTML(columns, rows) {
+    if (!rows || !rows.length) return '<p class="text-muted">No rows.</p>';
+    var head = '<thead><tr>' + columns.map(function(c){ return '<th>' + c + '</th>'; }).join('') + '</tr></thead>';
+    var body = '<tbody>' + rows.map(function(r){
+      return '<tr>' + r.map(function(c){ return '<td>' + (c === null || c === undefined ? '—' : c) + '</td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody>';
+    return '<div class="table-responsive"><table class="table table-sm table-bordered">' + head + body + '</table></div>';
+  }
+
+  function renderKpiDrill(metric, data) {
+    if (!data || !data.ok) {
+      kpiBody.innerHTML = '<p class="text-danger">' + ((data && data.error) || 'Drill-down unavailable.') + '</p>';
+      return;
+    }
+    var d = data.drill;
+    kpiTitle.textContent = d.title;
+    var html = '<p class="text-muted small">' + (d.subtitle || '') + '</p>';
+    html += '<div class="mb-2"><span class="badge bg-primary">' + d.count + ' records</span></div>';
+    html += tableHTML(d.columns || [], d.rows || []);
+    if (d.framework_breakdown) {
+      html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Framework Breakdown</h6>';
+      html += tableHTML(['Framework', 'Avg Days', 'Samples'], d.framework_breakdown.map(function(r){
+        return [r.framework, r.avg_days, r.samples];
+      }));
+    }
+    if (d.auditor_breakdown) {
+      html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Auditor Performance</h6>';
+      html += tableHTML(['Auditor', 'Avg Days', 'Samples', 'SLA Breaches'], d.auditor_breakdown.map(function(r){
+        return [r.auditor, r.avg_days, r.samples, r.sla_breaches];
+      }));
+    }
+    if (d.delayed_reviews && d.delayed_reviews.length) {
+      html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Delayed Reviews (&gt;5 days)</h6>';
+      html += tableHTML(['Observation', 'Framework', 'Application', 'Auditor', 'Days'], d.delayed_reviews.map(function(r){
+        return [r.observation_id, r.framework, r.application, r.auditor, r.review_days];
+      }));
+    }
+    if (d.common_reasons) {
+      html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Common Failure Reasons</h6>';
+      html += tableHTML(['Reason', 'Count'], d.common_reasons.map(function(r){
+        return [r.reason, r.count];
+      }));
+    }
+    if (d.examples) {
+      html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Example Rejections</h6>';
+      html += tableHTML(['Observation', 'Reason', 'Framework', 'Application', 'Owner'], d.examples);
+    }
+    if (d.overdue) {
+      html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Overdue Drafts (&gt;14 days)</h6>';
+      html += tableHTML(['Observation', 'Framework', 'Application', 'Owner', 'Age', 'Due Date'], d.overdue);
+    }
+    kpiBody.innerHTML = html;
+  }
+
+  document.querySelectorAll('[data-ecs-kpi-link]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var metric = el.getAttribute('data-ecs-kpi-metric');
+      if (!metric) return;
+      kpiTitle.textContent = 'Loading…';
+      kpiBody.innerHTML = '<p class="text-muted">Fetching drill-down…</p>';
+      if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(kpiModal).show();
+      fetch('/api/audit-prep/kpi-drill?metric=' + encodeURIComponent(metric))
+        .then(function(r){ return r.json(); })
+        .then(function(data){ renderKpiDrill(metric, data); })
+        .catch(function(err){ kpiBody.innerHTML = '<p class="text-danger">' + err.message + '</p>'; });
+    });
+  });
+
+  // ── Audit row clickable drill-down ───────────────────────────────
+  var detailModal = document.getElementById('ecsAuditDetailModal');
+  var detailTitle = document.getElementById('ecsAuditDetailTitle');
+  var detailBody  = document.getElementById('ecsAuditDetailBody');
+
+  function obsTable(rows) {
+    if (!rows || !rows.length) return '<p class="text-muted small">None.</p>';
+    return tableHTML(['Observation', 'Control', 'Owner', 'Status', 'Due'], rows.map(function(r){
+      return [r.observation_id, r.control, r.owner, r.status, r.due_date];
+    }));
+  }
+  function blockerList(rows) {
+    if (!rows || !rows.length) return '<p class="text-muted small">No blockers — audit looks clean.</p>';
+    return '<ul class="small mb-2">' + rows.map(function(b){
+      return '<li><strong>' + b.title + '</strong> · ' + b.application + ' · owner: ' + b.owner + ' · ' + (b.reason || '') + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  function renderAuditDetail(data) {
+    if (!data || !data.ok) {
+      detailBody.innerHTML = '<p class="text-danger">' + ((data && data.error) || 'Audit drill-down unavailable.') + '</p>';
+      return;
+    }
+    var a = data.audit;
+    var c = data.controls;
+    detailTitle.textContent = a.framework + ' — ' + a.application + ' · ' + a.audit_type;
+    var html = '';
+    html += '<div class="row g-2 mb-3">';
+    html += '<div class="col-md-3"><div class="text-muted small">Auditor</div><strong>' + a.auditor + '</strong></div>';
+    html += '<div class="col-md-3"><div class="text-muted small">Stage</div><strong>' + a.stage + '</strong></div>';
+    html += '<div class="col-md-3"><div class="text-muted small">Start → End</div><strong>' + a.start_date + ' → ' + a.end_date + '</strong></div>';
+    html += '<div class="col-md-3"><div class="text-muted small">Evidence Deadline</div><strong>' + a.evidence_deadline + '</strong></div>';
+    html += '<div class="col-md-3"><div class="text-muted small">Days Remaining</div><strong>' + a.days_remaining + 'd</strong></div>';
+    html += '<div class="col-md-3"><div class="text-muted small">Readiness</div><strong>' + a.readiness_pct + '%</strong></div>';
+    html += '<div class="col-md-3"><div class="text-muted small">Evidence Completion</div><strong>' + a.evidence_completion_pct + '%</strong></div>';
+    html += '<div class="col-md-3"><div class="text-muted small">Escalation</div><strong>' + a.escalation + '</strong></div>';
+    html += '</div>';
+
+    html += '<h6 class="text-muted small text-uppercase mb-1">Control Readiness</h6>';
+    html += tableHTML(['Implemented', 'Pending', 'Failed', 'Reusable', 'Total'], [[c.implemented, c.pending, c.failed, c.reusable, c.total]]);
+    html += '<p class="small text-muted">Evidence reused from other frameworks: <strong>' + (data.evidence_reused || 0) + '</strong></p>';
+
+    html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Audit Blockers</h6>' + blockerList(data.blockers);
+    html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Drafts</h6>' + obsTable(data.drafts);
+    html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Submitted</h6>' + obsTable(data.submitted);
+    html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Re-upload Requested</h6>' + obsTable(data.reupload);
+    html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Approved Evidence</h6>' + obsTable(data.approved);
+
+    html += '<div class="d-flex gap-1 mt-3"><a class="btn btn-sm btn-outline-primary" href="/mvp/workflow/upload-missing?role={{ role|urlencode }}&user={{ user|urlencode }}&framework=' + encodeURIComponent(a.framework) + '&return_module=audit_prep">Upload Missing Evidence</a>';
+    html += '<a class="btn btn-sm btn-outline-secondary" href="/mvp/workflow/mock-audit?role={{ role|urlencode }}&user={{ user|urlencode }}&return_module=audit_prep">Run Mock Audit</a></div>';
+    detailBody.innerHTML = html;
+  }
+
+  document.querySelectorAll('.ecs-audit-drill').forEach(function(el){
+    el.addEventListener('click', function(evt){
+      // ignore clicks on internal buttons/links so they keep working
+      if (evt.target.closest('a,button,input,select,form')) return;
+      var aid = el.getAttribute('data-audit-id');
+      if (!aid) return;
+      detailTitle.textContent = 'Loading…';
+      detailBody.innerHTML = '<p class="text-muted">Fetching audit detail…</p>';
+      if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(detailModal).show();
+      fetch('/api/audit-prep/audit-detail?audit_id=' + encodeURIComponent(aid))
+        .then(function(r){ return r.json(); })
+        .then(renderAuditDetail)
+        .catch(function(err){ detailBody.innerHTML = '<p class="text-danger">' + err.message + '</p>'; });
+    });
+  });
 })();
 </script>
 {% include "partials/chatbot_global.html" %}

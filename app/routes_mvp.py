@@ -65,6 +65,8 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "trends": "/mvp/trends",
         "onboarding": "/mvp/onboarding",
         "framework_admin": "/mvp/framework-admin",
+        "framework_loader": "/mvp/framework-loader",
+        "demo_overview": "/mvp/demo-overview",
         "risk_register": "/mvp/risk-register",
         "exceptions_td": "/mvp/exceptions",
         "cmdb": "/mvp/cmdb",
@@ -328,6 +330,281 @@ def register_mvp_routes(app, templates):
         return PlainTextResponse(
             content,
             headers={"Content-Disposition": f'attachment; filename="ecs-onboarding-{safe_name}.txt"'},
+        )
+
+    @app.get("/mvp/framework-loader", response_class=HTMLResponse)
+    def mvp_framework_loader(
+        request: Request,
+        role: str = "cio",
+        user: str = "User",
+        notice: str = "",
+        framework_id: str = "",
+    ):
+        from app.framework_loader_service import build_loader_dashboard
+        from app.role_permissions import can_manage_frameworks
+
+        ctx = _base_ctx(role, user, notice=notice, page_module="framework_loader")
+        ctx["loader"] = build_loader_dashboard(role, framework_id)
+        ctx["can_manage"] = can_manage_frameworks(role)
+        return templates.TemplateResponse(request, "framework_loader.html", ctx)
+
+    @app.post("/mvp/framework-loader/upload")
+    async def mvp_framework_loader_upload(request: Request):
+        from app.framework_loader_service import submit_upload
+
+        form = await request.form()
+        role = form.get("role", "cio")
+        user = form.get("user", "User")
+        framework_name = form.get("framework_name", "").strip()
+        framework_type = form.get("framework_type", "Security Baseline").strip()
+        framework_owner = form.get("framework_owner", "").strip()
+        if not framework_name:
+            return JSONResponse(
+                {"ok": False, "errors": ["Framework name is required."]},
+                status_code=400,
+            )
+        upload = form.get("control_file")
+        content = await upload.read() if upload and hasattr(upload, "read") else b""
+        filename = (
+            upload.filename
+            if upload and hasattr(upload, "filename") and upload.filename
+            else f"{framework_name}-upload.csv"
+        )
+        result = submit_upload(
+            framework_name,
+            framework_type,
+            framework_owner,
+            filename,
+            content,
+            user,
+            role,
+        )
+        if not result.get("ok"):
+            return JSONResponse(result, status_code=400)
+        return JSONResponse(
+            {
+                "ok": True,
+                "framework_id": result["framework_id"],
+                "framework_name": framework_name,
+                "warnings": result.get("warnings", []),
+            }
+        )
+
+    @app.get("/mvp/demo-overview", response_class=HTMLResponse)
+    def mvp_demo_overview(
+        request: Request,
+        role: str = "cio",
+        user: str = "CIO",
+        framework: str = "",
+        application: str = "",
+        owner: str = "",
+        notice: str = "",
+    ):
+        from app.ecs_mock_engine import build_demo_overview
+
+        ctx = _base_ctx(role, user, notice=notice, page_module="demo_overview")
+        ctx["demo_overview"] = build_demo_overview()
+        ctx["demo_filters"] = {
+            "framework": framework,
+            "application": application,
+            "owner": owner,
+        }
+        return templates.TemplateResponse(request, "mvp_demo_overview.html", ctx)
+
+    @app.get("/api/demo/status")
+    def api_demo_status():
+        from app.ecs_mock_engine import DEMO_MODE, DEMO_ANCHOR_DATE
+
+        return JSONResponse({
+            "ok": True,
+            "demo_mode": DEMO_MODE,
+            "anchor_date": DEMO_ANCHOR_DATE.isoformat(),
+        })
+
+    @app.get("/api/demo/overview")
+    def api_demo_overview():
+        from app.ecs_mock_engine import build_demo_overview
+
+        return JSONResponse({"ok": True, "data": build_demo_overview()})
+
+    @app.get("/api/demo/banking-applications")
+    def api_demo_banking_applications():
+        from app.ecs_mock_engine import list_banking_applications
+
+        return JSONResponse({"ok": True, "rows": list_banking_applications()})
+
+    @app.get("/api/demo/frameworks")
+    def api_demo_frameworks():
+        from app.ecs_mock_engine import list_frameworks_catalog
+
+        return JSONResponse({"ok": True, "rows": list_frameworks_catalog()})
+
+    @app.get("/api/demo/servicenow")
+    def api_demo_servicenow(limit: int = 60, type: str = ""):
+        from app.ecs_mock_engine import generate_servicenow_tickets
+
+        rows = generate_servicenow_tickets(count=limit)
+        if type:
+            rows = [r for r in rows if r["type"] == type.upper()]
+        return JSONResponse({"ok": True, "rows": rows})
+
+    @app.get("/api/demo/ai-governance")
+    def api_demo_ai_governance():
+        from app.ecs_mock_engine import generate_ai_governance
+
+        return JSONResponse({"ok": True, "data": generate_ai_governance()})
+
+    @app.get("/api/demo/prompt-audit")
+    def api_demo_prompt_audit(limit: int = 80):
+        from app.ecs_mock_engine import generate_prompt_audit
+
+        return JSONResponse({"ok": True, "rows": generate_prompt_audit(count=limit)})
+
+    @app.get("/api/demo/hallucinations")
+    def api_demo_hallucinations():
+        from app.ecs_mock_engine import generate_hallucination_alerts
+
+        return JSONResponse({"ok": True, "rows": generate_hallucination_alerts()})
+
+    @app.get("/api/demo/token-usage")
+    def api_demo_token_usage():
+        from app.ecs_mock_engine import generate_token_usage
+
+        return JSONResponse({"ok": True, "data": generate_token_usage()})
+
+    @app.get("/api/demo/audit-history")
+    def api_demo_audit_history(years: int = 5):
+        from app.ecs_mock_engine import generate_audit_history, summarize_audit_history
+
+        rows = generate_audit_history(years=years)
+        return JSONResponse({
+            "ok": True,
+            "rows": rows,
+            "summary": summarize_audit_history(rows),
+        })
+
+    @app.get("/api/demo/risk-heatmap")
+    def api_demo_risk_heatmap():
+        from app.ecs_mock_engine import build_risk_heatmap
+
+        return JSONResponse({"ok": True, "data": build_risk_heatmap()})
+
+    @app.get("/api/demo/drift")
+    def api_demo_drift():
+        from app.ecs_mock_engine import generate_baselining_drift
+
+        return JSONResponse({"ok": True, "data": generate_baselining_drift()})
+
+    @app.get("/api/demo/evidence-lineage")
+    def api_demo_evidence_lineage(limit: int = 25):
+        from app.ecs_mock_engine import generate_evidence_lineage
+
+        return JSONResponse({"ok": True, "rows": generate_evidence_lineage(limit=limit)})
+
+    @app.get("/api/demo/vapt")
+    def api_demo_vapt():
+        from app.ecs_mock_engine import generate_vapt_findings
+
+        return JSONResponse({"ok": True, "data": generate_vapt_findings()})
+
+    @app.get("/api/demo/cio-executive")
+    def api_demo_cio_executive():
+        from app.ecs_mock_engine import generate_cio_executive
+
+        return JSONResponse({"ok": True, "data": generate_cio_executive()})
+
+    @app.get("/api/audit-prep/kpi-drill")
+    def api_audit_prep_kpi_drill(metric: str = ""):
+        from app.audit_schedule_engine import build_kpi_drilldowns
+
+        valid = ("draft", "submitted", "reupload", "approval_rate",
+                 "avg_review_time", "rejection_trend", "pending_aging")
+        if metric not in valid:
+            return JSONResponse(
+                {"ok": False, "error": f"Unknown metric '{metric}'. Expected one of {valid}."},
+                status_code=400,
+            )
+        drilldowns = build_kpi_drilldowns()
+        return JSONResponse({"ok": True, "metric": metric, "drill": drilldowns[metric]})
+
+    @app.get("/api/audit-prep/audit-detail")
+    def api_audit_prep_audit_detail(audit_id: str = ""):
+        from app.audit_schedule_engine import get_audit_detail
+
+        if not audit_id:
+            return JSONResponse(
+                {"ok": False, "error": "audit_id query parameter is required."},
+                status_code=400,
+            )
+        result = get_audit_detail(audit_id)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 404)
+
+    @app.get("/api/audit-prep/upcoming")
+    def api_audit_prep_upcoming(
+        framework: str = "",
+        application: str = "",
+        risk: str = "",
+        status: str = "",
+        owner: str = "",
+    ):
+        from app.audit_schedule_engine import build_audit_operations
+
+        ops = build_audit_operations("auditor", {
+            "framework": framework, "application": application,
+            "risk": risk, "status": status, "owner": owner,
+        })
+        return JSONResponse({
+            "ok": True,
+            "summary": ops["summary"],
+            "upcoming": ops["upcoming_audits"],
+            "calendar": ops["calendar"],
+            "pipeline": ops["pipeline"],
+        })
+
+    @app.get("/api/framework-loader/control-drill")
+    def api_framework_loader_control_drill(theme: str = ""):
+        from app.framework_intelligence import drill_theme
+
+        if not theme:
+            return JSONResponse(
+                {"ok": False, "error": "theme query parameter is required."},
+                status_code=400,
+            )
+        result = drill_theme(theme)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 404)
+
+    @app.get("/api/framework-loader/application-scan")
+    def api_framework_loader_application_scan():
+        from app.framework_intelligence import (
+            build_application_scan,
+            build_control_index,
+        )
+
+        return JSONResponse(
+            {"ok": True, "rows": build_application_scan(build_control_index())}
+        )
+
+    @app.post("/mvp/framework-loader/activate")
+    async def mvp_framework_loader_activate(
+        framework_id: str = Form(...),
+        role: str = Form("cio"),
+        user: str = Form("User"),
+    ):
+        from app.framework_loader_service import activate_framework
+
+        result = activate_framework(framework_id, user, role)
+        message = (
+            result.get("messages", ["Framework activated."])[-1]
+            if result.get("ok")
+            else result.get("message", "Activation failed.")
+        )
+        return RedirectResponse(
+            url=(
+                f"/mvp/framework-loader?role={role}&user={quote(user)}"
+                f"&framework_id={quote(framework_id)}"
+                f"&notice={quote(message)}"
+            ),
+            status_code=303,
         )
 
     @app.get("/mvp/framework-admin", response_class=HTMLResponse)

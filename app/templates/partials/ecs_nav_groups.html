@@ -1,8 +1,8 @@
 {# Grouped enterprise navigation — Executive, Frameworks, Operations, Governance, GRC #}
 {% from "partials/nav_badge.html" import nav_badge %}
 {% set q = '?role=' ~ role ~ '&user=' ~ user %}
-{% set exec_open = nav_module in ['enterprise','pan_india','reports','trends'] or nav_active in ['main_dashboard','role_dashboard'] %}
-{% set fw_open = framework_name is defined or nav_module == 'framework_admin' %}
+{% set exec_open = nav_module in ['enterprise','pan_india','reports','trends','demo_overview'] or nav_active in ['main_dashboard','role_dashboard'] %}
+{% set fw_open = framework_name is defined or nav_module in ['framework_admin', 'framework_loader'] %}
 {% set ops_open = nav_module in ['scheduler','upload','integrations','onboarding','integrations_hub'] %}
 {% set gov_open = nav_module in ['audit_prep','evidence_health','reuse','lifecycle','completeness','comparison','search','evidence_approval'] %}
 {% set grc_open = nav_module in ['risk_register','exceptions_td','cmdb','regulatory_mapping','executive_heatmaps','correlation','governance_analytics','exception_governance'] %}
@@ -27,6 +27,7 @@
 {% elif role == "functional_head" %}
 <a href="/dashboard/functional-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Functional Head Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
 {% endif %}
+<a href="/mvp/demo-overview{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'demo_overview' %} is-active{% endif %}">Demo Overview ●</a>
 <a href="/mvp/enterprise{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'enterprise' %} is-active{% endif %}">Enterprise {{ nav_badge(nav_counters.modules.enterprise if nav_counters is defined else 0, nav_counters.module_tooltips.enterprise if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 <a href="/mvp/pan-india{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'pan_india' %} is-active{% endif %}">Pan India {{ nav_badge(nav_counters.modules.pan_india if nav_counters is defined else 0, nav_counters.module_tooltips.pan_india if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 <a href="/mvp/reports{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'reports' %} is-active{% endif %}">Reports {{ nav_badge(nav_counters.modules.reports if nav_counters is defined else 0, nav_counters.module_tooltips.reports if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
@@ -45,6 +46,7 @@
 {% for framework in frameworks %}
 <a href="/framework/{{framework}}{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-nested{% if framework_name is defined and framework_name == framework %} is-active{% endif %}" title="{{ nav_counters.framework_tooltips[framework] if nav_counters is defined and nav_counters.framework_tooltips is defined else '' }}">{{framework}} {{ nav_badge(nav_counters.frameworks[framework] if nav_counters is defined and nav_counters.frameworks is defined else 0, nav_counters.framework_tooltips[framework] if nav_counters is defined and nav_counters.framework_tooltips is defined else '') }}</a>
 {% endfor %}
+<a href="/mvp/framework-loader{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent{% if nav_module == 'framework_loader' %} is-active{% endif %}">Framework Loader</a>
 {% if perm_can_manage_frameworks|default(false) %}
 <a href="/mvp/framework-admin{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-admin{% if nav_module == 'framework_admin' %} is-active{% endif %}">Framework Administration</a>
 <a href="/mvp/framework-admin{{ q }}&wizard=1" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent">+ Add New Framework</a>

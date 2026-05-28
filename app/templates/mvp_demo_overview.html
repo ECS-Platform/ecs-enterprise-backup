@@ -1,0 +1,558 @@
+<!DOCTYPE html><html><head><title>ECS Enterprise Demo Overview</title>
+{% include "partials/mvp_styles.html" %}
+<style>
+.demo-mode-pill {
+  background: linear-gradient(90deg, #16a34a, #2563eb); color: #fff;
+  padding: 0.2rem 0.7rem; border-radius: 14px; font-size: 0.66rem;
+  font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.demo-mode-pill::before { content: '●'; color: #facc15; font-size: 0.9rem; }
+
+.demo-kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.55rem; margin-bottom: 1rem; }
+@media (max-width: 1200px) { .demo-kpi-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 768px)  { .demo-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+.demo-kpi {
+  background: #fff; border: 1px solid #e2e8f0; border-left: 3px solid #2563eb;
+  border-radius: 6px; padding: 0.5rem 0.7rem; cursor: pointer; position: relative;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.demo-kpi:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08); }
+.demo-kpi.tone-primary { border-left-color: #2563eb; }
+.demo-kpi.tone-info    { border-left-color: #0891b2; }
+.demo-kpi.tone-success { border-left-color: #16a34a; }
+.demo-kpi.tone-warning { border-left-color: #f59e0b; }
+.demo-kpi.tone-danger  { border-left-color: #dc2626; }
+.demo-kpi .v { font-size: 1.5rem; font-weight: 700; color: #0f172a; line-height: 1; }
+.demo-kpi .l { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; }
+.demo-kpi::after { content: '↗'; position: absolute; top: 4px; right: 8px; opacity: 0.4; font-size: 0.7rem; }
+
+.demo-section-title {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #475569; margin: 0.6rem 0 0.35rem; display: flex; align-items: baseline; gap: 0.5rem;
+}
+.demo-section-title .meta { font-size: 0.65rem; color: #94a3b8; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+.demo-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 0.6rem 0.75rem; margin-bottom: 0.6rem;
+}
+
+.demo-app-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.5rem; }
+.demo-app-card {
+  background: #fff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1;
+  border-radius: 6px; padding: 0.45rem 0.6rem; font-size: 0.72rem; cursor: pointer;
+}
+.demo-app-card:hover { background: #f8fafc; }
+.demo-app-card.crit-Critical { border-left-color: #dc2626; }
+.demo-app-card.crit-High     { border-left-color: #f59e0b; }
+.demo-app-card.crit-Medium   { border-left-color: #2563eb; }
+.demo-app-card .name { font-weight: 600; color: #0f172a; font-size: 0.82rem; }
+.demo-app-card .meta { color: #64748b; font-size: 0.66rem; }
+.demo-app-card .stats { display: flex; gap: 0.3rem; margin-top: 0.25rem; flex-wrap: wrap; }
+.demo-app-card .stats span { background: #f1f5f9; color: #475569; padding: 0.08rem 0.4rem; border-radius: 10px; font-size: 0.62rem; }
+
+.demo-heat-grid { display: grid; gap: 1px; background: #e2e8f0; padding: 1px; border-radius: 6px; overflow-x: auto; }
+.demo-heat-row { display: flex; align-items: stretch; gap: 1px; }
+.demo-heat-label { flex: 0 0 140px; background: #f8fafc; padding: 0.25rem 0.45rem; font-size: 0.66rem; font-weight: 600; color: #1e293b; display: flex; align-items: center; }
+.demo-heat-cell {
+  flex: 1; min-width: 30px; padding: 0.25rem 0.3rem; text-align: center;
+  font-size: 0.62rem; color: #fff; cursor: pointer; background: #cbd5e1; min-height: 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+.demo-heat-cell.tone-green     { background: #16a34a; }
+.demo-heat-cell.tone-amber     { background: #f59e0b; }
+.demo-heat-cell.tone-red       { background: #dc2626; }
+.demo-heat-cell.tone-dark-red  { background: #7f1d1d; }
+.demo-heat-cell.tone-empty     { background: #f1f5f9; color: #94a3b8; }
+.demo-heat-header .demo-heat-cell { background: #1e293b; color: #fff; font-weight: 600; }
+
+.demo-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.demo-table th, .demo-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #f1f5f9; }
+.demo-table thead th { background: #f8fafc; color: #475569; text-align: left; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.demo-table tbody tr:hover { background: #f8fafc; cursor: pointer; }
+
+.sev-Critical, .badge-Critical { background: #dc2626 !important; color: #fff; }
+.sev-High,     .badge-High     { background: #f59e0b !important; color: #fff; }
+.sev-Medium,   .badge-Medium   { background: #2563eb !important; color: #fff; }
+.sev-Low,      .badge-Low      { background: #64748b !important; color: #fff; }
+
+.demo-pie { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.demo-pie .seg {
+  padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.68rem; color: #fff;
+  cursor: pointer; display: inline-flex; gap: 0.3rem; align-items: center;
+}
+
+.demo-mini-bar { background: #e2e8f0; height: 4px; border-radius: 2px; overflow: hidden; }
+.demo-mini-bar .fill { height: 100%; background: #16a34a; }
+.demo-mini-bar .fill.warn { background: #f59e0b; }
+.demo-mini-bar .fill.risk { background: #dc2626; }
+
+.lineage-graph { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.lineage-card {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #2563eb;
+  border-radius: 6px; padding: 0.45rem 0.55rem; font-size: 0.7rem; min-width: 220px; cursor: pointer;
+}
+.lineage-card .ev-name { font-weight: 600; color: #0f172a; font-size: 0.78rem; }
+.lineage-card .chip { background: #e0f2fe; color: #0c4a6e; padding: 0.08rem 0.4rem; border-radius: 10px; font-size: 0.62rem; margin: 0.05rem 0.1rem 0 0; display: inline-block; }
+.lineage-card .chip.reuse { background: #fae8ff; color: #6b21a8; }
+</style>
+</head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+
+<div class="d-flex justify-content-between align-items-baseline mb-2">
+<h1 class="ecs-workspace-title h5 mb-0">ECS Enterprise Demo Overview</h1>
+<span class="demo-mode-pill" title="Auto-generated mock dataset — anchor {{ demo_overview.anchor_date }}">DEMO MODE ENABLED</span>
+</div>
+<p class="ecs-exec-desc mb-2">Single-page showcase of every dataset auto-generated by the ECS mock engine — banking applications, framework catalog, ServiceNow tickets, AI governance, audit history, risk heatmap, baselining drift, evidence lineage, VAPT findings and the CIO executive snapshot. Click any KPI / row to drill into the underlying dataset.</p>
+
+{% set d = demo_overview %}
+
+{# ─── Top KPI strip ──────────────────────────────────────────────── #}
+<div class="demo-kpi-grid">
+{% for k in d.kpis %}
+<div class="demo-kpi tone-{{ k.tone|default('primary') }}" data-ecs-demo-kpi="{{ k.metric|default('') }}" title="Click to drill into {{ k.label }}">
+<div class="v">{{ k.value }}</div>
+<div class="l">{{ k.label }}</div>
+</div>
+{% endfor %}
+</div>
+
+{# ─── CIO Executive Snapshot ─────────────────────────────────────── #}
+<div class="demo-section-title">CIO Executive Snapshot <span class="meta">— enterprise readiness + AI governance posture</span></div>
+<div class="row g-2">
+<div class="col-md-7">
+<div class="demo-card">
+<div class="row g-2">
+{% for k in d.cio_executive.kpis %}
+<div class="col-md-3 col-6">
+<div class="border rounded p-2 small text-center">
+<div class="text-muted small" style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.04em;">{{ k.label }}</div>
+<div class="fw-bold" style="font-size:1.1rem; color: {% if k.tone=='danger' %}#dc2626{% elif k.tone=='warning' %}#f59e0b{% elif k.tone=='success' %}#16a34a{% else %}#1e3a8a{% endif %};">{{ k.value }}</div>
+</div>
+</div>
+{% endfor %}
+</div>
+</div>
+</div>
+<div class="col-md-5">
+<div class="demo-card">
+<div class="small text-muted mb-1">Top Risk Applications</div>
+<table class="demo-table">
+<thead><tr><th>App</th><th>Risk</th><th>Readiness</th><th>Owner</th></tr></thead>
+<tbody>
+{% for a in d.cio_executive.top_risk_apps %}
+<tr class="ecs-demo-drill" data-ecs-demo-app="{{ a.application }}">
+<td><strong>{{ a.application }}</strong></td>
+<td><span class="badge badge-{{ 'Critical' if a.risk_score >= 80 else 'High' if a.risk_score >= 65 else 'Medium' }}">{{ a.risk_score }}</span></td>
+<td>{{ a.readiness_pct }}%</td>
+<td>{{ a.owner }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+{# ─── Banking applications grid ─────────────────────────────────── #}
+<div class="demo-section-title">Banking Applications Registry <span class="meta">— {{ d.banking_applications|length }} apps with owner · risk · readiness · maturity</span></div>
+<div class="demo-app-grid">
+{% for a in d.banking_applications %}
+<div class="demo-app-card crit-{{ a.criticality }}" data-ecs-demo-app="{{ a.application }}">
+<div class="name">{{ a.application }}</div>
+<div class="meta">{{ a.vertical }} · {{ a.owner }} · {{ a.criticality }}</div>
+<div class="meta">Risk <strong>{{ a.risk_score }}</strong> · Readiness <strong>{{ a.audit_readiness_pct }}%</strong> · Maturity L{{ a.maturity_score }}</div>
+<div class="stats">
+<span title="Frameworks applicable">{{ a.framework_count }} FW</span>
+<span title="Pending observations">{{ a.pending_observations }} obs</span>
+<span title="Evidence records">{{ a.evidence_count }} ev</span>
+</div>
+</div>
+{% endfor %}
+</div>
+
+{# ─── Risk heatmap ──────────────────────────────────────────────── #}
+{% set hm = d.risk_heatmap %}
+<div class="demo-section-title">Risk Heatmap — Application × Framework Readiness <span class="meta">— click cells for drill-down</span></div>
+<div class="demo-heat-grid">
+<div class="demo-heat-row demo-heat-header">
+<div class="demo-heat-label">Application</div>
+{% for fw in hm.frameworks %}<div class="demo-heat-cell" title="{{ fw }}">{{ fw[:6] }}</div>{% endfor %}
+</div>
+{% for row in hm.matrix %}
+<div class="demo-heat-row">
+<div class="demo-heat-label" title="{{ row.owner }} · Risk {{ row.risk_score }}">{{ row.application }}</div>
+{% for c in row.cells %}
+<div class="demo-heat-cell {{ c.tone }}" data-ecs-demo-heat data-app="{{ row.application }}" data-fw="{{ c.framework }}" title="{{ row.application }} · {{ c.framework }} · {{ c.value }}%">{% if c.covered %}{{ c.value }}{% else %}—{% endif %}</div>
+{% endfor %}
+</div>
+{% endfor %}
+</div>
+
+{# ─── Evidence aging ─────────────────────────────────────────────── #}
+<div class="demo-section-title">Evidence Aging Distribution</div>
+<div class="demo-pie">
+{% for b in hm.evidence_aging %}
+<span class="seg {{ b.tone|replace('tone-', 'sev-')|replace('sev-green','sev-Low')|replace('sev-amber','sev-Medium')|replace('sev-red','sev-Critical') }}">{{ b.bucket }} · {{ b.count }}</span>
+{% endfor %}
+</div>
+
+{# ─── ServiceNow + AI governance two-up ─────────────────────────── #}
+<div class="row g-2 mt-2">
+<div class="col-md-7">
+<div class="demo-section-title">ServiceNow Tickets <span class="meta">— last {{ d.servicenow_tickets|length }} CHG / INC / PRB / RITM</span></div>
+<div class="demo-card" style="max-height: 280px; overflow-y: auto;">
+<table class="demo-table">
+<thead><tr><th>Ticket</th><th>Type</th><th>Title</th><th>App</th><th>Framework</th><th>State</th><th>Priority</th><th>Owner</th></tr></thead>
+<tbody>
+{% for t in d.servicenow_tickets[:30] %}
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="{{ t.ticket_id }}">
+<td><code>{{ t.ticket_id }}</code></td>
+<td>{{ t.type }}</td>
+<td>{{ t.title }}</td>
+<td>{{ t.application }}</td>
+<td>{{ t.framework }}</td>
+<td>{{ t.state }}</td>
+<td><span class="badge badge-{{ 'Critical' if t.priority == 'P1' else 'High' if t.priority == 'P2' else 'Medium' if t.priority == 'P3' else 'Low' }}">{{ t.priority }}</span></td>
+<td>{{ t.owner }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+
+<div class="col-md-5">
+<div class="demo-section-title">AI Governance Posture <span class="meta">— prompt audit · hallucinations · token usage</span></div>
+{% set ag = d.ai_governance %}
+<div class="demo-card">
+<div class="row g-1 mb-2">
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Prompts</div><div class="fw-bold">{{ ag.summary.prompts_audited }}</div></div>
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Hallucinations</div><div class="fw-bold text-warning">{{ ag.summary.hallucination_alerts }}</div></div>
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Unsafe</div><div class="fw-bold text-danger">{{ ag.summary.unsafe_prompts }}</div></div>
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Avg Risk</div><div class="fw-bold">{{ ag.summary.avg_risk_score }}</div></div>
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Models</div><div class="fw-bold">{{ ag.summary.model_coverage|length }}</div></div>
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Tokens</div><div class="fw-bold">{{ ag.tokens.total_tokens|int }}</div></div>
+</div>
+<div class="small text-muted mb-1">Token Usage by Team (top 5)</div>
+<table class="demo-table">
+<thead><tr><th>Team</th><th>Prompts</th><th>Tokens</th><th>Cost (USD)</th></tr></thead>
+<tbody>
+{% for t in ag.tokens.by_team[:5] %}
+<tr><td>{{ t.team }}</td><td>{{ t.prompts }}</td><td>{{ t.tokens }}</td><td>${{ t.cost_usd }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+<div class="small text-muted mt-2 mb-1">Recent Hallucination Alerts ({{ ag.hallucinations|length }})</div>
+<ul class="small mb-0" style="font-size:0.7rem;">
+{% for h in ag.hallucinations[:5] %}
+<li><code>{{ h.alert_id }}</code> · {{ h.user }} · {{ h.fabrication_signal|truncate(50, True, '') }}</li>
+{% endfor %}
+</ul>
+</div>
+</div>
+</div>
+
+{# ─── Multi-year audit history ───────────────────────────────────── #}
+<div class="demo-section-title">Multi-Year Audit History <span class="meta">— 5-year findings, closure %, recurring findings, avg readiness</span></div>
+<div class="demo-card">
+<table class="demo-table">
+<thead><tr><th>Year</th><th>Findings Raised</th><th>Findings Closed</th><th>Closure %</th><th>Recurring</th><th>Avg Readiness %</th></tr></thead>
+<tbody>
+{% for y in d.audit_history_summary.year_trend %}
+<tr><td><strong>{{ y.year }}</strong></td><td>{{ y.findings_raised }}</td><td>{{ y.findings_closed }}</td>
+<td>{{ y.closure_pct }}%</td><td>{{ y.recurring_findings }}</td><td>{{ y.avg_readiness_pct }}%</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+{# ─── VAPT + Drift two-up ───────────────────────────────────────── #}
+<div class="row g-2">
+<div class="col-md-6">
+<div class="demo-section-title">VAPT Findings Dashboard <span class="meta">— {{ d.vapt.summary.total_findings }} findings · avg CVSS {{ d.vapt.summary.avg_cvss }}</span></div>
+<div class="demo-card">
+<div class="row g-1 mb-2 text-center">
+<div class="col-3"><div class="text-muted small" style="font-size:0.6rem;text-transform:uppercase;">Critical</div><div class="fw-bold text-danger">{{ d.vapt.summary.critical }}</div></div>
+<div class="col-3"><div class="text-muted small" style="font-size:0.6rem;text-transform:uppercase;">High</div><div class="fw-bold text-warning">{{ d.vapt.summary.high }}</div></div>
+<div class="col-3"><div class="text-muted small" style="font-size:0.6rem;text-transform:uppercase;">Medium</div><div class="fw-bold text-primary">{{ d.vapt.summary.medium }}</div></div>
+<div class="col-3"><div class="text-muted small" style="font-size:0.6rem;text-transform:uppercase;">Low</div><div class="fw-bold text-secondary">{{ d.vapt.summary.low }}</div></div>
+</div>
+<table class="demo-table">
+<thead><tr><th>Finding</th><th>App</th><th>Severity</th><th>CVSS</th><th>Status</th></tr></thead>
+<tbody>
+{% for f in d.vapt.findings[:10] %}
+<tr><td>{{ f.title }}</td><td>{{ f.application }}</td><td><span class="badge badge-{{ f.severity }}">{{ f.severity }}</span></td><td>{{ f.cvss }}</td><td>{{ f.status }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+<div class="col-md-6">
+<div class="demo-section-title">Baselining Drift Analytics <span class="meta">— OS · DB · Nginx · unauthorised changes</span></div>
+<div class="demo-card">
+<table class="demo-table">
+<thead><tr><th>Category</th><th>Total Drift</th><th>Critical</th><th>High</th><th>Medium</th></tr></thead>
+<tbody>
+{% for c in d.baselining_drift.by_category %}
+<tr><td><strong>{{ c.category }}</strong></td><td>{{ c.total }}</td><td>{{ c.critical|default(0) }}</td><td>{{ c.high|default(0) }}</td><td>{{ c.medium|default(0) }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% if d.baselining_drift.critical_drift %}
+<div class="small text-muted mt-2 mb-1">Critical drift items ({{ d.baselining_drift.critical_drift|length }})</div>
+<ul class="small" style="font-size:0.7rem; max-height: 100px; overflow-y: auto;">
+{% for c in d.baselining_drift.critical_drift[:8] %}
+<li>{{ c.application }} · {{ c.category }} · {{ c.drift_count }} items · owner: {{ c.remediation_owner }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+</div>
+</div>
+</div>
+
+{# ─── Evidence lineage ──────────────────────────────────────────── #}
+<div class="demo-section-title">Evidence Lineage Tracking <span class="meta">— origin framework → reused in → linked observations</span></div>
+<div class="lineage-graph">
+{% for l in d.evidence_lineage[:10] %}
+<div class="lineage-card">
+<div class="ev-name">{{ l.evidence_name|truncate(36, True, '') }}</div>
+<div class="text-muted small">{{ l.original_framework }} · {{ l.application }} · {{ l.owner }}</div>
+<div class="mt-1">
+{% for fw in l.linked_frameworks %}<span class="chip">{{ fw }}</span>{% endfor %}
+</div>
+{% if l.reused_in_frameworks %}
+<div class="mt-1 small text-muted" style="font-size:0.62rem;">Reused in:</div>
+{% for fw in l.reused_in_frameworks %}<span class="chip reuse">{{ fw }}</span>{% endfor %}
+{% endif %}
+<div class="text-muted small mt-1" style="font-size:0.62rem;">Confidence {{ l.lineage_confidence_pct }}% · {{ l.linked_observations|length }} observations · {{ l.linked_audit_cycle }}</div>
+</div>
+{% endfor %}
+</div>
+
+{# ─── Framework catalogue ──────────────────────────────────────── #}
+<div class="demo-section-title">Framework Catalogue <span class="meta">— {{ d.frameworks|length }} frameworks · {{ d.frameworks|sum(attribute='control_count') }} controls · {{ d.frameworks|sum(attribute='evidence_count') }} evidence</span></div>
+<div class="demo-card">
+<table class="demo-table">
+<thead><tr><th>Framework</th><th>Category</th><th>Cycle</th><th>Controls</th><th>Evidence</th><th>Applications</th><th>Readiness</th></tr></thead>
+<tbody>
+{% for f in d.frameworks %}
+<tr class="ecs-demo-drill" data-ecs-demo-fw="{{ f.framework }}">
+<td><strong>{{ f.framework }}</strong></td>
+<td>{{ f.category }}</td>
+<td>{{ f.audit_cycle }}</td>
+<td>{{ f.control_count }}</td>
+<td>{{ f.evidence_count }}</td>
+<td class="small">{{ f.applications_covered|join(', ')|truncate(45, True, '') }}</td>
+<td>
+<span class="demo-mini-bar d-inline-block" style="width: 80px;"><span class="fill {% if f.readiness_pct < 70 %}risk{% elif f.readiness_pct < 80 %}warn{% endif %}" style="width: {{ f.readiness_pct }}%; display:block;"></span></span>
+<small>{{ f.readiness_pct }}%</small>
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+</div></div></div>
+
+{# ─── Drill modal ─────────────────────────────────────────────── #}
+<div class="modal fade" id="ecsDemoDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-xl modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="ecsDemoDrillTitle">Drill-down</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+<div class="modal-body small" id="ecsDemoDrillBody"><p class="text-muted">Loading…</p></div>
+<div class="modal-footer py-1"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+
+{% include "partials/chatbot_global.html" %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function() {
+  var drillModal = document.getElementById('ecsDemoDrillModal');
+  var drillTitle = document.getElementById('ecsDemoDrillTitle');
+  var drillBody  = document.getElementById('ecsDemoDrillBody');
+
+  function rowsTable(headers, rows) {
+    if (!rows || !rows.length) return '<p class="text-muted small">No rows.</p>';
+    var thead = '<thead><tr>' + headers.map(function(h){ return '<th>' + h + '</th>'; }).join('') + '</tr></thead>';
+    var tbody = '<tbody>' + rows.map(function(r){
+      return '<tr>' + r.map(function(c){ return '<td>' + (c === null || c === undefined ? '—' : c) + '</td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody>';
+    return '<div class="table-responsive"><table class="table table-sm">' + thead + tbody + '</table></div>';
+  }
+
+  function renderKpiDrill(metric) {
+    drillTitle.textContent = 'Drill-down: ' + metric;
+    drillBody.innerHTML = '<p class="text-muted">Fetching…</p>';
+    var routes = {
+      applications: '/api/demo/banking-applications',
+      frameworks: '/api/demo/frameworks',
+      controls: '/api/demo/frameworks',
+      evidence: '/api/demo/evidence-lineage?limit=50',
+      tickets: '/api/demo/servicenow?limit=80',
+      prompts: '/api/demo/prompt-audit?limit=60',
+      hallucinations: '/api/demo/hallucinations',
+      vapt: '/api/demo/vapt',
+      drift: '/api/demo/drift',
+      audit_history: '/api/demo/audit-history?years=5',
+    };
+    var url = routes[metric];
+    if (!url) {
+      drillBody.innerHTML = '<p class="text-muted">No drill-down configured for ' + metric + '.</p>';
+      return;
+    }
+    fetch(url).then(function(r){ return r.json(); }).then(function(payload) {
+      if (!payload.ok) { drillBody.innerHTML = '<p class="text-danger">' + (payload.error || 'Drill failed') + '</p>'; return; }
+      var html = '';
+      if (metric === 'applications') {
+        var rows = (payload.rows || []).map(function(a){
+          return [a.application, a.owner, a.vertical, a.criticality, a.risk_score, a.audit_readiness_pct + '%', 'L' + a.maturity_score, a.framework_count + ' FW', a.evidence_count];
+        });
+        html = '<p class="text-muted small">' + rows.length + ' banking applications</p>' +
+               rowsTable(['Application', 'Owner', 'Vertical', 'Criticality', 'Risk', 'Readiness', 'Maturity', 'FW', 'Evidence'], rows);
+      } else if (metric === 'frameworks' || metric === 'controls') {
+        var rows = (payload.rows || []).map(function(f){
+          return [f.framework, f.category, f.audit_cycle, f.control_count, f.evidence_count, f.readiness_pct + '%'];
+        });
+        html = '<p class="text-muted small">' + rows.length + ' frameworks (total ' + rows.reduce(function(s,r){ return s + r[3]; }, 0) + ' controls)</p>' +
+               rowsTable(['Framework', 'Category', 'Cycle', 'Controls', 'Evidence', 'Readiness'], rows);
+      } else if (metric === 'tickets') {
+        var rows = (payload.rows || []).map(function(t){
+          return [t.ticket_id, t.type, t.title, t.application, t.framework, t.state, t.priority, t.owner, t.opened_at];
+        });
+        html = rowsTable(['Ticket', 'Type', 'Title', 'App', 'Framework', 'State', 'Priority', 'Owner', 'Opened'], rows);
+      } else if (metric === 'prompts') {
+        var rows = (payload.rows || []).map(function(p){
+          return [p.prompt_id, p.timestamp, p.user, p.model, p.tokens_total, p.risk_score, p.review_status];
+        });
+        html = rowsTable(['Prompt', 'Timestamp', 'User', 'Model', 'Tokens', 'Risk', 'Status'], rows);
+      } else if (metric === 'hallucinations') {
+        var rows = (payload.rows || []).map(function(h){
+          return [h.alert_id, h.timestamp, h.user, h.model, h.confidence_pct + '%', h.fabrication_signal, h.status];
+        });
+        html = rowsTable(['Alert', 'Time', 'User', 'Model', 'Confidence', 'Signal', 'Status'], rows);
+      } else if (metric === 'vapt') {
+        var rows = (payload.data.findings || []).map(function(f){
+          return [f.finding_id, f.title, f.application, f.severity, f.cvss, f.status, f.remediation_eta];
+        });
+        html = rowsTable(['Finding', 'Title', 'App', 'Severity', 'CVSS', 'Status', 'ETA'], rows);
+      } else if (metric === 'drift') {
+        var rows = (payload.data.by_application || []).map(function(d){
+          return [d.application, d.category, d.severity, d.drift_count, d.framework, d.remediation_owner, d.remediation_eta];
+        });
+        html = rowsTable(['App', 'Category', 'Severity', 'Count', 'Framework', 'Owner', 'ETA'], rows);
+      } else if (metric === 'evidence') {
+        var rows = (payload.rows || []).map(function(e){
+          return [e.evidence_id, e.evidence_name, e.original_framework, e.application, e.linked_frameworks.length + ' FW', e.lineage_confidence_pct + '%'];
+        });
+        html = rowsTable(['Evidence', 'Name', 'Origin', 'App', 'Linked', 'Confidence'], rows);
+      } else if (metric === 'audit_history') {
+        var rows = (payload.summary.year_trend || []).map(function(y){
+          return [y.year, y.findings_raised, y.findings_closed, y.closure_pct + '%', y.recurring_findings, y.avg_readiness_pct + '%'];
+        });
+        html = rowsTable(['Year', 'Raised', 'Closed', 'Closure', 'Recurring', 'Avg Ready'], rows);
+      }
+      drillBody.innerHTML = html;
+    }).catch(function(err){ drillBody.innerHTML = '<p class="text-danger">' + err.message + '</p>'; });
+  }
+
+  document.querySelectorAll('[data-ecs-demo-kpi]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var metric = el.getAttribute('data-ecs-demo-kpi');
+      if (!metric) return;
+      drillTitle.textContent = 'Drill-down: ' + el.querySelector('.l').textContent;
+      drillBody.innerHTML = '<p class="text-muted">Fetching…</p>';
+      bootstrap.Modal.getOrCreateInstance(drillModal).show();
+      renderKpiDrill(metric);
+    });
+  });
+
+  document.querySelectorAll('[data-ecs-demo-app]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var app = el.getAttribute('data-ecs-demo-app');
+      drillTitle.textContent = 'Application Drill: ' + app;
+      drillBody.innerHTML = '<p class="text-muted">Loading…</p>';
+      bootstrap.Modal.getOrCreateInstance(drillModal).show();
+      Promise.all([
+        fetch('/api/demo/banking-applications').then(function(r){return r.json();}),
+        fetch('/api/demo/servicenow?limit=120').then(function(r){return r.json();}),
+        fetch('/api/demo/vapt').then(function(r){return r.json();}),
+      ]).then(function(results) {
+        var appMeta = (results[0].rows || []).find(function(a){ return a.application === app; }) || {};
+        var tickets = (results[1].rows || []).filter(function(t){ return t.application === app; });
+        var vapt    = (results[2].data.findings || []).filter(function(f){ return f.application === app; });
+        var html = '<div class="row g-2 mb-2">' +
+          '<div class="col-md-3"><div class="text-muted small">Owner</div><strong>' + (appMeta.owner || '—') + '</strong></div>' +
+          '<div class="col-md-3"><div class="text-muted small">Risk</div><strong>' + (appMeta.risk_score || '—') + '</strong></div>' +
+          '<div class="col-md-3"><div class="text-muted small">Readiness</div><strong>' + (appMeta.audit_readiness_pct || '—') + '%</strong></div>' +
+          '<div class="col-md-3"><div class="text-muted small">Maturity</div><strong>L' + (appMeta.maturity_score || '—') + '</strong></div>' +
+        '</div>';
+        html += '<div class="text-muted small">Frameworks: ' + (appMeta.frameworks_applicable || []).join(' · ') + '</div>';
+        html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">ServiceNow Tickets (' + tickets.length + ')</h6>';
+        html += rowsTable(['Ticket', 'Type', 'Title', 'State', 'Owner'],
+          tickets.slice(0, 10).map(function(t){ return [t.ticket_id, t.type, t.title, t.state, t.owner]; }));
+        html += '<h6 class="text-muted small text-uppercase mt-3 mb-1">VAPT Findings (' + vapt.length + ')</h6>';
+        html += rowsTable(['Finding', 'Title', 'Severity', 'CVSS', 'Status'],
+          vapt.slice(0, 10).map(function(f){ return [f.finding_id, f.title, f.severity, f.cvss, f.status]; }));
+        drillBody.innerHTML = html;
+      }).catch(function(err){ drillBody.innerHTML = '<p class="text-danger">' + err.message + '</p>'; });
+    });
+  });
+
+  document.querySelectorAll('[data-ecs-demo-heat]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var app = el.getAttribute('data-app');
+      var fw  = el.getAttribute('data-fw');
+      drillTitle.textContent = 'Heatmap: ' + app + ' × ' + fw;
+      drillBody.innerHTML = '<p class="text-muted small">Application <strong>' + app + '</strong> against framework <strong>' + fw + '</strong>. Use the drill modal on the application or framework row for full breakdown.</p>';
+      bootstrap.Modal.getOrCreateInstance(drillModal).show();
+    });
+  });
+
+  document.querySelectorAll('[data-ecs-demo-fw]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var fw = el.getAttribute('data-ecs-demo-fw');
+      drillTitle.textContent = 'Framework Drill: ' + fw;
+      drillBody.innerHTML = '<p class="text-muted">Loading…</p>';
+      bootstrap.Modal.getOrCreateInstance(drillModal).show();
+      fetch('/api/demo/audit-history?years=5').then(function(r){return r.json();}).then(function(payload){
+        if (!payload.ok) { drillBody.innerHTML = '<p class="text-danger">Drill failed.</p>'; return; }
+        var trend = (payload.summary.framework_trends || []).find(function(f){ return f.framework === fw; }) || {trend: []};
+        var rows = trend.trend.map(function(t){ return [t.year, t.readiness_pct + '%', t.findings]; });
+        drillBody.innerHTML = rowsTable(['Year', 'Readiness', 'Findings Raised'], rows);
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-ecs-demo-ticket]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var id = el.getAttribute('data-ecs-demo-ticket');
+      drillTitle.textContent = 'ServiceNow Ticket: ' + id;
+      drillBody.innerHTML = '<p class="text-muted">Loading…</p>';
+      bootstrap.Modal.getOrCreateInstance(drillModal).show();
+      fetch('/api/demo/servicenow?limit=120').then(function(r){return r.json();}).then(function(payload){
+        var t = (payload.rows || []).find(function(x){ return x.ticket_id === id; });
+        if (!t) { drillBody.innerHTML = '<p class="text-muted">Ticket not found.</p>'; return; }
+        drillBody.innerHTML = '<div class="row g-2 mb-2">' +
+          '<div class="col-md-4"><div class="text-muted small">State</div><strong>' + t.state + '</strong></div>' +
+          '<div class="col-md-4"><div class="text-muted small">Priority</div><strong>' + t.priority + '</strong></div>' +
+          '<div class="col-md-4"><div class="text-muted small">Owner</div><strong>' + t.owner + '</strong></div>' +
+          '<div class="col-md-4"><div class="text-muted small">Opened</div><strong>' + t.opened_at + '</strong></div>' +
+          '<div class="col-md-4"><div class="text-muted small">Closed</div><strong>' + (t.closed_at || '—') + '</strong></div>' +
+          '<div class="col-md-4"><div class="text-muted small">Age</div><strong>' + t.age_days + 'd</strong></div>' +
+          '</div>' +
+          '<div class="mb-1"><strong>' + t.title + '</strong></div>' +
+          '<div class="small text-muted">Linked control: <code>' + t.linked_control + '</code> · ' + t.control_name + '</div>' +
+          '<div class="small text-muted">Application: ' + t.application + ' · Framework: ' + t.framework + '</div>' +
+          '<div class="small text-muted">Linked evidence: ' + t.linked_evidence + '</div>';
+      });
+    });
+  });
+})();
+</script>
+</body></html>

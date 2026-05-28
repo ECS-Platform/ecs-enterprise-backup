@@ -15,10 +15,24 @@ frameworks = build_legacy_frameworks()
 BANKING_APPLICATIONS = [
     "Net Banking",
     "Mobile Banking",
+    "Mobile Banking Edge",
+    "Internet Banking",
+    "Retail Banking",
+    "Core Banking",
+    "CBS Oracle",
     "UPI",
     "Payments",
+    "Payment Switch",
+    "Card Platform",
     "Treasury",
+    "Wealth Portal",
+    "API Gateway",
     "Loan System",
+    "Loan Origination",
+    "Digital Lending",
+    "Customer Onboarding",
+    "AML Engine",
+    "Fraud Monitoring",
 ]
 
 PAN_INDIA_REGIONS = [

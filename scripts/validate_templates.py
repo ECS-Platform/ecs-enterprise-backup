@@ -240,6 +240,7 @@ def layer3_route_render() -> list[str]:
         "/mvp/exception-governance",
         "/mvp/bulk-upload",
         "/mvp/framework-admin",
+        "/mvp/framework-loader",
         "/mvp/search",
         "/framework/PCI%20DSS",
         "/framework/ISO%2027001",

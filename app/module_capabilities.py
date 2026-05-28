@@ -478,6 +478,7 @@ def _reports_view(role: str) -> dict:
 
 def _audit_prep_view(role: str, filters: dict | None = None) -> dict:
     from app.audit_prep_data import build_audit_prep_view
+    from app.audit_schedule_engine import build_audit_operations
     from app.executive_analytics_engine import build_audit_prep_heatmaps
     from app.standard_filter_engine import build_standard_dataset
 
@@ -485,6 +486,28 @@ def _audit_prep_view(role: str, filters: dict | None = None) -> dict:
     view["standard_dataset"] = build_standard_dataset("audit_prep", role, filters)
     view["audit_heatmaps"] = build_audit_prep_heatmaps(filters)
     view["actions"] = _actions_for(role, audit_prep=True)
+
+    # Dynamic audit operations — replaces the legacy static upcoming-audits list
+    # so every framework (quarterly + yearly) is represented across the rolling
+    # 12-month window.
+    ops = build_audit_operations(role, filters)
+    view["upcoming_audits"] = ops["upcoming_audits"]
+    view["audit_calendar"] = ops["calendar"]
+    view["audit_pipeline"] = ops["pipeline"]
+    view["baselining_history"] = ops["baselining_history"]
+    view["audit_kpi_drilldowns"] = ops["kpi_drilldowns"]
+    view["audit_summary"] = ops["summary"]
+    if view["upcoming_audits"]:
+        nxt = next((a for a in view["upcoming_audits"] if a["days_remaining"] >= 0), view["upcoming_audits"][0])
+        view["next_audit_countdown"] = {
+            "framework": nxt["framework"],
+            "application": nxt["application"],
+            "auditor": nxt["auditor"],
+            "days_remaining": nxt["days_remaining"],
+            "readiness_pct": nxt["readiness_pct"],
+            "blockers": nxt["blockers"],
+            "audit_id": nxt["audit_id"],
+        }
     return view
 
 
