@@ -1,0 +1,210 @@
+<!DOCTYPE html><html><head><title>AI Governance Posture — ECS</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-cap-ai-governance"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set v = ai_view %}
+
+<div class="aisdlc-banner">
+<div>
+<h2>AI Governance Posture</h2>
+<div class="sub">Continuous governance for production AI assistants — prompt audit, model risk, policy compliance</div>
+</div>
+<span class="aisdlc-pill">LEADERSHIP DEMO</span>
+</div>
+
+{% include "partials/ai_sdlc_subnav.html" %}
+
+<div class="aisdlc-kpi-grid">
+{% for k in v.kpis %}
+<div class="aisdlc-kpi tone-{{ k.tone|default('primary') }}" data-aisdlc-drill="posture" data-metric="{{ k.drill }}" tabindex="0">
+<div class="v">{{ k.value }}</div>
+<div class="l">{{ k.label }}</div>
+<div class="h">{{ k.hint|default('') }}</div>
+</div>
+{% endfor %}
+</div>
+
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">AI Application Inventory <span class="meta">{{ v.applications|length }} production assistants · click card</span></div>
+<div class="aisdlc-app-grid ecs-paginated-blocks">
+{% for app in v.applications %}
+<div class="aisdlc-app-card {{ app.risk_tier }}" data-aisdlc-drill="posture" data-metric="application" data-id="{{ app.id }}" tabindex="0">
+<div class="name">{{ app.name }}</div>
+<div class="meta">{{ app.application }} · {{ app.owner }} · {{ app.model }}</div>
+<div class="meta mt-1">Compliance <strong>{{ app.compliance_score }}%</strong> · Policy <strong>{{ app.policy_compliance }}%</strong> · {{ app.model_status }}</div>
+<div class="meta">{{ app.use_case|truncate(60, True, '…') }}</div>
+</div>
+{% endfor %}
+</div>
+</div>
+
+<div class="row g-2">
+<div class="col-lg-7">
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">AI Risk Heatmap <span class="meta">Click any cell for drill-down</span></div>
+<div class="aisdlc-heat-grid">
+<div class="aisdlc-heat-row aisdlc-heat-header">
+<div class="aisdlc-heat-label">Application</div>
+{% for dim in v.risk_heatmap.dimensions %}
+<div class="aisdlc-heat-cell">{{ dim|truncate(12, True, '') }}</div>
+{% endfor %}
+</div>
+{% for row in v.risk_heatmap.rows %}
+<div class="aisdlc-heat-row">
+<div class="aisdlc-heat-label">{{ row.application|truncate(22, True, '…') }}</div>
+{% for cell in row.cells %}
+<div class="aisdlc-heat-cell tone-{{ cell.tone }}" data-aisdlc-drill="posture" data-metric="heatmap_cell" data-id="{{ row.application_id }}::{{ cell.dimension }}" title="{{ cell.dimension }}: {{ cell.score }}%">{{ cell.score }}</div>
+{% endfor %}
+</div>
+{% endfor %}
+</div>
+</div>
+</div>
+<div class="col-lg-5">
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Token Usage Analytics <span class="meta">Last 7 days · click bar</span></div>
+<div class="aisdlc-chart-bar">
+{% for d in v.token_usage.daily_trend %}
+<div class="bar" style="height: {{ (d.tokens / 1200000 * 70)|int }}px" data-aisdlc-drill="posture" data-metric="tokens" data-id="{{ d.day_key }}" title="{{ d.tokens }} tokens" tabindex="0"><span class="lbl">{{ d.day }}</span></div>
+{% endfor %}
+</div>
+<div class="aisdlc-section-title mt-3">12-Month Token Trend <span class="meta">click month</span></div>
+<div class="aisdlc-chart-bar" style="height:90px">
+{% for d in v.token_usage.monthly_trend %}
+<div class="bar" style="height: {{ (d.tokens / 12000000 * 80)|int }}px; background:#4338ca" data-aisdlc-drill="posture" data-metric="tokens" data-id="{{ d.month_key }}" title="{{ d.tokens }} tokens" tabindex="0"><span class="lbl">{{ d.month|truncate(6, True, '') }}</span></div>
+{% endfor %}
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Application</th><th>Tokens MTD</th><th>Est. Cost</th></tr></thead>
+<tbody>
+{% for t in v.token_usage.by_application %}
+<tr data-aisdlc-drill="posture" data-metric="application" data-id="{{ t.application_id }}"><td>{{ t.application|truncate(28, True, '') }}</td><td>{{ "{:,}".format(t.tokens) }}</td><td>${{ "{:,}".format(t.cost_usd|int) }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+
+<div class="row g-2">
+<div class="col-md-6">
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Prompt Audit Summary <span class="meta">{{ v.prompt_audit|length }} records · click row</span></div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>ID</th><th>Application</th><th>Risk</th><th>Status</th><th>Reviewed</th></tr></thead>
+<tbody>
+{% for p in v.prompt_audit %}
+<tr data-aisdlc-drill="posture" data-metric="prompts" data-id="{{ p.prompt_id }}">
+<td>{{ p.prompt_id }}</td>
+<td>{{ p.application|truncate(22, True, '') }}</td>
+<td>{{ p.risk_score }}</td>
+<td><span class="aisdlc-badge {{ p.review_status }}">{{ p.review_status }}</span></td>
+<td class="small">{{ p.timestamp|truncate(10, True, '') }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="col-md-6">
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Hallucination Monitoring <span class="meta">{{ v.hallucinations|length }} flagged · click row</span></div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table mb-0">
+<thead><tr><th>Prompt</th><th>Application</th><th>Risk</th><th>Status</th></tr></thead>
+<tbody>
+{% for h in v.hallucinations %}
+<tr data-aisdlc-drill="posture" data-metric="hallucinations" data-id="{{ h.prompt_id }}">
+<td>{{ h.prompt_id }}</td>
+<td>{{ h.application|truncate(24, True, '') }}</td>
+<td>{{ h.risk_score }}</td>
+<td><span class="aisdlc-badge warning">Flagged</span></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+<div class="aisdlc-section-title mt-2">Unsafe Prompt Detection <span class="meta">{{ v.unsafe_prompts|length }} blocked</span></div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table mb-0">
+<thead><tr><th>Prompt</th><th>Application</th><th>Status</th></tr></thead>
+<tbody>
+{% for u in v.unsafe_prompts %}
+<tr data-aisdlc-drill="posture" data-metric="unsafe" data-id="{{ u.prompt_id }}">
+<td>{{ u.prompt_id }}</td>
+<td>{{ u.application|truncate(24, True, '') }}</td>
+<td><span class="aisdlc-badge danger">Quarantined</span></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+
+<div class="row g-2">
+<div class="col-md-6">
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">AI Policy Compliance <span class="meta">click row for violations</span></div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table mb-0">
+<thead><tr><th>Policy</th><th>Compliance</th><th>Violations</th></tr></thead>
+<tbody>
+{% for pol in v.policies %}
+<tr data-aisdlc-drill="posture" data-metric="policies" data-id="{{ pol.policy }}">
+<td>{{ pol.policy|truncate(42, True, '') }}</td>
+<td>{{ pol.compliance_pct }}%</td>
+<td>{{ pol.violations }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+<div class="col-md-6">
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Model Approval Status</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table mb-0">
+<thead><tr><th>Model</th><th>Application</th><th>Status</th></tr></thead>
+<tbody>
+{% for m in v.model_approvals %}
+<tr data-aisdlc-drill="posture" data-metric="models" data-id="{{ m.application_id }}">
+<td>{{ m.model|truncate(28, True, '') }}</td>
+<td>{{ m.application|truncate(22, True, '') }}</td>
+<td><span class="aisdlc-badge {{ m.status }}">{{ m.status }}</span></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Audit Trail <span class="meta">{{ v.audit_trail|length }} events · 3 years · click KPI</span></div>
+<ul class="aisdlc-trail ecs-paginated-list mb-0">
+{% for e in v.audit_trail %}
+<li data-aisdlc-drill="posture" data-metric="audit" tabindex="0"><span class="ts">{{ e.timestamp }}</span> — <strong>{{ e.action }}</strong> · {{ e.actor }} — {{ e.detail }}</li>
+{% endfor %}
+</ul>
+</div>
+
+<p class="text-muted small mt-2">
+<a href="/mvp/sdlc-gates{{ q }}">→ SDLC Compliance Gates</a> ·
+<a href="/mvp/ai-registry{{ q }}">→ Model & Prompt Registry</a>
+</p>
+
+</div></div></div>
+
+{% include "partials/ai_sdlc_drill_modal.html" %}
+</body></html>

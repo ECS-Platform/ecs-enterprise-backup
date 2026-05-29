@@ -1,4 +1,5 @@
-<!DOCTYPE html><html><head><title>Risk Register</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Risk Register</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi-modern[data-grc-drill]{cursor:pointer}.ecs-heatmap-tile[data-grc-drill]{cursor:pointer}.ecs-priority-card{cursor:pointer}</style></head>
 <body class="bg-light ecs-enterprise-body ecs-cap-risk"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-main-content ecs-workspace-main">
@@ -7,30 +8,39 @@
 {{ page_header('Enterprise Risk Register', 'Cyber, operational, compliance, AppSec, cloud, DR, and third-party risk', user, role) }}
 {% if notice %}<div class="alert alert-success py-2">{{notice}}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}{% include "partials/mvp_module_header.html" %}
-{% from "partials/grc_kpis.html" import grc_kpis %}{% from "partials/mvp_module_actions.html" import module_action %}
-{{ grc_kpis(module_view.kpis) }}
+{% from "partials/mvp_module_actions.html" import module_action %}
+
+<div class="row g-3 mb-3">{% for k in module_view.kpis %}
+<div class="col-md-4 col-lg-3 col-xl-2">
+<div class="ecs-kpi-modern ecs-kpi-{{ k.tone|default('primary') }}" data-grc-drill data-grc-module="risk" data-grc-metric="{{ k.drill|default('total') }}" tabindex="0">
+<div class="ecs-kpi-label">{{ k.label }}</div>
+<div class="ecs-kpi-value">{{ k.value }}</div>
+</div>
+</div>
+{% endfor %}</div>
+
 {{ workspace_filters(workspace, role, user) }}
-<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Loading risk register…</p>
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">{{ module_view.rows|length }} enterprise risks · click KPIs, charts, or rows to drill down</p>
 
 {{ zone_open('middle', 'Risk Insights') }}
 <div class="row g-3 mb-3">
 <div class="col-md-4">
 <div class="ecs-section-card h-100">
-<h6 class="text-muted small text-uppercase mb-2">Risk by Category</h6>
+<h6 class="text-muted small text-uppercase mb-2">Risk by Category <span class="fw-normal">· click bar</span></h6>
 <div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsRiskSeverityChart"></div></div>
 </div></div>
 <div class="col-md-4">
 <div class="ecs-section-card h-100">
-<h6 class="text-muted small text-uppercase mb-2">Aging Trend</h6>
+<h6 class="text-muted small text-uppercase mb-2">Aging Trend <span class="fw-normal">· click bar</span></h6>
 <div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsRiskAgingChart"></div></div>
 </div></div>
 <div class="col-md-4">
 <div class="ecs-section-card h-100">
 <h6 class="text-muted small text-uppercase mb-2">Escalation Timeline</h6>
-<ul class="list-unstyled small mb-0" id="ecsRiskEscalationList">
+<ul class="list-unstyled small mb-0 ecs-paginated-list" id="ecsRiskEscalationList">
 {% for ev in module_view.escalation_timeline|default([]) %}
-<li class="border-bottom py-1"><strong>{{ ev.risk_id }}</strong> — {{ ev.title }}<br><span class="text-muted">{{ ev.date }} · {{ ev.severity }}</span></li>
-{% else %}<li class="text-muted">No escalations in current filter scope.</li>{% endfor %}
+<li class="border-bottom py-1 ecs-risk-drill" role="button" tabindex="0" data-risk-id="{{ ev.risk_id }}"><strong>{{ ev.risk_id }}</strong> — {{ ev.title|truncate(48, True, '…') }}<br><span class="text-muted">{{ ev.date }} · {{ ev.severity }}</span></li>
+{% else %}<li class="text-muted">No escalations in scope.</li>{% endfor %}
 </ul>
 </div></div>
 </div>
@@ -38,10 +48,9 @@
 <div class="col-md-6">
 <div class="ecs-section-card h-100">
 <h6 class="text-muted small text-uppercase mb-3">Top Risks — click to drill down</h6>
-<div class="ecs-priority-grid" id="ecsRiskPriorityGrid">
-{% set top_risks = (module_view.top_risks|default([], true))[:8] %}
-{% for r in top_risks %}
-<div class="ecs-priority-card ecs-risk-drill" role="button" tabindex="0" data-risk-id="{{ r.risk_id }}" data-bs-toggle="modal" data-bs-target="#ecsRiskDetailModal">
+<div class="ecs-priority-grid ecs-paginated-blocks" id="ecsRiskPriorityGrid">
+{% for r in module_view.top_risks|default([]) %}
+<div class="ecs-priority-card ecs-risk-drill" role="button" tabindex="0" data-risk-id="{{ r.risk_id }}">
 <div class="ecs-priority-card-head">
 <div><strong class="ecs-priority-title">{{ r.risk_id }}</strong><div class="ecs-priority-meta">{{ r.title[:55] }}{% if r.title|length > 55 %}…{% endif %}</div></div>
 <span class="ecs-severity-pill ecs-severity-{% if r.residual_risk == 'Critical' %}critical{% elif r.residual_risk == 'High' %}high{% else %}medium{% endif %}">{{ r.residual_risk }}</span>
@@ -56,8 +65,8 @@
 <h6 class="text-muted small text-uppercase mb-3">Business Unit Exposure</h6>
 <div class="ecs-heatmap-grid ecs-paginated-blocks">
 {% for bu in module_view.bu_exposure %}
-<div class="ecs-heatmap-tile ecs-heat-{% if bu.count > 5 %}high{% elif bu.count > 2 %}mid{% else %}low{% endif %}">
-<strong>{{ bu.unit }}</strong><br><span class="text-muted">{{ bu.count }} open risks</span>
+<div class="ecs-heatmap-tile ecs-heat-{% if bu.count > 8 %}high{% elif bu.count > 4 %}mid{% else %}low{% endif %}" data-grc-drill data-grc-module="risk" data-grc-metric="bu" data-grc-id="{{ bu.unit }}" tabindex="0">
+<strong>{{ bu.unit|truncate(22, True, '') }}</strong><br><span class="text-muted">{{ bu.count }} open risks</span>
 </div>
 {% endfor %}
 </div>
@@ -70,15 +79,22 @@
 <div class="ecs-section-card">
 <div class="table-responsive ecs-paginated-wrap ecs-fit-view">
 <table class="table ecs-table-modern ecs-grc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-std-table="risk-register">
-<thead><tr><th>Risk ID</th><th>Title</th><th>Category</th><th>Application</th><th>Risk</th><th>Aging</th><th>Status</th><th>Actions</th></tr></thead>
+<thead><tr><th>Risk ID</th><th>Title</th><th>Category</th><th>App</th><th>Risk</th><th>Age</th><th>Status</th><th>Actions</th></tr></thead>
 <tbody>{% for r in module_view.rows %}
-<tr class="{% if r.residual_risk in ['Critical','High'] %}table-danger{% endif %} ecs-risk-drill" role="button" data-risk-id="{{ r.risk_id }}" data-bs-toggle="modal" data-bs-target="#ecsRiskDetailModal" data-ecs-filter-row data-filter-framework="{{ r.linked_framework|default(r.framework) }}" data-filter-application="{{ r.application }}" data-filter-risk="{{ r.residual_risk }}" data-filter-status="{{ r.status }}" data-filter-severity="{{ r.residual_risk }}">
-<td>{{ r.risk_id }}</td><td><strong>{{ r.title }}</strong><br><small class="text-muted ecs-col-optional">{{ r.description[:60] }}…</small></td>
-<td>{{ r.category }}</td><td>{{ r.application }}</td>
+<tr class="{% if r.residual_risk in ['Critical','High'] %}table-danger{% endif %} ecs-risk-drill" role="button" data-risk-id="{{ r.risk_id }}" data-ecs-filter-row data-filter-framework="{{ r.linked_framework|default(r.framework) }}" data-filter-application="{{ r.application }}" data-filter-risk="{{ r.residual_risk }}" data-filter-status="{{ r.status }}" data-filter-severity="{{ r.residual_risk }}">
+<td>{{ r.risk_id }}</td><td><strong>{{ r.title|truncate(42, True, '…') }}</strong></td>
+<td>{{ r.category|replace(' Risk', '')|truncate(12, True, '') }}</td><td>{{ r.application|truncate(16, True, '') }}</td>
 <td><span class="ecs-severity-pill ecs-severity-{% if r.residual_risk == 'Critical' %}critical{% elif r.residual_risk == 'High' %}high{% else %}medium{% endif %}">{{ r.residual_risk }}</span></td>
 <td>{{ r.aging_days }}d</td><td>{{ r.status }}</td>
-<td class="text-nowrap" onclick="event.stopPropagation();">{% for a in module_view.actions[:3] %}{{ module_action('risk_register', a, role, user, a|replace('_',' ')|title, 'btn-outline-primary btn-sm', r.risk_id) }}{% endfor %}</td>
+<td class="text-nowrap" onclick="event.stopPropagation();">{% for a in module_view.actions[:2] %}{{ module_action('risk_register', a, role, user, a|replace('_',' ')|title, 'btn-outline-primary btn-sm', r.risk_id) }}{% endfor %}</td>
 </tr>{% endfor %}</tbody></table></div></div>
+
+<h6 class="text-muted small text-uppercase mt-3 mb-2">Risk Governance Audit History ({{ module_view.audit_history|length }} events · 3 years)</h6>
+<ul class="list-unstyled ecs-paginated-list small mb-0">
+{% for e in module_view.audit_history %}
+<li class="border-bottom py-1" data-grc-drill data-grc-module="risk" data-grc-metric="audit"><span class="text-muted">{{ e.timestamp }}</span> — <strong>{{ e.action }}</strong> · {{ e.actor }} — {{ e.detail|truncate(72, True, '…') }}</li>
+{% endfor %}
+</ul>
 {{ zone_close() }}
 </div></div></div>
 
@@ -87,29 +103,47 @@
 <div class="modal-body small" id="ecsRiskModalBody"></div>
 </div></div></div>
 
+{% include "partials/grc_demo_drill_modal.html" %}
 <script>
 (function(){
   var risks = {{ module_view.rows|tojson }};
   var sev = {{ module_view.severity_chart|default([])|tojson }};
   var aging = {{ module_view.aging_trend|default([])|tojson }};
-  if (window.ecsRenderCompactBarChart) {
-    ecsRenderCompactBarChart('ecsRiskSeverityChart', sev.map(function(s){ return {label: s.label, value: s.value, tone: s.tone || 'blue'}; }), {suffix: ''});
-    ecsRenderCompactBarChart('ecsRiskAgingChart', aging.map(function(a){ return {label: a.label, value: a.value, tone: 'orange'}; }), {suffix: ''});
-  }
+
   function showRisk(id) {
+    if (window.grcOpenDrill) { grcOpenDrill('risk', 'risk', id); return; }
     var r = risks.find(function(x){ return x.risk_id === id; });
     if (!r) return;
     document.getElementById('ecsRiskModalTitle').textContent = r.risk_id + ' — ' + r.title;
-    var obs = (r.linked_observations || []).map(function(o){ return '<li>' + o.observation_id + ' — ' + o.title + ' (' + o.status + ')</li>'; }).join('') || '<li>None linked</li>';
-    var apps = (r.impacted_applications || [r.application]).map(function(a){ return '<span class="badge bg-secondary me-1">' + a + '</span>'; }).join('');
-    var mit = (r.mitigation_plans || []).map(function(m){ return '<li>' + m + '</li>'; }).join('');
-    var gaps = (r.evidence_gaps || []).map(function(g){ return '<li>' + g + '</li>'; }).join('');
-    document.getElementById('ecsRiskModalBody').innerHTML =
-      '<p>' + r.description + '</p><p><strong>Impacted applications:</strong> ' + apps + '</p>' +
-      '<h6 class="mt-2">Linked Observations</h6><ul>' + obs + '</ul>' +
-      '<h6>Mitigation Plans</h6><ul>' + mit + '</ul>' +
-      '<h6>Evidence Gaps</h6><ul>' + gaps + '</ul>';
+    var obs = (r.linked_observations || []).map(function(o){ return '<li>' + o.observation_id + ' — ' + o.title + '</li>'; }).join('') || '<li>None</li>';
+    document.getElementById('ecsRiskModalBody').innerHTML = '<p>' + r.description + '</p><h6>Linked Observations</h6><ul>' + obs + '</ul>';
+    new bootstrap.Modal(document.getElementById('ecsRiskDetailModal')).show();
   }
+
+  if (window.ecsRenderCompactBarChart) {
+    ecsRenderCompactBarChart('ecsRiskSeverityChart', sev.map(function(s){
+      return {label: s.label, value: s.value, tone: s.tone || 'blue', category: s.category};
+    }), {suffix: ''});
+    ecsRenderCompactBarChart('ecsRiskAgingChart', aging.map(function(a){
+      return {label: a.label, value: a.value, tone: 'orange', lo: a.lo, hi: a.hi};
+    }), {suffix: ''});
+  }
+
+  document.getElementById('ecsRiskSeverityChart').addEventListener('click', function(e) {
+    var col = e.target.closest('.ecs-bar-col');
+    if (!col) return;
+    var idx = Array.prototype.indexOf.call(col.parentNode.children, col);
+    var item = sev[idx];
+    if (item && window.grcOpenDrill) grcOpenDrill('risk', 'category', item.category || item.label);
+  });
+  document.getElementById('ecsRiskAgingChart').addEventListener('click', function(e) {
+    var col = e.target.closest('.ecs-bar-col');
+    if (!col) return;
+    var idx = Array.prototype.indexOf.call(col.parentNode.children, col);
+    var item = aging[idx];
+    if (item && window.grcOpenDrill) grcOpenDrill('risk', 'aging_bucket', item.lo + '-' + item.hi);
+  });
+
   document.querySelectorAll('.ecs-risk-drill').forEach(function(el){
     el.addEventListener('click', function(){ showRisk(el.getAttribute('data-risk-id')); });
   });

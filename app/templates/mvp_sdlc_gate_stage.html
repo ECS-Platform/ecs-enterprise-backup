@@ -1,0 +1,208 @@
+<!DOCTYPE html><html><head><title>{{ stage_view.stage.label }} — SDLC Gates</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-cap-sdlc-stage"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set sv = stage_view %}
+{% set sm = sv.summary %}
+
+<div class="aisdlc-banner">
+<div>
+<h2>{{ sv.stage.icon }} {{ sv.stage.label }}</h2>
+<div class="sub">{{ sv.release.name }} · {{ sv.release.application }} · Target {{ sv.release.target_date }}</div>
+</div>
+<a href="/mvp/sdlc-gates{{ q }}&release={{ sv.release.id }}" class="aisdlc-pill text-decoration-none text-white">← All Stages</a>
+</div>
+
+{% include "partials/ai_sdlc_subnav.html" %}
+
+<div class="aisdlc-kpi-grid">
+<div class="aisdlc-kpi tone-success" data-aisdlc-drill="sdlc" data-metric="readiness" data-release="{{ sv.release.id }}" data-stage="{{ sv.stage.key }}" tabindex="0"><div class="v">{{ sm.readiness_score }}%</div><div class="l">Readiness Score</div></div>
+<div class="aisdlc-kpi tone-primary" data-aisdlc-drill="sdlc" data-metric="framework" data-release="{{ sv.release.id }}" data-stage="{{ sv.stage.key }}" tabindex="0"><div class="v">{{ sm.framework_coverage_pct }}%</div><div class="l">Framework Coverage</div></div>
+<div class="aisdlc-kpi tone-info" data-aisdlc-drill="sdlc" data-metric="readiness" data-release="{{ sv.release.id }}" data-stage="{{ sv.stage.key }}" tabindex="0"><div class="v">{{ sm.control_coverage_pct }}%</div><div class="l">Control Coverage</div></div>
+<div class="aisdlc-kpi tone-warning" data-aisdlc-drill="sdlc" data-metric="gaps" data-release="{{ sv.release.id }}" data-stage="{{ sv.stage.key }}" tabindex="0"><div class="v">{{ sm.open_gaps }}</div><div class="l">Open Gaps</div></div>
+</div>
+
+<div class="row g-2 mb-2 small">
+<div class="col-md-3"><strong>Owner:</strong> {{ sm.owner }}</div>
+<div class="col-md-3"><strong>Due:</strong> {{ sm.due_date }}</div>
+<div class="col-md-3"><strong>Evidence:</strong> {{ sm.evidence_status }}</div>
+<div class="col-md-3"><strong>Approval:</strong> <span class="aisdlc-badge {{ sm.approval_status }}">{{ sm.approval_status }}</span> · <span class="aisdlc-badge {{ sm.risk_rating }}">{{ sm.risk_rating }}</span></div>
+</div>
+
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Framework & Control Coverage</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead>
+<tr><th>Framework</th><th>Controls</th><th>Covered</th><th>Checklist</th><th>Gaps</th><th>Evidence</th><th>Owner</th><th>Due</th><th>Risk</th></tr>
+</thead>
+<tbody>
+{% for fw in sv.framework_rows %}
+<tr data-aisdlc-drill="sdlc" data-metric="framework" data-id="{{ fw.framework }}" data-release="{{ sv.release.id }}" data-stage="{{ sv.stage.key }}">
+<td><a href="/framework/{{ fw.framework }}{{ q }}" onclick="event.stopPropagation()">{{ fw.framework }}</a></td>
+<td>{{ fw.controls_total }}</td>
+<td>{{ fw.controls_covered }}</td>
+<td>{{ fw.checklist_pct }}%</td>
+<td>{{ fw.gaps }}</td>
+<td><span class="aisdlc-badge {{ fw.evidence_status }}">{{ fw.evidence_status }}</span></td>
+<td>{{ fw.owner }}</td>
+<td>{{ fw.due_date }}</td>
+<td><span class="aisdlc-badge {{ fw.risk }}">{{ fw.risk }}</span></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+
+{% if sv.requirements is defined %}
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Requirement Governance — Generated Controls & Applicability</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Req ID</th><th>Title</th><th>Interpretation</th><th>Controls</th><th>Owner Ack</th><th>Applicability</th><th>Status</th></tr></thead>
+<tbody>
+{% for r in sv.requirements %}
+<tr data-aisdlc-drill="sdlc" data-metric="requirements" data-release="{{ sv.release.id }}" data-stage="{{ sv.stage.key }}">
+<td>{{ r.req_id }}</td>
+<td>{{ r.title|truncate(40, True, '…') }}</td>
+<td class="small">{{ r.interpretation|truncate(48, True, '…') }}</td>
+<td>{{ r.controls_generated }}</td>
+<td>{{ r.owner_ack }}</td>
+<td>{{ r.applicability|truncate(28, True, '') }}</td>
+<td><span class="aisdlc-badge {{ r.status }}">{{ r.status }}</span></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+{% endif %}
+
+{% if sv.designs is defined %}
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Design Governance — Architecture, Security & Compliance Review</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Design ID</th><th>Title</th><th>Architecture</th><th>Security</th><th>Compliance</th><th>Status</th></tr></thead>
+<tbody>
+{% for d in sv.designs %}
+<tr>
+<td>{{ d.design_id }}</td>
+<td>{{ d.title|truncate(36, True, '…') }}</td>
+<td><span class="aisdlc-badge {{ d.architecture_review }}">{{ d.architecture_review }}</span></td>
+<td><span class="aisdlc-badge {{ d.security_review }}">{{ d.security_review }}</span></td>
+<td><span class="aisdlc-badge {{ d.compliance_review }}">{{ d.compliance_review }}</span></td>
+<td>{{ d.status }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+{% endif %}
+
+{% if sv.development is defined %}
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Development Governance — Secure Coding & Control Implementation</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Item</th><th>Progress</th><th>Control</th><th>Owner</th><th>Status</th></tr></thead>
+<tbody>
+{% for d in sv.development %}
+<tr>
+<td>{{ d.item|truncate(42, True, '…') }}</td>
+<td><span class="aisdlc-bar"><span class="fill" style="width:{{ d.progress_pct }}%"></span></span> {{ d.progress_pct }}%</td>
+<td>{{ d.control }}</td>
+<td>{{ d.owner }}</td>
+<td><span class="aisdlc-badge {{ d.status }}">{{ d.status }}</span></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+{% endif %}
+
+{% if sv.testing is defined %}
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Testing Governance — VAPT, Security & Compliance Validation</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Test ID</th><th>Name</th><th>Type</th><th>Status</th><th>Defects</th><th>Due</th></tr></thead>
+<tbody>
+{% for t in sv.testing %}
+<tr>
+<td>{{ t.test_id }}</td>
+<td>{{ t.name|truncate(36, True, '…') }}</td>
+<td>{{ t.type }}</td>
+<td><span class="aisdlc-badge {{ t.status }}">{{ t.status }}</span></td>
+<td>{{ t.defects }}</td>
+<td>{{ t.due }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+{% endif %}
+
+{% if sv.go_live is defined %}
+{% set gl = sv.go_live %}
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Go-Live Governance — Readiness & Final Approval</div>
+<div class="row g-2 mb-2">
+<div class="col-md-3"><div class="aisdlc-kpi tone-success"><div class="v">{{ gl.readiness_score }}%</div><div class="l">Go-Live Readiness</div></div></div>
+<div class="col-md-3"><div class="aisdlc-kpi tone-danger" data-aisdlc-drill="sdlc" data-metric="observations" data-release="{{ sv.release.id }}" data-stage="{{ sv.stage.key }}" tabindex="0"><div class="v">{{ gl.open_observations }}</div><div class="l">Open Observations</div></div></div>
+<div class="col-md-3"><div class="aisdlc-kpi tone-warning"><div class="v">{{ gl.exceptions_pending }}</div><div class="l">Exceptions Pending</div></div></div>
+<div class="col-md-3"><div class="aisdlc-kpi tone-info"><div class="v">—</div><div class="l">{{ gl.final_approval|truncate(24, True, '…') }}</div></div></div>
+</div>
+<p class="small"><strong>Residual risk:</strong> {{ gl.residual_risk_acceptance }}</p>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Checklist Item</th><th>Status</th><th>Owner</th></tr></thead>
+<tbody>
+{% for c in gl.checklist %}
+<tr><td>{{ c.item|truncate(48, True, '…') }}</td><td><span class="aisdlc-badge {{ c.status }}">{{ c.status }}</span></td><td>{{ c.owner }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+{% endif %}
+
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Approval Workflow Chain</div>
+<div class="aisdlc-workflow">
+<div class="aisdlc-wf-step is-done"><div class="step-n">1</div>Owner Submit</div>
+<div class="aisdlc-wf-step is-done"><div class="step-n">2</div>AppSec Review</div>
+<div class="aisdlc-wf-step is-active"><div class="step-n">3</div>Compliance</div>
+<div class="aisdlc-wf-step"><div class="step-n">4</div>Internal Audit</div>
+<div class="aisdlc-wf-step"><div class="step-n">5</div>Go-Live CAB</div>
+</div>
+</div>
+
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Audit Trail <span class="meta">{{ sv.audit_trail|length }} events</span></div>
+<ul class="aisdlc-trail ecs-paginated-list mb-0">
+{% for e in sv.audit_trail %}
+<li><span class="ts">{{ e.timestamp }}</span> — <strong>{{ e.action }}</strong> · {{ e.actor }} — {{ e.detail }}</li>
+{% endfor %}
+</ul>
+</div>
+
+<div class="d-flex gap-2 flex-wrap mt-2">
+{% for st in ['requirement','design','development','testing','go-live'] %}
+{% if st != sv.stage.key %}
+<a class="btn btn-sm btn-outline-secondary" href="/mvp/sdlc-gates/{{ st }}{{ q }}&release={{ sv.release.id }}">→ {{ st|replace('-',' ')|title }}</a>
+{% endif %}
+{% endfor %}
+</div>
+
+</div></div></div>
+{% include "partials/ai_sdlc_drill_modal.html" %}
+</body></html>

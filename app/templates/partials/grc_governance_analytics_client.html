@@ -1,0 +1,57 @@
+{# Governance Analytics — demo drill client (Risk Register & Governance Analytics only) #}
+<script>
+(function () {
+  if (window.__grcGovAnalyticsInit) return;
+  window.__grcGovAnalyticsInit = true;
+
+  function wireTrendBars(container, module, metricPrefix) {
+    if (!container) return;
+    container.querySelectorAll('.trend-bar').forEach(function (bar) {
+      bar.style.cursor = 'pointer';
+      bar.setAttribute('tabindex', '0');
+      if (!bar.getAttribute('data-grc-drill')) {
+        bar.setAttribute('data-grc-drill', '1');
+        bar.setAttribute('data-grc-module', module);
+        bar.setAttribute('data-grc-metric', metricPrefix);
+        if (!bar.getAttribute('data-grc-id') && bar.getAttribute('data-month-key')) {
+          bar.setAttribute('data-grc-id', bar.getAttribute('data-month-key'));
+        }
+      }
+    });
+  }
+
+  function wireInsightBars() {
+    document.querySelectorAll('.ecs-insight-bar[data-grc-framework]').forEach(function (bar) {
+      bar.style.cursor = 'pointer';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    wireTrendBars(document.querySelector('.ecs-cap-gov-analytics'), 'governance', 'coverage_month');
+    document.querySelectorAll('[data-grc-chart="coverage"]').forEach(function (el) {
+      wireTrendBars(el, 'governance', 'coverage_month');
+    });
+    document.querySelectorAll('[data-grc-chart="observations"]').forEach(function (el) {
+      wireTrendBars(el, 'governance', 'observations_month');
+    });
+    document.querySelectorAll('[data-grc-chart="rejection"]').forEach(function (el) {
+      wireTrendBars(el, 'governance', 'rejection_month');
+    });
+    wireInsightBars();
+  });
+
+  var form = document.querySelector('.ecs-analytics-filter-bar');
+  if (form) {
+    form.addEventListener('change', function () {
+      setTimeout(function () {
+        wireInsightBars();
+        document.querySelectorAll('[data-grc-chart]').forEach(function (el) {
+          var m = el.getAttribute('data-grc-chart');
+          var metric = m === 'observations' ? 'observations_month' : (m === 'rejection' ? 'rejection_month' : 'coverage_month');
+          wireTrendBars(el, 'governance', metric);
+        });
+      }, 200);
+    });
+  }
+})();
+</script>

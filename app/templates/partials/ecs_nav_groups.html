@@ -6,6 +6,7 @@
 {% set ops_open = nav_module in ['scheduler','upload','integrations','onboarding','integrations_hub'] %}
 {% set gov_open = nav_module in ['audit_prep','evidence_health','reuse','lifecycle','completeness','comparison','search','evidence_approval'] %}
 {% set grc_open = nav_module in ['risk_register','exceptions_td','cmdb','regulatory_mapping','executive_heatmaps','correlation','governance_analytics','exception_governance'] %}
+{% set ai_sdlc_open = nav_module in ['ai_governance', 'sdlc_gates', 'ai_registry'] %}
 
 <nav class="ecs-nav-groups" aria-label="ECS command center">
 
@@ -112,5 +113,7 @@
 </div>
 </div>
 </div>
+
+{% include "partials/ecs_nav_ai_sdlc.html" %}
 
 </nav>

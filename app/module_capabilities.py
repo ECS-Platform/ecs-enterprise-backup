@@ -585,13 +585,20 @@ def _framework_admin_view(role: str) -> dict:
 
 
 def _risk_register_view(role: str) -> dict:
-    from app.enterprise_grc import build_risk_register
-    from app.standard_filter_engine import build_standard_dataset
+    from app.grc_demo_service import build_risk_register_demo_view
 
-    data = build_risk_register(role)
-    std = build_standard_dataset("risk_register", role)
-    scoped = std["records"].get("risks", data["rows"])
-    return {**data, "rows": scoped, "standard_dataset": std, "actions": _actions_for(role, risk=True)}
+    view = build_risk_register_demo_view(role)
+    view["actions"] = _actions_for(role, risk=True)
+    view["standard_dataset"] = {
+        "module": "risk_register",
+        "role": role,
+        "records": {
+            "risks": view["rows"],
+            "top_risks": view["top_risks"],
+            "bu_exposure": view["bu_exposure"],
+        },
+    }
+    return view
 
 
 def _exceptions_view(role: str) -> dict:
@@ -688,9 +695,9 @@ def _evidence_approval_view(role: str) -> dict:
 
 
 def _governance_analytics_view(role: str, filters: dict | None = None) -> dict:
-    from app.governance_intelligence import build_governance_intel_view
+    from app.grc_demo_service import build_governance_analytics_demo_view
 
-    view = build_governance_intel_view(role, filters)
+    view = build_governance_analytics_demo_view(role, filters)
     view["actions"] = _actions_for(role, gov_analytics=True)
     return view
 

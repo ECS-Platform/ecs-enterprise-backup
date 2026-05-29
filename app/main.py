@@ -1082,6 +1082,14 @@ def workflow_leadership_review(
 register_mvp_routes(app, templates)
 register_evidence_routes(app, templates)
 
+from app.routes_ai_sdlc_governance import register_ai_sdlc_routes
+
+register_ai_sdlc_routes(app, templates)
+
+from app.routes_grc_demo import register_grc_demo_routes
+
+register_grc_demo_routes(app)
+
 
 @app.get("/api/evidence-workflow/summary")
 def api_evidence_workflow_summary(role: str = "owner", user: str = "User"):

@@ -68,6 +68,33 @@
     b.addEventListener('click', function(){ setPeriod(b.getAttribute('data-period')); });
   });
   setPeriod('month');
+
+  document.querySelectorAll('.ecs-heat-drill').forEach(function(tile) {
+    tile.addEventListener('click', function() {
+      var app = tile.getAttribute('data-app') || tile.textContent.trim();
+      var score = (tile.textContent.match(/(\d+)%/) || [])[1] || '—';
+      if (window.ecsShowExecDrillModal) {
+        ecsShowExecDrillModal('Application Risk — ' + app,
+          '<dl class="row mb-0 small"><dt class="col-4">Application</dt><dd class="col-8">' + app + '</dd>' +
+          '<dt class="col-4">Compliance</dt><dd class="col-8">' + score + '%</dd>' +
+          '<dt class="col-4">Linked modules</dt><dd class="col-8"><a href="/mvp/risk-register?role={{ role }}&user={{ user }}">Risk Register</a> · ' +
+          '<a href="/mvp/completeness?role={{ role }}&user={{ user }}">Control Completeness</a></dd></dl>');
+      }
+    });
+  });
+
+  document.querySelectorAll('#ecsHeatmapFwBars .ecs-insight-bar').forEach(function(bar) {
+    bar.style.cursor = 'pointer';
+    bar.addEventListener('click', function() {
+      var label = bar.querySelector('.ecs-insight-bar-label span');
+      var val = bar.querySelector('.ecs-insight-bar-label strong');
+      if (window.ecsShowExecDrillModal && label) {
+        ecsShowExecDrillModal('Framework Risk — ' + label.textContent,
+          '<p class="small mb-0">Compliance score: <strong>' + (val ? val.textContent : '—') + '</strong></p>' +
+          '<p class="small mt-2"><a href="/framework/' + encodeURIComponent(label.textContent.trim()) + '?role={{ role }}&user={{ user }}">Open framework dashboard →</a></p>');
+      }
+    });
+  });
 })();
 </script>
 {% include "partials/standard_filter_include.html" %}

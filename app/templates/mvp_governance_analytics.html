@@ -1,5 +1,12 @@
 <!DOCTYPE html><html><head><title>Governance Analytics</title>{% include "partials/mvp_styles.html" %}
-<style>.ecs-metric-info{cursor:help;color:#6c757d;font-size:.85rem}.ecs-reason-row{font-size:.78rem;padding:.3rem 0;border-bottom:1px solid #f0f0f0}</style></head>
+<style>
+.ecs-metric-info{cursor:help;color:#6c757d;font-size:.85rem}
+.ecs-reason-row{font-size:.78rem;padding:.3rem 0;border-bottom:1px solid #f0f0f0;cursor:pointer}
+.ecs-reason-row:hover{background:#f8fafc}
+.ecs-exec-kpi[data-grc-drill], .ecs-ws-metric-row span[data-grc-drill]{cursor:pointer}
+.trend-bar{cursor:pointer}
+.ecs-insight-bar[data-grc-framework]{cursor:pointer}
+</style></head>
 <body class="bg-light ecs-cap-gov-analytics ecs-analytics-live"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
@@ -13,15 +20,32 @@
 {% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
 {% from "partials/analytics_macros.html" import metric_info %}
-{{ workspace_exec_strip(module_view) }}
-{% if filter_options is defined and analytics_filters is defined %}{% include "partials/analytics_filter_bar.html" %}{% endif %}
-{{ workspace_tab_nav(workspace) }}
 {% set intel = module_view.intel %}
 
+<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
+{% for k in module_view.kpis %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}" data-grc-drill data-grc-module="governance" data-grc-metric="{{ k.drill|default('audit_readiness') }}" title="{{ k.tooltip|default('Click to drill down') }}" tabindex="0">
+<span class="ecs-exec-kpi-val">{{ k.value }}</span>
+<span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
+</div>
+{% endfor %}
+</div></div>
+
+{% if filter_options is defined and analytics_filters is defined %}{% include "partials/analytics_filter_bar.html" %}{% endif %}
+{{ workspace_tab_nav(workspace) }}
+
 {{ workspace_pane('overview', true) }}
-<div class="ecs-ws-metric-row mb-1">{% for k in module_view.kpis %}<span><strong>{{ k.label }}</strong> {{ k.value }}</span>{% endfor %}</div>
+<div class="ecs-ws-metric-row mb-1">{% for k in module_view.kpis %}
+<span data-grc-drill data-grc-module="governance" data-grc-metric="{{ k.drill|default('audit_readiness') }}" tabindex="0"><strong>{{ k.label }}</strong> {{ k.value }}</span>{% if not loop.last %} · {% endif %}
+{% endfor %}</div>
 {{ module_action('governance_analytics','export_chart',role,user,'Export','btn-primary btn-sm') }}
-{{ module_action('governance_analytics','drill_down',role,user,'Drill Down','btn-outline-primary btn-sm') }}
+<p class="small text-muted">14-month enterprise trend · 3-year audit history · click any KPI or chart segment</p>
+<h6 class="small text-muted text-uppercase mt-2 mb-1">Governance Audit History ({{ module_view.audit_history|length }} events)</h6>
+<ul class="list-unstyled ecs-paginated-list mb-0 small">
+{% for e in module_view.audit_history[:20] %}
+<li class="border-bottom py-1" data-grc-drill data-grc-module="governance" data-grc-metric="audit"><span class="text-muted">{{ e.timestamp }}</span> — <strong>{{ e.action }}</strong> · {{ e.actor }}</li>
+{% endfor %}
+</ul>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('coverage', false) }}
@@ -29,16 +53,18 @@
 <h6 class="chart-card-title mb-0">{{ intel.implementation_coverage.title }}{{ metric_info(intel.implementation_coverage.tooltip) }}</h6>
 {% set cov_series = intel.implementation_coverage.series|default([]) %}
 {% set cov_max = cov_series|map(attribute='coverage_pct')|max if cov_series else 100 %}
-<div class="chart-container-compact"><div class="trend-chart">{% for t in cov_series %}
+<div class="chart-container-compact" data-grc-chart="coverage"><div class="trend-chart">{% for t in cov_series %}
 {% set bh = ((t.coverage_pct / cov_max * 68)|int) if cov_max else 4 %}
-<div class="trend-bar ecs-trend-bar-green" style="height:{{ [4, bh]|max }}px" title="{{ t.month }}: {{ t.coverage_pct }}%"><span class="trend-bar-val">{{ t.coverage_pct }}%</span><span class="trend-bar-label">{{ (t.month)[:3] }}</span></div>
+<div class="trend-bar ecs-trend-bar-green" style="height:{{ [4, bh]|max }}px" data-grc-drill data-grc-module="governance" data-grc-metric="coverage_month" data-grc-id="{{ t.month_key|default(t.month) }}" data-month-key="{{ t.month_key|default('') }}" title="{{ t.month }}: {{ t.coverage_pct }}%"><span class="trend-bar-val">{{ t.coverage_pct }}%</span><span class="trend-bar-label">{{ (t.month)[:3] }}</span></div>
 {% endfor %}</div></div>
 </div>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Month</th><th>Coverage</th><th>Controls</th><th>Valid Evidence</th></tr></thead>
-<tbody>{% for t in intel.implementation_coverage.series %}<tr><td>{{ t.month }}</td><td>{{ t.coverage_pct }}%</td><td>{{ t.controls_in_scope }}</td><td>{{ t.evidences_valid }}</td></tr>{% endfor %}</tbody></table></div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0"><thead><tr><th>Month</th><th>Coverage</th><th>Controls</th><th>Valid Evidence</th></tr></thead>
+<tbody>{% for t in cov_series %}
+<tr data-grc-drill data-grc-module="governance" data-grc-metric="coverage_month" data-grc-id="{{ t.month_key|default(t.month) }}"><td>{{ t.month }}</td><td>{{ t.coverage_pct }}%</td><td>{{ t.controls_in_scope }}</td><td>{{ t.evidences_valid }}</td></tr>
+{% endfor %}</tbody></table></div>
 <div class="compact-chart-grid mt-2">{% for fw, pct in module_view.control_effectiveness.items() %}
-<div class="ecs-insight-bar"><div class="ecs-insight-bar-label"><span>{{ fw }}</span><strong>{{ pct }}%</strong></div>
+<div class="ecs-insight-bar" data-grc-drill data-grc-module="governance" data-grc-metric="framework" data-grc-id="{{ fw }}" data-grc-framework="{{ fw }}"><div class="ecs-insight-bar-label"><span>{{ fw }}</span><strong>{{ pct }}%</strong></div>
 <div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-{% if pct >= 85 %}success{% elif pct >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ pct }}%"></div></div></div>
 {% endfor %}</div>
 {{ workspace_pane_end() }}
@@ -48,22 +74,24 @@
 {% set obs_series = intel.observations.series|default([]) %}
 {% set closed_max = obs_series|map(attribute='closed')|max|default(1) %}
 {% set opened_max = obs_series|map(attribute='opened')|max|default(1) %}
-<div class="chart-container-compact mb-2"><div class="trend-chart">{% for t in obs_series %}
+<div class="chart-container-compact mb-2" data-grc-chart="observations"><div class="trend-chart">{% for t in obs_series %}
 {% set ch = ((t.closed / closed_max * 68)|int) if closed_max else 4 %}
 {% set oh = ((t.opened / opened_max * 68)|int) if opened_max else 4 %}
-<div class="trend-bar ecs-trend-bar-blue" style="height:{{ [4, ch]|max }}px" title="Closed {{ t.closed }}"><span class="trend-bar-val">{{ t.closed }}</span><span class="trend-bar-label">{{ (t.month)[:3] }} C</span></div>
-<div class="trend-bar ecs-trend-bar-orange" style="height:{{ [4, oh]|max }}px" title="Opened {{ t.opened }}"><span class="trend-bar-val">{{ t.opened }}</span><span class="trend-bar-label">{{ (t.month)[:3] }} O</span></div>
+<div class="trend-bar ecs-trend-bar-blue" style="height:{{ [4, ch]|max }}px" data-grc-drill data-grc-module="governance" data-grc-metric="observations_month" data-grc-id="{{ t.month_key|default(t.month) }}" title="Closed {{ t.closed }}"><span class="trend-bar-val">{{ t.closed }}</span><span class="trend-bar-label">{{ (t.month)[:3] }} C</span></div>
+<div class="trend-bar ecs-trend-bar-orange" style="height:{{ [4, oh]|max }}px" data-grc-drill data-grc-module="governance" data-grc-metric="observations_month" data-grc-id="{{ t.month_key|default(t.month) }}" title="Opened {{ t.opened }}"><span class="trend-bar-val">{{ t.opened }}</span><span class="trend-bar-label">{{ (t.month)[:3] }} O</span></div>
 {% endfor %}</div></div>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Month</th><th>Opened</th><th>Closed</th><th>Net</th></tr></thead>
-<tbody>{% for t in intel.observations.series %}<tr><td>{{ t.month }}</td><td>{{ t.opened }}</td><td>{{ t.closed }}</td><td>{{ t.net }}</td></tr>{% endfor %}</tbody></table></div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0"><thead><tr><th>Month</th><th>Opened</th><th>Closed</th><th>Net</th></tr></thead>
+<tbody>{% for t in obs_series %}
+<tr data-grc-drill data-grc-module="governance" data-grc-metric="observations_month" data-grc-id="{{ t.month_key|default(t.month) }}"><td>{{ t.month }}</td><td>{{ t.opened }}</td><td>{{ t.closed }}</td><td>{{ t.net }}</td></tr>
+{% endfor %}</tbody></table></div>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('applications', false) }}
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Application</th><th>Compliance</th><th>Open Obs</th><th>Gaps</th><th>Stale</th><th>SLA</th><th>Risk</th></tr></thead>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0"><thead><tr><th>Application</th><th>Compliance</th><th>Open Obs</th><th>Gaps</th><th>Stale</th><th>SLA</th><th>Risk</th></tr></thead>
 <tbody>{% for a in module_view.top_risk_applications %}
-<tr><td>{{ a.application }}</td><td>{{ a.compliance_pct }}%</td><td>{{ a.open_observations }}</td><td>{{ a.high_risk_gaps }}</td><td>{{ a.stale_evidences }}</td><td>{{ a.sla_breaches }}</td><td>{{ a.risk }}</td></tr>
+<tr data-grc-drill data-grc-module="governance" data-grc-metric="application" data-grc-id="{{ a.application }}"><td>{{ a.application }}</td><td>{{ a.compliance_pct }}%</td><td>{{ a.open_observations }}</td><td>{{ a.high_risk_gaps }}</td><td>{{ a.stale_evidences }}</td><td>{{ a.sla_breaches }}</td><td>{{ a.risk }}</td></tr>
 {% endfor %}</tbody></table></div>
 {{ workspace_pane_end() }}
 
@@ -71,19 +99,36 @@
 <h6 class="chart-card-title mb-1">{{ intel.rejection_rate.title }}{{ metric_info(intel.rejection_rate.tooltip) }}</h6>
 {% set rej_series = intel.rejection_rate.series|default([]) %}
 {% set rej_max = rej_series|map(attribute='rate_pct')|max if rej_series else 10 %}
-<div class="chart-container-compact mb-2"><div class="trend-chart">{% for r in rej_series %}
+<div class="chart-container-compact mb-2" data-grc-chart="rejection"><div class="trend-chart">{% for r in rej_series %}
 {% set rh = ((r.rate_pct / rej_max * 68)|int) if rej_max else 4 %}
-<div class="trend-bar ecs-trend-bar-red" style="height:{{ [4, rh]|max }}px" title="{{ r.month }}: {{ r.rate_pct }}%"><span class="trend-bar-val">{{ r.rate_pct }}%</span><span class="trend-bar-label">{{ (r.month)[:3] }}</span></div>
+<div class="trend-bar ecs-trend-bar-red" style="height:{{ [4, rh]|max }}px" data-grc-drill data-grc-module="governance" data-grc-metric="rejection_month" data-grc-id="{{ r.month_key|default(r.month) }}" title="{{ r.month }}: {{ r.rate_pct }}%"><span class="trend-bar-val">{{ r.rate_pct }}%</span><span class="trend-bar-label">{{ (r.month)[:3] }}</span></div>
 {% endfor %}</div></div>
-{% for r in intel.rejection_rate.top_reasons %}<div class="ecs-reason-row">{{ r.reason }} <span class="float-end">{{ r.pct }}%</span></div>{% endfor %}
-{% if module_view.repeat_failures %}<h6 class="small text-muted mt-2">Repeat Failures</h6>
-<ul class="small mb-0">{% for r in module_view.repeat_failures %}<li>{{ r.framework }} — {{ r.control[:40] }}: {{ r.reason }}</li>{% endfor %}</ul>{% endif %}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0"><thead><tr><th>Month</th><th>Rate</th><th>Rejections</th><th>Submitted</th></tr></thead>
+<tbody>{% for r in rej_series %}
+<tr data-grc-drill data-grc-module="governance" data-grc-metric="rejection_month" data-grc-id="{{ r.month_key|default(r.month) }}"><td>{{ r.month }}</td><td>{{ r.rate_pct }}%</td><td>{{ r.rejections }}</td><td>{{ r.submitted }}</td></tr>
+{% endfor %}</tbody></table></div>
+{% for r in intel.rejection_rate.top_reasons %}
+<div class="ecs-reason-row" data-grc-drill data-grc-module="governance" data-grc-metric="rejection_reason" data-grc-id="{{ r.reason }}">{{ r.reason }} <span class="float-end">{{ r.count }} ({{ r.pct }}%)</span></div>
+{% endfor %}
+{% if module_view.repeat_failures %}
+<h6 class="small text-muted mt-2">Repeat Failures <span class="fw-normal">({{ module_view.repeat_failures|length }} · click row)</span></h6>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Framework</th><th>Control</th><th>Application</th><th>Reason</th><th>Count</th></tr></thead>
+<tbody>{% for r in module_view.repeat_failures %}
+<tr data-grc-drill data-grc-module="governance" data-grc-metric="repeat_failures"><td>{{ r.framework }}</td><td>{{ r.control|truncate(36, True, '…') }}</td><td>{{ r.application|truncate(20, True, '') }}</td><td>{{ r.reason|truncate(28, True, '') }}</td><td>{{ r.count }}</td></tr>
+{% endfor %}</tbody></table></div>
+{% endif %}
 <h6 class="small text-muted mt-2">{{ intel.sla_compliance.title }}</h6>
-{% for f in intel.sla_compliance.framework_wise %}<div class="ecs-reason-row">{{ f.framework }} — {{ f.on_time_pct }}% · {{ f.overdue }} overdue</div>{% endfor %}
+{% for f in intel.sla_compliance.framework_wise %}
+<div class="ecs-reason-row" data-grc-drill data-grc-module="governance" data-grc-metric="framework" data-grc-id="{{ f.framework }}">{{ f.framework }} — {{ f.on_time_pct }}% · {{ f.overdue }} overdue</div>
+{% endfor %}
 {{ workspace_pane_end() }}
 
 </div></div></div>
 <script type="application/json" id="ecsAnalyticsIntelDataset">{{ {'intel': module_view.intel, 'kpis': module_view.kpis, 'scope_summary': module_view.intel.scope_summary}|tojson }}</script>
-{% include "partials/analytics_filter_client.html" %}
+{% include "partials/grc_governance_analytics_client.html" %}
+{% include "partials/grc_demo_drill_modal.html" %}
 <script>document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>new bootstrap.Tooltip(el));</script>
 {% include "partials/chatbot_global.html" %}</body></html>

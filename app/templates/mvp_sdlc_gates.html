@@ -1,0 +1,112 @@
+<!DOCTYPE html><html><head><title>SDLC Compliance Gates — ECS</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-cap-sdlc-gates"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set v = sdlc_view %}
+
+<div class="aisdlc-banner">
+<div>
+<h2>SDLC Compliance Gates</h2>
+<div class="sub">Audit Driven Development — shift-left governance across requirement → go-live</div>
+</div>
+<span class="aisdlc-pill">ADD · CONTINUOUS COMPLIANCE</span>
+</div>
+
+{% include "partials/ai_sdlc_subnav.html" %}
+
+<div class="aisdlc-section py-2 px-3 mb-2">
+<div class="d-flex flex-wrap align-items-center gap-2">
+<span class="small text-muted">Active release:</span>
+{% for rel in v.releases %}
+<a href="/mvp/sdlc-gates{{ q }}&release={{ rel.id }}" class="btn btn-sm {% if rel.id == v.release.id %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ rel.name }}</a>
+{% endfor %}
+<span class="ms-auto small"><strong>{{ v.release.application }}</strong> · Owner: {{ v.release.owner }} · Target: {{ v.release.target_date }}</span>
+</div>
+</div>
+
+<div class="aisdlc-kpi-grid">
+{% for k in v.kpis %}
+<div class="aisdlc-kpi tone-{{ k.tone|default('primary') }}" data-aisdlc-drill="sdlc" data-metric="{{ k.drill|default('readiness') }}" data-release="{{ v.release.id }}" tabindex="0">
+<div class="v">{{ k.value }}</div>
+<div class="l">{{ k.label }}</div>
+</div>
+{% endfor %}
+</div>
+
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Governance Stage Pipeline <span class="meta">Click any stage for full drill-down</span></div>
+<div class="aisdlc-stage-grid">
+{% for st in v.stages %}
+<a class="aisdlc-stage-card" href="/mvp/sdlc-gates/{{ st.key }}{{ q }}&release={{ v.release.id }}">
+<div class="icon">{{ st.icon }}</div>
+<div class="title">{{ st.label }}</div>
+<div class="score">{{ st.readiness_score }}%</div>
+<div class="meta">Frameworks {{ st.framework_coverage_pct }}% · Controls {{ st.control_coverage_pct }}%</div>
+<div class="meta">Checklist {{ st.checklist_completion_pct }}% · <strong>{{ st.open_gaps }} gaps</strong></div>
+<div class="meta">Owner: {{ st.owner }} · Due {{ st.due_date }}</div>
+<span class="aisdlc-badge {{ st.risk_rating }} mt-1">{{ st.risk_rating }} risk</span>
+<span class="aisdlc-badge {{ st.approval_status }} ms-1">{{ st.approval_status }}</span>
+</a>
+{% endfor %}
+</div>
+</div>
+
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Framework Coverage Matrix <span class="meta">{{ v.frameworks|length }} frameworks in scope</span></div>
+<div class="d-flex flex-wrap gap-1 mb-2">
+{% for fw in v.frameworks %}
+<span class="aisdlc-badge info">{{ fw }}</span>
+{% endfor %}
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead>
+<tr>
+<th>Stage</th>
+<th>Framework %</th>
+<th>Control %</th>
+<th>Checklist %</th>
+<th>Gaps</th>
+<th>Evidence</th>
+<th>Approval</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+{% for st in v.stages %}
+<tr onclick="location.href='/mvp/sdlc-gates/{{ st.key }}{{ q }}&release={{ v.release.id }}'">
+<td><strong>{{ st.label }}</strong></td>
+<td>{{ st.framework_coverage_pct }}%</td>
+<td>{{ st.control_coverage_pct }}%</td>
+<td>
+<span class="aisdlc-bar"><span class="fill {% if st.checklist_completion_pct < 70 %}risk{% elif st.checklist_completion_pct < 85 %}warn{% endif %}" style="width:{{ st.checklist_completion_pct }}%"></span></span>
+{{ st.checklist_completion_pct }}%
+</td>
+<td>{{ st.open_gaps }}</td>
+<td>{{ st.evidence_status }}</td>
+<td><span class="aisdlc-badge {{ st.approval_status }}">{{ st.approval_status }}</span></td>
+<td><span class="aisdlc-badge {{ st.risk_rating }}">{{ st.risk_rating }}</span></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+
+<div class="aisdlc-section">
+<div class="aisdlc-section-title">Continuous Compliance Narrative</div>
+<p class="small text-muted mb-0">
+Each SDLC gate enforces checklist-to-evidence lifecycle alignment across PCI DSS, DPSC, AppSec, VAPT, baselining frameworks, ITPP, and AI Governance.
+Stages interconnect with <a href="/mvp/completeness{{ q }}">Control Completeness</a>,
+<a href="/mvp/audit-prep{{ q }}">Audit Command Center</a>, and
+<a href="/mvp/ai-governance{{ q }}">AI Governance Posture</a>.
+</p>
+</div>
+
+</div></div></div>
+{% include "partials/ai_sdlc_drill_modal.html" %}
+</body></html>

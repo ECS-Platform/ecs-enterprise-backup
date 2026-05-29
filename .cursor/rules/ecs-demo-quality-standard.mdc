@@ -1,0 +1,46 @@
+---
+description: ECS Enterprise Demo Quality Standard — data volume, pagination, drill-down, traceability
+globs: app/templates/**/*.html,app/**/*mock*.py,app/demo_data_standards.py
+alwaysApply: false
+---
+
+# ECS Enterprise Demo Quality Standard
+
+Apply when building or enhancing ECS dashboards and mock data.
+
+## Data volume
+- Minimum 10–20 rows per table; prefer 20–50 where appropriate.
+- No sparse dashboards or empty widgets (unless demonstrating exceptions).
+- Audit history: ≥3 years. Trend charts: ≥12 months.
+- Every KPI count must match drill-down record count exactly.
+
+## Pagination
+- No vertical scrolling inside tables — use `ecs-paginated-wrap` + `ecs-paginated-table`.
+- Default page size 10; show total count, page numbers, prev/next.
+- Card grids: wrap in `ecs-paginated-blocks`. Lists: `ecs-paginated-list`.
+- After filter re-render, call `window.ecsRefreshPagination()`.
+
+## Horizontal usability
+- Use `ecs-compact-table`, `ecs-fit-table`, badges/icons.
+- Move excessive detail to drill-down modals; fit tables in desktop view without horizontal scroll.
+
+## Universal drill-down
+- Every KPI, chart segment, heatmap cell, and table row must be clickable.
+- Use `[data-ecs-drill]` / `[data-aisdlc-drill]` with API-backed supporting records.
+- Prefer `ecsShowExecDrillModal` or shared drill partials over one-off modals.
+
+## Mock data traceability
+- Generate supporting records in mock engines (`demo_data_standards.py`, `*_mock*.py`).
+- Do not display metrics without backing drill data.
+- Do not change business logic in domain engines — presentation/mock layer only.
+
+## Cross-linking
+- Link Application → Framework → Control → Evidence → Observation → Exception → Audit.
+- Include related-module links in drill modal footers.
+
+## Checklist for new screens
+1. `mvp_styles.html` included (pagination + exec drill client).
+2. Tables wrapped and classed for pagination.
+3. Mock data ≥20 rows where applicable.
+4. All KPIs/charts wired to drill APIs.
+5. Realistic banking names, owners, evidence, observations.

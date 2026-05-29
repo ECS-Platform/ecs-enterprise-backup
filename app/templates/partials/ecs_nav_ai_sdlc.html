@@ -1,0 +1,15 @@
+{# AI & SDLC Governance — nav group (ECS_INFORMATION_ARCHITECTURE_V1 §G6) #}
+{% set ai_sdlc_open = nav_module in ['ai_governance', 'sdlc_gates', 'ai_registry'] %}
+<div class="ecs-nav-group">
+<button class="ecs-nav-group-toggle{% if ai_sdlc_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-ai-sdlc" aria-expanded="{{ 'true' if ai_sdlc_open else 'false' }}">
+<span class="ecs-nav-group-label">AI &amp; SDLC Governance</span>
+<span class="ecs-nav-group-chevron">▾</span>
+</button>
+<div id="nav-ai-sdlc" class="collapse{% if ai_sdlc_open %} show{% endif %}">
+<div class="ecs-nav-group-items">
+<a href="/mvp/ai-governance{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'ai_governance' %} is-active{% endif %}">AI Governance Posture</a>
+<a href="/mvp/sdlc-gates{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'sdlc_gates' %} is-active{% endif %}">SDLC Compliance Gates</a>
+<a href="/mvp/ai-registry{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_registry' %} is-active{% endif %}">Model &amp; Prompt Registry</a>
+</div>
+</div>
+</div>

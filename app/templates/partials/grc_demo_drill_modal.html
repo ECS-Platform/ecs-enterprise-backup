@@ -1,0 +1,97 @@
+{# Shared GRC demo drill modal — Risk Register & Governance Analytics #}
+<div class="modal fade" id="grcDemoDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="grcDemoDrillTitle">Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body small" id="grcDemoDrillBody"></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+<script>
+(function () {
+  if (window.__grcDemoDrillInit) return;
+  window.__grcDemoDrillInit = true;
+  var modalEl = document.getElementById('grcDemoDrillModal');
+  if (!modalEl || typeof bootstrap === 'undefined') return;
+  var modal = new bootstrap.Modal(modalEl);
+  var titleEl = document.getElementById('grcDemoDrillTitle');
+  var bodyEl = document.getElementById('grcDemoDrillBody');
+  var role = '{{ role|default("cio")|e }}';
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function cols(rows, max) {
+    if (!rows || !rows.length) return [];
+    return Object.keys(rows[0]).slice(0, max || 7).map(function (k) {
+      return { key: k, label: k.replace(/_/g, ' ') };
+    });
+  }
+
+  function tableHtml(rows, maxCols) {
+    if (!rows || !rows.length) return '<p class="text-muted mb-0">No records.</p>';
+    var c = cols(rows, maxCols);
+    var h = '<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-paginated-table ecs-compact-table ecs-fit-table mb-0"><thead><tr>';
+    c.forEach(function (col) { h += '<th>' + esc(col.label) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr>';
+      c.forEach(function (col) {
+        var v = r[col.key];
+        if (v && typeof v === 'object') v = Array.isArray(v) ? v.length + ' items' : JSON.stringify(v);
+        h += '<td>' + esc(v) + '</td>';
+      });
+      h += '</tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  function renderPayload(p) {
+    if (!p) return '<p class="text-muted">No data.</p>';
+    if ((p.type === 'risk' || p.type === 'application' || p.type === 'framework') && p.data) {
+      var d = p.data;
+      var html = '<dl class="row mb-2">';
+      Object.keys(d).filter(function (k) { return typeof d[k] !== 'object'; }).slice(0, 12).forEach(function (k) {
+        html += '<dt class="col-sm-4">' + esc(k.replace(/_/g, ' ')) + '</dt><dd class="col-sm-8">' + esc(d[k]) + '</dd>';
+      });
+      html += '</dl>';
+      if (p.rows && p.rows.length) html += tableHtml(p.rows);
+      if (d.linked_observations) html += '<h6 class="mt-2">Linked Observations</h6>' + tableHtml(d.linked_observations, 4);
+      return html;
+    }
+    if (p.type === 'list' && p.rows) return tableHtml(p.rows);
+    if (p.data) return '<pre class="small bg-light p-2 rounded">' + esc(JSON.stringify(p.data, null, 2)) + '</pre>';
+    return '<p class="text-muted">' + esc(p.title || '') + '</p>';
+  }
+
+  window.grcOpenDrill = function (module, metric, id) {
+    var url = module === 'risk'
+      ? '/api/grc-demo/risk/drill?metric=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '') + '&role=' + encodeURIComponent(role)
+      : '/api/grc-demo/governance/drill?metric=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '') + '&role=' + encodeURIComponent(role);
+    titleEl.textContent = 'Loading…';
+    bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
+    modal.show();
+    fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+      var p = j.payload || {};
+      titleEl.textContent = p.title || 'Detail';
+      bodyEl.innerHTML = renderPayload(p);
+      if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+    }).catch(function () {
+      bodyEl.innerHTML = '<p class="text-danger">Failed to load drill-down.</p>';
+    });
+  };
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-grc-drill]');
+    if (!el) return;
+    e.preventDefault();
+    grcOpenDrill(el.getAttribute('data-grc-module') || 'governance', el.getAttribute('data-grc-metric') || '', el.getAttribute('data-grc-id') || '');
+  });
+})();
+</script>
