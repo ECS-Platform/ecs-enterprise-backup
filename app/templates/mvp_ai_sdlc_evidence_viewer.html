@@ -1,0 +1,66 @@
+<!DOCTYPE html><html><head><title>Evidence Viewer — {{ ev.document_name }}</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-governance-page" data-nav-module="ai_sdlc_evidence"><div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% include "partials/ecs_governance_chrome.html" %}
+
+<div class="aisdlc-banner flex-shrink-0 mb-2">
+<div>
+<h2>Evidence Viewer</h2>
+<div class="sub">{{ ev.document_name }} · {{ ev.evidence_id }}</div>
+</div>
+<a href="/mvp/ai-sdlc/evidence{{ q }}" class="aisdlc-pill text-decoration-none text-white">← Evidence Collection</a>
+</div>
+
+<div class="row g-3">
+<div class="col-md-6">
+<div class="card h-100"><div class="card-header py-2"><strong>Document</strong></div><div class="card-body">
+<dl class="row small mb-0">
+<dt class="col-4">Document Name</dt><dd class="col-8">{{ ev.document_name }}</dd>
+<dt class="col-4">Uploaded By</dt><dd class="col-8">{{ ev.uploaded_by }}</dd>
+<dt class="col-4">Upload Date</dt><dd class="col-8">{{ ev.upload_date }}</dd>
+<dt class="col-4">Artifact Type</dt><dd class="col-8">{{ ev.artifact_type }}</dd>
+<dt class="col-4">Status</dt><dd class="col-8"><span class="aisdlc-badge {{ ev.status|replace(' ','') }}">{{ ev.status }}</span></dd>
+</dl>
+{% if ev.files %}<ul class="small mt-2 mb-0">{% for f in ev.files %}<li>{{ f.name }} <span class="text-muted">{{ f.uploaded_at|default('') }}</span></li>{% endfor %}</ul>{% endif %}
+</div></div></div>
+<div class="col-md-6">
+<div class="card h-100"><div class="card-header py-2"><strong>Control Mapping</strong></div><div class="card-body">
+<dl class="row small mb-0">
+<dt class="col-4">Application</dt><dd class="col-8">{{ ev.application }}</dd>
+<dt class="col-4">Framework</dt><dd class="col-8">{{ ev.framework }}</dd>
+<dt class="col-4">Domain</dt><dd class="col-8">{{ ev.domain }}</dd>
+<dt class="col-4">Control ID</dt><dd class="col-8">{{ ev.control_id }}</dd>
+<dt class="col-4">Control Name</dt><dd class="col-8">{{ ev.control_name }}</dd>
+<dt class="col-4">Stage</dt><dd class="col-8">{{ ev.stage }}</dd>
+<dt class="col-4">Control Description</dt><dd class="col-8">{{ ev.control_description }}</dd>
+</dl>
+</div></div></div>
+</div>
+
+<div class="card mt-3"><div class="card-header py-2"><strong>Approval History</strong></div><div class="card-body p-0">
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
+{{ gov_table_open('ev-approval-history') }}
+<thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Transition</th><th>Comments</th></tr></thead>
+<tbody>{% for h in ev.approval_history %}
+<tr><td>{{ h.timestamp }}</td><td>{{ h.action }}</td><td>{{ h.actor }}</td><td>{{ h.from_status }} → {{ h.to_status }}</td><td class="ecs-gov-wrap">{{ h.comments|default('') }}</td></tr>
+{% else %}<tr><td colspan="5" class="text-muted">No approval actions yet</td></tr>{% endfor %}</tbody>
+{{ gov_table_close() }}
+</div></div>
+
+<div class="card mt-3"><div class="card-header py-2"><strong>Audit Trail</strong></div><div class="card-body p-0">
+{{ gov_table_open('ev-audit-trail') }}
+<thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead>
+<tbody>{% for a in ev.audit_trail %}
+<tr><td>{{ a.timestamp }}</td><td>{{ a.action }}</td><td>{{ a.actor }}</td><td class="ecs-gov-wrap">{{ a.detail }}</td></tr>
+{% else %}<tr><td colspan="4" class="text-muted">No audit entries yet</td></tr>{% endfor %}</tbody>
+{{ gov_table_close() }}
+</div></div>
+
+</div></div></div>
+{% include "partials/ecs_governance_table_framework.html" %}
+</body></html>

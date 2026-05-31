@@ -36,9 +36,11 @@ BANKING_APPLICATIONS = [
 ]
 
 AUDIT_ACTIONS = [
-    "Control Validated", "Evidence Approved", "Gap Identified", "Observation Raised",
-    "Exception Approved", "Model Approved", "Prompt Audit", "VAPT Finding Closed",
-    "Framework Mapping Updated", "CAB Approval", "Risk Acceptance", "Policy Review",
+    "Evidence Upload", "Evidence Approved", "Approval", "Exception Approved", "Exception Raised",
+    "Observation Raised", "Observation Closed", "Closure", "VAPT", "UAT",
+    "Model Approved", "Prompt Approved", "Control Mapping", "Framework Mapping",
+    "Audit Closure", "Control Validated", "Gap Identified", "CAB Approval",
+    "Risk Acceptance", "Policy Review", "Prompt Audit", "VAPT Finding Closed",
 ]
 
 AUDIT_ACTORS = [

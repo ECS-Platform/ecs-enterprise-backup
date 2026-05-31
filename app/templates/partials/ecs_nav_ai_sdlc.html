@@ -1,15 +1,23 @@
-{# AI & SDLC Governance — nav group (ECS_INFORMATION_ARCHITECTURE_V1 §G6) #}
-{% set ai_sdlc_open = nav_module in ['ai_governance', 'sdlc_gates', 'ai_registry'] %}
+{# AI SDLC Governance — workflow execution navigation #}
+{% set ai_sdlc_open = nav_module.startswith('ai_sdlc') or nav_module in ['ai_governance', 'sdlc_gates', 'ai_registry', 'governance_quality'] %}
 <div class="ecs-nav-group">
 <button class="ecs-nav-group-toggle{% if ai_sdlc_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-ai-sdlc" aria-expanded="{{ 'true' if ai_sdlc_open else 'false' }}">
-<span class="ecs-nav-group-label">AI &amp; SDLC Governance</span>
+<span class="ecs-nav-group-label">AI SDLC Governance</span>
 <span class="ecs-nav-group-chevron">▾</span>
 </button>
 <div id="nav-ai-sdlc" class="collapse{% if ai_sdlc_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
-<a href="/mvp/ai-governance{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'ai_governance' %} is-active{% endif %}">AI Governance Posture</a>
-<a href="/mvp/sdlc-gates{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'sdlc_gates' %} is-active{% endif %}">SDLC Compliance Gates</a>
-<a href="/mvp/ai-registry{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_registry' %} is-active{% endif %}">Model &amp; Prompt Registry</a>
+<a href="/mvp/ai-sdlc{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'ai_sdlc_home' %} is-active{% endif %}">Home</a>
+<a href="/mvp/ai-sdlc/control-tower{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_control_tower' %} is-active{% endif %}">AI SDLC Control Tower</a>
+<a href="/mvp/ai-sdlc/onboarding{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_onboarding' %} is-active{% endif %}">Application Onboarding</a>
+<a href="/mvp/ai-sdlc/requirements{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_requirements' %} is-active{% endif %}">Requirements</a>
+<a href="/mvp/ai-sdlc/design{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_design' %} is-active{% endif %}">Design</a>
+<a href="/mvp/ai-sdlc/development{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_development' %} is-active{% endif %}">Development</a>
+<a href="/mvp/ai-sdlc/testing{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_testing' %} is-active{% endif %}">Testing</a>
+<a href="/mvp/ai-sdlc/golive{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_golive' %} is-active{% endif %}">Go-Live</a>
+<a href="/mvp/ai-sdlc/evidence{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_evidence' %} is-active{% endif %}">Evidence Collection</a>
+<a href="/mvp/ai-sdlc/findings{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_findings' %} is-active{% endif %}">Findings &amp; Remediation</a>
+<a href="/mvp/ai-sdlc/reports{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_reports' %} is-active{% endif %}">Reports</a>
 </div>
 </div>
 </div>

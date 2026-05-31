@@ -2,209 +2,236 @@
 {% include "partials/mvp_styles.html" %}
 {% include "partials/ai_sdlc_styles.html" %}
 </head>
-<body class="bg-light ecs-cap-ai-governance"><div class="container-fluid"><div class="row">
+<body class="bg-light ecs-governance-page ecs-cap-ai-governance" data-nav-module="ai_governance"><div class="container-fluid h-100"><div class="row h-100">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 ecs-workspace-main">
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
 {% set q = '?role=' ~ role ~ '&user=' ~ user %}
 {% set v = ai_view %}
+{% from "partials/mvp_workspace_macros.html" import governance_workspace_open, governance_workspace_tabs, governance_pane, governance_pane_end, governance_workspace_close %}
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
 
-<div class="aisdlc-banner">
-<div>
-<h2>AI Governance Posture</h2>
-<div class="sub">Continuous governance for production AI assistants — prompt audit, model risk, policy compliance</div>
-</div>
+{% include "partials/ecs_governance_chrome.html" %}
+{% set cb = v.compliance_breakdown|default({}) %}
+{% set pc = v.policy_compliance_explainer|default({}) %}
+{% set kb = v.knowledge_base|default({}) %}
+{% set km = kb.reuse_metrics|default({}) %}
+{% set formulas = v.coverage_formulas|default({}) %}
+{% set ws_tabs = [
+  {'id':'overview','label':'Overview'},{'id':'models','label':'Models'},{'id':'prompts','label':'Prompts'},
+  {'id':'risks','label':'Risks'},{'id':'controls','label':'Controls'},{'id':'evidence','label':'Evidence'},
+  {'id':'exceptions','label':'Exceptions'},{'id':'approvals','label':'Approvals'},{'id':'audit','label':'Audit History'},
+  {'id':'knowledge','label':'Knowledge Base'}
+] %}
+
+<div class="aisdlc-banner flex-shrink-0">
+<div><h2>AI Governance Posture</h2><div class="sub">Continuous governance for production AI assistants</div></div>
 <span class="aisdlc-pill">LEADERSHIP DEMO</span>
 </div>
-
-{% include "partials/ai_sdlc_subnav.html" %}
-
-<div class="aisdlc-kpi-grid">
+<div class="aisdlc-kpi-grid flex-shrink-0" style="margin-bottom:0.35rem">
 {% for k in v.kpis %}
-<div class="aisdlc-kpi tone-{{ k.tone|default('primary') }}" data-aisdlc-drill="posture" data-metric="{{ k.drill }}" tabindex="0">
-<div class="v">{{ k.value }}</div>
-<div class="l">{{ k.label }}</div>
-<div class="h">{{ k.hint|default('') }}</div>
-</div>
+<div class="aisdlc-kpi tone-{{ k.tone|default('primary') }}" data-aisdlc-drill="posture" data-metric="{{ k.drill }}" tabindex="0" title="Click for drill-down and How Calculated">
+<div class="v">{{ k.value }}</div><div class="l">{{ k.label }}</div>{% if k.hint %}<div class="hint">{{ k.hint }}</div>{% endif %}</div>
 {% endfor %}
 </div>
+<p class="small text-muted mb-2 flex-shrink-0">Percentages and scores open drill-down modals with <strong>How Calculated</strong> methodology.</p>
 
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">AI Application Inventory <span class="meta">{{ v.applications|length }} production assistants · click card</span></div>
+{{ governance_workspace_open() }}
+{{ governance_workspace_tabs(ws_tabs) }}
+
+{{ governance_pane('overview', 'AI Application Inventory', v.applications|length|string ~ ' assistants', true) }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>AI Compliance Score {{ cb.current_score|default(v.summary.avg_compliance_score) }}%:</strong> {{ formulas.ai_compliance|default('Weighted average of governance dimensions.') }}
+<span class="aisdlc-drill-link ms-1" data-aisdlc-drill="posture" data-metric="compliance" tabindex="0">View dimension breakdown →</span>
+</div>
 <div class="aisdlc-app-grid ecs-paginated-blocks">
 {% for app in v.applications %}
 <div class="aisdlc-app-card {{ app.risk_tier }}" data-aisdlc-drill="posture" data-metric="application" data-id="{{ app.id }}" tabindex="0">
 <div class="name">{{ app.name }}</div>
-<div class="meta">{{ app.application }} · {{ app.owner }} · {{ app.model }}</div>
-<div class="meta mt-1">Compliance <strong>{{ app.compliance_score }}%</strong> · Policy <strong>{{ app.policy_compliance }}%</strong> · {{ app.model_status }}</div>
-<div class="meta">{{ app.use_case|truncate(60, True, '…') }}</div>
+<div class="meta">{{ app.application }} · {{ app.owner }}</div>
+<div class="meta small">Model: {{ app.model }} · {{ app.use_case[:48] }}{% if app.use_case|length > 48 %}…{% endif %}</div>
+<div class="meta small">Risk {{ app.risk_tier }} · Compliance {{ app.compliance_score }}% · Policy {{ app.policy_compliance }}%</div>
+<div class="meta small text-muted">Hallucinations {{ app.hallucinations_30d }} · Unsafe blocked {{ app.unsafe_blocked_30d }}</div>
 </div>
 {% endfor %}
 </div>
-</div>
+{{ governance_pane_end() }}
 
-<div class="row g-2">
-<div class="col-lg-7">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">AI Risk Heatmap <span class="meta">Click any cell for drill-down</span></div>
-<div class="aisdlc-heat-grid">
-<div class="aisdlc-heat-row aisdlc-heat-header">
-<div class="aisdlc-heat-label">Application</div>
-{% for dim in v.risk_heatmap.dimensions %}
-<div class="aisdlc-heat-cell">{{ dim|truncate(12, True, '') }}</div>
-{% endfor %}
-</div>
-{% for row in v.risk_heatmap.rows %}
-<div class="aisdlc-heat-row">
-<div class="aisdlc-heat-label">{{ row.application|truncate(22, True, '…') }}</div>
-{% for cell in row.cells %}
-<div class="aisdlc-heat-cell tone-{{ cell.tone }}" data-aisdlc-drill="posture" data-metric="heatmap_cell" data-id="{{ row.application_id }}::{{ cell.dimension }}" title="{{ cell.dimension }}: {{ cell.score }}%">{{ cell.score }}</div>
-{% endfor %}
-</div>
-{% endfor %}
-</div>
-</div>
-</div>
-<div class="col-lg-5">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Token Usage Analytics <span class="meta">Last 7 days · click bar</span></div>
-<div class="aisdlc-chart-bar">
-{% for d in v.token_usage.daily_trend %}
-<div class="bar" style="height: {{ (d.tokens / 1200000 * 70)|int }}px" data-aisdlc-drill="posture" data-metric="tokens" data-id="{{ d.day_key }}" title="{{ d.tokens }} tokens" tabindex="0"><span class="lbl">{{ d.day }}</span></div>
-{% endfor %}
-</div>
-<div class="aisdlc-section-title mt-3">12-Month Token Trend <span class="meta">click month</span></div>
-<div class="aisdlc-chart-bar" style="height:90px">
-{% for d in v.token_usage.monthly_trend %}
-<div class="bar" style="height: {{ (d.tokens / 12000000 * 80)|int }}px; background:#4338ca" data-aisdlc-drill="posture" data-metric="tokens" data-id="{{ d.month_key }}" title="{{ d.tokens }} tokens" tabindex="0"><span class="lbl">{{ d.month|truncate(6, True, '') }}</span></div>
-{% endfor %}
-</div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
-<thead><tr><th>Application</th><th>Tokens MTD</th><th>Est. Cost</th></tr></thead>
+{{ governance_pane('models', 'Production Models', v.model_approvals|length|string ~ ' models') }}
+<p class="small mb-2"><a href="/mvp/ai-registry{{ q }}">Open Model Registry →</a> · Model → Application → Prompt relationships are navigable via drill-down.</p>
+{{ gov_table_open('ai-models') }}
+<thead><tr><th>Model</th><th>Application</th><th>Owner</th><th>Approval Status</th><th>Risk Tier</th><th>Expiry</th></tr></thead>
 <tbody>
-{% for t in v.token_usage.by_application %}
-<tr data-aisdlc-drill="posture" data-metric="application" data-id="{{ t.application_id }}"><td>{{ t.application|truncate(28, True, '') }}</td><td>{{ "{:,}".format(t.tokens) }}</td><td>${{ "{:,}".format(t.cost_usd|int) }}</td></tr>
+{% for m in v.model_approvals %}
+<tr data-aisdlc-drill="posture" data-metric="models" data-id="{{ m.application_id }}">
+<td>{{ m.model }}</td><td>{{ m.application }}</td><td>{{ m.approved_by|default('—') }}</td>
+<td><span class="aisdlc-badge {{ m.status }}">{{ m.status }}</span></td><td>{{ m.risk_tier|default('High') }}</td><td>{{ m.expiry }}</td></tr>
 {% endfor %}
 </tbody>
-</table>
-</div>
-</div>
-</div>
-</div>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
 
-<div class="row g-2">
-<div class="col-md-6">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Prompt Audit Summary <span class="meta">{{ v.prompt_audit|length }} records · click row</span></div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
-<thead><tr><th>ID</th><th>Application</th><th>Risk</th><th>Status</th><th>Reviewed</th></tr></thead>
+{{ governance_pane('prompts', 'Prompt Audit', v.prompt_audit|length|string ~ ' records') }}
+{{ gov_table_open('ai-prompts') }}
+<thead><tr><th>Prompt</th><th>Application</th><th>Use Case / Model</th><th>Owner</th><th>Risk Score</th><th>Status</th></tr></thead>
 <tbody>
 {% for p in v.prompt_audit %}
 <tr data-aisdlc-drill="posture" data-metric="prompts" data-id="{{ p.prompt_id }}">
-<td>{{ p.prompt_id }}</td>
-<td>{{ p.application|truncate(22, True, '') }}</td>
-<td>{{ p.risk_score }}</td>
-<td><span class="aisdlc-badge {{ p.review_status }}">{{ p.review_status }}</span></td>
-<td class="small">{{ p.timestamp|truncate(10, True, '') }}</td>
-</tr>
+<td>{{ p.prompt_id }}</td><td>{{ p.application }}</td><td class="ecs-gov-wrap small">{{ p.model }} · {{ p.prompt_snippet[:40] }}…</td>
+<td>{{ p.team }}</td><td>{{ p.risk_score }}</td>
+<td><span class="aisdlc-badge {{ p.review_status }}">{{ p.review_status }}</span></td></tr>
 {% endfor %}
 </tbody>
-</table>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{{ governance_pane('risks', 'AI Risk Heatmap', 'Click cell to drill') }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>Dimensions:</strong> Data Privacy · Model Risk · Prompt Safety · Bias & Fairness · Audit Trail · Human-in-Loop —
+<span class="aisdlc-drill-link" data-aisdlc-drill="posture" data-metric="compliance" tabindex="0">open weighted compliance breakdown →</span>
+</div>
+{% if cb.breakdown %}
+{{ gov_table_open('ai-compliance-dims') }}
+<thead><tr><th>Dimension</th><th>Weight</th><th>Score</th><th>Contribution</th></tr></thead>
+<tbody>{% for row in cb.breakdown %}
+<tr data-aisdlc-drill="posture" data-metric="compliance" tabindex="0">
+<td>{{ row.dimension }}</td><td>{{ row.weight_pct }}%</td><td>{{ row.score }}%</td><td>{{ row.contribution }}</td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{% endif %}
+<div class="aisdlc-heat-grid">
+<div class="aisdlc-heat-row aisdlc-heat-header"><div class="aisdlc-heat-label">Application</div>
+{% for dim in v.risk_heatmap.dimensions %}<div class="aisdlc-heat-cell" title="{{ dim }}">{{ dim }}</div>{% endfor %}</div>
+{% for row in v.risk_heatmap.rows %}
+<div class="aisdlc-heat-row"><div class="aisdlc-heat-label" title="{{ row.application }}">{{ row.application }}</div>
+{% for cell in row.cells %}
+<div class="aisdlc-heat-cell tone-{{ cell.tone }}" data-aisdlc-drill="posture" data-metric="heatmap_cell" data-id="{{ row.application_id }}::{{ cell.dimension }}" tabindex="0">{{ cell.score }}</div>
+{% endfor %}</div>
+{% endfor %}
+</div>
+{{ governance_pane_end() }}
+
+{{ governance_pane('controls', 'ECS Control Compliance', v.control_compliance|default([])|length|string ~ ' controls') }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>ECS Control Compliance:</strong> Framework-mapped controls with violation tracking across onboarded applications.
+<span class="aisdlc-drill-link ms-1" data-aisdlc-drill="posture" data-metric="controls" tabindex="0">View all controls →</span>
+</div>
+{{ gov_table_open('ecs-controls') }}
+<thead><tr><th>Framework</th><th>Control ID</th><th>Control Name</th><th>Compliance %</th><th>Violations</th><th>Applications Affected</th><th>Control Owner</th><th></th></tr></thead>
+<tbody>
+{% for ctrl in v.control_compliance|default([]) %}
+<tr>
+<td>{{ ctrl.framework }}</td><td>{{ ctrl.control_id }}</td><td class="ecs-gov-wrap">{{ ctrl.control_name }}</td>
+<td>{{ ctrl.compliance_pct }}%</td><td>{{ ctrl.violations }}</td>
+<td class="ecs-gov-wrap small">{{ ctrl.applications_affected }}</td><td>{{ ctrl.control_owner }}</td>
+<td><button type="button" class="btn btn-sm btn-outline-primary py-0" data-aisdlc-drill="posture" data-metric="controls" data-id="{{ ctrl.control_id }}">View Violations</button></td></tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{% set eva = v.evidence_collection_analytics|default({}) %}
+{{ governance_pane('evidence', 'Evidence Collection', eva.trend|default([])|length|string ~ ' months tracked') }}
+<h6 class="small text-muted text-uppercase mb-1">Evidence Collection Trend</h6>
+<p class="small text-muted mb-1">X-axis: Month · Y-axis: Evidence Count · Series: Submitted, Approved, Rejected, Pending</p>
+<div class="aisdlc-evidence-trend-chart mb-3">
+<div class="aisdlc-chart-legend small mb-1">
+<span class="legend-item submitted">■ Submitted</span>
+<span class="legend-item approved">■ Approved</span>
+<span class="legend-item rejected">■ Rejected</span>
+<span class="legend-item pending">■ Pending</span>
+</div>
+<div class="aisdlc-chart-grouped">
+{% for pt in eva.trend|default([]) %}
+<div class="aisdlc-chart-month">
+<div class="bars">
+{% set mx = [pt.submitted, pt.approved, pt.rejected, pt.pending]|max %}
+<div class="bar submitted" style="height:{{ [4, (pt.submitted / mx * 70)|int]|max }}px" title="Submitted: {{ pt.submitted }}"></div>
+<div class="bar approved" style="height:{{ [4, (pt.approved / mx * 70)|int]|max }}px" title="Approved: {{ pt.approved }}"></div>
+<div class="bar rejected" style="height:{{ [4, (pt.rejected / mx * 70)|int]|max }}px" title="Rejected: {{ pt.rejected }}"></div>
+<div class="bar pending" style="height:{{ [4, (pt.pending / mx * 70)|int]|max }}px" title="Pending: {{ pt.pending }}"></div>
+</div>
+<span class="lbl">{{ pt.month }}</span>
+</div>
+{% endfor %}
 </div>
 </div>
-</div>
-<div class="col-md-6">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Hallucination Monitoring <span class="meta">{{ v.hallucinations|length }} flagged · click row</span></div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table mb-0">
-<thead><tr><th>Prompt</th><th>Application</th><th>Risk</th><th>Status</th></tr></thead>
+<h6 class="small text-muted text-uppercase mb-1 mt-2">Framework Evidence Coverage</h6>
+{{ gov_table_open('ecs-evidence-coverage') }}
+<thead><tr><th>Framework</th><th>Required</th><th>Collected</th><th>Approved</th><th>Coverage %</th><th>Approval %</th></tr></thead>
+<tbody>{% for row in eva.framework_coverage|default([]) %}
+<tr><td>{{ row.framework }}</td><td>{{ row.evidence_required }}</td><td>{{ row.evidence_collected }}</td>
+<td>{{ row.evidence_approved }}</td><td>{{ row.coverage_pct }}%</td><td>{{ row.approval_pct }}%</td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{{ governance_pane('exceptions', 'Hallucination & Unsafe Prompts', (v.hallucinations|length + v.unsafe_prompts|length)|string ~ ' flagged') }}
+{{ gov_table_open('ai-hallucinations') }}
+<thead><tr><th>Prompt</th><th>Application</th><th>Type</th><th>Status</th></tr></thead>
 <tbody>
 {% for h in v.hallucinations %}
 <tr data-aisdlc-drill="posture" data-metric="hallucinations" data-id="{{ h.prompt_id }}">
-<td>{{ h.prompt_id }}</td>
-<td>{{ h.application|truncate(24, True, '') }}</td>
-<td>{{ h.risk_score }}</td>
-<td><span class="aisdlc-badge warning">Flagged</span></td>
-</tr>
+<td>{{ h.prompt_id }}</td><td>{{ h.application }}</td><td>Hallucination</td><td><span class="aisdlc-badge warning">Flagged</span></td></tr>
 {% endfor %}
-</tbody>
-</table>
-</div>
-<div class="aisdlc-section-title mt-2">Unsafe Prompt Detection <span class="meta">{{ v.unsafe_prompts|length }} blocked</span></div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table mb-0">
-<thead><tr><th>Prompt</th><th>Application</th><th>Status</th></tr></thead>
-<tbody>
 {% for u in v.unsafe_prompts %}
 <tr data-aisdlc-drill="posture" data-metric="unsafe" data-id="{{ u.prompt_id }}">
-<td>{{ u.prompt_id }}</td>
-<td>{{ u.application|truncate(24, True, '') }}</td>
-<td><span class="aisdlc-badge danger">Quarantined</span></td>
-</tr>
+<td>{{ u.prompt_id }}</td><td>{{ u.application }}</td><td>Unsafe</td><td><span class="aisdlc-badge danger">Quarantined</span></td></tr>
 {% endfor %}
 </tbody>
-</table>
-</div>
-</div>
-</div>
-</div>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
 
-<div class="row g-2">
-<div class="col-md-6">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">AI Policy Compliance <span class="meta">click row for violations</span></div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table mb-0">
-<thead><tr><th>Policy</th><th>Compliance</th><th>Violations</th></tr></thead>
-<tbody>
-{% for pol in v.policies %}
-<tr data-aisdlc-drill="posture" data-metric="policies" data-id="{{ pol.policy }}">
-<td>{{ pol.policy|truncate(42, True, '') }}</td>
-<td>{{ pol.compliance_pct }}%</td>
-<td>{{ pol.violations }}</td>
-</tr>
-{% endfor %}
-</tbody>
-</table>
-</div>
-</div>
-<div class="col-md-6">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Model Approval Status</div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table mb-0">
+{{ governance_pane('approvals', 'Model Approval Status', '') }}
+{{ gov_table_open('ai-model-approvals') }}
 <thead><tr><th>Model</th><th>Application</th><th>Status</th></tr></thead>
 <tbody>
 {% for m in v.model_approvals %}
 <tr data-aisdlc-drill="posture" data-metric="models" data-id="{{ m.application_id }}">
-<td>{{ m.model|truncate(28, True, '') }}</td>
-<td>{{ m.application|truncate(22, True, '') }}</td>
-<td><span class="aisdlc-badge {{ m.status }}">{{ m.status }}</span></td>
-</tr>
+<td>{{ m.model }}</td><td>{{ m.application }}</td>
+<td><span class="aisdlc-badge {{ m.status }}">{{ m.status }}</span></td></tr>
 {% endfor %}
 </tbody>
-</table>
-</div>
-</div>
-</div>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
 
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Audit Trail <span class="meta">{{ v.audit_trail|length }} events · 3 years · click KPI</span></div>
-<ul class="aisdlc-trail ecs-paginated-list mb-0">
+{{ governance_pane('audit', 'Audit Trail', v.audit_trail|length|string ~ ' events') }}
+{{ gov_table_open('ai-audit-trail') }}
+<thead><tr><th>Timestamp</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead>
+<tbody>
 {% for e in v.audit_trail %}
-<li data-aisdlc-drill="posture" data-metric="audit" tabindex="0"><span class="ts">{{ e.timestamp }}</span> — <strong>{{ e.action }}</strong> · {{ e.actor }} — {{ e.detail }}</li>
+<tr data-aisdlc-drill="posture" data-metric="audit" tabindex="0">
+<td>{{ e.timestamp }}</td><td>{{ e.action }}</td><td>{{ e.actor }}</td><td class="ecs-gov-wrap">{{ e.detail }}</td></tr>
 {% endfor %}
-</ul>
+</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{{ governance_pane('knowledge', 'Knowledge Base', 'ECS governance asset catalog') }}
+<p class="small text-muted mb-2">Central repository of ECS frameworks, controls, templates, and evidence assets for SDLC execution.</p>
+
+{% set km = kb.reuse_metrics|default({}) %}
+<div class="aisdlc-kpi-grid mb-3" style="grid-template-columns:repeat(4,1fr)">
+<div class="aisdlc-kpi tone-success"><div class="v">{{ km.total_assets|default(0) }}</div><div class="l">ECS Assets</div></div>
+<div class="aisdlc-kpi tone-primary"><div class="v">{{ km.frameworks_covered|default(0) }}</div><div class="l">Frameworks Covered</div></div>
+<div class="aisdlc-kpi tone-info"><div class="v">{{ km.templates_available|default(0) }}</div><div class="l">Templates Available</div></div>
+<div class="aisdlc-kpi tone-teal"><div class="v">{{ km.applications_covered|default(0) }}</div><div class="l">Applications Covered</div></div>
 </div>
 
-<p class="text-muted small mt-2">
-<a href="/mvp/sdlc-gates{{ q }}">→ SDLC Compliance Gates</a> ·
-<a href="/mvp/ai-registry{{ q }}">→ Model & Prompt Registry</a>
-</p>
+{% for section_key, section in kb.sections|default({})|dictsort %}
+<h6 class="small text-muted text-uppercase mb-1 mt-3" id="kb-{{ section_key }}">{{ loop.index }}. {{ section.title }}</h6>
+{{ gov_table_open('kb-' ~ section_key) }}
+<thead><tr><th>Asset Name</th><th>Framework</th><th>Version</th><th>Owner</th><th>Last Updated</th><th>Reuse Count</th><th>Applications Using</th></tr></thead>
+<tbody>{% for row in section.rows %}
+<tr><td><strong>{{ row.asset_name }}</strong></td><td>{{ row.framework }}</td><td>{{ row.version }}</td>
+<td>{{ row.owner }}</td><td>{{ row.last_updated }}</td><td>{{ row.reuse_count }}</td>
+<td class="ecs-gov-wrap small">{{ row.applications_using }}</td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{% endfor %}
+{{ governance_pane_end() }}
 
+{{ governance_workspace_close() }}
 </div></div></div>
-
+{% include "partials/ecs_governance_table_framework.html" %}
 {% include "partials/ai_sdlc_drill_modal.html" %}
 </body></html>

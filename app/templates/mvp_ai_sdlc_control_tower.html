@@ -1,0 +1,35 @@
+<!DOCTYPE html><html><head><title>AI SDLC Control Tower — ECS</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-governance-page ecs-cap-control-tower" data-nav-module="ai_sdlc_control_tower"><div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell ecs-ct-shell">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set ct = control_tower %}
+{% from "partials/mvp_workspace_macros.html" import governance_workspace_open, governance_workspace_tabs, governance_pane, governance_pane_end, governance_workspace_close %}
+{% include "partials/ecs_governance_chrome.html" %}
+
+<div class="aisdlc-banner flex-shrink-0 mb-1">
+<div><h2>{{ ct.title }}</h2><div class="sub">{{ ct.subtitle }}</div></div>
+<span class="aisdlc-pill aisdlc-pill-live">LIVE ORCHESTRATION</span>
+</div>
+
+{{ governance_workspace_open() }}
+{{ governance_workspace_tabs(ct.tabs) }}
+{% for t in ct.tabs %}
+{{ governance_pane(t.id, t.label, '', loop.first) }}
+<div class="ecs-ct-tab-body" id="ct-body-{{ t.id }}" data-ct-tab="{{ t.id }}">
+{% if loop.first %}<p class="text-muted small mb-0">Loading…</p>{% else %}
+<p class="text-muted small mb-0 ct-lazy-placeholder">Select tab to load</p>
+{% endif %}
+</div>
+<span class="d-none ct-tab-status" id="ct-status-{{ t.id }}"></span>
+{{ governance_pane_end() }}
+{% endfor %}
+{{ governance_workspace_close() }}
+
+</div></div></div>
+{% include "partials/ecs_governance_table_framework.html" %}
+{% include "partials/ai_sdlc_control_tower_client.html" %}
+</body></html>

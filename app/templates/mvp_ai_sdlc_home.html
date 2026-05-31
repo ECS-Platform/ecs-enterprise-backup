@@ -1,0 +1,52 @@
+<!DOCTYPE html><html><head><title>AI SDLC Governance — ECS</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-governance-page ecs-cap-ai-sdlc-home" data-nav-module="ai_sdlc_home"><div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set v = landing_view %}
+{% include "partials/ecs_governance_chrome.html" %}
+
+<div class="aisdlc-banner flex-shrink-0 mb-2">
+<div>
+<h2>AI SDLC Governance</h2>
+<div class="sub">Framework implementation · control execution · evidence collection · audit readiness</div>
+</div>
+<span class="aisdlc-pill">EXECUTION LAYER</span>
+</div>
+
+<div class="row g-2 mb-3 flex-shrink-0">
+{% set sc = v.summary_counts %}
+<div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/requirements{{ q }}" class="card text-decoration-none h-100"><div class="card-body py-2"><div class="small text-muted">Requirements Pending</div><div class="fs-4 fw-bold">{{ sc.controls_pending_requirements }}</div></div></a></div>
+<div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/design{{ q }}" class="card text-decoration-none h-100"><div class="card-body py-2"><div class="small text-muted">Design Pending</div><div class="fs-4 fw-bold">{{ sc.controls_pending_design }}</div></div></a></div>
+<div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/development{{ q }}" class="card text-decoration-none h-100"><div class="card-body py-2"><div class="small text-muted">Development Pending</div><div class="fs-4 fw-bold">{{ sc.controls_pending_development }}</div></div></a></div>
+<div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/testing{{ q }}" class="card text-decoration-none h-100"><div class="card-body py-2"><div class="small text-muted">Testing Pending</div><div class="fs-4 fw-bold">{{ sc.controls_pending_testing }}</div></div></a></div>
+<div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/golive{{ q }}" class="card text-decoration-none h-100"><div class="card-body py-2"><div class="small text-muted">Go-Live Pending</div><div class="fs-4 fw-bold">{{ sc.controls_pending_golive }}</div></div></a></div>
+<div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/evidence{{ q }}" class="card text-decoration-none h-100 border-primary"><div class="card-body py-2"><div class="small text-muted">Evidence Awaiting Submission</div><div class="fs-4 fw-bold text-primary">{{ sc.evidence_awaiting_submission }}</div></div></a></div>
+<div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/findings{{ q }}" class="card text-decoration-none h-100"><div class="card-body py-2"><div class="small text-muted">Open Findings</div><div class="fs-4 fw-bold text-danger">{{ sc.open_findings }}</div></div></a></div>
+<div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/requirements{{ q }}" class="card text-decoration-none h-100 border-warning"><div class="card-body py-2"><div class="small text-muted">Overdue Activities</div><div class="fs-4 fw-bold text-warning">{{ sc.overdue_activities }}</div></div></a></div>
+</div>
+
+<h6 class="small text-muted text-uppercase mb-1">My Applications</h6>
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
+{{ gov_table_open('ai-sdlc-my-apps') }}
+<thead><tr><th>Application</th><th>Business Owner</th><th>App Owner</th><th>Criticality</th><th>Classification</th><th>Frameworks</th><th>Controls</th></tr></thead>
+<tbody>
+{% for app in v.my_applications %}
+<tr>
+<td><a href="/mvp/ai-sdlc/onboarding{{ q }}">{{ app.application_name }}</a></td>
+<td>{{ app.business_owner }}</td><td>{{ app.application_owner }}</td>
+<td><span class="aisdlc-badge {{ app.criticality }}">{{ app.criticality }}</span></td>
+<td class="ecs-gov-wrap small">{{ app.regulatory_classification }}</td>
+<td class="ecs-gov-wrap small">{{ app.frameworks|join(', ') }}</td>
+<td>{{ app.control_count }}</td>
+</tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}
+
+</div></div></div>
+{% include "partials/ecs_governance_table_framework.html" %}
+</body></html>

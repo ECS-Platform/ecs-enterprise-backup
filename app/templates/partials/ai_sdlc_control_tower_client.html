@@ -1,0 +1,312 @@
+{# Control Tower Phase 2 — scheduler run, drill modals, work item detail #}
+<div class="modal fade" id="ctDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="ctDrillModalTitle">Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="ctDrillModalBody"></div>
+<div class="modal-footer py-2"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+
+<script>
+(function () {
+  'use strict';
+  var loaded = {};
+  var schedulerData = null;
+  var qs = window.location.search || '';
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showModal(title, html) {
+    document.getElementById('ctDrillModalTitle').textContent = title;
+    document.getElementById('ctDrillModalBody').innerHTML = html;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('ctDrillModal')).show();
+  }
+
+  function tableHtml(headers, rows, keys) {
+    var h = '<div class="table-responsive"><table class="table table-sm mb-0"><thead><tr>';
+    headers.forEach(function (hd) { h += '<th>' + esc(hd) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr>';
+      keys.forEach(function (k) { h += '<td class="ecs-gov-wrap">' + esc(r[k]) + '</td>'; });
+      h += '</tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  function openReadinessDrill(framework, stage) {
+    fetch('/api/ai-sdlc/control-tower/drill/readiness?framework=' + encodeURIComponent(framework) +
+      '&stage=' + encodeURIComponent(stage) + qs.replace('?', '&'))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) return;
+        var d = res.data;
+        showModal(d.title, tableHtml(['Application', 'Control', 'Status', 'Evidence'], d.rows,
+          ['application', 'control', 'status', 'evidence']));
+      });
+  }
+
+  function openFrameworkDrill(framework, stageKey) {
+    fetch('/api/ai-sdlc/control-tower/drill/framework?framework=' + encodeURIComponent(framework) +
+      '&stage_key=' + encodeURIComponent(stageKey) + qs.replace('?', '&'))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) return;
+        var d = res.data;
+        var html = '<h6 class="small text-muted">Applications Contributing to Score</h6>' +
+          tableHtml(['Application', 'Contribution %', 'Status'], d.applications,
+            ['application', 'contribution_pct', 'status']) +
+          '<h6 class="small text-muted mt-2">Controls Contributing to Score</h6>' +
+          tableHtml(['Control ID', 'Control Name', 'Compliance %', 'Evidence Count'], d.controls,
+            ['control_id', 'control_name', 'compliance_pct', 'evidence_count']) +
+          '<h6 class="small text-muted mt-2">Evidence Contributing to Score</h6>' +
+          tableHtml(['Evidence ID', 'Artifact Type', 'Status', 'Application'], d.evidence,
+            ['evidence_id', 'artifact_type', 'status', 'application']);
+        showModal(d.title, html);
+      });
+  }
+
+  function openWorkItem(activityId) {
+    fetch('/api/ai-sdlc/control-tower/work-item/' + encodeURIComponent(activityId) + qs)
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) { alert('Work item not found'); return; }
+        var d = res.data;
+        var html = '<dl class="row small mb-2">' +
+          '<dt class="col-4">Application</dt><dd class="col-8">' + esc(d.application) + '</dd>' +
+          '<dt class="col-4">Framework</dt><dd class="col-8">' + esc(d.framework) + '</dd>' +
+          '<dt class="col-4">Control ID</dt><dd class="col-8">' + esc(d.control_id) + '</dd>' +
+          '<dt class="col-4">Control Name</dt><dd class="col-8">' + esc(d.control_name) + '</dd>' +
+          '<dt class="col-4">Stage</dt><dd class="col-8">' + esc(d.stage) + '</dd>' +
+          '<dt class="col-4">Artifact Required</dt><dd class="col-8">' + esc(d.artifact_required) + '</dd>' +
+          '<dt class="col-4">Current Status</dt><dd class="col-8">' + esc(d.status) + '</dd>' +
+          '<dt class="col-4">Owner</dt><dd class="col-8">' + esc(d.owner) + '</dd>' +
+          '</dl>';
+        html += '<h6 class="small text-muted">Comments</h6><ul class="small">';
+        (d.comments || []).forEach(function (c) {
+          html += '<li><strong>' + esc(c.author) + '</strong> ' + esc(c.at) + '<br>' + esc(c.text) + '</li>';
+        });
+        html += '</ul><h6 class="small text-muted">Approval History</h6>' +
+          tableHtml(['When', 'Action', 'Actor', 'Transition', 'Comments'], (d.approval_history || []).map(function (h) {
+            return { when: h.timestamp, action: h.action, actor: h.actor,
+              transition: (h.from_status || '') + ' → ' + (h.to_status || ''), comments: h.comments || '' };
+          }), ['when', 'action', 'actor', 'transition', 'comments']) +
+          '<h6 class="small text-muted mt-2">Audit Trail</h6>' +
+          tableHtml(['When', 'Action', 'Actor', 'Detail'], (d.audit_trail || []).map(function (a) {
+            return { when: a.timestamp, action: a.action, actor: a.actor, detail: a.detail };
+          }), ['when', 'action', 'actor', 'detail']);
+        showModal('ECS Work Item — ' + d.activity_id, html);
+      });
+  }
+
+  function pctLink(framework, stageLabel, stageKey, pct, tone, context) {
+    return '<button type="button" class="ecs-ct-pct-link ecs-ct-' + esc(tone) + '" data-ct-drill="' +
+      esc(context) + '" data-fw="' + esc(framework) + '" data-stage="' + esc(stageLabel) +
+      '" data-stage-key="' + esc(stageKey) + '">' + pct + '%</button>';
+  }
+
+  function renderRunSchedulerIdle(d) {
+    return '<div class="ecs-ct-control-room">' +
+      '<p class="ecs-ct-room-intro">Initiate an ECS AI SDLC scheduler run to assess applications, frameworks, controls, and evidence across all onboarded banking applications.</p>' +
+      '<button type="button" class="btn btn-primary ecs-ct-run-btn" id="ctRunSchedulerBtn">Run Scheduler</button>' +
+      '<div id="ctSchedulerExec" class="ecs-ct-exec-panel d-none"></div>' +
+      '<div id="ctSchedulerResult" class="d-none"></div></div>';
+  }
+
+  function renderSchedulerSummary(d) {
+    var s = d.summary;
+    var html = '<div class="ecs-ct-summary-grid row g-2 mb-3">';
+    var items = [
+      ['Applications Scanned', s.applications_scanned], ['Frameworks Assessed', s.frameworks_assessed],
+      ['Controls Assessed', s.controls_assessed.toLocaleString()], ['Evidence Items Scanned', s.evidence_items_scanned.toLocaleString()],
+      ['Open Findings', s.open_findings], ['Applications Ready For Go-Live', s.applications_ready_golive],
+      ['Applications Requiring Attention', s.applications_requiring_attention]
+    ];
+    items.forEach(function (pair) {
+      html += '<div class="col-md-4 col-6"><div class="ecs-ct-summary-card"><div class="lbl">' + esc(pair[0]) +
+        '</div><div class="val">' + esc(pair[1]) + '</div></div></div>';
+    });
+    html += '</div><h6 class="small text-muted text-uppercase mb-1">Readiness Matrix</h6>';
+    html += renderReadinessMatrix(d.readiness_matrix, 'scheduler');
+    return html;
+  }
+
+  function renderReadinessMatrix(matrix, context) {
+    if (!matrix) return '';
+    var cols = matrix.stage_columns || [];
+    var html = '<div class="table-responsive"><table class="table table-sm ecs-ct-matrix mb-0"><thead><tr><th>Framework</th>';
+    cols.forEach(function (c) { html += '<th class="text-center">' + esc(c) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    (matrix.rows || []).forEach(function (row) {
+      html += '<tr><td class="fw-semibold">' + esc(row.framework) + '</td>';
+      (row.cells || []).forEach(function (cell) {
+        html += '<td class="text-center">' + pctLink(row.framework, cell.stage_label || cell.stage,
+          cell.stage_key, cell.readiness_pct, cell.tone, context) + '</td>';
+      });
+      html += '</tr>';
+    });
+    return html + '</tbody></table></div>';
+  }
+
+  function runSchedulerAnimation(steps, onComplete) {
+    var panel = document.getElementById('ctSchedulerExec');
+    var btn = document.getElementById('ctRunSchedulerBtn');
+    if (!panel) return;
+    panel.classList.remove('d-none');
+    panel.innerHTML = '';
+    if (btn) btn.disabled = true;
+    var i = 0;
+    function next() {
+      if (i >= steps.length) { if (onComplete) onComplete(); return; }
+      var step = steps[i];
+      var line = document.createElement('div');
+      line.className = 'ecs-ct-exec-line';
+      line.innerHTML = '<span class="exec-phase">' + esc(step.phase) + '</span>' +
+        (step.result ? '<span class="exec-result">' + esc(step.result) + '</span>' : '');
+      panel.appendChild(line);
+      line.classList.add('is-visible');
+      i += 1;
+      setTimeout(next, step.result ? 450 : 350);
+    }
+    next();
+  }
+
+  function bindRunScheduler(d) {
+    var btn = document.getElementById('ctRunSchedulerBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      runSchedulerAnimation(d.execution_steps, function () {
+        var result = document.getElementById('ctSchedulerResult');
+        if (result) {
+          result.classList.remove('d-none');
+          result.innerHTML = renderSchedulerSummary(d);
+          bindDrillLinks(result);
+        }
+      });
+    });
+  }
+
+  function renderFrameworkReadiness(d) {
+    var cols = d.stage_columns || [];
+    var html = '<div class="table-responsive"><table class="table table-sm ecs-ct-heatmap mb-0"><thead><tr><th>Framework</th>';
+    cols.forEach(function (c) { html += '<th class="text-center">' + esc(c) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    (d.heatmap || []).forEach(function (row) {
+      html += '<tr><td class="fw-semibold"><button type="button" class="btn btn-link btn-sm p-0 fw-semibold ct-fw-link" data-fw="' +
+        esc(row.framework) + '">' + esc(row.framework) + '</button></td>';
+      (row.cells || []).forEach(function (cell) {
+        html += '<td class="text-center">' + pctLink(row.framework, cell.stage, cell.stage_key,
+          cell.readiness_pct, cell.tone, 'framework') + '</td>';
+      });
+      html += '</tr>';
+    });
+    return html + '</tbody></table></div>';
+  }
+
+  function renderActionQueue(d) {
+    var html = '<div class="table-responsive"><table class="table table-sm mb-0 ecs-gov-data-table"><thead><tr>' +
+      '<th>Application</th><th>Framework</th><th>Control</th><th>Stage</th><th>Owner</th><th>Status</th><th>Due</th><th></th></tr></thead><tbody>';
+    (d.rows || []).forEach(function (r) {
+      html += '<tr><td>' + esc(r.application) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.control_id) +
+        ' | ' + esc(r.control_name) + '</td><td>' + esc(r.stage) + '</td><td>' + esc(r.owner) +
+        '</td><td><span class="aisdlc-badge">' + esc(r.status) + '</span></td><td>' + esc(r.due_date) +
+        '</td><td><button type="button" class="btn btn-link btn-sm p-0 ct-open-work-item" data-activity-id="' +
+        esc(r.activity_id) + '">Open</button></td></tr>';
+    });
+    return html + '</tbody></table></div>';
+  }
+
+  function renderSchedulerLog(d) {
+    var html = '<p class="small mb-1">Run <code>' + esc(d.run_id) + '</code> · Status: <strong>' + esc(d.status) + '</strong></p>' +
+      '<ul class="ecs-ct-scheduler-log list-unstyled mb-0">';
+    (d.entries || []).forEach(function (e) {
+      html += '<li><span class="log-time">' + esc(e.time) + '</span> ' + esc(e.message) + '</li>';
+    });
+    return html + '</ul>';
+  }
+
+  function renderRecommendations(d) {
+    var html = '<div class="table-responsive"><table class="table table-sm mb-0 ecs-gov-data-table"><thead><tr>' +
+      '<th>Application</th><th>Framework</th><th>Control</th><th>Control Name</th><th>Stage</th>' +
+      '<th>Observation</th><th>Recommendation</th><th>Readiness Impact</th></tr></thead><tbody>';
+    (d.rows || []).forEach(function (r) {
+      html += '<tr><td>' + esc(r.application) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.control_id) +
+        '</td><td class="ecs-gov-wrap">' + esc(r.control_name) + '</td><td>' + esc(r.stage) +
+        '</td><td class="ecs-gov-wrap small">' + esc(r.observation) + '</td><td class="ecs-gov-wrap small">' +
+        esc(r.recommendation) + '</td><td class="ecs-gov-wrap small">' + esc(r.readiness_impact) + '</td></tr>';
+    });
+    return html + '</tbody></table></div>';
+  }
+
+  var renderers = {
+    'run-scheduler': renderRunSchedulerIdle,
+    'framework-readiness': renderFrameworkReadiness,
+    'action-queue': renderActionQueue,
+    'scheduler-log': renderSchedulerLog,
+    'ai-recommendations': renderRecommendations
+  };
+
+  function bindDrillLinks(root) {
+    (root || document).querySelectorAll('[data-ct-drill]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var ctx = el.getAttribute('data-ct-drill');
+        var fw = el.getAttribute('data-fw');
+        var stage = el.getAttribute('data-stage');
+        var sk = el.getAttribute('data-stage-key');
+        if (ctx === 'scheduler') openReadinessDrill(fw, stage);
+        else openFrameworkDrill(fw, sk);
+      });
+    });
+    (root || document).querySelectorAll('.ct-fw-link').forEach(function (el) {
+      el.addEventListener('click', function () {
+        openFrameworkDrill(el.getAttribute('data-fw'), 'requirement');
+      });
+    });
+    (root || document).querySelectorAll('.ct-open-work-item').forEach(function (el) {
+      el.addEventListener('click', function () {
+        openWorkItem(el.getAttribute('data-activity-id'));
+      });
+    });
+  }
+
+  function loadTab(tabId, force) {
+    if (loaded[tabId] && !force) return;
+    var body = document.getElementById('ct-body-' + tabId);
+    if (!body) return;
+    body.innerHTML = '<p class="text-muted small">Loading…</p>';
+    fetch('/api/ai-sdlc/control-tower/tab/' + encodeURIComponent(tabId) + qs)
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) { body.innerHTML = '<p class="text-danger small">Failed to load</p>'; return; }
+        if (tabId === 'run-scheduler') schedulerData = res.data;
+        var fn = renderers[tabId];
+        body.innerHTML = fn ? fn(res.data) : '';
+        if (tabId === 'run-scheduler' && schedulerData) bindRunScheduler(schedulerData);
+        bindDrillLinks(body);
+        loaded[tabId] = true;
+      })
+      .catch(function () { body.innerHTML = '<p class="text-danger small">Load error</p>'; });
+  }
+
+  document.querySelectorAll('[data-workspace-tab]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      loadTab(btn.getAttribute('data-workspace-tab'));
+    });
+  });
+  document.querySelectorAll('.ecs-workspace-tab-select').forEach(function (sel) {
+    sel.addEventListener('change', function () { loadTab(sel.value); });
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadTab('run-scheduler');
+    setInterval(function () {
+      if (document.querySelector('[data-workspace-pane="scheduler-log"].is-active')) {
+        loadTab('scheduler-log', true);
+      }
+    }, 30000);
+  });
+})();
+</script>

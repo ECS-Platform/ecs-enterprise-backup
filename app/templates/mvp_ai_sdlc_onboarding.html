@@ -1,0 +1,44 @@
+<!DOCTYPE html><html><head><title>Application Onboarding — AI SDLC</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-governance-page ecs-cap-onboarding-exec" data-nav-module="ai_sdlc_onboarding"><div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set v = onboarding_view %}
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
+{% include "partials/ecs_governance_chrome.html" %}
+
+<div class="aisdlc-banner flex-shrink-0 mb-2"><div>
+<h2>{{ v.title }}</h2>
+<div class="sub">{{ v.subtitle }}</div>
+</div></div>
+
+<div class="ecs-ob-control-room mb-3">
+<p class="ecs-ob-room-intro mb-2">Automated ECS onboarding discovers applications, maps frameworks and controls, and generates AI SDLC work packages across all lifecycle stages.</p>
+<button type="button" class="btn btn-primary ecs-ob-run-btn" id="ecsRunOnboarderBtn">▶ Run Onboarder</button>
+<div class="ecs-ob-progress-wrap d-none mt-3" id="ecsObProgressWrap">
+<div class="progress ecs-ob-progress" style="height:8px"><div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="ecsObProgressBar" style="width:0%"></div></div>
+</div>
+<div class="ecs-ob-exec-panel d-none mt-2" id="ecsObExecPanel"></div>
+<div class="ecs-ob-success d-none alert alert-success mt-2 mb-0 py-2" id="ecsObSuccessBanner">
+<strong>Onboarding Complete</strong> — AI SDLC work packages and evidence collection tasks are ready for execution.
+</div>
+</div>
+
+<div id="ecsObResults" class="d-none">
+<h6 class="small text-muted text-uppercase mb-1">Onboarding Summary</h6>
+<div class="row g-2 mb-3" id="ecsObSummaryCards"></div>
+
+<h6 class="small text-muted text-uppercase mb-1">Framework Readiness</h6>
+<div id="ecsObFrameworkTable"></div>
+
+<h6 class="small text-muted text-uppercase mb-1 mt-3">Application Onboarding Results</h6>
+<div id="ecsObApplicationTable"></div>
+</div>
+
+</div></div></div>
+{% include "partials/ecs_governance_table_framework.html" %}
+{% include "partials/ai_sdlc_onboarding_client.html" %}
+</body></html>

@@ -1,105 +1,1309 @@
 <div class="modal fade" id="aisdlcDrillModal" tabindex="-1" aria-labelledby="aisdlcDrillTitle" aria-hidden="true">
-<div class="modal-dialog modal-lg modal-dialog-scrollable">
-<div class="modal-content">
+<div class="modal-dialog modal-lg" id="aisdlcDrillDialog">
+<div class="modal-content" id="aisdlcDrillContent">
 <div class="modal-header py-2">
 <h5 class="modal-title fs-6" id="aisdlcDrillTitle">Detail</h5>
 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <div class="modal-body" id="aisdlcDrillBody"><div class="text-muted small">Loading…</div></div>
 <div class="modal-footer py-2">
+<button type="button" class="btn btn-sm btn-outline-secondary d-none" id="aisdlcDrillBack">Back</button>
 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+<a href="#" class="btn btn-sm btn-outline-primary d-none" id="aisdlcDrillStageLink">Open stage detail</a>
 <a href="#" class="btn btn-sm btn-primary d-none" id="aisdlcDrillLink">Open related module</a>
 </div>
 </div></div></div>
+{% include "partials/ecs_governance_table_framework.html" %}
 <script>
 (function () {
   var modalEl = document.getElementById('aisdlcDrillModal');
   if (!modalEl || typeof bootstrap === 'undefined') return;
+  var modalContentEl = document.getElementById('aisdlcDrillContent');
   var modal = new bootstrap.Modal(modalEl);
   var titleEl = document.getElementById('aisdlcDrillTitle');
   var bodyEl = document.getElementById('aisdlcDrillBody');
   var linkEl = document.getElementById('aisdlcDrillLink');
+  var stageLinkEl = document.getElementById('aisdlcDrillStageLink');
+  var backBtn = document.getElementById('aisdlcDrillBack');
   var q = '?role={{ role|urlencode }}&user={{ user|urlencode }}';
+  var lastDrill = { kind: 'sdlc', release: '', stage: '' };
+  var drillOrigin = null;
+
+  function getNavModule() {
+    return (document.body && document.body.dataset.navModule) || '';
+  }
+
+  function captureDrillOrigin() {
+    if (drillOrigin) return;
+    drillOrigin = { scrollY: window.scrollY || 0, url: window.location.href };
+    try { sessionStorage.setItem('ecsDrillOrigin', JSON.stringify(drillOrigin)); } catch (e) {}
+  }
+
+  function restoreDrillOrigin() {
+    var o = drillOrigin;
+    if (!o) {
+      try { o = JSON.parse(sessionStorage.getItem('ecsDrillOrigin') || 'null'); } catch (e) { o = null; }
+    }
+    drillOrigin = null;
+    try { sessionStorage.removeItem('ecsDrillOrigin'); } catch (e) {}
+    if (o && typeof o.scrollY === 'number') window.scrollTo(0, o.scrollY);
+  }
+
+  if (backBtn) {
+    backBtn.addEventListener('click', function () {
+      modal.hide();
+    });
+  }
+  modalEl.addEventListener('hidden.bs.modal', function () {
+    restoreDrillOrigin();
+    if (backBtn) backBtn.classList.add('d-none');
+  });
 
   function esc(s) {
     if (s == null) return '';
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  function renderTable(rows, cols) {
+  function renderAppBanner(apps) {
+    if (!apps) return '';
+    var impacted = apps.applications_impacted || [];
+    return '<div class="alert alert-light border py-2 px-2 mb-2 small">' +
+      '<strong>Release:</strong> ' + esc(apps.release) + ' · ' +
+      '<strong>Primary:</strong> ' + esc(apps.primary_application) + '<br>' +
+      '<strong>Applications impacted:</strong> ' + esc(impacted.join(', ')) +
+      '</div>';
+  }
+
+  function renderDetailDl(data, keys) {
+    if (!data) return '';
+    var useKeys = keys || Object.keys(data).filter(function (k) {
+      return typeof data[k] !== 'object' && k.indexOf('_records') === -1 && k !== 'content_preview';
+    });
+    return '<dl class="row small mb-2">' +
+      useKeys.map(function (k) {
+        return '<dt class="col-sm-4">' + esc(k.replace(/_/g, ' ')) + '</dt><dd class="col-sm-8">' + esc(data[k]) + '</dd>';
+      }).join('') + '</dl>';
+  }
+
+  function renderHowCalculated(opts) {
+    opts = opts || {};
+    var h = '<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">';
+    h += '<div class="fw-semibold mb-1">How Calculated</div>';
+    if (opts.formula) h += '<p class="mb-1">' + esc(opts.formula) + '</p>';
+    if (opts.aggregate != null && opts.aggregate !== '') {
+      h += '<p class="mb-1"><strong>Current value:</strong> ' + esc(opts.aggregate) + esc(opts.unit || '%') + '</p>';
+    }
+    (opts.steps || []).forEach(function (s) {
+      h += '<p class="mb-0 text-muted">' + esc(s) + '</p>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function refreshModalPagination(root) {
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination(root || bodyEl);
+  }
+
+  function drillAttrs(kind, metric, id, extra) {
+    extra = extra || {};
+    var attrs = ' data-aisdlc-drill="' + esc(kind) + '" data-metric="' + esc(metric || '') + '"';
+    if (id) attrs += ' data-id="' + esc(id) + '"';
+    if (extra.release) attrs += ' data-release="' + esc(extra.release) + '"';
+    if (extra.stage) attrs += ' data-stage="' + esc(extra.stage) + '"';
+    attrs += ' tabindex="0" style="cursor:pointer"';
+    return attrs;
+  }
+
+  function formatCellValue(v) {
+    if (v == null || v === '') return '';
+    if (Array.isArray(v)) {
+      if (!v.length) return '—';
+      if (typeof v[0] === 'object') return v.length + ' linked';
+      return v.join(', ');
+    }
+    if (typeof v === 'object') return '—';
+    return v;
+  }
+
+  function renderDrillTable(rows, cols, drillCfg) {
     if (!rows || !rows.length) return '<p class="text-muted small">No records.</p>';
-    var h = '<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm aisdlc-table ecs-paginated-table ecs-compact-table mb-0"><thead><tr>';
+    drillCfg = drillCfg || {};
+    var h = '<div class="ecs-gov-table-scroll"><table class="table table-sm aisdlc-table ecs-gov-data-table mb-0"><thead><tr>';
     cols.forEach(function (c) { h += '<th>' + esc(c.label) + '</th>'; });
+    if (drillCfg.actionLabel) h += '<th></th>';
     h += '</tr></thead><tbody>';
     rows.forEach(function (r) {
-      h += '<tr>';
+      var idField = drillCfg.idField || 'id';
+      var id = r.drill_id || r[drillCfg.idKey || idField] || r.control_id || r.evidence_id || r.gap_id || r.doc_id || r.req_id || r.test_id || r.defect_id || r.obs_id || r.exception_id || r.item_id || r.design_id || r.policy || r.prompt_id || r.model_id || r.application_id;
+      var trAttrs = drillCfg.metric ? drillAttrs(drillCfg.kind || 'sdlc', drillCfg.metric, id, { release: drillCfg.release, stage: drillCfg.stage }) : '';
+      h += '<tr' + trAttrs + '>';
       cols.forEach(function (c) {
-        var v = r[c.key];
-        if (v && typeof v === 'object') v = Array.isArray(v) ? v.join(', ') : JSON.stringify(v);
-        h += '<td>' + esc(v) + '</td>';
+        h += '<td>' + esc(formatCellValue(r[c.key])) + '</td>';
       });
+      if (drillCfg.actionLabel) {
+        h += '<td><span class="aisdlc-drill-link small"' + drillAttrs(drillCfg.kind || 'posture', drillCfg.actionMetric || drillCfg.metric, id, {}) + '>' + esc(drillCfg.actionLabel) + '</span></td>';
+      }
       h += '</tr>';
     });
     h += '</tbody></table></div>';
     return h;
   }
 
-  function colsFromRows(rows, max) {
+  function colsFromRows(rows, max, exclude) {
     if (!rows || !rows.length) return [];
-    return Object.keys(rows[0]).slice(0, max || 8).map(function (k) {
+    exclude = exclude || ['control_records', 'defect_records', 'gap_records', 'evidence_records', 'violation_records', 'content_preview', 'artifact', 'stage_key', 'prompts_using_model', 'applications_using_model', 'related_prompts', 'related_model', 'audit_history', 'evidence_rows'];
+    return Object.keys(rows[0]).filter(function (k) { return exclude.indexOf(k) === -1; }).slice(0, max || 8).map(function (k) {
       return { key: k, label: k.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }) };
     });
   }
 
+  var CONTROL_COLS = [
+    {key:'control_id',label:'Control ID'},{key:'application',label:'Application'},{key:'framework',label:'Framework'},
+    {key:'control_description',label:'Description'},{key:'owner',label:'Owner'},{key:'status',label:'Status'},
+    {key:'evidence_count',label:'Evidence'},{key:'findings_count',label:'Findings'},{key:'exceptions_count',label:'Exceptions'}
+  ];
+
+  var FRAMEWORK_CONTROL_COLS = [
+    {key:'control_id',label:'Control ID'},{key:'control_name',label:'Control Name'},{key:'control_objective',label:'Objective'},
+    {key:'framework',label:'Framework'},{key:'requirement_source',label:'Requirement'},{key:'design_source',label:'Design'},
+    {key:'development_source',label:'Development'},{key:'testing_source',label:'Testing'},{key:'evidence_count',label:'Evidence'},
+    {key:'observations',label:'Observations'},{key:'exceptions',label:'Exceptions'},{key:'audit_findings',label:'Findings'},
+    {key:'reuse_count',label:'Reuse Count'}
+  ];
+
+  var EVIDENCE_COLS = [
+    {key:'evidence_id',label:'Evidence ID'},{key:'application',label:'Application'},{key:'framework',label:'Framework'},
+    {key:'control_id',label:'Control'},{key:'title',label:'Title'},{key:'type',label:'Type'},{key:'status',label:'Status'},
+    {key:'collected_date',label:'Collected'}
+  ];
+
+  var HISTORY_SECTIONS = [
+    { key: 'previous_observations', label: 'Previous Audit Observations', metric: 'history_observation', idKey: 'obs_id' },
+    { key: 'previously_approved_designs', label: 'Previously Approved Designs', metric: 'history_design', idKey: 'design_id' },
+    { key: 'previously_accepted_evidence', label: 'Previously Accepted Evidence', metric: 'history_evidence', idKey: 'evidence_id' },
+    { key: 'similar_controls', label: 'Similar Controls in Other Applications', metric: 'history_similar', idKey: 'control_id' },
+    { key: 'historical_closure_comments', label: 'Historical Closure Comments', metric: 'history_closure', idKey: 'comment_id' }
+  ];
+
+  function renderKnowledgeGraph(graph, drillExtra) {
+    if (!graph || !graph.nodes || !graph.nodes.length) return '';
+    var h = '<div class="aisdlc-knowledge-graph mb-2"><p class="small fw-semibold mb-1">Control Relationship Graph</p><div class="aisdlc-graph-flow">';
+    graph.nodes.forEach(function (n) {
+      var cls = 'aisdlc-graph-node type-' + esc(n.type || 'default');
+      var attrs = '';
+      if (n.drill_metric && n.drill_id) {
+        attrs = drillAttrs('sdlc', n.drill_metric, n.drill_id, drillExtra);
+      }
+      h += '<div class="' + cls + '"' + attrs + '><div class="gn-type">' + esc(n.type) + '</div><div class="gn-label">' + esc(n.label) + '</div></div>';
+      h += '<div class="aisdlc-graph-arrow">→</div>';
+    });
+    h = h.replace(/<div class="aisdlc-graph-arrow">→<\/div>$/, '');
+    h += '</div><p class="text-muted small mb-0">Click any node to drill into linked governance artifact.</p></div>';
+    return h;
+  }
+
+  function renderKbTabs(tabs, drillExtra) {
+    if (!tabs) return '';
+    var uid = 'kbt' + Math.random().toString(36).slice(2, 8);
+    var keys = Object.keys(tabs);
+    var h = '<ul class="nav nav-tabs nav-tabs-sm aisdlc-kb-tabs mb-2" role="tablist">';
+    keys.forEach(function (k, i) {
+      h += '<li class="nav-item"><button class="nav-link' + (i === 0 ? ' active' : '') + '" data-bs-toggle="tab" data-bs-target="#' + uid + '-' + k + '" type="button">' +
+        esc(tabs[k].label || k.replace(/_/g, ' ')) + '</button></li>';
+    });
+    h += '</ul><div class="tab-content aisdlc-kb-tab-panels">';
+    keys.forEach(function (k, i) {
+      var tab = tabs[k];
+      h += '<div class="tab-pane fade' + (i === 0 ? ' show active' : '') + '" id="' + uid + '-' + k + '">';
+      h += renderDrillTable(tab.rows || [], [
+        {key:'reference_id',label:'Reference'},{key:'application',label:'Application'},{key:'release',label:'Release'},
+        {key:'status',label:'Status'},{key:'owner',label:'Owner'},{key:'closure_date',label:'Closure'},{key:'summary',label:'Summary'}
+      ], { kind: 'sdlc', metric: 'control', idKey: 'reference_id', release: drillExtra.release, stage: drillExtra.stage });
+      h += '</div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function renderControlKnowledgeRepo(kb, drillExtra, controlId) {
+    if (!kb) return '';
+    var p = kb.profile || {};
+    var sm = kb.summary || {};
+    var h = '<div class="aisdlc-knowledge-repo mb-2">';
+    h += '<p class="small fw-semibold mb-1">Enterprise Control Knowledge Repository</p>';
+    h += '<dl class="row small mb-2">';
+    ['control_id','control_name','control_category','risk_rating','control_owner','control_objective','regulatory_mapping','framework_mapping'].forEach(function (k) {
+      if (p[k]) h += '<dt class="col-sm-4">' + esc(k.replace(/_/g, ' ')) + '</dt><dd class="col-sm-8">' + esc(p[k]) + '</dd>';
+    });
+    if (p.control_description) h += '<dt class="col-sm-4">control description</dt><dd class="col-sm-8">' + esc(p.control_description) + '</dd>';
+    h += '</dl>';
+    h += '<div class="aisdlc-kb-stats row g-1 mb-2 small">';
+    h += '<div class="col"><span class="badge bg-primary">Apps: ' + esc(sm.total_applications) + '</span></div>';
+    h += '<div class="col"><span class="badge bg-success">Closed Obs: ' + esc(sm.closed_observations) + '</span></div>';
+    h += '<div class="col"><span class="badge bg-warning text-dark">Open Obs: ' + esc(sm.open_observations) + '</span></div></div>';
+    h += '<p class="small mb-1"><strong>Used in:</strong> ' + esc((sm.apps_using || []).join(', ')) + '</p>';
+    h += '<p class="small mb-1"><strong>Implementing:</strong> ' + esc((sm.apps_implementing || []).join(', ')) + '</p>';
+    h += '<p class="small mb-1"><strong>Failed:</strong> ' + esc((sm.apps_failed || []).join(', ')) + '</p>';
+    h += '<p class="small mb-2"><strong>Closed observations:</strong> ' + esc((sm.apps_closed_observations || []).join(', ')) + '</p>';
+    h += renderKbTabs(kb.tabs, drillExtra);
+    h += '<button type="button" class="btn btn-sm btn-outline-primary mt-1"' +
+      drillAttrs('sdlc', 'control_graph', controlId, drillExtra) + '>View Control Relationship Graph</button>';
+    h += '</div>';
+    return h;
+  }
+
+  function renderAuditKnowledgeKb(audit, drillExtra) {
+    if (!audit) return '';
+    var h = '<div class="aisdlc-audit-kb mb-2"><p class="small fw-semibold mb-1">Audit Observation Knowledge Base</p>';
+    var blocks = [
+      ['Open Observations', audit.open_observations, 'history_observation', 'observation_id'],
+      ['Closed Observations', audit.closed_observations, 'history_observation', 'observation_id'],
+      ['Repeat Observations', audit.repeat_observations, 'history_observation', 'observation_id'],
+    ];
+    blocks.forEach(function (b) {
+      if (b[1] && b[1].length) {
+        h += '<p class="small fw-semibold mb-1 mt-1">' + esc(b[0]) + ' (' + b[1].length + ')</p>';
+        h += renderDrillTable(b[1], [
+          {key:'observation_id',label:'Observation ID'},{key:'application',label:'Application'},{key:'audit_year',label:'Audit Year'},
+          {key:'severity',label:'Severity'},{key:'closure_status',label:'Status'},{key:'summary',label:'Summary'}
+        ], { kind: 'sdlc', metric: b[2], idKey: b[3], release: drillExtra.release, stage: drillExtra.stage });
+      }
+    });
+    if (audit.root_causes && audit.root_causes.length) {
+      h += '<p class="small fw-semibold mb-1">Root Causes</p>' + renderDocTable([{key:'cause',label:'Cause'},{key:'frequency',label:'Frequency'}], audit.root_causes);
+    }
+    if (audit.compensating_controls && audit.compensating_controls.length) {
+      h += '<p class="small fw-semibold mb-1">Compensating Controls</p>' + renderDocTable([{key:'control',label:'Control'},{key:'application',label:'Application'}], audit.compensating_controls);
+    }
+    if (audit.closure_packages && audit.closure_packages.length) {
+      h += '<p class="small fw-semibold mb-1">Historical Closure Packages</p>';
+      h += renderDocTable([{key:'observation_id',label:'Observation'},{key:'evidence_used',label:'Evidence'},{key:'owner',label:'Owner'},{key:'approver',label:'Approver'},{key:'closure_comments',label:'Comments'}], audit.closure_packages);
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function renderLifecycleStepDetail(d) {
+    if (!d) return '';
+    var h = renderDetailDl(d, ['stage_label','application','owner','reviewer','status','submission_date','approval_date','evidence_count','comments']);
+    var sections = [
+      ['Documents', d.documents, [{key:'doc_id',label:'Doc ID'},{key:'title',label:'Title'},{key:'status',label:'Status'}]],
+      ['Evidence', d.evidence, [{key:'evidence_id',label:'Evidence ID'},{key:'title',label:'Title'},{key:'status',label:'Status'}]],
+      ['Approvals', d.approvals, [{key:'approver',label:'Approver'},{key:'date',label:'Date'},{key:'status',label:'Status'}]],
+      ['Observations', d.observations, [{key:'obs_id',label:'Obs ID'},{key:'severity',label:'Severity'},{key:'status',label:'Status'}]],
+      ['Exceptions', d.exceptions, [{key:'exception_id',label:'Exception'},{key:'summary',label:'Summary'},{key:'status',label:'Status'}]],
+    ];
+    sections.forEach(function (sec) {
+      if (sec[1] && sec[1].length) {
+        h += '<p class="small fw-semibold mb-1">' + sec[0] + ' (' + sec[1].length + ')</p>';
+        h += renderDocTable(sec[2], sec[1]);
+      }
+    });
+    return h;
+  }
+
+  function renderHeatmap(data, kind) {
+    if (!data || !data.rows) return '<p class="text-muted small">No heatmap data.</p>';
+    var dims = data.dimensions || [];
+    var h = '<div class="aisdlc-heat-grid mb-2"><div class="aisdlc-heat-row aisdlc-heat-header"><div class="aisdlc-heat-label">Application</div>';
+    dims.forEach(function (d) { h += '<div class="aisdlc-heat-cell">' + esc(d) + '</div>'; });
+    h += '</div>';
+    data.rows.forEach(function (row) {
+      h += '<div class="aisdlc-heat-row"><div class="aisdlc-heat-label">' + esc(row.application) + '</div>';
+      (row.cells || []).forEach(function (cell) {
+        var cellId = (row.application_id || row.application) + '::' + cell.dimension;
+        h += '<div class="aisdlc-heat-cell tone-' + esc(cell.tone || 'amber') + '"' +
+          drillAttrs(kind || 'posture', 'heatmap_cell', cellId) + '>' + esc(cell.score) + '</div>';
+      });
+      h += '</div>';
+    });
+    h += '</div><p class="text-muted small mb-0">Click any cell for application × dimension drill-down.</p>';
+    return h;
+  }
+
+  function renderStageCard(data) {
+    if (!data) return '';
+    var h = '<div class="aisdlc-stage-card-drill">';
+    h += renderDetailDl(data, ['stage_label','readiness_score','framework_coverage_pct','control_coverage_pct','evidence_coverage_pct','open_gaps','status','approval_status']);
+    if (data.related_applications && data.related_applications.length) {
+      h += '<p class="small mb-1"><strong>Related applications:</strong> ' + esc(data.related_applications.join(', ')) + '</p>';
+    }
+    if (data.historical_implementations) {
+      h += '<p class="small fw-semibold mb-1">Historical Implementations</p>' + renderDocTable(
+        [{key:'application',label:'Application'},{key:'release',label:'Release'},{key:'status',label:'Status'},{key:'closure_date',label:'Closure'}],
+        data.historical_implementations);
+    }
+    if (data.reuse_candidates) {
+      h += '<p class="small fw-semibold mb-1">Reuse Candidates</p>' + renderDocTable(
+        [{key:'control_id',label:'Control'},{key:'application',label:'Application'},{key:'reuse_score',label:'Reuse Score'}],
+        data.reuse_candidates);
+    }
+    if (data.reusable_patterns) {
+      h += '<p class="small fw-semibold mb-1">Reusable Design Patterns</p>' + renderDocTable(
+        [{key:'pattern',label:'Pattern'},{key:'used_in',label:'Used In'},{key:'approvals',label:'Approvals'}],
+        data.reusable_patterns.map(function (p) { return { pattern: p.pattern, used_in: (p.used_in || []).join(', '), approvals: p.approvals }; }));
+    }
+    if (data.code_patterns) {
+      h += '<p class="small fw-semibold mb-1">Reusable Code Patterns</p>' + renderDocTable(
+        [{key:'pattern',label:'Pattern'},{key:'repo',label:'Repository'},{key:'apps',label:'Apps'}], data.code_patterns);
+    }
+    if (data.static_scan_history) {
+      h += '<p class="small fw-semibold mb-1">Static Scan History</p>' + renderDocTable(
+        [{key:'date',label:'Date'},{key:'critical',label:'Critical'},{key:'high',label:'High'},{key:'status',label:'Status'}], data.static_scan_history);
+    }
+    if (data.test_plans && data.test_plans.length) {
+      h += '<p class="small fw-semibold mb-1">Test Plans (' + data.test_plans.length + ')</p>' + renderDrillTable(data.test_plans.slice(0, 8), colsFromRows(data.test_plans, 6), { kind: 'sdlc', metric: 'testing', idKey: 'test_id' });
+    }
+    if (data.reusable_packs) {
+      h += '<p class="small fw-semibold mb-1">Reusable Test Packs</p>' + renderDocTable(
+        [{key:'pack',label:'Pack'},{key:'pass_rate',label:'Pass Rate'},{key:'apps',label:'Apps'}], data.reusable_packs);
+    }
+    if (data.cab_approvals) {
+      h += '<p class="small fw-semibold mb-1">CAB Approvals</p>' + renderDocTable(
+        [{key:'id',label:'CAB ID'},{key:'date',label:'Date'},{key:'authority',label:'Authority'},{key:'status',label:'Status'}], data.cab_approvals);
+    }
+    if (data.historical_releases) {
+      h += '<p class="small fw-semibold mb-1">Historical Releases</p>' + renderDocTable(
+        [{key:'application',label:'Application'},{key:'release',label:'Release'},{key:'go_live_date',label:'Go-Live'},{key:'result',label:'Result'}], data.historical_releases);
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function renderReuseWizard(wizData) {
+    if (!wizData) return '';
+    var uid = 'rwiz' + Math.random().toString(36).slice(2, 8);
+    var steps = [
+      { n: 1, title: 'Select Applications', body: '<div class="d-flex flex-wrap gap-1">' + (wizData.available_applications || []).map(function (a) {
+        return '<span class="badge bg-primary">' + esc(a) + '</span>';
+      }).join('') + '</div>' },
+      { n: 2, title: 'Select Frameworks', body: '<div class="d-flex flex-wrap gap-1">' + (wizData.available_frameworks || []).slice(0, 5).map(function (f) {
+        return '<span class="badge bg-info text-dark">' + esc(f) + '</span>';
+      }).join('') + '</div>' },
+      { n: 3, title: 'Select Controls', body: renderDocTable([{key:'control',label:'Control ID'}], (wizData.suggested_controls || []).map(function (c) { return { control: c }; })) },
+      { n: 4, title: 'Preview Mappings', body: renderDocTable(
+        [{key:'application',label:'Application'},{key:'framework',label:'Framework'},{key:'control_id',label:'Control'},{key:'status',label:'Status'}],
+        wizData.preview_mappings || []) },
+      { n: 5, title: 'Generate Package', body: '<p class="small mb-1">Cloned requirement package ready:</p><p class="fw-semibold">' + esc(wizData.cloned_package_id) + '</p><p class="text-muted small">Mappings will be attached to target release governance workspace.</p>' }
+    ];
+    var h = '<div class="aisdlc-reuse-wizard" id="' + uid + '"><p class="small fw-semibold">Reuse Requirement Wizard — ' + esc(wizData.document_title || wizData.document_id) + '</p>';
+    steps.forEach(function (s, i) {
+      h += '<div class="aisdlc-wizard-step mb-2 p-2 border rounded' + (i === 0 ? ' border-primary' : '') + '">';
+      h += '<div class="small fw-semibold">Step ' + s.n + ': ' + esc(s.title) + '</div>' + s.body + '</div>';
+    });
+    h += '<button type="button" class="btn btn-sm btn-success">Generate Cloned Requirement Package</button></div>';
+    return h;
+  }
+
+  function renderDocumentTabs(viewerTabs, art, drillExtra) {
+    if (!viewerTabs) return '';
+    var uid = 'doct' + Math.random().toString(36).slice(2, 8);
+    var tabDefs = [
+      { key: 'overview', label: 'Overview' },
+      { key: 'control_mapping', label: 'Control Mapping' },
+      { key: 'control_lineage', label: 'Control Lineage' },
+      { key: 'historical_reuse', label: 'Historical Reuse' },
+      { key: 'related_applications', label: 'Related Applications' },
+      { key: 'related_observations', label: 'Related Observations' },
+      { key: 'related_evidence', label: 'Related Evidence' },
+      { key: 'closure_packages', label: 'Closure Packages' },
+      { key: 'lessons_learned', label: 'Lessons Learned' },
+      { key: 'design_patterns', label: 'Reusable Patterns' },
+      { key: 'architecture_lineage', label: 'Architecture Lineage' },
+      { key: 'design_reuse', label: 'Design Reuse' },
+      { key: 'code_patterns', label: 'Code Patterns' },
+      { key: 'shared_libraries', label: 'Shared Libraries' },
+      { key: 'security_findings', label: 'Security Findings' },
+      { key: 'remediation_history', label: 'Remediation History' },
+      { key: 'test_plans', label: 'Test Plans' },
+      { key: 'regression_packs', label: 'Regression Packs' },
+      { key: 'vapt_results', label: 'VAPT Results' },
+      { key: 'uat_results', label: 'UAT Results' },
+      { key: 'ai_validation', label: 'AI Validation' },
+      { key: 'reusable_packs', label: 'Reusable Packs' }
+    ];
+    var activeTabs = tabDefs.filter(function (t) { return viewerTabs[t.key]; });
+    var h = '<ul class="nav nav-tabs nav-tabs-sm aisdlc-doc-tabs mb-2">';
+    activeTabs.forEach(function (t, i) {
+      h += '<li class="nav-item"><button class="nav-link' + (i === 0 ? ' active' : '') + '" data-bs-toggle="tab" data-bs-target="#' + uid + t.key + '" type="button">' + esc(t.label) + '</button></li>';
+    });
+    h += '</ul><div class="tab-content">';
+    activeTabs.forEach(function (t, i) {
+      var panel = viewerTabs[t.key];
+      h += '<div class="tab-pane fade' + (i === 0 ? ' show active' : '') + '" id="' + uid + t.key + '">';
+      if (t.key === 'overview') {
+        if (panel.executive_summary) h += '<p class="small">' + esc(panel.executive_summary) + '</p>';
+        (panel.sections || []).forEach(function (sec) {
+          h += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">' + esc(sec.title) + '</h6>';
+          if (sec.type === 'table') h += renderDocTable(sec.columns || [], sec.rows || []);
+          else h += '<p class="small mb-0">' + esc(sec.content || '') + '</p>';
+          h += '</div>';
+        });
+        var sk = panel.stage_knowledge || {};
+        if (sk.reuse_action || art.reuse_action) {
+          var rid = (art.reuse_modal && art.reuse_modal.drill_id) || '';
+          h += '<button type="button" class="btn btn-sm btn-outline-success mb-2 aisdlc-reuse-btn" data-ecs-reuse data-reuse-id="' + esc(rid) + '" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">' + esc(sk.reuse_action || art.reuse_action) + '</button>';
+        }
+        if (viewerTabs.reuse_wizard && viewerTabs.reuse_wizard.data) {
+          h += '<div class="aisdlc-reuse-wizard-wrap d-none">' + renderReuseWizard(viewerTabs.reuse_wizard.data) + '</div>';
+        }
+        if (sk.recommended_language) h += '<p class="small"><strong>Recommended Language:</strong> ' + esc(sk.recommended_language) + '</p>';
+      } else if (t.key === 'lessons_learned') {
+        (panel.items || []).forEach(function (item) { h += '<p class="small mb-1">• ' + esc(item) + '</p>'; });
+      } else if (t.key === 'shared_libraries' || t.key === 'regression_packs' || t.key === 'vapt_results' || t.key === 'uat_results' || t.key === 'ai_validation') {
+        (panel.items || []).forEach(function (item) { h += '<p class="small mb-1">• ' + esc(typeof item === 'string' ? item : JSON.stringify(item)) + '</p>'; });
+      } else if (t.key === 'historical_reuse') {
+        h += renderDocTable(
+          [{key:'observation_id',label:'Observation ID'},{key:'audit_year',label:'Audit Year'},{key:'application',label:'Application'},
+           {key:'closure_date',label:'Closure Date'},{key:'control_owner',label:'Owner'},{key:'approval_authority',label:'Authority'}],
+          panel.rows || []
+        );
+      } else if (t.key === 'control_mapping') {
+        h += renderDocTable(
+          [{key:'control_id',label:'Control ID'},{key:'framework',label:'Framework'},{key:'description',label:'Description'},{key:'status',label:'Status'}],
+          panel.rows || []
+        );
+      } else if (t.key === 'control_lineage') {
+        h += renderDocTable(
+          [{key:'application',label:'Application'},{key:'first_implementation',label:'First Impl.'},{key:'latest_implementation',label:'Latest Impl.'},
+           {key:'observations',label:'Observations'},{key:'exceptions',label:'Exceptions'},{key:'reuse_recommendation',label:'Reuse Rec.'}],
+          panel.rows || []
+        );
+      } else if (t.key === 'design_patterns' || t.key === 'architecture_lineage' || t.key === 'design_reuse' || t.key === 'code_patterns' ||
+                 t.key === 'security_findings' || t.key === 'remediation_history' || t.key === 'test_plans' || t.key === 'reusable_packs') {
+        h += renderDocTable(colsFromRows(panel.rows || panel.items || [], 6), panel.rows || []);
+      } else {
+        h += renderDocTable(
+          t.key === 'related_evidence'
+            ? [{key:'evidence_id',label:'Evidence ID'},{key:'evidence_type',label:'Type'},{key:'title',label:'Title'},{key:'submitted_by',label:'Submitted By'},{key:'review_status',label:'Review'},{key:'approval_status',label:'Approval'}]
+            : t.key === 'related_observations'
+            ? [{key:'observation_id',label:'Observation ID'},{key:'application',label:'Application'},{key:'audit_year',label:'Audit Year'},{key:'severity',label:'Severity'},{key:'closure_status',label:'Status'}]
+            : t.key === 'closure_packages'
+            ? [{key:'observation_id',label:'Observation'},{key:'evidence_used',label:'Evidence'},{key:'owner',label:'Owner'},{key:'approver',label:'Approver'},{key:'comments',label:'Comments'}]
+            : t.key === 'related_applications'
+            ? [{key:'application',label:'Application'},{key:'tier',label:'Tier'},{key:'status',label:'Status'}]
+            : [{key:'control_id',label:'Control ID'},{key:'framework',label:'Framework'},{key:'description',label:'Description'},{key:'status',label:'Status'}],
+          panel.rows || []
+        );
+      }
+      h += '</div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function renderLifecycleTrace(trace, controlId, drillExtra) {
+    if (!trace || !trace.length) return '';
+    var h = '<p class="small fw-semibold mb-1">Control Lifecycle — Requirement → Design → Development → Testing → Go-Live → Audit → Closure</p><div class="aisdlc-lifecycle-strip aisdlc-workflow mb-2">';
+    trace.forEach(function (step, i) {
+      var cls = step.status === 'Complete' || step.status === 'Approved' ? 'is-done' : (step.status === 'In Progress' ? 'is-active' : '');
+      var stepId = controlId + '::' + step.stage;
+      h += '<div class="aisdlc-wf-step aisdlc-lc-step ' + cls + '"' +
+        drillAttrs('sdlc', 'lifecycle_step', stepId, drillExtra) + '>' +
+        '<div class="step-n">' + (i + 1) + '</div>' +
+        '<div class="lc-label">' + esc(step.stage_label || step.stage) + '</div>' +
+        '<div class="text-muted lc-meta">' + esc(step.status) + '</div>' +
+        '<div class="text-muted lc-meta">Ev: ' + esc(step.evidence_count) + '</div></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function renderHistoryAccordions(history, drillExtra) {
+    if (!history) return '';
+    var uid = 'hist' + Math.random().toString(36).slice(2, 8);
+    var h = '<p class="small fw-semibold mb-1 mt-2">Historical Knowledge Reuse</p><div class="accordion accordion-flush aisdlc-history-acc" id="' + uid + '">';
+    HISTORY_SECTIONS.forEach(function (sec, idx) {
+      var rows = history[sec.key] || [];
+      var cid = uid + '-c' + idx;
+      h += '<div class="accordion-item"><h2 class="accordion-header">' +
+        '<button class="accordion-button collapsed py-2 small" type="button" data-bs-toggle="collapse" data-bs-target="#' + cid + '">' +
+        esc(sec.label) + ' <span class="badge bg-secondary ms-1">' + rows.length + '</span></button></h2>' +
+        '<div id="' + cid + '" class="accordion-collapse collapse" data-bs-parent="#' + uid + '">' +
+        '<div class="accordion-body p-2">';
+      if (rows.length) {
+        h += renderDrillTable(rows, colsFromRows(rows, 6), {
+          kind: 'sdlc', metric: sec.metric, idKey: sec.idKey,
+          release: drillExtra.release, stage: drillExtra.stage
+        });
+      } else {
+        h += '<p class="text-muted small mb-0">No records.</p>';
+      }
+      h += '</div></div></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function bindModalWorkspace(root) {
+    if (!root) return;
+    root.querySelectorAll('.ecs-workspace-tab').forEach(function (btn) {
+      if (btn.dataset.modalTabBound) return;
+      btn.dataset.modalTabBound = '1';
+      btn.addEventListener('click', function () {
+        var tabId = btn.getAttribute('data-workspace-tab');
+        root.querySelectorAll('.ecs-workspace-tab').forEach(function (b) {
+          b.classList.toggle('is-active', b.getAttribute('data-workspace-tab') === tabId);
+        });
+        root.querySelectorAll('.ecs-workspace-pane').forEach(function (pane) {
+          pane.classList.toggle('is-active', pane.getAttribute('data-workspace-pane') === tabId);
+        });
+        refreshModalPagination(root);
+      });
+    });
+    bindGapsDrillControls(root);
+  }
+
+  function bindGapsDrillControls(root) {
+    root.querySelectorAll('.ecs-gaps-drill-toolbar').forEach(function (wrap) {
+      if (wrap.dataset.gapsBound) return;
+      wrap.dataset.gapsBound = '1';
+      var release = wrap.getAttribute('data-release') || '';
+      var stage = wrap.getAttribute('data-stage') || '';
+      var state = {
+        page: parseInt(wrap.getAttribute('data-page') || '1', 10) || 1,
+        severity: wrap.getAttribute('data-severity') || '',
+        search: wrap.getAttribute('data-search') || ''
+      };
+      function reload() {
+        openDrill('sdlc', 'gaps_drill', '', { release: release, stage: stage }, {
+          page: state.page, severity: state.severity, search: state.search
+        });
+      }
+      wrap.querySelectorAll('.ecs-gaps-sev-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          state.severity = btn.getAttribute('data-sev') || '';
+          state.page = 1;
+          reload();
+        });
+      });
+      var searchInput = wrap.querySelector('.ecs-gaps-search');
+      if (searchInput && !searchInput.dataset.gapsSearchBound) {
+        searchInput.dataset.gapsSearchBound = '1';
+        var searchTimer;
+        searchInput.addEventListener('input', function () {
+          clearTimeout(searchTimer);
+          searchTimer = setTimeout(function () {
+            state.search = searchInput.value || '';
+            state.page = 1;
+            reload();
+          }, 350);
+        });
+      }
+      wrap.querySelectorAll('[data-gaps-page]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var pg = parseInt(btn.getAttribute('data-gaps-page'), 10);
+          if (!pg || pg < 1) return;
+          state.page = pg;
+          reload();
+        });
+      });
+    });
+  }
+
+  function renderGapsDrillToolbar(gd, drillExtra) {
+    var sev = gd.severity_filter || '';
+    var search = gd.search || '';
+    var h = '<div class="ecs-gaps-drill-toolbar mb-2" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '" data-page="' + esc(gd.page || 1) + '" data-severity="' + esc(sev) + '" data-search="' + esc(search) + '">';
+    h += '<div class="d-flex flex-wrap gap-2 align-items-center">';
+    h += '<input type="search" class="form-control form-control-sm ecs-gaps-search" placeholder="Search gaps…" value="' + esc(search) + '" style="max-width:14rem">';
+    ['', 'Critical', 'High', 'Medium', 'Low'].forEach(function (s) {
+      var label = s || 'All';
+      var count = (gd.filters && gd.filters[label]) != null ? gd.filters[label] : (gd.filters && gd.filters.All);
+      var active = (sev === s) || (!sev && !s);
+      h += '<button type="button" class="btn btn-sm ecs-gaps-sev-btn ' + (active ? 'btn-primary' : 'btn-outline-secondary') + '" data-sev="' + esc(s) + '">' + esc(label) + ' (' + esc(count != null ? count : '') + ')</button>';
+    });
+    h += '</div></div>';
+    return h;
+  }
+
+  function renderServerPaginationBar(gd, drillExtra) {
+    var page = gd.page || 1;
+    var pages = gd.total_pages || 1;
+    var total = gd.total || 0;
+    var h = '<div class="ecs-pagination-bar ecs-gaps-drill-toolbar mt-2" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '" data-page="' + esc(page) + '" data-severity="' + esc(gd.severity_filter || '') + '" data-search="' + esc(gd.search || '') + '">';
+    h += '<div class="ecs-pagination-summary">Showing page ' + page + ' of ' + pages + ' · ' + total + ' matching gaps</div>';
+    h += '<div class="ecs-pagination-controls"><div class="btn-group btn-group-sm">';
+    h += '<button type="button" class="btn btn-outline-secondary" data-gaps-page="1"' + (page <= 1 ? ' disabled' : '') + '>&laquo;</button>';
+    h += '<button type="button" class="btn btn-outline-secondary" data-gaps-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + '>&lsaquo; Prev</button>';
+    h += '<button type="button" class="btn btn-outline-secondary" data-gaps-page="' + (page + 1) + '"' + (page >= pages ? ' disabled' : '') + '>Next &rsaquo;</button>';
+    h += '<button type="button" class="btn btn-outline-secondary" data-gaps-page="' + pages + '"' + (page >= pages ? ' disabled' : '') + '>&raquo;</button>';
+    h += '</div></div></div>';
+    return h;
+  }
+
+  function renderModalWorkspace(tabs, panes) {
+    var uid = 'mdl' + Math.random().toString(36).slice(2, 8);
+    var h = '<div class="ecs-modal-workspace"><nav class="ecs-workspace-tabs ecs-workspace-tabs-governance mb-2">';
+    tabs.forEach(function (t, i) {
+      h += '<button type="button" class="ecs-workspace-tab' + (i === 0 ? ' is-active' : '') + '" data-workspace-tab="' + uid + '-' + t.id + '">' + esc(t.label) + '</button>';
+    });
+    h += '</nav><div class="ecs-modal-workspace-panels">';
+    tabs.forEach(function (t, i) {
+      h += '<div class="ecs-workspace-pane ecs-gov-pane' + (i === 0 ? ' is-active' : '') + '" data-workspace-pane="' + uid + '-' + t.id + '">';
+      h += '<div class="ecs-modal-pane-scroll">' + (panes[t.id] || '') + '</div></div>';
+    });
+    h += '</div></div>';
+    return h;
+  }
+
+  function renderControl360(c360) {
+    if (!c360) return '';
+    var p = c360.profile || {};
+    var h = '<div class="aisdlc-control-360 mb-2"><p class="small fw-semibold">Control 360 View</p>';
+    h += renderDetailDl(p, ['control_id','control_name','control_objective','framework','application','owner','status','reuse_count']);
+    h += '<p class="small mb-1"><strong>Applications using:</strong> ' + esc((p.applications_using || c360.applications || []).join(', ')) + '</p>';
+    h += renderDetailDl(c360.lineage || {}, ['requirement','design','development','testing']);
+    if (c360.observation_history && c360.observation_history.length) {
+      h += '<p class="small fw-semibold mb-1">Observation History</p>' + renderDocTable(
+        [{key:'obs_id',label:'Observation'},{key:'application',label:'Application'},{key:'severity',label:'Severity'},{key:'status',label:'Status'},{key:'date',label:'Date'}],
+        c360.observation_history);
+    }
+    if (c360.approval_history && c360.approval_history.length) {
+      h += '<p class="small fw-semibold mb-1">Approval History</p>' + renderDocTable(
+        [{key:'authority',label:'Authority'},{key:'date',label:'Date'},{key:'status',label:'Status'}], c360.approval_history);
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function renderControlDrillWorkspace(p, drillExtra) {
+    var d = p.data || {};
+    var kb = p.knowledge_repository || {};
+    var sm = kb.summary || {};
+    var c360 = p.control_360 || {};
+    var panes = {
+      overview: renderDetailDl(d, ['control_id','control_description','application','framework','owner','status','evidence_count','findings_count','exceptions_count']) +
+        renderControl360(c360),
+      applications: '<p class="small mb-1"><strong>Total applications:</strong> ' + esc(sm.total_applications || '—') + '</p>' +
+        '<p class="small mb-1"><strong>Using control:</strong> ' + esc((sm.apps_using || []).join(', ')) + '</p>' +
+        '<p class="small mb-1"><strong>Implementing:</strong> ' + esc((sm.apps_implementing || []).join(', ')) + '</p>' +
+        '<p class="small mb-1"><strong>Failed:</strong> ' + esc((sm.apps_failed || []).join(', ')) + '</p>' +
+        '<p class="small mb-0"><strong>Closed observations:</strong> ' + esc((sm.apps_closed_observations || []).join(', ')) + '</p>',
+      evidence: (p.rows && p.rows.length)
+        ? renderDrillTable(p.rows, EVIDENCE_COLS, { kind: 'sdlc', metric: 'evidence', idKey: 'evidence_id', release: drillExtra.release, stage: drillExtra.stage })
+        : '<p class="text-muted small">No linked evidence.</p>',
+      observations: renderAuditKnowledgeKb(p.audit_knowledge, drillExtra) || '<p class="text-muted small">No observations.</p>',
+      exceptions: '<p class="small">Open exceptions on this control: <strong>' + esc(d.exceptions_count) + '</strong></p>' +
+        '<p class="text-muted small mb-0">View go-live exception register for waiver detail and expiry.</p>',
+      history: renderHistoryAccordions(p.history, drillExtra),
+      reuse: renderControlKnowledgeRepo(kb, drillExtra, d.control_id),
+      lifecycle: renderLifecycleTrace(p.lifecycle_trace, d.control_id, drillExtra) +
+        (p.knowledge_graph ? renderKnowledgeGraph(p.knowledge_graph, drillExtra) : '')
+    };
+    return renderModalWorkspace([
+      { id: 'overview', label: 'Control 360' }, { id: 'applications', label: 'Applications' }, { id: 'evidence', label: 'Evidence' },
+      { id: 'observations', label: 'Observations' }, { id: 'exceptions', label: 'Exceptions' }, { id: 'history', label: 'History' },
+      { id: 'reuse', label: 'Reuse Repository' }, { id: 'lifecycle', label: 'Lifecycle' }
+    ], panes);
+  }
+
+  function renderExecHeatmap(p, drillExtra) {
+    var rows = p.rows || [];
+    return renderDrillTable(rows, [
+      {key:'application',label:'Application'},{key:'stage_label',label:'Stage'},{key:'readiness_score',label:'Readiness %'},{key:'gaps',label:'Gaps'}
+    ], { kind: 'sdlc', metric: 'exec_readiness_heatmap', idKey: 'drill_id', release: drillExtra.release, stage: '' });
+  }
+
+  function renderDocTable(columns, rows) {
+    if (!rows || !rows.length) return '<p class="text-muted small mb-0">No records.</p>';
+    var h = '<div class="ecs-gov-table-scroll"><table class="table table-sm aisdlc-table ecs-gov-data-table mb-0"><thead><tr>';
+    columns.forEach(function (c) { h += '<th>' + esc(c.label) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr>';
+      columns.forEach(function (c) { h += '<td>' + esc(r[c.key]) + '</td>'; });
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    return h;
+  }
+
+  function renderDocumentViewer(p) {
+    var d = p.data || {};
+    var art = p.artifact || d.artifact || {};
+    var tabs = p.viewer_tabs || art.viewer_tabs;
+    var html = '<div class="aisdlc-doc-viewer">';
+    html += '<div class="aisdlc-doc-header mb-2 pb-2 border-bottom">';
+    html += '<div class="d-flex flex-wrap align-items-center gap-2 mb-1">';
+    html += '<span class="badge bg-secondary">' + esc(d.doc_type || 'Governance Document') + '</span>';
+    html += '<span class="aisdlc-badge ' + esc(d.status || '') + '">' + esc(d.status) + '</span>';
+    html += '<span class="small text-muted">v' + esc(d.version) + ' · ' + esc(d.pages) + ' pages · ' + esc(d.submitted) + '</span>';
+    if (art.reuse_action) html += '<button type="button" class="btn btn-sm btn-outline-success ms-auto aisdlc-reuse-btn" data-reuse-wizard="1">' + esc(art.reuse_action) + '</button>';
+    html += '</div>';
+    html += '<div class="small"><strong>Application:</strong> ' + esc(d.application) + ' · <strong>Owner:</strong> ' + esc(d.owner) + ' · <strong>Category:</strong> ' + esc(d.category) + '</div>';
+    html += '</div>';
+    if (tabs) {
+      html += renderDocumentTabs(tabs, art, { release: p.release_id, stage: p.stage_key || d.stage_key });
+    } else {
+    if (art.executive_summary) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Executive Summary</h6><p class="small mb-0">' + esc(art.executive_summary) + '</p></div>';
+    }
+    (art.sections || []).forEach(function (sec) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">' + esc(sec.title) + '</h6>';
+      if (sec.type === 'table') html += renderDocTable(sec.columns || [], sec.rows || []);
+      else html += '<p class="small mb-0">' + esc(sec.content || '') + '</p>';
+      html += '</div>';
+    });
+    if (art.required_evidence && art.required_evidence.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Required Evidence (' + art.required_evidence.length + ')</h6>';
+      html += renderDocTable(
+        [{key:'evidence_id',label:'Evidence ID'},{key:'evidence_type',label:'Type'},{key:'title',label:'Title'},{key:'submitted_by',label:'Submitted By'},{key:'review_status',label:'Review'},{key:'approval_status',label:'Approval'}],
+        art.required_evidence
+      );
+      html += '</div>';
+    }
+    var hist = art.historical_approved_references || art.historical_references || [];
+    if (hist.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Historical Approved References (' + hist.length + ')</h6>';
+      html += renderDocTable(
+        [{key:'observation_id',label:'Observation ID'},{key:'audit_year',label:'Audit Year'},{key:'application',label:'Application'},{key:'closure_date',label:'Closure Date'},{key:'control_owner',label:'Control Owner'},{key:'approval_authority',label:'Approval Authority'}],
+        hist
+      );
+      html += '</div>';
+    }
+    if (art.approval_comments && art.approval_comments.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Approval Comments</h6>';
+      html += renderDocTable(
+        [{key:'reviewer',label:'Reviewer'},{key:'date',label:'Date'},{key:'comment',label:'Comment'},{key:'status',label:'Status'}],
+        art.approval_comments
+      );
+      html += '</div>';
+    }
+    if (art.sample_approved_evidence && art.sample_approved_evidence.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Sample Approved Evidence</h6>';
+      html += renderDocTable(
+        [{key:'evidence_id',label:'Evidence ID'},{key:'evidence_type',label:'Type'},{key:'title',label:'Title'},{key:'approval_status',label:'Status'}],
+        art.sample_approved_evidence
+      );
+      html += '</div>';
+    }
+    if (art.exception_approvals && art.exception_approvals.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Exception Approvals</h6>';
+      html += renderDocTable(
+        [{key:'exception_id',label:'Exception ID'},{key:'summary',label:'Summary'},{key:'expiry',label:'Expiry'},{key:'status',label:'Status'}],
+        art.exception_approvals
+      );
+      html += '</div>';
+    }
+    }
+    html += '</div>';
+    return html;
+  }
+
   function renderPayload(p) {
     if (!p) return '<p class="text-muted">No data.</p>';
+    var html = renderAppBanner(p.applications);
+    var drillExtra = { release: p.release_id || lastDrill.release, stage: p.stage_key || lastDrill.stage };
+
     if (p.type === 'application' && p.data) {
-      var d = p.data;
-      var html = '<dl class="row small mb-2">' +
-        ['name','application','owner','model','use_case','risk_tier','compliance_score','policy_compliance','model_status','users_daily','tokens_mtd','last_review']
-        .map(function (k) { return '<dt class="col-sm-4">' + esc(k.replace(/_/g,' ')) + '</dt><dd class="col-sm-8">' + esc(d[k]) + '</dd>'; }).join('') +
-        '</dl>';
+      html += renderDetailDl(p.data, ['name','application','owner','model','use_case','risk_tier','compliance_score','compliance','policy_compliance','model_status','hallucinations','unsafe_prompts','users_daily','tokens_mtd','last_review']);
+      if (p.related_model && p.related_model.model) {
+        html += '<p class="small fw-semibold mb-1">Linked Model</p>' + renderDetailDl(p.related_model, ['model','status','approved_by','expiry','risk_tier']);
+      }
+      if (p.evidence_rows && p.evidence_rows.length) {
+        html += '<p class="small fw-semibold mb-1">Evidence (' + p.evidence_rows.length + ')</p>';
+        html += renderDrillTable(p.evidence_rows, [{key:'evidence_id',label:'Evidence ID'},{key:'title',label:'Title'},{key:'status',label:'Status'},{key:'collected_date',label:'Collected'}], {});
+      }
       if (p.related_prompts && p.related_prompts.length) {
-        html += '<p class="small fw-semibold mb-1">Related prompts (' + p.related_prompts.length + ')</p>';
-        html += renderTable(p.related_prompts, colsFromRows(p.related_prompts, 6));
+        html += '<p class="small fw-semibold mb-1">Related Prompts (' + p.related_prompts.length + ')</p>';
+        html += renderDrillTable(p.related_prompts, [{key:'prompt_id',label:'Prompt ID'},{key:'model',label:'Model'},{key:'risk_score',label:'Risk'},{key:'review_status',label:'Status'}], { kind: 'posture', metric: 'prompts', idKey: 'prompt_id' });
+      }
+      if (p.audit_history && p.audit_history.length) {
+        html += '<p class="small fw-semibold mb-1">Audit History (' + p.audit_history.length + ')</p>';
+        html += renderDrillTable(p.audit_history, [{key:'timestamp',label:'Timestamp'},{key:'action',label:'Action'},{key:'actor',label:'Actor'},{key:'detail',label:'Detail'}], { kind: 'posture', metric: 'audit' });
       }
       return html;
     }
+
+    if (p.type === 'compliance_breakdown' && p.data) {
+      var cd = p.data;
+      html += renderHowCalculated({ formula: cd.formula, aggregate: cd.current_score, steps: cd.calculation_steps });
+      html += renderDetailDl(cd, ['current_score','target_score','gap','previous_score','score_change']);
+      if (cd.change_reasons && cd.change_reasons.length) {
+        html += '<p class="small fw-semibold mb-1">Why Score Changed</p><ul class="small">' + cd.change_reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>';
+      }
+      html += '<p class="small fw-semibold mb-1">Governance Dimensions</p>' + renderDocTable(
+        [{key:'dimension',label:'Dimension'},{key:'weight_pct',label:'Weight %'},{key:'score',label:'Score'},{key:'contribution',label:'Contribution'},{key:'rationale',label:'Why It Exists'}],
+        cd.breakdown || []);
+      html += '<p class="small fw-semibold mb-1">Compliance Trend</p>' + renderDocTable(
+        [{key:'month',label:'Month'},{key:'score',label:'Score %'}], cd.trend || []);
+      return html;
+    }
+
+    if (p.type === 'policy_compliance_drill' && p.data) {
+      var pd = p.data;
+      html += renderHowCalculated({ formula: pd.formula, aggregate: pd.aggregate_pct, steps: pd.calculation_steps });
+      html += renderDetailDl(pd, ['aggregate_pct','total_policies','total_violations']);
+      html += renderDrillTable(pd.rows || [], [
+        {key:'policy',label:'Policy'},{key:'compliance_pct',label:'Compliance %'},{key:'violations',label:'Violations'},{key:'owner',label:'Owner'}
+      ], { kind: 'posture', metric: 'policies', idKey: 'policy', actionLabel: 'View Violations', actionMetric: 'policies' });
+      return html;
+    }
+
+    if (p.type === 'control_violations' && p.data) {
+      html += renderDetailDl(p.data, ['framework','control_id','control_name','compliance_pct','violations','control_owner']);
+      html += '<p class="small fw-semibold mb-1">Violation Records (' + (p.rows || []).length + ')</p>';
+      html += renderDrillTable(p.rows || [], [
+        {key:'framework',label:'Framework'},{key:'control_id',label:'Control ID'},{key:'control_name',label:'Control Name'},
+        {key:'violation_description',label:'Violation Description'},{key:'affected_applications',label:'Affected Applications'},
+        {key:'evidence_references',label:'Evidence References'},{key:'remediation_status',label:'Remediation Status'}
+      ]);
+      return html;
+    }
+
+    if (p.type === 'control_compliance_drill' && p.data) {
+      html += renderDetailDl(p.data, ['total_controls']);
+      html += renderDrillTable(p.rows || [], [
+        {key:'framework',label:'Framework'},{key:'control_id',label:'Control ID'},{key:'control_name',label:'Control Name'},
+        {key:'compliance_pct',label:'Compliance %'},{key:'violations',label:'Violations'},
+        {key:'applications_affected',label:'Applications Affected'},{key:'control_owner',label:'Control Owner'}
+      ], { kind: 'posture', metric: 'controls', idKey: 'control_id', actionLabel: 'View Violations', actionMetric: 'controls' });
+      return html;
+    }
+
+    if (p.type === 'policy_violations' && p.data) {
+      html += renderDetailDl(p.data, ['policy','compliance_pct','violations','owner']);
+      html += '<p class="small fw-semibold mb-1">Violation Records (' + (p.rows || []).length + ')</p>';
+      html += renderDrillTable(p.rows || [], [
+        {key:'id',label:'Violation ID'},{key:'application',label:'Application'},{key:'detail',label:'Detail'},{key:'status',label:'Status'}
+      ], { kind: 'posture', metric: 'application', idKey: 'application_id' });
+      return html;
+    }
+
+    if (p.type === 'registry_model' && p.data) {
+      html += renderDetailDl(p.data, ['model_id','name','provider','version','owner','status','approved_by','expiry','risk_tier','applications_count','prompts_count']);
+      if (p.data.applications_using_model && p.data.applications_using_model.length) {
+        html += '<p class="small fw-semibold mb-1">Applications Using Model</p>';
+        html += renderDrillTable(
+          p.data.applications_using_model.map(function (n) { return { application: n, drill_id: n }; }),
+          [{key:'application',label:'Application'}],
+          { kind: 'posture', metric: 'application', idKey: 'application' }
+        );
+      }
+      if (p.related_prompts && p.related_prompts.length) {
+        html += '<p class="small fw-semibold mb-1">Prompts Using Model (' + p.related_prompts.length + ')</p>';
+        html += renderDrillTable(p.related_prompts, [
+          {key:'prompt_id',label:'Prompt ID'},{key:'name',label:'Name'},{key:'application',label:'Application'},{key:'risk_score',label:'Risk'},{key:'status',label:'Status'}
+        ], { kind: 'registry', metric: 'prompts', idKey: 'prompt_id' });
+      }
+      if (p.workflow && p.workflow.length) {
+        html += '<p class="small fw-semibold mb-1">Approval Workflow</p>';
+        html += renderDocTable([{key:'stage',label:'Stage'},{key:'actor',label:'Actor'},{key:'status',label:'Status'},{key:'date',label:'Date'}], p.workflow);
+      }
+      return html;
+    }
+
+    if (p.type === 'registry_prompt' && p.data) {
+      html += renderDetailDl(p.data, ['prompt_id','name','application','use_case','owner','model','model_id','version','risk_score','status','approved_by','last_updated']);
+      if (p.related_model && p.related_model.model_id) {
+        html += '<p class="small fw-semibold mb-1">Linked Model</p>' + renderDetailDl(p.related_model, ['model_id','name','provider','status','risk_tier','expiry']);
+        html += '<p class="small"><span class="aisdlc-drill-link"' + drillAttrs('registry', 'models', p.related_model.model_id) + '>Open model in registry →</span></p>';
+      }
+      html += '<p class="small"><span class="aisdlc-drill-link"' + drillAttrs('posture', 'application', p.data.application_id || p.data.application) + '>Open application in posture →</span></p>';
+      if (p.workflow && p.workflow.length) {
+        html += '<p class="small fw-semibold mb-1">Approval Workflow</p>';
+        html += renderDocTable([{key:'stage',label:'Stage'},{key:'actor',label:'Actor'},{key:'status',label:'Status'}], p.workflow);
+      }
+      return html;
+    }
+
     if (p.type === 'heatmap_cell' && p.data) {
-      var c = p.data;
-      return '<dl class="row small mb-0">' +
-        ['application','dimension','score','risk','controls_reviewed','open_findings','last_assessed']
-        .map(function (k) { return '<dt class="col-sm-4">' + esc(k.replace(/_/g,' ')) + '</dt><dd class="col-sm-8">' + esc(c[k]) + '</dd>'; }).join('') +
-        '</dl>';
+      html += renderDetailDl(p.data, ['application','dimension','score','risk','controls_reviewed','open_findings','last_assessed']);
+      return html;
     }
-    if ((p.type === 'prompt' || p.type === 'gap' || p.type === 'version' || p.type === 'framework') && p.data) {
+
+    if (p.type === 'heatmap' && p.data) {
+      html += renderHeatmap(p.data, 'posture');
+      return html;
+    }
+
+    if (p.type === 'readiness_breakdown' && p.data) {
       var d = p.data;
-      return '<dl class="row small">' +
-        Object.keys(d).filter(function (k) { return typeof d[k] !== 'object'; }).map(function (k) {
-          return '<dt class="col-sm-4">' + esc(k) + '</dt><dd class="col-sm-8">' + esc(d[k]) + '</dd>';
-        }).join('') +
-        '</dl>' + (p.rows && p.rows.length ? renderTable(p.rows, colsFromRows(p.rows)) : '');
+      html += renderHowCalculated({ formula: d.formula, aggregate: d.current_score, steps: d.calculation_steps });
+      html += renderDetailDl(d, ['current_score','target_score','missing_score']);
+      html += '<p class="small fw-semibold mb-1">Score Breakdown</p>' + renderDocTable(
+        [{key:'dimension',label:'Dimension'},{key:'weight_pct',label:'Weight %'},{key:'score',label:'Score'},{key:'contribution',label:'Contribution'}],
+        d.breakdown || []);
+      html += '<p class="small fw-semibold mb-1">Readiness Trend</p>' + renderDocTable(
+        [{key:'month',label:'Month'},{key:'readiness',label:'Readiness %'}], d.trend || []);
+      html += '<p class="small fw-semibold mb-1">Improvement Actions</p>' + renderDocTable(
+        [{key:'action',label:'Action'},{key:'impact_pts',label:'Impact pts'},{key:'owner',label:'Owner'}],
+        d.improvement_actions || []);
+      return html;
     }
+
+    if (p.type === 'framework_coverage_drill' && p.data) {
+      var fd = p.data;
+      html += renderHowCalculated({ formula: fd.formula, aggregate: fd.aggregate_pct, steps: fd.calculation_steps });
+      html += renderDrillTable(fd.rows || [], [
+        {key:'framework',label:'Framework'},{key:'total_controls',label:'Total'},{key:'covered_controls',label:'Covered'},
+        {key:'missing_controls',label:'Missing'},{key:'evidence_pct',label:'Evidence %'},{key:'owner',label:'Owner'},{key:'gaps',label:'Gaps'}
+      ], { kind: 'sdlc', metric: 'framework', idKey: 'framework', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'control_coverage_drill' && p.data) {
+      var cd = p.data;
+      html += renderHowCalculated({ formula: cd.formula, aggregate: cd.aggregate_pct, steps: cd.calculation_steps });
+      html += renderDrillTable(cd.rows || [], [
+        {key:'control_id',label:'Control ID'},{key:'control_name',label:'Name'},{key:'application',label:'Application'},
+        {key:'owner',label:'Owner'},{key:'status',label:'Status'},{key:'evidence_count',label:'Evidence'},{key:'framework',label:'Framework'}
+      ], { kind: 'sdlc', metric: 'control', idKey: 'control_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'evidence_coverage_drill' && p.data) {
+      var ed = p.data;
+      html += renderHowCalculated({ formula: ed.formula, aggregate: ed.aggregate_pct, steps: ed.calculation_steps });
+      html += renderDetailDl(ed.summary || {}, ['required','submitted','accepted','rejected','expired']);
+      html += renderDrillTable(ed.rows || [], [
+        {key:'evidence_id',label:'Evidence ID'},{key:'title',label:'Title'},{key:'status',label:'Status'},
+        {key:'source',label:'Source'},{key:'upload_date',label:'Upload'},{key:'owner',label:'Owner'},{key:'control_id',label:'Control'}
+      ], { kind: 'sdlc', metric: 'evidence', idKey: 'evidence_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'gaps_drill' && p.data) {
+      var gd = p.data;
+      html += renderGapsDrillToolbar(gd, drillExtra);
+      html += renderDrillTable(gd.rows || [], [
+        {key:'gap_id',label:'Gap ID'},{key:'framework',label:'Framework'},{key:'control',label:'Control'},
+        {key:'severity',label:'Severity'},{key:'application',label:'Application'},{key:'owner',label:'Owner'},{key:'due',label:'Due'}
+      ], { kind: 'sdlc', metric: 'gaps', idKey: 'gap_id', release: drillExtra.release, stage: drillExtra.stage });
+      html += renderServerPaginationBar(gd, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'status_timeline' && p.data) {
+      html += renderDocTable([{key:'stage',label:'Stage'},{key:'started',label:'Started'},{key:'completed',label:'Completed'},{key:'status',label:'Status'},{key:'state',label:'State'}], p.data.timeline || []);
+      html += '<p class="small fw-semibold mb-1">Blockers</p>' + renderDocTable([{key:'item',label:'Item'},{key:'stage',label:'Stage'},{key:'owner',label:'Owner'},{key:'severity',label:'Severity'}], p.data.blockers || []);
+      html += '<p class="small fw-semibold mb-1">Pending Actions</p>' + renderDocTable([{key:'action',label:'Action'},{key:'due',label:'Due'},{key:'owner',label:'Owner'}], p.data.pending_actions || []);
+      return html;
+    }
+
+    if (p.type === 'approvals_drill' && p.data) {
+      html += renderDocTable([{key:'approver',label:'Approver'},{key:'role',label:'Role'},{key:'status',label:'Status'},{key:'comments',label:'Comments'},{key:'decision_date',label:'Date'}], p.data.approval_chain || []);
+      html += '<p class="small fw-semibold mb-1">Escalations</p>' + renderDocTable([{key:'from',label:'From'},{key:'to',label:'To'},{key:'reason',label:'Reason'},{key:'date',label:'Date'}], p.data.escalations || []);
+      return html;
+    }
+
+    if (p.type === 'historical_lineage' && p.data) {
+      html += renderDocTable([{key:'artifact_type',label:'Type'},{key:'artifact_id',label:'ID'},{key:'application',label:'Application'},{key:'release',label:'Release'},{key:'owner',label:'Owner'},{key:'closure_date',label:'Closure'},{key:'result',label:'Result'}], p.data.implementations || []);
+      return html;
+    }
+
+    if (p.type === 'control_reuse_repo' && p.data) {
+      html += renderDrillTable(p.data.rows || [], [{key:'control_id',label:'Control'},{key:'control_name',label:'Name'},{key:'applications_used',label:'Apps'},{key:'reuse_score',label:'Reuse Score'},{key:'framework_mapping',label:'Framework'}],
+        { kind: 'sdlc', metric: 'control', idKey: 'control_id', release: drillExtra.release, stage: drillExtra.stage });
+      html += '<button type="button" class="btn btn-sm btn-outline-success mt-2" data-ecs-reuse data-reuse-id="control::reuse" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">Reuse Control Wizard</button>';
+      return html;
+    }
+
+    if (p.type === 'design_reuse_repo' && p.data) {
+      html += renderDrillTable(p.data.rows || [], [{key:'pattern_name',label:'Pattern'},{key:'architecture_type',label:'Architecture'},{key:'applications_used',label:'Apps'},{key:'approvals',label:'Approvals'},{key:'success_rate',label:'Success %'}],
+        { kind: 'sdlc', metric: 'design', idKey: 'pattern_name', release: drillExtra.release, stage: drillExtra.stage });
+      html += '<button type="button" class="btn btn-sm btn-outline-success mt-2" data-ecs-reuse data-reuse-id="design::reuse" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">Reuse Design Wizard</button>';
+      return html;
+    }
+
+    if (p.type === 'code_reuse_repo' && p.data) {
+      html += renderDrillTable(p.data.rows || [], [{key:'component',label:'Component'},{key:'category',label:'Category'},{key:'applications_used',label:'Apps'},{key:'language',label:'Language'},{key:'security_rating',label:'Security'}],
+        { kind: 'sdlc', metric: 'code', idKey: 'component', release: drillExtra.release, stage: drillExtra.stage });
+      html += '<button type="button" class="btn btn-sm btn-outline-success mt-2" data-ecs-reuse data-reuse-id="code::reuse" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">Reuse Component</button>';
+      return html;
+    }
+
+    if (p.type === 'test_pack_reuse_repo' && p.data) {
+      html += renderDrillTable(p.data.rows || [], [{key:'test_pack',label:'Test Pack'},{key:'coverage',label:'Coverage'},{key:'applications_used',label:'Apps'},{key:'pass_rate',label:'Pass Rate'}],
+        { kind: 'sdlc', metric: 'test_pack', idKey: 'test_pack', release: drillExtra.release, stage: drillExtra.stage });
+      html += '<button type="button" class="btn btn-sm btn-outline-success mt-2" data-ecs-reuse data-reuse-id="test_pack::reuse" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">Reuse Test Pack Wizard</button>';
+      return html;
+    }
+
+    if (p.type === 'reuse_modal' && p.data) {
+      html += (window.renderReuseModal ? window.renderReuseModal(p.data) : '<p class="text-muted">Reuse modal ready.</p>');
+      return html;
+    }
+
+    if (p.type === 'stage_card' && p.data) {
+      html += renderStageCard(p.data);
+      return html;
+    }
+
+    if (p.type === 'control' && p.data) {
+      html += renderControlDrillWorkspace(p, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'controls' && p.rows) {
+      html += '<p class="small text-muted mb-2">' + esc(p.title || '') + '</p>';
+      html += renderDrillTable(p.rows, CONTROL_COLS, { kind: 'sdlc', metric: 'control', idKey: 'control_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'evidence' && p.data) {
+      html += renderDetailDl(p.data, ['evidence_id','title','application','framework','control_id','type','status','collected_date','owner','file_format','size_kb','retention_years','auditor_visible','source_system','summary']);
+      return html;
+    }
+
+    if (p.type === 'evidence_list' && p.rows) {
+      html += '<p class="small text-muted mb-2">' + esc(p.title || '') + '</p>';
+      html += renderDrillTable(p.rows, EVIDENCE_COLS, { kind: 'sdlc', metric: 'evidence', idKey: 'evidence_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'document_viewer' && p.data) {
+      html += renderDocumentViewer(p);
+      return html;
+    }
+
+    if (p.type === 'document' && p.data) {
+      html += renderDocumentViewer({ data: p.data, artifact: p.data.artifact || {} });
+      return html;
+    }
+
+    if (p.type === 'documents' && p.rows) {
+      html += renderDrillTable(p.rows, colsFromRows(p.rows, 7), { kind: 'sdlc', metric: 'document', idKey: 'doc_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'framework' && p.data) {
+      var d = p.data;
+      if (p.framework_summary) {
+        html += '<p class="small fw-semibold mb-1">Framework Summary</p>';
+        html += renderDetailDl(p.framework_summary, ['framework','control_coverage_pct','evidence_coverage_pct','readiness_pct','open_gaps','owner']);
+        if (p.framework_summary.applications_covered && p.framework_summary.applications_covered.length) {
+          html += '<p class="small mb-1"><strong>Applications covered:</strong> ' + esc(p.framework_summary.applications_covered.join(', ')) + '</p>';
+        }
+      }
+      html += renderDetailDl(d, ['framework','controls_total','controls_covered','checklist_pct','gaps','evidence_status','evidence_collected','evidence_total','owner','due_date','risk']);
+      if (p.control_lineage && p.control_lineage.length) {
+        html += '<p class="small fw-semibold mb-1">Control Lineage (' + p.control_lineage.length + ')</p>';
+        html += renderDocTable([
+          {key:'control_id',label:'Control ID'},{key:'mapped_requirement',label:'Requirement'},{key:'mapped_design',label:'Design'},
+          {key:'mapped_development',label:'Development'},{key:'mapped_test',label:'Test'},{key:'mapped_evidence',label:'Evidence'},
+          {key:'observation_count',label:'Observations'},{key:'exception_count',label:'Exceptions'},{key:'reuse_score',label:'Reuse Score'}
+        ], p.control_lineage);
+      }
+      if (p.applications_impacted && p.applications_impacted.length) {
+        html += '<p class="small mb-1"><strong>Applications impacted:</strong> ' + esc(p.applications_impacted.join(', ')) + '</p>';
+      } else if (d.applications_impacted) {
+        html += '<p class="small mb-1"><strong>Applications impacted:</strong> ' + esc(d.applications_impacted.join(', ')) + '</p>';
+      }
+      if (p.rows && p.rows.length) {
+        html += '<p class="small fw-semibold mb-1">Controls (' + p.rows.length + ') — click row for Control 360</p>';
+        html += renderDrillTable(p.rows, FRAMEWORK_CONTROL_COLS, { kind: 'sdlc', metric: 'control', idKey: 'control_id', release: drillExtra.release, stage: drillExtra.stage });
+      }
+      if (p.gap_rows && p.gap_rows.length) {
+        html += '<p class="small fw-semibold mb-1">Open gaps (' + p.gap_rows.length + ')</p>';
+        html += renderDrillTable(p.gap_rows, colsFromRows(p.gap_rows, 7), { kind: 'sdlc', metric: 'gaps', idKey: 'gap_id', release: drillExtra.release, stage: drillExtra.stage });
+      }
+      if (p.evidence_rows && p.evidence_rows.length) {
+        html += '<p class="small fw-semibold mb-1">Evidence (' + p.evidence_rows.length + ')</p>';
+        html += renderDrillTable(p.evidence_rows, EVIDENCE_COLS, { kind: 'sdlc', metric: 'evidence', idKey: 'evidence_id', release: drillExtra.release, stage: drillExtra.stage });
+      }
+      html += renderHistoryAccordions(p.history, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'lifecycle_step' && p.data) {
+      html += renderLifecycleStepDetail(p.data);
+      return html;
+    }
+
+    if (p.type === 'knowledge_graph' && p.graph) {
+      html += renderKnowledgeGraph(p.graph, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'knowledge_reuse' && p.data) {
+      html += renderHowCalculated({
+        formula: p.data.formula,
+        aggregate: p.data.overall_pct,
+        steps: ['Reused assets: ' + (p.data.reused_count || 0) + ' / Required: ' + (p.data.required_count || 0)]
+      });
+      html += renderDetailDl(p.data, ['overall_pct','reused_count','required_count']);
+      var bd = p.data.breakdown || {};
+      html += '<p class="small fw-semibold mb-1">Reuse by Dimension</p>';
+      html += renderDrillTable(Object.keys(bd).map(function (k) {
+        return { dimension: k, pct: bd[k] + '%', drill_id: k };
+      }), [{key:'dimension',label:'Dimension'},{key:'pct',label:'Reuse %'}], {
+        kind: 'sdlc', metric: 'knowledge_reuse', idKey: 'drill_id', release: drillExtra.release
+      });
+      return html;
+    }
+
+    if (p.type === 'knowledge_reuse_dim' && p.data) {
+      html += renderHowCalculated({ formula: p.data.formula, aggregate: p.data.pct });
+      html += renderDetailDl(p.data, ['dimension','pct']);
+      return html;
+    }
+
+    if (p.type === 'exec_analytics' && p.rows) {
+      html += renderDrillTable(p.rows, p.columns || colsFromRows(p.rows, 6), {
+        kind: 'sdlc', metric: p.metric || 'exec_top_reused', idKey: p.columns && p.columns[0] ? p.columns[0].key : 'control_id',
+        release: drillExtra.release
+      });
+      return html;
+    }
+
+    if (p.type === 'exec_analytics_detail' && p.data) {
+      html += renderDetailDl(p.data);
+      return html;
+    }
+
+    if (p.type === 'history_observation' || p.type === 'history_design' || p.type === 'history_evidence' ||
+        p.type === 'history_similar' || p.type === 'history_closure') {
+      html += renderDetailDl(p.data);
+      return html;
+    }
+
+    if (p.type === 'exec_heatmap' || p.type === 'exec_heatmap_cell') {
+      if (p.type === 'exec_heatmap_cell') html += renderDetailDl(p.data, ['application','stage_label','readiness_score','gaps','tone']);
+      else html += renderExecHeatmap(p, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'exec_ranking' && p.rows) {
+      html += renderDrillTable(p.rows, [
+        {key:'application',label:'Application'},{key:'total_gaps',label:'Total Gaps'},{key:'high_gaps',label:'High'},{key:'stages_affected',label:'Stages'},{key:'owner',label:'Owner'}
+      ], { kind: 'sdlc', metric: 'exec_gap_applications', idKey: 'application', release: drillExtra.release });
+      return html;
+    }
+
+    if (p.type === 'exec_matrix' && p.rows) {
+      html += renderDrillTable(p.rows, [
+        {key:'application',label:'Application'},{key:'framework',label:'Framework'},{key:'compliance_pct',label:'Compliance %'},{key:'controls_covered',label:'Covered'},{key:'controls_total',label:'Total'}
+      ], { kind: 'sdlc', metric: 'exec_framework_by_app', idKey: 'drill_id', release: drillExtra.release });
+      return html;
+    }
+
+    if (p.type === 'exec_dashboard' && p.rows) {
+      html += renderDrillTable(p.rows, [
+        {key:'label',label:'Stage'},{key:'completion_pct',label:'Completion %'},{key:'readiness_score',label:'Readiness'},{key:'open_gaps',label:'Gaps'},{key:'evidence_collected',label:'Evidence'}
+      ], { kind: 'sdlc', metric: 'exec_stage_completion', idKey: 'stage', release: drillExtra.release });
+      return html;
+    }
+
+    if (p.type === 'exec_exceptions' && p.rows) {
+      html += renderDrillTable(p.rows, colsFromRows(p.rows, 7), { kind: 'sdlc', metric: 'exec_exceptions', idKey: 'exception_id', release: drillExtra.release, stage: 'go-live' });
+      return html;
+    }
+
+    if (p.type === 'exec_gap_app' || p.type === 'exec_stage' || p.type === 'exec_fw_cell') {
+      html += renderDetailDl(p.data);
+      return html;
+    }
+
+    if ((p.type === 'prompt' || p.type === 'gap' || p.type === 'version' || p.type === 'requirement' ||
+         p.type === 'design' || p.type === 'development' || p.type === 'testing' || p.type === 'defect' ||
+         p.type === 'observation' || p.type === 'exception' || p.type === 'checklist_item' || p.type === 'release') && p.data) {
+      html += renderDetailDl(p.data);
+      if (p.rows && p.rows.length) {
+        var subMetric = 'evidence';
+        var subIdKey = 'evidence_id';
+        if (p.type === 'requirement') { subMetric = 'control'; subIdKey = 'control_id'; }
+        else if (p.type === 'testing') { subMetric = 'defects'; subIdKey = 'defect_id'; }
+        html += renderDrillTable(p.rows, colsFromRows(p.rows, 6), { kind: 'sdlc', metric: subMetric, idKey: subIdKey, release: drillExtra.release, stage: drillExtra.stage });
+      }
+      return html;
+    }
+
+    if (p.type === 'stage_summary' && p.data) {
+      html += renderDetailDl(p.data);
+      if (p.rows && p.rows.length) {
+        html += '<p class="small fw-semibold mb-1">Framework rows (' + p.rows.length + ')</p>';
+        html += renderDrillTable(p.rows, colsFromRows(p.rows, 8, ['control_records','evidence_records','gap_records']), { kind: 'sdlc', metric: 'framework', idKey: 'framework', release: drillExtra.release, stage: drillExtra.stage });
+      }
+      return html;
+    }
+
     if (p.type === 'list' && p.rows) {
-      return '<p class="small text-muted mb-2">' + esc(p.title || '') + '</p>' + renderTable(p.rows, colsFromRows(p.rows));
+      html += '<p class="small text-muted mb-2">' + esc(p.title || '') + '</p>';
+      var listKind = p.list_kind || '';
+      var listKindPosture = listKind.indexOf('posture_') === 0 || listKind === 'posture_inventory';
+      var listKindRegistry = listKind.indexOf('registry_') === 0;
+      var listKindName = listKindPosture ? 'posture' : (listKindRegistry ? 'registry' : 'sdlc');
+      var listMetric = 'gaps';
+      var listIdKey = 'gap_id';
+      if (listKind === 'posture_inventory' || (p.title && p.title.indexOf('Application Inventory') >= 0)) {
+        listMetric = 'application'; listIdKey = 'id';
+        html += renderDrillTable(p.rows, [
+          {key:'name',label:'Application'},{key:'owner',label:'Owner'},{key:'model',label:'Model'},{key:'use_case',label:'Use Case'},
+          {key:'risk_tier',label:'Risk Tier'},{key:'compliance_score',label:'Compliance'},{key:'policy_compliance',label:'Policy %'}
+        ], { kind: 'posture', metric: listMetric, idKey: listIdKey });
+        return html;
+      }
+      if (listKind === 'posture_models' || (p.title && p.title.indexOf('Model Approval') >= 0)) {
+        listMetric = 'models'; listIdKey = 'application_id';
+        html += renderDrillTable(p.rows, [
+          {key:'model',label:'Model'},{key:'application',label:'Application'},{key:'status',label:'Status'},{key:'risk_tier',label:'Risk'},{key:'expiry',label:'Expiry'}
+        ], { kind: 'posture', metric: listMetric, idKey: listIdKey });
+        return html;
+      }
+      if (listKind === 'posture_prompts' || listKind === 'posture_hallucinations' || listKind === 'posture_unsafe' || (p.title && p.title.indexOf('Prompt') >= 0 && p.title.indexOf('Version') < 0)) {
+        listMetric = 'prompts'; listIdKey = 'prompt_id';
+        html += renderDrillTable(p.rows, [
+          {key:'prompt_id',label:'Prompt ID'},{key:'application',label:'Application'},{key:'model',label:'Model'},{key:'risk_score',label:'Risk'},{key:'review_status',label:'Status'}
+        ], { kind: listKindName, metric: listMetric, idKey: listIdKey });
+        return html;
+      }
+      if (listKindRegistry && listKind.indexOf('models') >= 0) {
+        html += renderDrillTable(p.rows, [
+          {key:'model_id',label:'Model ID'},{key:'name',label:'Model'},{key:'applications_count',label:'Apps'},{key:'prompts_count',label:'Prompts'},
+          {key:'owner',label:'Owner'},{key:'status',label:'Status'},{key:'risk_tier',label:'Risk'},{key:'expiry',label:'Expiry'}
+        ], { kind: 'registry', metric: 'models', idKey: 'model_id' });
+        return html;
+      }
+      if (listKindRegistry && listKind.indexOf('prompts') >= 0) {
+        html += renderDrillTable(p.rows, [
+          {key:'prompt_id',label:'Prompt ID'},{key:'name',label:'Prompt'},{key:'application',label:'Application'},{key:'use_case',label:'Use Case'},
+          {key:'model',label:'Model'},{key:'owner',label:'Owner'},{key:'risk_score',label:'Risk'},{key:'status',label:'Status'}
+        ], { kind: 'registry', metric: 'prompts', idKey: 'prompt_id' });
+        return html;
+      }
+      if (p.title && p.title.indexOf('Requirement') >= 0) { listMetric = 'requirements'; listIdKey = 'req_id'; }
+      else if (p.title && p.title.indexOf('Design') >= 0) { listMetric = 'designs'; listIdKey = 'design_id'; }
+      else if (p.title && p.title.indexOf('Development') >= 0) { listMetric = 'development'; listIdKey = 'item_id'; }
+      else if (p.title && p.title.indexOf('Test') >= 0) { listMetric = 'testing'; listIdKey = 'test_id'; }
+      else if (p.title && p.title.indexOf('Observation') >= 0) { listMetric = 'observations'; listIdKey = 'obs_id'; }
+      else if (p.title && p.title.indexOf('Exception') >= 0) { listMetric = 'exceptions'; listIdKey = 'exception_id'; }
+      else if (p.title && p.title.indexOf('Checklist') >= 0) { listMetric = 'checklist'; listIdKey = 'item_id'; }
+      else if (p.title && p.title.indexOf('Framework') >= 0) { listMetric = 'framework'; listIdKey = 'framework'; }
+      else if (p.title && p.title.indexOf('Readiness') >= 0 || p.title && p.title.indexOf('Stage') >= 0) { listMetric = 'readiness'; listIdKey = 'key'; }
+      html += renderDrillTable(p.rows, colsFromRows(p.rows, 8, ['control_records','evidence_records','gap_records','violation_records']), { kind: listKindName, metric: listMetric, idKey: listIdKey, release: drillExtra.release, stage: drillExtra.stage });
+      return html;
     }
+
     if (p.type === 'tokens' && p.data) {
       var t = p.data;
-      var html = '<p class="small"><strong>By application (' + (t.by_application || []).length + ')</strong></p>' + renderTable(t.by_application, [
-        {key:'application',label:'Application'},{key:'tokens',label:'Tokens'},{key:'cost_usd',label:'Cost USD'}
-      ]);
+      var analytics = t.analytics || {};
+      html += '<p class="small"><strong>By application (' + (t.by_application || []).length + ')</strong></p>' + renderDrillTable(t.by_application, [
+        {key:'application',label:'Application'},{key:'tokens',label:'Tokens'},{key:'cost_usd',label:'Cost USD'},{key:'prompt_volume',label:'Prompt Volume'}
+      ], { kind: 'posture', metric: 'tokens' });
+      if (analytics.monthly_trends && analytics.monthly_trends.length) {
+        html += '<p class="small mt-2 fw-semibold">Trend Analytics</p>' + renderDocTable([
+          {key:'month',label:'Month'},{key:'tokens',label:'Tokens'},{key:'cost_usd',label:'Cost USD'},
+          {key:'hallucinations',label:'Hallucinations'},{key:'policy_violations',label:'Policy Violations'},
+          {key:'exceptions',label:'Exceptions'},{key:'approvals',label:'Approvals'}
+        ], analytics.monthly_trends.slice(-12));
+      }
       if (t.monthly_trend && t.monthly_trend.length) {
-        html += '<p class="small mt-2"><strong>12-month trend</strong></p>' + renderTable(t.monthly_trend, [
+        html += '<p class="small mt-2"><strong>12-month token trend</strong></p>' + renderDrillTable(t.monthly_trend, [
           {key:'month',label:'Month'},{key:'tokens',label:'Tokens'}
-        ]);
+        ], { kind: 'posture', metric: 'tokens', idKey: 'month_key' });
       }
       return html;
     }
+
     if (p.type === 'summary' && p.data) {
+      html += renderDetailDl(p.data);
       var rows = p.rows || [];
-      if (rows.length) return renderTable(rows, colsFromRows(rows));
-      return '<pre class="small bg-light p-2 rounded">' + esc(JSON.stringify(p.data, null, 2)) + '</pre>';
+      if (rows.length) html += renderDrillTable(rows, colsFromRows(rows, 8), { kind: 'sdlc', metric: 'readiness', idKey: 'key', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
     }
+
     if (p.workflow && p.workflow.length) {
       var wf = '<div class="aisdlc-workflow">';
       p.workflow.forEach(function (s) {
@@ -107,18 +1311,76 @@
         wf += '<div class="aisdlc-wf-step ' + cls + '"><div class="step-n">' + esc(s.step) + '</div><div>' + esc(s.stage) + '</div><div class="text-muted">' + esc(s.actor || '') + '</div></div>';
       });
       wf += '</div>';
-      var body = p.data ? renderPayload({ type: 'application', data: p.data }) : '';
-      return body + wf;
+      html += p.data ? renderDetailDl(p.data) : '';
+      html += wf;
+      return html;
     }
+
     if (p.data && typeof p.data === 'object') {
-      return renderPayload({ type: 'list', title: p.title, rows: Array.isArray(p.data) ? p.data : [p.data] });
+      html += renderDetailDl(p.data);
+      return html;
     }
-    return '<p class="text-muted small">' + esc(p.title || 'Detail') + '</p>';
+    return html + '<p class="text-muted small">' + esc(p.title || 'Detail') + '</p>';
   }
 
-  function setLink(href, text) {
+  var STAGE_SLUGS = { requirement: 'requirements', design: 'design', development: 'development', testing: 'testing', 'go-live': 'golive' };
+
+  function stageWorkspaceHref(stageKey, releaseId, tab) {
+    var slug = STAGE_SLUGS[stageKey] || stageKey;
+    var url = '/sdlc/' + slug + '?release=' + encodeURIComponent(releaseId || '');
+    if (tab) url += '&tab=' + encodeURIComponent(tab);
+    return url;
+  }
+
+  function resolveFooterLink(kind, metric, id) {
+    var mod = getNavModule();
+    if (metric === 'models' || metric === 'models_approved') {
+      if (kind === 'posture' && mod === 'ai_governance') return { href: '/mvp/ai-registry', text: 'Open Model Registry' };
+      if (kind === 'registry' && mod === 'ai_registry') return id ? { href: '/mvp/ai-registry', text: 'View in Model Registry' } : null;
+      return { href: '/mvp/ai-registry', text: 'Open Model Registry' };
+    }
+    if ((metric === 'prompts' || metric === 'prompts_pending') && kind === 'posture' && mod === 'ai_governance') {
+      return { href: '/mvp/ai-registry', text: 'Open Prompt Registry' };
+    }
+    if (metric === 'inventory' && kind === 'posture') return { href: '/mvp/ai-registry', text: 'Open Model & Prompt Registry' };
+    if (metric === 'application' && kind === 'posture') return { href: '/mvp/ai-registry', text: 'Open Model & Prompt Registry' };
+    if (kind === 'registry' && mod !== 'ai_registry') return { href: '/mvp/ai-registry', text: 'Open Model & Prompt Registry' };
+    if (kind === 'posture' && mod !== 'ai_governance') return { href: '/mvp/ai-governance', text: 'Open AI Governance Posture' };
+    if (kind === 'sdlc' && mod !== 'sdlc_gates') return { href: '/mvp/sdlc-gates', text: 'Open SDLC Gates' };
+    return null;
+  }
+
+  function applyDrillLinks(p, kind, metric, id, extra, stageHref) {
+    var footer = p.footer_link || resolveFooterLink(kind, metric, id);
+    if (stageHref && window.ecsGovernanceSetStageLink) {
+      window.ecsGovernanceSetStageLink(stageLinkEl, stageHref, p.stage_key || extra.stage || '', p.navigation_context);
+      if (footer && footer.href) setLink(footer.href, footer.text);
+      else setLink(null);
+    } else if (stageHref) {
+      if (footer && footer.href) setLink(footer.href, footer.text, stageHref);
+      else setLink(null, null, stageHref);
+    } else if (footer && footer.href) {
+      setLink(footer.href, footer.text);
+    } else if (metric === 'application' || (metric === 'inventory' && id)) {
+      setLink('/mvp/ai-registry', 'Open Model & Prompt Registry');
+    } else if (kind === 'sdlc' && p.stage_key) {
+      setLink(null, null, stageWorkspaceHref(p.stage_key, p.release_id || ''));
+    } else if (kind === 'sdlc') {
+      setLink('/mvp/sdlc-gates', 'Open SDLC Gates');
+    } else {
+      setLink(null);
+    }
+  }
+
+  function setLink(href, text, stageHref) {
+    if (stageHref) {
+      stageLinkEl.href = stageHref + (stageHref.indexOf('?') >= 0 ? '&' : '?') + q.slice(1);
+      stageLinkEl.classList.remove('d-none');
+    } else {
+      stageLinkEl.classList.add('d-none');
+    }
     if (href) {
-      linkEl.href = href + q;
+      linkEl.href = href + (href.indexOf('?') >= 0 ? '&' : '?') + q.slice(1);
       linkEl.textContent = text || 'Open related module';
       linkEl.classList.remove('d-none');
     } else {
@@ -126,18 +1388,29 @@
     }
   }
 
-  function openDrill(kind, metric, id, extra) {
+  function openDrill(kind, metric, id, extra, queryOpts) {
     extra = extra || {};
+    queryOpts = queryOpts || {};
+    captureDrillOrigin();
+    if (backBtn) backBtn.classList.remove('d-none');
+    lastDrill = { kind: kind || 'sdlc', release: extra.release || '', stage: extra.stage || '' };
+    var originMod = getNavModule();
     var url;
     if (kind === 'registry') {
-      url = '/api/ai-sdlc/registry/drill?section=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '');
+      url = '/api/ai-sdlc/registry/drill?section=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '') +
+        '&origin_module=' + encodeURIComponent(originMod);
     } else if (kind === 'sdlc') {
       url = '/api/ai-sdlc/sdlc/drill?metric=' + encodeURIComponent(metric || '') +
         '&release=' + encodeURIComponent(extra.release || '') +
         '&stage=' + encodeURIComponent(extra.stage || '') +
-        '&item_id=' + encodeURIComponent(id || '');
+        '&item_id=' + encodeURIComponent(id || '') +
+        '&origin_module=' + encodeURIComponent(originMod);
+      if (queryOpts.page) url += '&page=' + encodeURIComponent(queryOpts.page);
+      if (queryOpts.severity != null && queryOpts.severity !== undefined) url += '&severity=' + encodeURIComponent(queryOpts.severity);
+      if (queryOpts.search) url += '&search=' + encodeURIComponent(queryOpts.search);
     } else {
-      url = '/api/ai-sdlc/posture/drill?metric=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '');
+      url = '/api/ai-sdlc/posture/drill?metric=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '') +
+        '&origin_module=' + encodeURIComponent(originMod);
     }
     titleEl.textContent = 'Loading…';
     bodyEl.innerHTML = '<div class="text-muted small">Loading…</div>';
@@ -146,15 +1419,44 @@
     fetch(url).then(function (r) { return r.json(); }).then(function (j) {
       var p = j.payload || j.data || {};
       titleEl.textContent = p.title || 'Detail';
+      var dialogEl = document.getElementById('aisdlcDrillDialog');
+      if (dialogEl) {
+        dialogEl.classList.toggle('modal-xl', p.type === 'knowledge_graph' || p.type === 'control' || p.type === 'document_viewer' || p.type === 'framework' || p.type === 'stage_card' || p.type === 'heatmap' || true);
+        dialogEl.classList.toggle('ecs-gov-modal-full', true);
+        dialogEl.classList.toggle('modal-dialog-scrollable', !(p.type === 'control' || p.type === 'document_viewer'));
+      }
+      if (modalContentEl) {
+        modalContentEl.classList.toggle('ecs-modal-workspace', p.type === 'control' || p.type === 'document_viewer');
+      }
       bodyEl.innerHTML = renderPayload(p);
-      if (window.ecsRefreshPagination) window.ecsRefreshPagination();
-      if (metric === 'application' || (metric === 'inventory' && id)) setLink('/mvp/ai-registry', 'Open Model & Prompt Registry');
-      else if (kind === 'sdlc' && extra.stage) setLink('/mvp/sdlc-gates/' + extra.stage, 'Open stage detail');
-      else if (metric === 'models' || kind === 'registry') setLink('/mvp/ai-governance', 'Open AI Governance Posture');
+      bindModalWorkspace(bodyEl);
+      if (window.ecsEnhanceGovTables) window.ecsEnhanceGovTables(bodyEl);
+      if (window.GovernanceModal) window.GovernanceModal.setFullWidth(true);
+      bodyEl.querySelectorAll('.aisdlc-reuse-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var wrap = bodyEl.querySelector('.aisdlc-reuse-wizard-wrap');
+          if (wrap) {
+            wrap.classList.toggle('d-none');
+            wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        });
+      });
+      if (window.ecsEnhanceGovTables) window.ecsEnhanceGovTables(bodyEl);
+      var stageHref = p.stage_link || '';
+      if (!stageHref && extra.stage) {
+        var tabMap = { framework: 'framework-coverage', framework_coverage_drill: 'framework-coverage', controls: 'control-coverage', control_coverage_drill: 'control-coverage', control: 'control-coverage', evidence: 'evidence-coverage', evidence_coverage_drill: 'evidence-coverage', gaps: 'open-gaps', gaps_drill: 'open-gaps', documents: 'knowledge-reuse', document: 'knowledge-reuse', audit: 'audit-trail', readiness_breakdown: 'readiness', status_timeline: 'status', approvals_drill: 'approvals', historical_lineage: 'knowledge-reuse', knowledge_reuse: 'knowledge-reuse', control_reuse_repo: 'knowledge-reuse' };
+        stageHref = stageWorkspaceHref(extra.stage, extra.release || p.release_id || '', tabMap[metric] || 'overview');
+      }
+      if (!stageHref && p.stage_key) {
+        stageHref = stageWorkspaceHref(p.stage_key, p.release_id || extra.release || '', 'overview');
+      }
+      applyDrillLinks(p, kind, metric, id, extra, stageHref);
     }).catch(function () {
       bodyEl.innerHTML = '<p class="text-danger small">Failed to load drill-down.</p>';
     });
   }
+
+  window.openDrill = openDrill;
 
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-aisdlc-drill]');

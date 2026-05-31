@@ -1,7 +1,1 @@
-{# AI & SDLC Governance — submenu strip #}
-{% set q = '?role=' ~ role ~ '&user=' ~ user %}
-<nav class="aisdlc-subnav" aria-label="AI and SDLC Governance">
-<a href="/mvp/ai-governance{{ q }}" class="{% if nav_module == 'ai_governance' %}is-active{% endif %}">AI Governance Posture</a>
-<a href="/mvp/sdlc-gates{{ q }}" class="{% if nav_module == 'sdlc_gates' %}is-active{% endif %}">SDLC Compliance Gates</a>
-<a href="/mvp/ai-registry{{ q }}" class="{% if nav_module == 'ai_registry' %}is-active{% endif %}">Model & Prompt Registry</a>
-</nav>
+{# Deprecated — module navigation lives in sidebar only (partials/ecs_nav_ai_sdlc.html). #}

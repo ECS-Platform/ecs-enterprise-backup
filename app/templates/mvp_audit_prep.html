@@ -9,8 +9,9 @@
 
 /* Clickable KPI counters / cards */
 .ecs-wf-counter[data-ecs-kpi-link], .ecs-wf-analytic-card[data-ecs-kpi-link],
-.ecs-wf-queue-pill[data-ecs-kpi-link] { cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease; }
-.ecs-wf-counter[data-ecs-kpi-link]:hover, .ecs-wf-analytic-card[data-ecs-kpi-link]:hover {
+.ecs-wf-queue-pill[data-ecs-kpi-link], .ecs-pipeline-card[data-ecs-kpi-link] { cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.ecs-wf-counter[data-ecs-kpi-link]:hover, .ecs-wf-analytic-card[data-ecs-kpi-link]:hover,
+.ecs-pipeline-card[data-ecs-kpi-link]:hover {
   transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 .ecs-wf-counter[data-ecs-kpi-link]::after,
@@ -413,11 +414,11 @@
 {% set pipe = mv.audit_pipeline|default({}) %}
 <div class="ecs-audit-section-title">Audit Preparation Pipeline</div>
 <div class="ecs-pipeline-grid mb-2">
-<div class="ecs-pipeline-card tone-warning"><div class="v">{{ pipe.controls_pending_review|default(0) }}</div><div class="l">Controls pending review</div></div>
-<div class="ecs-pipeline-card tone-danger"><div class="v">{{ pipe.evidence_pending_upload|default(0) }}</div><div class="l">Evidence pending upload</div></div>
-<div class="ecs-pipeline-card tone-success"><div class="v">{{ pipe.reusable_evidence_found|default(0) }}</div><div class="l">Reusable evidence found</div></div>
-<div class="ecs-pipeline-card tone-info"><div class="v">{{ pipe.auditor_requests|default(0) }}</div><div class="l">Auditor requests</div></div>
-<div class="ecs-pipeline-card tone-danger"><div class="v">{{ pipe.blockers|default(0) }}</div><div class="l">Blockers</div></div>
+<div class="ecs-pipeline-card tone-warning" data-ecs-kpi-link data-ecs-kpi-metric="controls_pending_review" title="Click to drill"><div class="v">{{ pipe.controls_pending_review|default(0) }}</div><div class="l">Controls pending review</div></div>
+<div class="ecs-pipeline-card tone-danger" data-ecs-kpi-link data-ecs-kpi-metric="evidence_pending_upload" title="Click to drill"><div class="v">{{ pipe.evidence_pending_upload|default(0) }}</div><div class="l">Evidence pending upload</div></div>
+<div class="ecs-pipeline-card tone-success" data-ecs-kpi-link data-ecs-kpi-metric="reusable_evidence_found" title="Click to drill"><div class="v">{{ pipe.reusable_evidence_found|default(0) }}</div><div class="l">Reusable evidence found</div></div>
+<div class="ecs-pipeline-card tone-info" data-ecs-kpi-link data-ecs-kpi-metric="auditor_requests" title="Click to drill"><div class="v">{{ pipe.auditor_requests|default(0) }}</div><div class="l">Auditor requests</div></div>
+<div class="ecs-pipeline-card tone-danger" data-ecs-kpi-link data-ecs-kpi-metric="blockers" title="Click to drill"><div class="v">{{ pipe.blockers|default(0) }}</div><div class="l">Blockers</div></div>
 </div>
 
 {# ─── Upcoming Audits table ─────────────────────────────────────── #}

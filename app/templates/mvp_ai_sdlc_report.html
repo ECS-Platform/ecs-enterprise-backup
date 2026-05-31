@@ -1,0 +1,47 @@
+<!DOCTYPE html><html><head><title>{{ report.title }} — AI SDLC</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-governance-page" data-nav-module="ai_sdlc_reports"><div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% include "partials/ecs_governance_chrome.html" %}
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
+
+<div class="aisdlc-banner flex-shrink-0 mb-2">
+<div>
+<h2>{{ report.title }}</h2>
+<div class="sub">{{ report.subtitle }}</div>
+</div>
+<a href="/mvp/ai-sdlc/reports{{ q }}" class="aisdlc-pill text-decoration-none text-white">← Reports</a>
+</div>
+
+{{ gov_table_open(report.id|default('ai-sdlc-report')) }}
+<thead><tr>
+{% for col in report.columns %}
+<th{% if col.wrap %} data-min-width="120"{% endif %}>{{ col.label }}</th>
+{% endfor %}
+</tr></thead>
+<tbody>
+{% for row in report.rows %}
+<tr>
+{% for col in report.columns %}
+<td{% if col.wrap %} class="ecs-gov-wrap ecs-gov-rich-cell"{% endif %}>
+{% if col.key == 'severity' %}
+<span class="aisdlc-badge {{ row[col.key] }}">{{ row[col.key] }}</span>
+{% elif col.key in ('implementation_status', 'status', 'go_live_ready') %}
+<span class="aisdlc-badge {{ row[col.key]|replace(' ','') }}">{{ row[col.key] }}</span>
+{% else %}
+{{ row[col.key] }}
+{% endif %}
+</td>
+{% endfor %}
+</tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}
+
+</div></div></div>
+{% include "partials/ecs_governance_table_framework.html" %}
+</body></html>

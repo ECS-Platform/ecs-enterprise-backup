@@ -91,6 +91,8 @@ async def ecs_lifespan(application: FastAPI):
     configure_logging()
     refresh_repository_from_frameworks(source="startup")
     seed_demo_workflow_state()
+    from app.ecs_governance_qa_engine import self_heal_governance
+    self_heal_governance()
     mark_startup_complete()
     log_platform_ready(host="127.0.0.1", port=8000)
     yield

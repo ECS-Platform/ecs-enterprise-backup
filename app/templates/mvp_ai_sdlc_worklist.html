@@ -1,0 +1,14 @@
+<!DOCTYPE html><html><head><title>{{ worklist.title }} — AI SDLC</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-governance-page" data-nav-module="{{ nav_module }}"><div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% include "partials/ecs_governance_chrome.html" %}
+{% include "partials/ai_sdlc_worklist.html" %}
+</div></div></div>
+{% include "partials/ecs_governance_table_framework.html" %}
+{% include "partials/ai_sdlc_workflow_modals.html" %}
+</body></html>

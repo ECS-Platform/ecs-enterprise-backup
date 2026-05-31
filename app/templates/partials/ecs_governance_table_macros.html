@@ -1,0 +1,19 @@
+{# Reusable governance table wrapper — auto-enhanced by GovernanceDataTable #}
+{% macro gov_app_cell(items, empty='—') %}
+<div class="ecs-gov-app-cell ecs-gov-rich-cell">
+{% if items %}
+<ul class="ecs-gov-app-list mb-0">{% for item in items %}<li><span class="ecs-gov-tag">{{ item }}</span></li>{% endfor %}</ul>
+{% else %}
+<span class="text-muted">{{ empty }}</span>
+{% endif %}
+</div>
+{% endmacro %}
+
+{% macro gov_table_open(export_name='', table_id='') %}
+<div class="ecs-gov-table-scroll">
+<table class="aisdlc-table ecs-gov-data-table mb-0"{% if table_id %} id="{{ table_id }}"{% endif %}{% if export_name %} data-export-name="{{ export_name }}"{% endif %}>
+{% endmacro %}
+
+{% macro gov_table_close() %}
+</table></div>
+{% endmacro %}

@@ -1,0 +1,31 @@
+{# Stage-specific artifact dashboard — BRD, design docs, test cases, go-live checklist, etc. #}
+{% from "partials/mvp_workspace_macros.html" import governance_workspace_open, governance_workspace_tabs, governance_pane, governance_pane_end, governance_workspace_close %}
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
+{% set dash = sv.stage_dashboard|default({}) %}
+{% set dash_tabs = dash.tabs|default([]) %}
+{% set dash_sections = dash.sections|default({}) %}
+
+{% if dash_tabs %}
+{{ governance_workspace_open() }}
+{{ governance_workspace_tabs(dash_tabs) }}
+{% for tab in dash_tabs %}
+{% set rows = dash_sections[tab.data_key]|default([]) %}
+{{ governance_pane(tab.id, tab.label, (rows|length)|string ~ ' records', loop.first) }}
+{% if rows %}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+{{ gov_table_open('stage-' ~ tab.id) }}
+<thead><tr>{% for col in rows[0].keys() %}<th>{{ col|replace('_', ' ')|title }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for row in rows %}
+<tr>{% for col, val in row.items() %}<td>{{ val }}</td>{% endfor %}</tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}
+</div>
+{% else %}
+<p class="small text-muted mb-0">No records in this repository yet.</p>
+{% endif %}
+{{ governance_pane_end() }}
+{% endfor %}
+{{ governance_workspace_close() }}
+{% endif %}

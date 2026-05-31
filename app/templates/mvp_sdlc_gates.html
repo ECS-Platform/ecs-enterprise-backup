@@ -2,13 +2,17 @@
 {% include "partials/mvp_styles.html" %}
 {% include "partials/ai_sdlc_styles.html" %}
 </head>
-<body class="bg-light ecs-cap-sdlc-gates"><div class="container-fluid"><div class="row">
+<body class="bg-light ecs-governance-page ecs-cap-sdlc-gates" data-nav-module="sdlc_gates"><div class="container-fluid h-100"><div class="row h-100">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 ecs-workspace-main">
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
 {% set q = '?role=' ~ role ~ '&user=' ~ user %}
 {% set v = sdlc_view %}
+{% set ex = v.executive %}
+{% from "partials/mvp_workspace_macros.html" import governance_workspace_open, governance_workspace_tabs, governance_pane, governance_pane_end, governance_workspace_close %}
 
-<div class="aisdlc-banner">
+{% include "partials/ecs_governance_chrome.html" %}
+
+<div class="aisdlc-banner flex-shrink-0">
 <div>
 <h2>SDLC Compliance Gates</h2>
 <div class="sub">Audit Driven Development — shift-left governance across requirement → go-live</div>
@@ -16,97 +20,183 @@
 <span class="aisdlc-pill">ADD · CONTINUOUS COMPLIANCE</span>
 </div>
 
-{% include "partials/ai_sdlc_subnav.html" %}
-
-<div class="aisdlc-section py-2 px-3 mb-2">
+<div class="aisdlc-section py-2 px-3 mb-2 flex-shrink-0" style="margin-bottom:0.35rem!important">
 <div class="d-flex flex-wrap align-items-center gap-2">
 <span class="small text-muted">Active release:</span>
 {% for rel in v.releases %}
 <a href="/mvp/sdlc-gates{{ q }}&release={{ rel.id }}" class="btn btn-sm {% if rel.id == v.release.id %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ rel.name }}</a>
 {% endfor %}
-<span class="ms-auto small"><strong>{{ v.release.application }}</strong> · Owner: {{ v.release.owner }} · Target: {{ v.release.target_date }}</span>
+<span class="ms-auto small"><strong>{{ v.release.application }}</strong> · Target: {{ v.release.target_date }}</span>
 </div>
 </div>
 
-<div class="aisdlc-kpi-grid">
+<div class="aisdlc-kpi-grid flex-shrink-0" style="margin-bottom:0.35rem">
 {% for k in v.kpis %}
-<div class="aisdlc-kpi tone-{{ k.tone|default('primary') }}" data-aisdlc-drill="sdlc" data-metric="{{ k.drill|default('readiness') }}" data-release="{{ v.release.id }}" tabindex="0">
+<div class="aisdlc-kpi tone-{{ k.tone|default('primary') }}" data-aisdlc-drill="sdlc" data-metric="{{ k.drill|default('readiness') }}" data-release="{{ v.release.id }}" tabindex="0" title="Click for calculation breakdown">
 <div class="v">{{ k.value }}</div>
 <div class="l">{{ k.label }}</div>
+{% if k.hint %}<div class="hint">{{ k.hint }}</div>{% endif %}
 </div>
 {% endfor %}
 </div>
+<p class="small text-muted mb-2 flex-shrink-0">All KPIs and percentages are clickable — each opens a drill-down with <strong>How Calculated</strong> methodology.</p>
 
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Governance Stage Pipeline <span class="meta">Click any stage for full drill-down</span></div>
+{% set ws_tabs = [
+  {'id':'overview','label':'Overview'},{'id':'applications','label':'Applications'},{'id':'frameworks','label':'Frameworks'},
+  {'id':'gaps','label':'Open Gaps'},{'id':'exceptions','label':'Exceptions'},{'id':'findings','label':'Audit Findings'},
+  {'id':'control-reuse','label':'Control Reuse'},{'id':'knowledge','label':'Knowledge Reuse'},{'id':'analytics','label':'Analytics'}
+] %}
+{{ governance_workspace_open() }}
+{{ governance_workspace_tabs(ws_tabs) }}
+
+{{ governance_pane('overview', 'Governance Stage Pipeline', 'Click any stage to open dedicated workspace', true) }}
 <div class="aisdlc-stage-grid">
 {% for st in v.stages %}
-<a class="aisdlc-stage-card" href="/mvp/sdlc-gates/{{ st.key }}{{ q }}&release={{ v.release.id }}">
+<a class="aisdlc-stage-card ecs-stage-card" href="/sdlc/{{ st.slug|default(st.key) }}{{ q }}&release={{ v.release.id }}" title="Open {{ st.label }} Workspace">
 <div class="icon">{{ st.icon }}</div>
 <div class="title">{{ st.label }}</div>
 <div class="score">{{ st.readiness_score }}%</div>
-<div class="meta">Frameworks {{ st.framework_coverage_pct }}% · Controls {{ st.control_coverage_pct }}%</div>
-<div class="meta">Checklist {{ st.checklist_completion_pct }}% · <strong>{{ st.open_gaps }} gaps</strong></div>
-<div class="meta">Owner: {{ st.owner }} · Due {{ st.due_date }}</div>
-<span class="aisdlc-badge {{ st.risk_rating }} mt-1">{{ st.risk_rating }} risk</span>
-<span class="aisdlc-badge {{ st.approval_status }} ms-1">{{ st.approval_status }}</span>
+<div class="meta">Ctrl {{ st.control_coverage_pct }}% · Ev {{ st.evidence_coverage_pct|default(st.checklist_completion_pct) }}% · <strong>{{ st.open_gaps }} gaps</strong></div>
+<div class="meta"><span class="aisdlc-badge">{{ st.status|default(st.approval_status) }}</span> · Owner: {{ st.owner }}</div>
 </a>
 {% endfor %}
 </div>
-</div>
+<p class="small text-muted mt-2 mb-0">Each SDLC gate enforces checklist-to-evidence lifecycle alignment across PCI DSS, DPSC, AppSec, VAPT, baselining, ITPP, and AI Governance.</p>
+{{ governance_pane_end() }}
 
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Framework Coverage Matrix <span class="meta">{{ v.frameworks|length }} frameworks in scope</span></div>
-<div class="d-flex flex-wrap gap-1 mb-2">
-{% for fw in v.frameworks %}
-<span class="aisdlc-badge info">{{ fw }}</span>
+{{ governance_pane('applications', 'Applications in Scope', v.release.impacted_applications|length|string ~ ' apps') }}
+<div class="aisdlc-app-grid ecs-paginated-blocks">
+{% for app in v.release.impacted_applications %}
+<div class="aisdlc-app-card High" data-aisdlc-drill="sdlc" data-metric="exec_gap_applications" data-id="{{ app }}" data-release="{{ v.release.id }}" tabindex="0">
+<div class="name">{{ app }}</div>
+<div class="meta">Release: {{ v.release.name }} · Owner: {{ v.release.owner }}</div>
+</div>
 {% endfor %}
+</div>
+{{ governance_pane_end() }}
+
+{{ governance_pane('frameworks', 'Framework Coverage Matrix', v.frameworks|length|string ~ ' frameworks') }}
+{% set gf = v.coverage_formulas|default({}) %}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>How Calculated:</strong> {{ gf.framework_coverage|default('Framework Coverage = weighted average of control, mapping, and evidence metrics per framework.') }}
+</div>
+<div class="d-flex flex-wrap gap-1 mb-2">
+{% for fw in v.frameworks %}<span class="aisdlc-badge info">{{ fw }}</span>{% endfor %}
 </div>
 <div class="table-responsive ecs-paginated-wrap ecs-fit-view">
 <table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
-<thead>
-<tr>
-<th>Stage</th>
-<th>Framework %</th>
-<th>Control %</th>
-<th>Checklist %</th>
-<th>Gaps</th>
-<th>Evidence</th>
-<th>Approval</th>
-<th>Risk</th>
-</tr>
-</thead>
+<thead><tr><th>Stage</th><th>Framework %</th><th>Control %</th><th>Checklist %</th><th>Gaps</th><th>Evidence</th><th>Approval</th><th>Risk</th></tr></thead>
 <tbody>
 {% for st in v.stages %}
-<tr onclick="location.href='/mvp/sdlc-gates/{{ st.key }}{{ q }}&release={{ v.release.id }}'">
-<td><strong>{{ st.label }}</strong></td>
-<td>{{ st.framework_coverage_pct }}%</td>
-<td>{{ st.control_coverage_pct }}%</td>
-<td>
-<span class="aisdlc-bar"><span class="fill {% if st.checklist_completion_pct < 70 %}risk{% elif st.checklist_completion_pct < 85 %}warn{% endif %}" style="width:{{ st.checklist_completion_pct }}%"></span></span>
-{{ st.checklist_completion_pct }}%
-</td>
-<td>{{ st.open_gaps }}</td>
-<td>{{ st.evidence_status }}</td>
+<tr>
+<td><a href="/sdlc/{{ st.slug|default(st.key) }}{{ q }}&release={{ v.release.id }}"><strong>{{ st.label }}</strong></a></td>
+<td><span data-aisdlc-drill="sdlc" data-metric="framework_coverage_drill" data-stage="{{ st.key }}" data-release="{{ v.release.id }}" tabindex="0" title="How calculated">{{ st.framework_coverage_pct }}%</span></td>
+<td><span data-aisdlc-drill="sdlc" data-metric="control_coverage_drill" data-stage="{{ st.key }}" data-release="{{ v.release.id }}" tabindex="0" title="How calculated">{{ st.control_coverage_pct }}%</span></td>
+<td><span data-aisdlc-drill="sdlc" data-metric="readiness_breakdown" data-stage="{{ st.key }}" data-release="{{ v.release.id }}" tabindex="0" title="How calculated">{{ st.checklist_completion_pct }}%</span></td>
+<td><span data-aisdlc-drill="sdlc" data-metric="gaps_drill" data-stage="{{ st.key }}" data-release="{{ v.release.id }}" tabindex="0">{{ st.open_gaps }}</span></td>
+<td><span data-aisdlc-drill="sdlc" data-metric="evidence_coverage_drill" data-stage="{{ st.key }}" data-release="{{ v.release.id }}" tabindex="0" title="How calculated">{{ st.evidence_coverage_pct|default(st.checklist_completion_pct) }}%</span></td>
 <td><span class="aisdlc-badge {{ st.approval_status }}">{{ st.approval_status }}</span></td>
 <td><span class="aisdlc-badge {{ st.risk_rating }}">{{ st.risk_rating }}</span></td>
 </tr>
 {% endfor %}
-</tbody>
-</table>
-</div>
-</div>
+</tbody></table></div>
+{{ governance_pane_end() }}
 
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Continuous Compliance Narrative</div>
-<p class="small text-muted mb-0">
-Each SDLC gate enforces checklist-to-evidence lifecycle alignment across PCI DSS, DPSC, AppSec, VAPT, baselining frameworks, ITPP, and AI Governance.
-Stages interconnect with <a href="/mvp/completeness{{ q }}">Control Completeness</a>,
-<a href="/mvp/audit-prep{{ q }}">Audit Command Center</a>, and
-<a href="/mvp/ai-governance{{ q }}">AI Governance Posture</a>.
-</p>
+{{ governance_pane('gaps', 'Open SDLC Gaps', v.summary.total_gaps|string ~ ' total') }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Gap ID</th><th>Stage</th><th>Framework</th><th>Application</th><th>Severity</th><th>Description</th></tr></thead>
+<tbody>
+{% for g in v.all_gaps[:40] %}
+<tr data-aisdlc-drill="sdlc" data-metric="gaps" data-id="{{ g.gap_id }}" data-release="{{ v.release.id }}" data-stage="{{ g.stage }}" tabindex="0">
+<td>{{ g.gap_id }}</td><td>{{ g.stage }}</td><td>{{ g.framework }}</td><td>{{ g.application }}</td>
+<td><span class="aisdlc-badge {{ g.severity }}">{{ g.severity }}</span></td>
+<td class="small">{{ g.description|truncate(48, True, '…') }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ governance_pane_end() }}
+
+{{ governance_pane('exceptions', 'Open Exceptions', ex.summary.total_exceptions|string ~ ' open') }}
+<div class="aisdlc-kpi-grid mb-2" style="grid-template-columns:repeat(5,1fr)">
+{% for w in ex.widgets %}
+<div class="aisdlc-kpi tone-{{ w.tone }}" data-aisdlc-drill="sdlc" data-metric="{{ w.drill }}" data-release="{{ v.release.id }}" tabindex="0">
+<div class="v">{{ w.value }}</div><div class="l">{{ w.label }}</div></div>
+{% endfor %}
 </div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Exception ID</th><th>Application</th><th>Summary</th><th>Status</th><th>Expiry</th></tr></thead>
+<tbody>
+{% for e in ex.exceptions_dashboard %}
+<tr data-aisdlc-drill="sdlc" data-metric="exec_exceptions" data-id="{{ e.exception_id }}" data-release="{{ v.release.id }}" data-stage="go-live" tabindex="0">
+<td>{{ e.exception_id }}</td><td>{{ e.application }}</td><td class="small">{{ e.summary|truncate(44, True, '…') }}</td>
+<td><span class="aisdlc-badge {{ e.status }}">{{ e.status }}</span></td><td>{{ e.expiry }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ governance_pane_end() }}
+
+{{ governance_pane('findings', 'Audit Findings & Gap Applications', ex.summary.applications_tracked|string ~ ' apps tracked') }}
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Application</th><th>Total Gaps</th><th>High Gaps</th><th>Stages Affected</th><th>Owner</th></tr></thead>
+<tbody>
+{% for r in ex.gap_applications %}
+<tr data-aisdlc-drill="sdlc" data-metric="exec_gap_applications" data-id="{{ r.application }}" data-release="{{ v.release.id }}" tabindex="0">
+<td>{{ r.application }}</td><td>{{ r.total_gaps }}</td><td>{{ r.high_gaps }}</td><td>{{ r.stages_affected }}</td><td>{{ r.owner }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ governance_pane_end() }}
+
+{{ governance_pane('control-reuse', 'Top Reused Controls', 'Enterprise reuse patterns') }}
+<div class="aisdlc-kpi-grid aisdlc-analytics-grid mb-2">
+{% for w in ex.analytics_widgets[:3] %}
+<div class="aisdlc-kpi tone-{{ w.tone }}" data-aisdlc-drill="sdlc" data-metric="{{ w.drill }}" data-release="{{ v.release.id }}" tabindex="0">
+<div class="v">{{ w.value }}</div><div class="l">{{ w.label }}</div></div>
+{% endfor %}
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Control ID</th><th>Reuse Count</th><th>Applications</th><th>Framework</th><th>Top Application</th></tr></thead>
+<tbody>
+{% for r in ex.cross_app_analytics.top_reused_controls %}
+<tr data-aisdlc-drill="sdlc" data-metric="exec_top_reused" data-id="{{ r.control_id }}" data-release="{{ v.release.id }}" tabindex="0">
+<td>{{ r.control_id }}</td><td>{{ r.reuse_count }}</td><td>{{ r.application_count }}</td><td>{{ r.framework }}</td><td>{{ r.top_application }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ governance_pane_end() }}
+
+{{ governance_pane('knowledge', 'Knowledge Reuse Score', v.knowledge_reuse.formula) }}
+<div class="aisdlc-kpi-grid aisdlc-reuse-grid mb-2">
+<div class="aisdlc-kpi tone-success" data-aisdlc-drill="sdlc" data-metric="knowledge_reuse" data-release="{{ v.release.id }}" tabindex="0">
+<div class="v">{{ v.knowledge_reuse.overall_pct }}%</div><div class="l">Overall Reuse</div></div>
+{% for dim, pct in v.knowledge_reuse.breakdown.items() %}
+<div class="aisdlc-kpi tone-info" data-aisdlc-drill="sdlc" data-metric="knowledge_reuse" data-id="{{ dim }}" data-release="{{ v.release.id }}" tabindex="0">
+<div class="v">{{ pct }}%</div><div class="l">{{ dim|replace('_', ' ')|title }}</div></div>
+{% endfor %}
+</div>
+{{ governance_pane_end() }}
+
+{{ governance_pane('analytics', 'Cross-Application Control Analytics', 'Executive drill-down') }}
+<div class="aisdlc-kpi-grid aisdlc-analytics-grid mb-2">
+{% for w in ex.analytics_widgets %}
+<div class="aisdlc-kpi tone-{{ w.tone }}" data-aisdlc-drill="sdlc" data-metric="{{ w.drill }}" data-release="{{ v.release.id }}" tabindex="0">
+<div class="v">{{ w.value }}</div><div class="l">{{ w.label }}</div>{% if w.hint %}<div class="h">{{ w.hint }}</div>{% endif %}</div>
+{% endfor %}
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+<thead><tr><th>Finding</th><th>Occurrences</th><th>Framework</th></tr></thead>
+<tbody>
+{% for r in ex.cross_app_analytics.common_findings %}
+<tr data-aisdlc-drill="sdlc" data-metric="exec_common_findings" data-release="{{ v.release.id }}" tabindex="0">
+<td class="small">{{ r.finding }}</td><td>{{ r.occurrences }}</td><td>{{ r.framework }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ governance_pane_end() }}
+
+{{ governance_workspace_close() }}
 
 </div></div></div>
+{% include "partials/ecs_governance_shell.html" %}
 {% include "partials/ai_sdlc_drill_modal.html" %}
 </body></html>

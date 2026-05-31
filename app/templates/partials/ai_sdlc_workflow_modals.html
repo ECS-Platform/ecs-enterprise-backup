@@ -1,0 +1,236 @@
+{# AI SDLC workflow modals — Upload, Review/Evidence Viewer, status actions #}
+<div class="modal fade" id="aisdlcUploadModal" tabindex="-1" aria-labelledby="aisdlcUploadTitle" aria-hidden="true">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="aisdlcUploadTitle">Upload Artifact</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<form id="aisdlcUploadForm">
+<input type="hidden" id="aisdlcUploadItemId" name="item_id">
+<input type="hidden" id="aisdlcUploadItemType" name="item_type">
+<div class="row g-2">
+<div class="col-md-6"><label class="form-label small">Application</label><input class="form-control form-control-sm" id="aisdlcUploadApp" name="application" required></div>
+<div class="col-md-6"><label class="form-label small">Framework</label><input class="form-control form-control-sm" id="aisdlcUploadFw" name="framework" required></div>
+<div class="col-md-6"><label class="form-label small">Domain</label><input class="form-control form-control-sm" id="aisdlcUploadDomain" name="domain" required></div>
+<div class="col-md-6"><label class="form-label small">Control</label><input class="form-control form-control-sm" id="aisdlcUploadControl" name="control_id" required></div>
+<div class="col-md-6"><label class="form-label small">SDLC Stage</label><input class="form-control form-control-sm" id="aisdlcUploadStage" name="stage" required></div>
+<div class="col-md-6"><label class="form-label small">Artifact Type</label><input class="form-control form-control-sm" id="aisdlcUploadArtifact" name="artifact_type" required></div>
+<div class="col-12"><label class="form-label small">File Upload</label><input type="file" class="form-control form-control-sm" id="aisdlcUploadFile" name="file"></div>
+<div class="col-12"><label class="form-label small">Comments</label><textarea class="form-control form-control-sm" id="aisdlcUploadComments" name="comments" rows="2"></textarea></div>
+</div>
+</form>
+</div>
+<div class="modal-footer py-2"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+<button type="button" class="btn btn-sm btn-primary" id="aisdlcUploadSubmit">Upload</button></div>
+</div></div></div>
+
+<div class="modal fade" id="aisdlcReviewModal" tabindex="-1" aria-labelledby="aisdlcReviewTitle" aria-hidden="true">
+<div class="modal-dialog modal-xl ecs-gov-modal-full"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="aisdlcReviewTitle">Evidence Viewer</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="aisdlcReviewBody"><p class="text-muted small">Loading…</p></div>
+<div class="modal-footer py-2 flex-wrap gap-1">
+<button type="button" class="btn btn-sm btn-success" id="aisdlcReviewApprove">Approve</button>
+<button type="button" class="btn btn-sm btn-danger" id="aisdlcReviewReject">Reject</button>
+<button type="button" class="btn btn-sm btn-warning" id="aisdlcReviewRework">Request Rework</button>
+<button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+
+<div class="modal fade" id="aisdlcRejectModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title">Reject — Comments Required</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body"><textarea class="form-control form-control-sm" id="aisdlcRejectComments" rows="3" placeholder="Mandatory rejection comments…" required></textarea></div>
+<div class="modal-footer py-2"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+<button type="button" class="btn btn-sm btn-danger" id="aisdlcRejectConfirm">Confirm Reject</button></div>
+</div></div></div>
+
+<script>
+(function () {
+  'use strict';
+  var qs = function () { return window.location.search || ''; };
+  var params = new URLSearchParams(qs());
+  var role = params.get('role') || 'cio';
+  var user = params.get('user') || 'CIO';
+  var activeItem = { id: '', type: '' };
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function itemId(row) {
+    return row.getAttribute('data-wf-id') || '';
+  }
+
+  function itemType(row) {
+    return row.getAttribute('data-wf-type') || 'activity';
+  }
+
+  function updateRowStatus(tr, status) {
+    var badge = tr.querySelector('[data-wf-status]');
+    if (badge) {
+      badge.textContent = status;
+      badge.className = 'aisdlc-badge ' + status.replace(/\s+/g, '');
+    }
+  }
+
+  function postAction(body) {
+    body.role = role;
+    body.user = user;
+    return fetch('/api/ai-sdlc/workflow/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function fetchReview(id, type) {
+    return fetch('/api/ai-sdlc/workflow/review?item_id=' + encodeURIComponent(id) + '&item_type=' + encodeURIComponent(type))
+      .then(function (r) { return r.json(); });
+  }
+
+  function renderReview(payload) {
+    var p = payload.data;
+    var files = (p.files || []).map(function (f) {
+      return '<li>' + esc(f.name) + ' <span class="text-muted">(' + esc(f.uploaded_at || '') + ')</span></li>';
+    }).join('') || '<li class="text-muted">No file uploaded yet</li>';
+    var comments = (p.comments || []).map(function (c) {
+      return '<li><strong>' + esc(c.author) + '</strong> <span class="text-muted">' + esc(c.at) + '</span><br>' + esc(c.text) + '</li>';
+    }).join('') || '<li class="text-muted">No comments</li>';
+    var hist = (p.approval_history || []).map(function (h) {
+      return '<tr><td>' + esc(h.timestamp) + '</td><td>' + esc(h.action) + '</td><td>' + esc(h.actor) + '</td><td>' + esc(h.from_status) + ' → ' + esc(h.to_status) + '</td><td class="ecs-gov-wrap">' + esc(h.comments || '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="text-muted">No approval history</td></tr>';
+    var audit = (p.audit_trail || []).map(function (a) {
+      return '<tr><td>' + esc(a.timestamp) + '</td><td>' + esc(a.action) + '</td><td>' + esc(a.actor) + '</td><td class="ecs-gov-wrap">' + esc(a.detail) + '</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="text-muted">No audit entries</td></tr>';
+    return '<div class="row g-2">' +
+      '<div class="col-md-6"><h6 class="small text-muted">Uploaded File</h6><ul class="small">' + files + '</ul></div>' +
+      '<div class="col-md-6"><h6 class="small text-muted">Metadata</h6>' +
+        '<dl class="row small mb-0"><dt class="col-4">Application</dt><dd class="col-8">' + esc(p.application) + '</dd>' +
+        '<dt class="col-4">Framework</dt><dd class="col-8">' + esc(p.framework) + '</dd>' +
+        '<dt class="col-4">Domain</dt><dd class="col-8">' + esc(p.domain) + '</dd>' +
+        '<dt class="col-4">Control</dt><dd class="col-8">' + esc(p.control_id) + ' | ' + esc(p.control_name) + '</dd>' +
+        '<dt class="col-4">Stage</dt><dd class="col-8">' + esc(p.stage) + '</dd>' +
+        '<dt class="col-4">Status</dt><dd class="col-8">' + esc(p.status) + '</dd></dl></div>' +
+      '<div class="col-12"><h6 class="small text-muted">Comments</h6><ul class="small">' + comments + '</ul></div>' +
+      '<div class="col-12"><h6 class="small text-muted">Approval History</h6><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Transition</th><th>Comments</th></tr></thead><tbody>' + hist + '</tbody></table></div></div>' +
+      '<div class="col-12"><h6 class="small text-muted">Audit Trail</h6><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead><tbody>' + audit + '</tbody></table></div></div>' +
+      '</div>';
+  }
+
+  function openUpload(tr) {
+    activeItem = { id: itemId(tr), type: itemType(tr), tr: tr };
+    var cells = tr.querySelectorAll('td');
+    document.getElementById('aisdlcUploadItemId').value = activeItem.id;
+    document.getElementById('aisdlcUploadItemType').value = activeItem.type;
+    document.getElementById('aisdlcUploadApp').value = tr.getAttribute('data-app') || '';
+    document.getElementById('aisdlcUploadFw').value = tr.getAttribute('data-fw') || '';
+    document.getElementById('aisdlcUploadDomain').value = tr.getAttribute('data-domain') || '';
+    document.getElementById('aisdlcUploadControl').value = tr.getAttribute('data-control-id') || '';
+    document.getElementById('aisdlcUploadStage').value = tr.getAttribute('data-stage') || '';
+    document.getElementById('aisdlcUploadArtifact').value = tr.getAttribute('data-artifact') || '';
+    document.getElementById('aisdlcUploadComments').value = '';
+    document.getElementById('aisdlcUploadFile').value = '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('aisdlcUploadModal')).show();
+  }
+
+  function openReview(tr) {
+    activeItem = { id: itemId(tr), type: itemType(tr), tr: tr };
+    var body = document.getElementById('aisdlcReviewBody');
+    body.innerHTML = '<p class="text-muted small">Loading…</p>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('aisdlcReviewModal')).show();
+    fetchReview(activeItem.id, activeItem.type).then(function (res) {
+      if (!res.ok) { body.innerHTML = '<p class="text-danger">' + esc(res.error || 'Failed to load') + '</p>'; return; }
+      body.innerHTML = renderReview(res);
+    });
+  }
+
+  function doApprove() {
+    postAction({ item_id: activeItem.id, item_type: activeItem.type, action: 'approve' }).then(function (res) {
+      if (!res.ok) { alert(res.error || 'Approve failed'); return; }
+      if (activeItem.tr) updateRowStatus(activeItem.tr, res.item.status);
+      bootstrap.Modal.getInstance(document.getElementById('aisdlcReviewModal')).hide();
+    });
+  }
+
+  function doRework() {
+    var comments = prompt('Rework instructions (optional):') || '';
+    postAction({ item_id: activeItem.id, item_type: activeItem.type, action: 'rework', comments: comments }).then(function (res) {
+      if (!res.ok) { alert(res.error || 'Rework failed'); return; }
+      if (activeItem.tr) updateRowStatus(activeItem.tr, res.item.status);
+      bootstrap.Modal.getInstance(document.getElementById('aisdlcReviewModal')).hide();
+    });
+  }
+
+  document.getElementById('aisdlcUploadSubmit').addEventListener('click', function () {
+    var fileInput = document.getElementById('aisdlcUploadFile');
+    var fname = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : 'artifact.pdf';
+    postAction({
+      item_id: document.getElementById('aisdlcUploadItemId').value,
+      item_type: document.getElementById('aisdlcUploadItemType').value,
+      action: 'upload',
+      application: document.getElementById('aisdlcUploadApp').value,
+      framework: document.getElementById('aisdlcUploadFw').value,
+      domain: document.getElementById('aisdlcUploadDomain').value,
+      control_id: document.getElementById('aisdlcUploadControl').value,
+      stage: document.getElementById('aisdlcUploadStage').value,
+      artifact_type: document.getElementById('aisdlcUploadArtifact').value,
+      file_name: fname,
+      comments: document.getElementById('aisdlcUploadComments').value
+    }).then(function (res) {
+      if (!res.ok) { alert(res.error || 'Upload failed'); return; }
+      if (activeItem.tr) updateRowStatus(activeItem.tr, res.item.status);
+      bootstrap.Modal.getInstance(document.getElementById('aisdlcUploadModal')).hide();
+    });
+  });
+
+  document.getElementById('aisdlcReviewApprove').addEventListener('click', doApprove);
+  document.getElementById('aisdlcReviewRework').addEventListener('click', doRework);
+  document.getElementById('aisdlcReviewReject').addEventListener('click', function () {
+    document.getElementById('aisdlcRejectComments').value = '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('aisdlcRejectModal')).show();
+  });
+  document.getElementById('aisdlcRejectConfirm').addEventListener('click', function () {
+    var comments = document.getElementById('aisdlcRejectComments').value.trim();
+    if (!comments) { alert('Rejection comments are mandatory'); return; }
+    postAction({ item_id: activeItem.id, item_type: activeItem.type, action: 'reject', comments: comments }).then(function (res) {
+      if (!res.ok) { alert(res.error || 'Reject failed'); return; }
+      if (activeItem.tr) updateRowStatus(activeItem.tr, res.item.status);
+      bootstrap.Modal.getInstance(document.getElementById('aisdlcRejectModal')).hide();
+      var rm = bootstrap.Modal.getInstance(document.getElementById('aisdlcReviewModal'));
+      if (rm) rm.hide();
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-wf-action]');
+    if (!btn) return;
+    e.preventDefault();
+    var tr = btn.closest('tr[data-wf-id]');
+    if (!tr) return;
+    var action = btn.getAttribute('data-wf-action');
+    activeItem = { id: itemId(tr), type: itemType(tr), tr: tr };
+    if (action === 'Upload') openUpload(tr);
+    else if (action === 'Review') openReview(tr);
+    else if (action === 'Approve') {
+      postAction({ item_id: activeItem.id, item_type: activeItem.type, action: 'approve' }).then(function (res) {
+        if (!res.ok) { alert(res.error || 'Approve failed'); return; }
+        updateRowStatus(tr, res.item.status);
+      });
+    } else if (action === 'Reject') {
+      openReview(tr);
+      setTimeout(function () {
+        document.getElementById('aisdlcRejectComments').value = '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('aisdlcRejectModal')).show();
+      }, 300);
+    } else if (action === 'Request Rework') {
+      var comments = prompt('Rework instructions (optional):') || '';
+      postAction({ item_id: activeItem.id, item_type: activeItem.type, action: 'rework', comments: comments }).then(function (res) {
+        if (!res.ok) { alert(res.error || 'Rework failed'); return; }
+        updateRowStatus(tr, res.item.status);
+      });
+    }
+  });
+})();
+</script>

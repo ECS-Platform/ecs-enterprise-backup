@@ -1,0 +1,32 @@
+<!DOCTYPE html><html><head><title>Reports — AI SDLC</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-governance-page" data-nav-module="ai_sdlc_reports"><div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set v = reports_view %}
+{% include "partials/ecs_governance_chrome.html" %}
+<div class="aisdlc-banner flex-shrink-0 mb-2"><div><h2>{{ v.title }}</h2><div class="sub">{{ v.subtitle }}</div></div></div>
+
+<div class="row g-2 mb-3">
+{% for r in v.reports %}
+<div class="col-md-6"><div class="card h-100"><div class="card-body py-2">
+<h6 class="mb-1">{{ r.name }}</h6>
+<p class="small text-muted mb-2">{{ r.desc }}</p>
+<button type="button" class="btn btn-sm btn-outline-primary" onclick="window.location.href='{{ r.href }}{{ q }}'">Generate Report</button>
+</div></div></div>
+{% endfor %}
+</div>
+
+<h6 class="small text-muted text-uppercase mb-1">Supporting Capabilities</h6>
+<p class="small text-muted">De-emphasized dashboards — linked here only, not in primary navigation.</p>
+<ul class="list-group mb-0">{% for cap in v.supporting_capabilities %}
+<li class="list-group-item d-flex justify-content-between align-items-center py-2">
+<div><a href="{{ cap.href }}{{ q }}">{{ cap.label }}</a><div class="small text-muted">{{ cap.note }}</div></div>
+<span class="badge bg-secondary">Supporting</span>
+</li>{% endfor %}</ul>
+
+</div></div></div>
+</body></html>

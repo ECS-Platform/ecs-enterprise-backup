@@ -1,0 +1,69 @@
+<!DOCTYPE html><html><head><title>Governance Quality — ECS</title>
+{% include "partials/mvp_styles.html" %}
+{% include "partials/ai_sdlc_styles.html" %}
+</head>
+<body class="bg-light ecs-governance-page ecs-cap-governance-quality" data-nav-module="governance_quality"><div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+{% set d = quality_dashboard %}
+
+{% include "partials/ecs_governance_chrome.html" %}
+<div class="aisdlc-banner flex-shrink-0 mb-2">
+<div>
+<h2>ECS Governance Quality Dashboard</h2>
+<div class="sub">Auto-scan · self-heal · demo readiness metrics</div>
+</div>
+<span class="aisdlc-pill">QA ENGINE</span>
+</div>
+
+<div class="aisdlc-kpi-grid mb-3" style="grid-template-columns:repeat(5,1fr)">
+<div class="aisdlc-kpi tone-primary" data-aisdlc-drill="sdlc" data-metric="gaps" data-release="REL-2026-Q2-NB" tabindex="0" title="View gap drill-down"><div class="v">{{ d.total_defects }}</div><div class="l">Total Defects</div></div>
+<div class="aisdlc-kpi tone-success" data-aisdlc-drill="sdlc" data-metric="stages_complete" data-release="REL-2026-Q2-NB" tabindex="0"><div class="v">{{ d.resolved_defects }}</div><div class="l">Resolved</div></div>
+<div class="aisdlc-kpi tone-warning" tabindex="0" onclick="document.getElementById('ecsQualityDefects').scrollIntoView({behavior:'smooth'})"><div class="v">{{ d.remaining_defects }}</div><div class="l">Remaining</div></div>
+<div class="aisdlc-kpi tone-info" data-aisdlc-drill="sdlc" data-metric="readiness" data-release="REL-2026-Q2-NB" tabindex="0"><div class="v">{{ d.data_completeness_pct }}%</div><div class="l">Data Completeness</div></div>
+<div class="aisdlc-kpi tone-teal" data-aisdlc-drill="sdlc" data-metric="frameworks" data-release="REL-2026-Q2-NB" tabindex="0"><div class="v">{{ d.navigation_health_pct }}%</div><div class="l">Navigation Health</div></div>
+</div>
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-3 small"><strong>How Calculated:</strong> Data Completeness = resolved defects ÷ total scanned defects. Navigation Health = routes with working drill-down navigation ÷ routes scanned. Click any KPI for drill-down.</div>
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="card"><div class="card-body py-2 small"><strong>Broken Links</strong><div class="fs-4">{{ d.broken_links }}</div></div></div></div>
+<div class="col-md-3"><div class="card"><div class="card-body py-2 small"><strong>Broken Routes</strong><div class="fs-4">{{ d.broken_routes }}</div></div></div></div>
+<div class="col-md-3"><div class="card"><div class="card-body py-2 small"><strong>Empty Tables</strong><div class="fs-4">{{ d.empty_tables }}</div></div></div></div>
+<div class="col-md-3"><div class="card"><div class="card-body py-2 small"><strong>Empty Charts</strong><div class="fs-4">{{ d.empty_charts }}</div></div></div></div>
+</div>
+
+<div class="card mb-3"><div class="card-header py-2"><strong>Governance Readiness: {{ d.governance_readiness_pct }}%</strong></div>
+<div class="card-body p-0">
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
+{{ gov_table_open('quality-stage-metrics') }}
+<thead><tr><th>Stage</th><th>Readiness</th><th>Framework</th><th>Controls</th><th>Evidence</th><th>Gaps</th><th>Status</th></tr></thead>
+<tbody>{% for s in d.stage_metrics %}
+<tr><td><a href="/sdlc/{{ s.stage_slug|default(s.stage_key) }}{{ q }}&release=REL-2026-Q2-NB">{{ s.stage }}</a></td>
+<td>{{ s.readiness_pct }}%</td><td>{{ s.framework_coverage_pct }}%</td><td>{{ s.control_coverage_pct }}%</td>
+<td>{{ s.evidence_coverage_pct }}%</td><td>{{ s.open_gaps }}</td><td>{{ s.status }}</td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+</div></div>
+
+<div class="card mb-3" id="ecsQualityDefects"><div class="card-header py-2"><strong>Defect Report</strong></div>
+<div class="card-body p-0">
+{{ gov_table_open('quality-defects') }}
+<thead><tr><th>Screen</th><th>Issue</th><th>Severity</th><th>Root Cause</th><th>Fix</th><th>Status</th></tr></thead>
+<tbody>{% for x in d.defects %}
+<tr><td class="small">{{ x.page_name|default(x.screen) }}</td><td class="ecs-gov-wrap">{{ x.control_name|default(x.issue) }}</td><td>{{ x.severity }}</td>
+<td class="ecs-gov-wrap small">{{ x.root_cause }}</td><td class="ecs-gov-wrap small">{{ x.fix_applied|default(x.recommended_fix) }}</td>
+<td><span class="aisdlc-badge {{ x.status }}">{{ x.status }}</span></td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+</div></div>
+
+<div class="card mb-3"><div class="card-header py-2"><strong>Self-Heal Log</strong></div>
+<ul class="list-group list-group-flush small">{% for h in d.heal_log %}
+<li class="list-group-item">{{ h.action }} → {{ h.target }} ({{ h.result }})</li>
+{% endfor %}</ul></div>
+
+</div></div></div>
+{% include "partials/ecs_governance_shell.html" %}
+{% include "partials/ai_sdlc_drill_modal.html" %}
+</body></html>

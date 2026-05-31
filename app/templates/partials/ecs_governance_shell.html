@@ -1,0 +1,180 @@
+{# ECS Governance Shell — navigation context, stage SPA loader, reuse modal #}
+{% include "partials/ecs_governance_table_framework.html" %}
+<div class="modal fade" id="ecsReuseModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2"><h5 class="modal-title fs-6" id="ecsReuseModalTitle">Reuse Governance Artifact</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="ecsReuseModalBody"><div class="text-muted small">Loading…</div></div>
+<div class="modal-footer py-2"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+<button type="button" class="btn btn-sm btn-success" id="ecsReuseConfirmBtn">Execute Clone</button></div>
+</div></div></div>
+<script>
+(function () {
+  var STAGE_LABELS = {
+    requirement: 'Requirement Governance Workspace',
+    design: 'Design Governance Workspace',
+    development: 'Development Governance Workspace',
+    testing: 'Testing Governance Workspace',
+    'go-live': 'Go-Live Governance Workspace'
+  };
+
+  function qs() { return window.location.search || ''; }
+
+  function preserveContext(params) {
+    var u = new URLSearchParams(qs());
+    ['release', 'tab', 'applicationId', 'frameworkId', 'documentId', 'controlId', 'role', 'user'].forEach(function (k) {
+      if (params[k]) u.set(k, params[k]);
+    });
+    return u.toString();
+  }
+
+  function activateTabFromUrl() {
+    var tab = new URLSearchParams(qs()).get('tab');
+    if (tab && window.ecsActivateWorkspaceTab) window.ecsActivateWorkspaceTab(tab);
+  }
+  activateTabFromUrl();
+
+  document.querySelectorAll('.ecs-stage-card').forEach(function (card) {
+    card.addEventListener('dblclick', function (e) {
+      var nav = card.getAttribute('data-ecs-stage-nav');
+      if (nav) window.location.href = nav;
+    });
+  });
+
+  function renderReuseModal(data) {
+    if (!data) return '<p class="text-muted">No reuse data.</p>';
+    var h = '<div class="ecs-reuse-modal">';
+    h += '<p class="small"><strong>Source:</strong> ' + (data.source_title || data.source_id) + '</p>';
+    h += '<div class="row g-2 mb-2"><div class="col-md-6"><label class="form-label small">Target Applications</label><div class="d-flex flex-wrap gap-1">';
+    (data.target_applications || []).slice(0, 6).forEach(function (a) { h += '<span class="badge bg-primary">' + a + '</span>'; });
+    h += '</div></div><div class="col-md-6"><label class="form-label small">Target Releases</label><div class="d-flex flex-wrap gap-1">';
+    (data.target_releases || []).forEach(function (r) { h += '<span class="badge bg-secondary">' + r + '</span>'; });
+    h += '</div></div></div>';
+    h += '<div class="mb-2"><label class="form-label small">Target Frameworks</label><div class="d-flex flex-wrap gap-1">';
+    (data.target_frameworks || []).forEach(function (f) { h += '<span class="badge bg-info text-dark">' + f + '</span>'; });
+    h += '</div></div>';
+    h += '<div class="mb-2"><label class="form-label small">Clone Options</label>';
+    (data.clone_options || []).forEach(function (o, i) {
+      h += '<div class="form-check"><input class="form-check-input" type="radio" name="ecsCloneOpt" id="clo' + i + '" value="' + o.id + '"' + (i === 1 ? ' checked' : '') + '>';
+      h += '<label class="form-check-label small" for="clo' + i + '"><strong>' + o.label + '</strong> — ' + o.description + '</label></div>';
+    });
+    h += '</div>';
+    var imp = data.impact_analysis || {};
+    h += '<div class="alert alert-light border small mb-0"><strong>Impact Analysis</strong><br>';
+    h += 'Applications: ' + (imp.applications_affected || 0) + ' · Controls remapped: ' + (imp.controls_remapped || 0);
+    h += ' · Evidence reused: ' + (imp.evidence_reused || 0) + ' · Effort: ' + (imp.estimated_effort_days || 0) + ' days · Risk: ' + (imp.risk_delta || 'Low');
+    h += '<br>Package ID: <code>' + (data.preview_package_id || '') + '</code></div></div>';
+    return h;
+  }
+
+  window.renderReuseModal = renderReuseModal;
+
+  window.ecsOpenReuseModal = function (kind, metric, id, extra) {
+    extra = extra || {};
+    var url = '/api/ai-sdlc/sdlc/drill?metric=' + encodeURIComponent(metric || 'reuse_modal') +
+      '&release=' + encodeURIComponent(extra.release || '') +
+      '&stage=' + encodeURIComponent(extra.stage || '') +
+      '&item_id=' + encodeURIComponent(id || '');
+    var modalEl = document.getElementById('ecsReuseModal');
+    if (!modalEl || typeof bootstrap === 'undefined') return;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    document.getElementById('ecsReuseModalTitle').textContent = 'Reuse Governance Artifact';
+    document.getElementById('ecsReuseModalBody').innerHTML = '<div class="text-muted small">Loading…</div>';
+    modal.show();
+    fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+      var p = j.payload || {};
+      document.getElementById('ecsReuseModalTitle').textContent = p.title || 'Reuse';
+      document.getElementById('ecsReuseModalBody').innerHTML = renderReuseModal(p.data);
+    });
+  };
+
+  document.addEventListener('click', function (e) {
+    var reuseBtn = e.target.closest('[data-ecs-reuse], .aisdlc-reuse-btn, [data-reuse-wizard]');
+    if (reuseBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var art = reuseBtn.closest('.aisdlc-doc-viewer');
+      var docId = reuseBtn.getAttribute('data-doc-id') || '';
+      window.ecsOpenReuseModal('sdlc', 'reuse_modal', reuseBtn.getAttribute('data-reuse-id') || docId, {
+        release: reuseBtn.getAttribute('data-release') || new URLSearchParams(qs()).get('release') || '',
+        stage: reuseBtn.getAttribute('data-stage') || ''
+      });
+      return;
+    }
+  });
+
+  window.ecsGovernanceSetStageLink = function (stageLinkEl, stageHref, stageKey, navCtx) {
+    if (!stageLinkEl || !stageHref) return;
+    var q = qs();
+    var sep = stageHref.indexOf('?') >= 0 ? '&' : '?';
+    var roleUser = q.replace(/^\?/, '');
+    stageLinkEl.href = stageHref + (roleUser ? sep + roleUser : '');
+    var label = STAGE_LABELS[stageKey] || (navCtx && navCtx.stageLabel) || 'Stage Workspace';
+    stageLinkEl.textContent = 'Open ' + label;
+    stageLinkEl.classList.remove('d-none');
+  };
+
+  document.querySelectorAll('[data-ecs-kb-filter]').forEach(function (input) {
+    input.addEventListener('input', function () {
+      var q = (input.value || '').toLowerCase();
+      document.querySelectorAll('.ecs-kb-block').forEach(function (block) {
+        block.style.display = !q || block.textContent.toLowerCase().indexOf(q) >= 0 ? '' : 'none';
+      });
+    });
+  });
+
+  function applyGapsTableFilter(tableWrap) {
+    if (!tableWrap) return;
+    var searchEl = tableWrap.querySelector('.ecs-gaps-search');
+    var sevBtn = tableWrap.querySelector('.ecs-gaps-sev-btn.btn-primary');
+    var q = searchEl ? (searchEl.value || '').toLowerCase() : '';
+    var sev = sevBtn ? (sevBtn.getAttribute('data-sev') || '') : '';
+    var table = tableWrap.querySelector('.ecs-gaps-table');
+    if (table) {
+      if (q || sev) table.classList.add('ecs-no-paginate');
+      else table.classList.remove('ecs-no-paginate');
+      delete table.dataset.ecsPaginationInit;
+      var wrap = table.closest('.ecs-paginated-wrap');
+      var bar = wrap && wrap.nextElementSibling;
+      if (bar && bar.classList.contains('ecs-pagination-bar')) bar.remove();
+    }
+    var rows = tableWrap.querySelectorAll('.ecs-gaps-table tbody tr');
+    var shown = 0;
+    rows.forEach(function (row) {
+      var matchSev = !sev || row.getAttribute('data-gap-severity') === sev;
+      var text = row.textContent.toLowerCase();
+      var matchQ = !q || text.indexOf(q) >= 0;
+      var show = matchSev && matchQ;
+      row.style.display = show ? '' : 'none';
+      if (show) shown += 1;
+    });
+    var summary = tableWrap.querySelector('.ecs-gaps-filter-summary');
+    if (summary) summary.textContent = shown + ' of ' + rows.length + ' gaps shown';
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination(tableWrap);
+  }
+
+  document.querySelectorAll('.ecs-gaps-filter-bar').forEach(function (bar) {
+    var tableWrap = bar.closest('.ecs-gov-pane-inner') || bar.parentElement;
+    bar.querySelectorAll('.ecs-gaps-sev-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        bar.querySelectorAll('.ecs-gaps-sev-btn').forEach(function (b) {
+          b.classList.toggle('btn-primary', b === btn);
+          b.classList.toggle('btn-outline-secondary', b !== btn);
+        });
+        applyGapsTableFilter(tableWrap);
+      });
+    });
+    var search = bar.querySelector('.ecs-gaps-search');
+    if (search) {
+      search.addEventListener('input', function () { applyGapsTableFilter(tableWrap); });
+    }
+    if (!bar.querySelector('.ecs-gaps-filter-summary')) {
+      var sum = document.createElement('span');
+      sum.className = 'ecs-gaps-filter-summary small text-muted ms-auto';
+      bar.appendChild(sum);
+    }
+    applyGapsTableFilter(tableWrap);
+  });
+})();
+</script>

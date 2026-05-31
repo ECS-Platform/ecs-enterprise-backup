@@ -1,0 +1,304 @@
+{# Unified SDLC stage workspace — explainable governance tabs #}
+{% from "partials/mvp_workspace_macros.html" import governance_workspace_open, governance_workspace_tabs, governance_pane, governance_pane_end, governance_workspace_close %}
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
+{% set gl = sv.go_live if sv.go_live is defined else none %}
+{% set sk = sv.stage.key %}
+{% set kb = sv.knowledge_base|default({}) %}
+{% set formulas = sv.coverage_formulas|default({}) %}
+{% set rb = sv.readiness_breakdown|default({}) %}
+{% set fw_x = sv.framework_coverage_explainer|default({}) %}
+{% set ctrl_x = sv.control_coverage_explainer|default({}) %}
+{% set ev_x = sv.evidence_coverage_explainer|default({}) %}
+{% set sw = sv.status_workspace|default({}) %}
+{% set sx = sw.explanation|default({}) %}
+{% set aw = sv.approvals_workspace|default({}) %}
+{% set kr = sv.knowledge_reuse|default({}) %}
+
+{% set ws_tabs = [
+  {'id':'overview','label':'Overview'},
+  {'id':'readiness','label':'Readiness Score'},
+  {'id':'framework-coverage','label':'Framework Coverage'},
+  {'id':'control-coverage','label':'Control Coverage'},
+  {'id':'evidence-coverage','label':'Evidence Coverage'},
+  {'id':'open-gaps','label':'Open Gaps'},
+  {'id':'status','label':'Status'},
+  {'id':'approvals','label':'Approvals'},
+  {'id':'audit-trail','label':'Audit Trail'},
+  {'id':'knowledge-reuse','label':'Knowledge Reuse'}
+] %}
+
+{{ governance_workspace_open() }}
+{{ governance_workspace_tabs(ws_tabs) }}
+
+{# OVERVIEW #}
+{{ governance_pane('overview', sv.stage.label ~ ' Workspace', sm.status|default(sm.approval_status), true) }}
+<div class="aisdlc-kpi-grid mb-2" style="grid-template-columns:repeat(5,1fr)">
+<div class="aisdlc-kpi tone-success" data-aisdlc-drill="sdlc" data-metric="readiness_breakdown" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0" title="How calculated"><div class="v">{{ sm.readiness_score }}%</div><div class="l">Readiness</div></div>
+<div class="aisdlc-kpi tone-primary" data-aisdlc-drill="sdlc" data-metric="framework_coverage_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0" title="How calculated"><div class="v">{{ sm.framework_coverage_pct }}%</div><div class="l">Framework</div></div>
+<div class="aisdlc-kpi tone-info" data-aisdlc-drill="sdlc" data-metric="control_coverage_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0" title="How calculated"><div class="v">{{ sm.control_coverage_pct }}%</div><div class="l">Controls</div></div>
+<div class="aisdlc-kpi tone-teal" data-aisdlc-drill="sdlc" data-metric="evidence_coverage_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0" title="How calculated"><div class="v">{{ sm.evidence_coverage_pct|default(sm.checklist_completion_pct) }}%</div><div class="l">Evidence</div></div>
+<div class="aisdlc-kpi tone-warning" data-aisdlc-drill="sdlc" data-metric="gaps_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0"><div class="v">{{ sm.open_gaps }}</div><div class="l">Open Gaps</div></div>
+</div>
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>How Calculated:</strong> Readiness = average of 5 SDLC stage governance scores (20% each). Stage metrics below are for <strong>{{ sv.stage.label }}</strong> only.
+<span class="aisdlc-drill-link ms-1" data-aisdlc-drill="sdlc" data-metric="readiness_breakdown" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Full breakdown →</span>
+</div>
+<div class="aisdlc-stage-grid mb-2" style="grid-template-columns:repeat(5,1fr)">
+{% for st in all_stages|default([]) %}
+{% if st.key == sk %}
+<div class="aisdlc-stage-card ecs-stage-card border-primary" style="border-top-color:#4338ca;background:#f8fafc;cursor:default" aria-current="page">
+<div class="icon">{{ st.icon|default('📋') }}</div><div class="title">{{ st.label }}</div>
+<div class="score">{{ st.readiness_score }}%</div>
+<div class="meta small">Ctrl {{ st.control_coverage_pct }}% · Ev {{ st.evidence_coverage_pct|default(st.checklist_completion_pct) }}%</div>
+</div>
+{% else %}
+<a class="aisdlc-stage-card ecs-stage-card" href="/sdlc/{{ st.slug|default(st.key) }}{{ q }}&release={{ sv.release.id }}">
+<div class="icon">{{ st.icon|default('📋') }}</div><div class="title">{{ st.label }}</div>
+<div class="score">{{ st.readiness_score }}%</div>
+<div class="meta small">Ctrl {{ st.control_coverage_pct }}% · Ev {{ st.evidence_coverage_pct|default(st.checklist_completion_pct) }}%</div>
+</a>
+{% endif %}
+{% endfor %}
+</div>
+<p class="small text-muted mb-0">Owner: {{ sm.owner }} · Due: {{ sm.due_date }} · Status: <strong>{{ sm.status }}</strong> · Applications: {% for app in sm.applications_impacted %}{{ app }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+{{ governance_pane_end() }}
+
+{# READINESS SCORE #}
+{{ governance_pane('readiness', 'Readiness Score', rb.current_score|default(sm.readiness_score)|string ~ '% current') }}
+<div class="row g-2 mb-2">
+<div class="col-md-4"><div class="card h-100"><div class="card-body py-2 text-center"><div class="text-muted small">Current Score</div><div class="fs-3 fw-bold text-success">{{ rb.current_score|default(sm.readiness_score) }}%</div></div></div></div>
+<div class="col-md-4"><div class="card h-100"><div class="card-body py-2 text-center"><div class="text-muted small">Target Score</div><div class="fs-3 fw-bold">{{ rb.target_score|default(sm.target_readiness|default(90)) }}%</div></div></div></div>
+<div class="col-md-4"><div class="card h-100"><div class="card-body py-2 text-center"><div class="text-muted small">Gap</div><div class="fs-3 fw-bold text-warning">{{ rb.gap|default(sm.readiness_gap|default(0)) }}%</div></div></div></div>
+</div>
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>Formula:</strong> {{ formulas.readiness|default('Readiness Score = average of Requirement, Design, Development, Testing, and Go-Live governance scores (20% weight each).') }}
+</div>
+{% if rb.calculation_steps %}
+<ul class="small mb-2">{% for step in rb.calculation_steps %}<li>{{ step }}</li>{% endfor %}</ul>
+{% endif %}
+<p class="small mb-2"><span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="readiness_breakdown" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Open detailed readiness drill-down →</span></p>
+{{ gov_table_open('sdlc-readiness-breakdown') }}
+<thead><tr><th>Stage Governance</th><th>Weight</th><th>Stage Score</th><th>Contribution</th></tr></thead>
+<tbody>{% for row in rb.breakdown|default([]) %}
+<tr data-aisdlc-drill="sdlc" data-metric="readiness_breakdown" data-release="{{ sv.release.id }}" data-stage="{{ row.stage_key }}" tabindex="0">
+<td>{{ row.dimension }}</td><td>{{ row.weight_pct }}%</td><td>{{ row.score }}%</td><td><strong>{{ row.contribution }}</strong></td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{# FRAMEWORK COVERAGE #}
+{{ governance_pane('framework-coverage', 'Framework Coverage', fw_x.aggregate_pct|default(sm.framework_coverage_pct)|string ~ '% aggregate') }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>Formula:</strong> {{ formulas.framework_coverage|default('Framework Coverage = average framework coverage across all applicable frameworks.') }}
+</div>
+{% if fw_x.calculation_steps %}
+<ul class="small mb-2">{% for step in fw_x.calculation_steps %}<li>{{ step }}</li>{% endfor %}</ul>
+{% endif %}
+<p class="small mb-2"><span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="framework_coverage_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Open framework coverage drill-down →</span></p>
+{{ gov_table_open('sdlc-frameworks') }}
+<thead><tr><th>Framework</th><th>Controls Required</th><th>Controls Covered</th><th>Coverage %</th><th>Gaps</th><th>Owner</th></tr></thead>
+<tbody>{% for fw in sv.framework_rows %}
+{% set cov_pct = fw.checklist_pct|default((fw.controls_covered * 100 / fw.controls_total)|round(1) if fw.controls_total else 0) %}
+<tr data-aisdlc-drill="sdlc" data-metric="framework" data-id="{{ fw.framework }}" data-release="{{ sv.release.id }}" data-stage="{{ sk }}">
+<td><strong>{{ fw.framework }}</strong></td><td>{{ fw.controls_total }}</td><td>{{ fw.controls_covered }}</td>
+<td>{{ cov_pct }}%</td><td>{{ fw.gaps }}</td><td>{{ fw.owner }}</td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{# CONTROL COVERAGE #}
+{{ governance_pane('control-coverage', 'Control Coverage', ctrl_x.aggregate_pct|default(sm.control_coverage_pct)|string ~ '% covered') }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>Formula:</strong> {{ formulas.control_coverage|default('Control Coverage = (Controls Covered ÷ Total Controls) × 100.') }}
+{% if ctrl_x.calculation_steps %} — {% for step in ctrl_x.calculation_steps %}{{ step }}{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}
+</div>
+<p class="small mb-2"><span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="control_coverage_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Open control coverage drill-down →</span></p>
+{{ gov_table_open('sdlc-controls') }}
+<thead><tr><th>Control</th><th>Owner</th><th>Status</th><th>Evidence</th><th>Last Review</th><th>Framework</th><th>Application</th></tr></thead>
+<tbody>{% for fw in sv.framework_rows %}{% for c in fw.control_records %}
+<tr data-aisdlc-drill="sdlc" data-metric="control" data-id="{{ c.control_id }}" data-release="{{ sv.release.id }}" data-stage="{{ sk }}">
+<td class="ecs-gov-wrap"><strong>{{ c.control_id }}</strong> — {{ c.control_name|default(c.control_description) }}</td>
+<td>{{ c.owner }}</td><td><span class="aisdlc-badge {{ c.status }}">{{ c.status }}</span></td>
+<td>{{ c.evidence_count }}</td><td>{{ c.last_review|default('—') }}</td>
+<td>{{ c.framework }}</td><td>{{ c.application }}</td></tr>
+{% endfor %}{% endfor %}</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{# EVIDENCE COVERAGE #}
+{{ governance_pane('evidence-coverage', 'Evidence Coverage', ev_x.aggregate_pct|default(sm.evidence_coverage_pct)|string ~ '% approved') }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>Formula:</strong> {{ formulas.evidence_coverage|default('Evidence Coverage = (Approved Evidence ÷ Required Evidence) × 100.') }}
+{% if ev_x.calculation_steps %} — {% for step in ev_x.calculation_steps %}{{ step }}{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}
+</div>
+<p class="small mb-2"><span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="evidence_coverage_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Open evidence coverage drill-down →</span></p>
+{{ gov_table_open('sdlc-evidence') }}
+<thead><tr><th>Evidence</th><th>Control</th><th>Application</th><th>Owner</th><th>Status</th><th>Collected</th></tr></thead>
+<tbody>{% for fw in sv.framework_rows %}{% for e in fw.evidence_records %}
+<tr data-aisdlc-drill="sdlc" data-metric="evidence" data-id="{{ e.evidence_id }}" data-release="{{ sv.release.id }}" data-stage="{{ sk }}">
+<td class="ecs-gov-wrap">{{ e.title }}</td><td>{{ e.control_id }}</td><td>{{ e.application }}</td>
+<td>{{ e.owner }}</td><td><span class="aisdlc-badge {{ e.status }}">{{ e.status }}</span></td><td>{{ e.collected_date }}</td></tr>
+{% endfor %}{% endfor %}</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{# OPEN GAPS #}
+{{ governance_pane('open-gaps', 'Open Gaps', sm.open_gaps|string ~ ' total — browse all records below') }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>Count justification:</strong> {{ sm.open_gaps }} open gaps aggregated across {{ sv.framework_rows|length }} in-scope frameworks for {{ sv.stage.label }}.
+Use search, severity filter, and pagination to browse every record.
+<span class="aisdlc-drill-link ms-1" data-aisdlc-drill="sdlc" data-metric="gaps_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Advanced modal drill →</span>
+</div>
+<div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+<label class="small mb-0">Severity:</label>
+<select class="form-select form-select-sm ecs-gap-severity-filter" style="width:auto" data-ecs-table-filter="sdlc-gaps">
+<option value="">All ({{ sm.open_gaps }})</option>
+<option value="Critical">Critical</option>
+<option value="High">High</option>
+<option value="Medium">Medium</option>
+<option value="Low">Low</option>
+</select>
+</div>
+{{ gov_table_open('sdlc-gaps') }}
+<thead><tr><th>Gap ID</th><th>Framework</th><th>Control</th><th>Description</th><th>Severity</th><th>Application</th><th>Owner</th><th>Due</th></tr></thead>
+<tbody>{% for g in sm.gap_records %}
+<tr data-aisdlc-drill="sdlc" data-metric="gaps" data-id="{{ g.gap_id }}" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" data-severity="{{ g.severity }}">
+<td>{{ g.gap_id }}</td><td>{{ g.framework }}</td><td class="ecs-gov-wrap">{{ g.control }}</td>
+<td class="ecs-gov-wrap small">{{ g.description }}</td>
+<td><span class="aisdlc-badge {{ g.severity }}">{{ g.severity }}</span></td>
+<td>{{ g.application }}</td><td>{{ g.owner }}</td><td>{{ g.due }}</td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{# STATUS #}
+{{ governance_pane('status', 'Lifecycle Status', sx.headline|default(sm.status)) }}
+<div class="alert alert-{% if sm.status == 'On Track' %}success{% elif sm.status == 'At Risk' %}warning{% elif sm.status == 'Escalated' %}danger{% else %}info{% endif %} py-2 px-2 mb-2 small">
+<strong>{{ sx.headline|default(sm.status) }}:</strong> {{ sx.summary|default('Stage lifecycle status derived from coverage metrics, open gaps, and approval chain progress.') }}
+</div>
+<div class="row g-2 mb-2">
+<div class="col-md-4"><div class="card h-100 border-success"><div class="card-header py-1 small fw-bold">Why On Track</div><ul class="list-group list-group-flush small">{% for r in (sx.reasons if sm.status == 'On Track' else ['Control coverage ≥ 80%', 'Evidence collection on schedule', 'No Critical blockers']) %}<li class="list-group-item py-1">{{ r }}</li>{% endfor %}</ul></div></div>
+<div class="col-md-4"><div class="card h-100 border-warning"><div class="card-header py-1 small fw-bold">Why At Risk</div><ul class="list-group list-group-flush small">{% if sm.status == 'At Risk' %}{% for r in sx.reasons %}<li class="list-group-item py-1">{{ r }}</li>{% endfor %}{% else %}<li class="list-group-item py-1">{{ sm.open_gaps }} open gaps may delay sign-off</li><li class="list-group-item py-1">Evidence or control coverage below threshold</li><li class="list-group-item py-1">Pending external auditor samples</li>{% endif %}</ul></div></div>
+<div class="col-md-4"><div class="card h-100 border-danger"><div class="card-header py-1 small fw-bold">Why Escalated</div><ul class="list-group list-group-flush small">{% if sm.status == 'Escalated' %}{% for r in sx.reasons %}<li class="list-group-item py-1">{{ r }}</li>{% endfor %}{% else %}<li class="list-group-item py-1">CIO residual risk acceptance required</li><li class="list-group-item py-1">Approval chain stalled > 5 days</li><li class="list-group-item py-1">Critical gap blocking go-live</li>{% endif %}</ul></div></div>
+</div>
+<p class="small mb-2"><span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="status_timeline" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Open lifecycle timeline with blockers →</span></p>
+<div class="aisdlc-workflow mb-2">
+{% for step in sw.timeline|default([]) %}
+<div class="aisdlc-wf-step {% if step.status == 'Completed' %}is-done{% elif step.stage_key == sk %}is-active{% endif %}">
+<div class="step-n">{{ loop.index }}</div>{{ step.stage }}<div class="small text-muted">{{ step.status }}{% if step.completed != '—' %} · {{ step.completed }}{% endif %}</div>
+</div>
+{% else %}
+<div class="aisdlc-wf-step is-done"><div class="step-n">1</div>Requirement</div>
+<div class="aisdlc-wf-step {% if sk == 'design' %}is-active{% else %}is-done{% endif %}"><div class="step-n">2</div>Design</div>
+<div class="aisdlc-wf-step {% if sk == 'development' %}is-active{% elif sk in ['testing','go-live'] %}is-done{% endif %}"><div class="step-n">3</div>Development</div>
+<div class="aisdlc-wf-step {% if sk == 'testing' %}is-active{% elif sk == 'go-live' %}is-done{% endif %}"><div class="step-n">4</div>Testing</div>
+<div class="aisdlc-wf-step {% if sk == 'go-live' %}is-active{% endif %}"><div class="step-n">5</div>Go-Live</div>
+{% endfor %}
+</div>
+{% if sw.blockers %}
+<h6 class="small text-muted mt-2">Active Blockers</h6>
+{{ gov_table_open('sdlc-blockers') }}
+<thead><tr><th>Item</th><th>Stage</th><th>Owner</th><th>Severity</th></tr></thead>
+<tbody>{% for b in sw.blockers %}<tr><td class="ecs-gov-wrap">{{ b.item }}</td><td>{{ b.stage }}</td><td>{{ b.owner }}</td><td><span class="aisdlc-badge {{ b.severity }}">{{ b.severity }}</span></td></tr>{% endfor %}</tbody>
+{{ gov_table_close() }}
+{% endif %}
+{{ governance_pane_end() }}
+
+{# APPROVALS #}
+{{ governance_pane('approvals', 'Approvals', sm.approval_status|default('Workflow')) }}
+<p class="small mb-2">Complete approval workflow history for {{ sv.release.name }} — {{ sv.stage.label }} gate.</p>
+<p class="small mb-2"><span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="approvals_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Open approval drill-down →</span></p>
+{{ gov_table_open('sdlc-approvals') }}
+<thead><tr><th>Approver</th><th>Role</th><th>Status</th><th>Decision Date</th><th>Comments</th></tr></thead>
+<tbody>{% for a in aw.approval_chain|default([]) %}
+<tr data-aisdlc-drill="sdlc" data-metric="approvals_drill" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">
+<td>{{ a.approver }}</td><td>{{ a.role }}</td><td><span class="aisdlc-badge {{ a.status|lower|replace(' ', '-') }}">{{ a.status }}</span></td>
+<td>{{ a.decision_date }}</td><td class="ecs-gov-wrap small">{{ a.comments }}</td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{% if aw.escalations %}
+<h6 class="small text-muted mt-2">Escalations</h6>
+<ul class="small">{% for e in aw.escalations %}<li>{{ e.from }} → {{ e.to }}: {{ e.reason }} ({{ e.date }})</li>{% endfor %}</ul>
+{% endif %}
+{{ governance_pane_end() }}
+
+{# AUDIT TRAIL #}
+{{ governance_pane('audit-trail', 'Audit Trail', sv.audit_trail|length|string ~ ' governance events') }}
+<p class="small mb-2">Complete governance audit history — 5-year retention depth.</p>
+{{ gov_table_open('sdlc-audit-trail') }}
+<thead><tr><th>Timestamp</th><th>User</th><th>Role</th><th>Action</th><th>Object</th><th>Application</th><th>Framework</th><th>Before → After</th><th>Detail</th></tr></thead>
+<tbody>
+{% for e in sv.audit_trail %}
+<tr data-aisdlc-drill="sdlc" data-metric="audit" data-id="{{ loop.index }}" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">
+<td>{{ e.timestamp }}</td><td>{{ e.user|default(e.actor) }}</td><td>{{ e.role|default('—') }}</td>
+<td>{{ e.action }}</td><td>{{ e.object|default('') }}</td><td>{{ e.application|default('—') }}</td>
+<td>{{ e.framework|default('—') }}</td><td class="small">{{ e.before|default('—') }} → {{ e.after|default('—') }}</td>
+<td class="ecs-gov-wrap small">{{ e.detail }}</td></tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{# KNOWLEDGE REUSE #}
+{{ governance_pane('knowledge-reuse', 'Knowledge Reuse', kr.overall_pct|default(0)|string ~ '% overall reuse') }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>Formula:</strong> {{ kr.formula|default('Knowledge reuse = historical assets reused ÷ total assets required across SDLC stages.') }}
+</div>
+<div class="aisdlc-kpi-grid mb-2" style="grid-template-columns:repeat(6,1fr)">
+<div class="aisdlc-kpi tone-primary" data-aisdlc-drill="sdlc" data-metric="knowledge_reuse" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0"><div class="v">{{ kr.overall_pct|default(0) }}%</div><div class="l">Overall</div></div>
+{% for dim, label in [('requirement','Requirement'),('design','Design'),('code','Code'),('test','Test'),('audit','Audit'),('evidence','Evidence')] %}
+<div class="aisdlc-kpi tone-info" tabindex="0"><div class="v">{{ kr.breakdown[dim]|default(0) }}%</div><div class="l">{{ label }}</div></div>
+{% endfor %}
+</div>
+<div class="d-flex gap-1 mb-2 flex-wrap">
+<button type="button" class="btn btn-sm btn-outline-success" data-ecs-reuse data-reuse-id="control::reuse" data-release="{{ sv.release.id }}" data-stage="{{ sk }}">Reuse Control</button>
+<button type="button" class="btn btn-sm btn-outline-success" data-ecs-reuse data-reuse-id="requirement::{{ sv.documents[0].doc_id if sv.documents else 'DOC-001' }}" data-release="{{ sv.release.id }}" data-stage="{{ sk }}">Reuse Requirement</button>
+<button type="button" class="btn btn-sm btn-outline-success" data-ecs-reuse data-reuse-id="design::reuse" data-release="{{ sv.release.id }}" data-stage="{{ sk }}">Reuse Design</button>
+<button type="button" class="btn btn-sm btn-outline-success" data-ecs-reuse data-reuse-id="testing::reuse" data-release="{{ sv.release.id }}" data-stage="{{ sk }}">Reuse Test Pack</button>
+</div>
+<p class="small mb-2">
+<span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="historical_lineage" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Historical lineage →</span>
+ · <span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="control_reuse_repo" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Control reuse repository →</span>
+ · <span class="aisdlc-drill-link" data-aisdlc-drill="sdlc" data-metric="design_reuse_repo" data-release="{{ sv.release.id }}" data-stage="{{ sk }}" tabindex="0">Design patterns →</span>
+</p>
+{% if sv.documents %}
+<h6 class="small text-muted">Historical Implementations</h6>
+{{ gov_table_open('sdlc-documents') }}
+<thead><tr><th>Doc ID</th><th>Title</th><th>Category</th><th>Status</th></tr></thead>
+<tbody>{% for doc in sv.documents %}
+<tr data-aisdlc-drill="sdlc" data-metric="document" data-id="{{ doc.doc_id }}" data-release="{{ sv.release.id }}" data-stage="{{ sk }}">
+<td>{{ doc.doc_id }}</td><td class="ecs-gov-wrap">{{ doc.title }}</td><td>{{ doc.category }}</td>
+<td><span class="aisdlc-badge {{ doc.status }}">{{ doc.status }}</span></td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{% endif %}
+<div class="row g-2 mt-2">
+<div class="col-md-6"><h6 class="small text-muted">Lessons Learned</h6><ul class="small ecs-kb-block">{% for l in kb.lessons_learned|default([]) %}<li>{{ l }}</li>{% endfor %}</ul></div>
+<div class="col-md-6"><h6 class="small text-muted">Reusable Patterns</h6>
+<table class="aisdlc-table ecs-compact-table mb-0 ecs-kb-block"><thead><tr><th>Pattern</th><th>Used In</th><th>Count</th></tr></thead>
+<tbody>{% for p in kb.reusable_patterns|default([]) %}<tr><td>{{ p.pattern }}</td><td>{{ p.used_in }}</td><td>{{ p.reuse_count }}</td></tr>{% endfor %}</tbody></table></div>
+</div>
+{{ governance_pane_end() }}
+
+{{ governance_workspace_close() }}
+<script>
+(function () {
+  document.querySelectorAll('.ecs-gap-severity-filter').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+      var sev = sel.value.toLowerCase();
+      var tableId = sel.getAttribute('data-ecs-table-filter');
+      var table = document.querySelector('[data-gov-table-id="' + tableId + '"]') || sel.closest('.tab-pane') && sel.closest('.tab-pane').querySelector('table');
+      if (!table) return;
+      table.querySelectorAll('tbody tr').forEach(function (tr) {
+        if (!sev) { tr.style.display = ''; return; }
+        var rowSev = (tr.getAttribute('data-severity') || '').toLowerCase();
+        tr.style.display = rowSev === sev ? '' : 'none';
+      });
+      if (window.ecsEnhanceGovTables) {
+        var wrap = table.closest('.ecs-gov-data-table') || table.parentElement;
+        if (wrap) window.ecsEnhanceGovTables(wrap.parentElement || wrap);
+      }
+    });
+  });
+})();
+</script>

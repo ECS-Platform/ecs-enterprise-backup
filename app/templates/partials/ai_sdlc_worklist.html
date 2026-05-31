@@ -1,0 +1,44 @@
+{# Shared AI SDLC worklist shell — row-level actions only #}
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
+{% set wl = worklist %}
+<div class="aisdlc-worklist-header mb-2 flex-shrink-0">
+<h2 class="h5 mb-1">{{ wl.title }}</h2>
+{% if wl.subtitle %}<p class="small text-muted mb-0">{{ wl.subtitle }}</p>{% endif %}
+</div>
+{{ gov_table_open(wl.export_name|default('ai-sdlc-worklist')) }}
+<thead><tr>
+{% for col in wl.columns %}
+<th{% if col.wrap %} data-min-width="140"{% endif %}>{{ col.label }}</th>
+{% endfor %}
+<th>Actions</th>
+</tr></thead>
+<tbody>
+{% for row in wl.rows %}
+{% set item_id = row.activity_id|default(row.evidence_id) %}
+{% set item_type = 'evidence' if row.evidence_id else 'activity' %}
+<tr data-wf-id="{{ item_id }}" data-wf-type="{{ item_type }}"
+    data-app="{{ row.application }}" data-fw="{{ row.framework }}" data-domain="{{ row.domain }}"
+    data-control-id="{{ row.control_id }}" data-stage="{{ row.stage }}"
+    data-artifact="{{ row.artifact_type|default(row.artifact_required|default('')) }}">
+{% for col in wl.columns %}
+<td{% if col.wrap %} class="ecs-gov-wrap ecs-gov-rich-cell"{% endif %}>
+{% if col.key == 'evidence_view_url' and row[col.key] %}
+<a href="{{ row[col.key] }}{{ q }}">Open Evidence</a>
+{% elif col.key == 'status' %}
+<span class="aisdlc-badge {{ row[col.key]|replace(' ','') }}" data-wf-status>{{ row[col.key] }}</span>
+{% elif col.key == 'severity' %}
+<span class="aisdlc-badge {{ row[col.key] }}">{{ row[col.key] }}</span>
+{% else %}
+{{ row[col.key] }}
+{% endif %}
+</td>
+{% endfor %}
+<td class="text-nowrap">
+{% for act in row.row_actions|default(wl.row_actions|default(['Review'])) %}
+<button type="button" class="btn btn-link btn-sm p-0 me-1" data-wf-action="{{ act }}">{{ act }}</button>
+{% endfor %}
+</td>
+</tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}

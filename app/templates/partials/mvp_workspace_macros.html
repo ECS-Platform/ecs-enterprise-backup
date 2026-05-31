@@ -1,3 +1,35 @@
+{% macro governance_workspace_open() %}
+<div class="ecs-governance-workspace">
+{% endmacro %}
+
+{% macro governance_workspace_tabs(tabs) %}
+<nav class="ecs-workspace-tabs ecs-workspace-tabs-governance" aria-label="Governance workspace">
+{% for t in tabs %}
+<button type="button" class="ecs-workspace-tab{% if loop.first %} is-active{% endif %}" data-workspace-tab="{{ t.id }}">{{ t.label }}</button>
+{% endfor %}
+</nav>
+<select class="ecs-workspace-tab-select form-select form-select-sm" aria-label="Workspace section">
+{% for t in tabs %}
+<option value="{{ t.id }}"{% if loop.first %} selected{% endif %}>{{ t.label }}</option>
+{% endfor %}
+</select>
+<div class="ecs-governance-workspace-panels">
+{% endmacro %}
+
+{% macro governance_pane(id, title, meta='', active=false) %}
+<div class="ecs-workspace-pane ecs-gov-pane{% if active %} is-active{% endif %}" data-workspace-pane="{{ id }}">
+<div class="ecs-gov-pane-header">{{ title }}{% if meta %}<span class="meta">{{ meta }}</span>{% endif %}</div>
+<div class="ecs-gov-pane-inner">
+{% endmacro %}
+
+{% macro governance_pane_end() %}
+</div></div>
+{% endmacro %}
+
+{% macro governance_workspace_close() %}
+</div></div>
+{% endmacro %}
+
 {% macro workspace_exec_strip(module_view) %}
 {% if module_view is defined and module_view.kpis %}
 <div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">

@@ -40,13 +40,13 @@
 
 .ecs-executive-table th,
 .ecs-executive-table td,
-.ecs-workspace-main .table th,
-.ecs-workspace-main .table td,
-.ecs-main-content .table th,
-.ecs-main-content .table td {
+.ecs-workspace-main .table:not(.ecs-gov-data-table) th,
+.ecs-workspace-main .table:not(.ecs-gov-data-table) td,
+.ecs-main-content .table:not(.ecs-gov-data-table) th,
+.ecs-main-content .table:not(.ecs-gov-data-table) td {
   white-space: normal !important;
   word-break: break-word;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   hyphens: auto;
   padding: 0.28rem 0.38rem !important;
   vertical-align: top;

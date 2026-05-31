@@ -2,182 +2,196 @@
 {% include "partials/mvp_styles.html" %}
 {% include "partials/ai_sdlc_styles.html" %}
 </head>
-<body class="bg-light ecs-cap-ai-registry"><div class="container-fluid"><div class="row">
+<body class="bg-light ecs-governance-page ecs-cap-ai-registry" data-nav-module="ai_registry"><div class="container-fluid h-100"><div class="row h-100">
 {% include "partials/mvp_sidebar.html" %}
-<div class="col-md-10 ecs-workspace-main">
+<div class="col-md-10 ecs-workspace-main ecs-governance-shell">
 {% set q = '?role=' ~ role ~ '&user=' ~ user %}
 {% set v = registry_view %}
+{% from "partials/mvp_workspace_macros.html" import governance_workspace_open, governance_workspace_tabs, governance_pane, governance_pane_end, governance_workspace_close %}
+{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close, gov_app_cell %}
 
-<div class="aisdlc-banner">
-<div>
-<h2>Model & Prompt Registry</h2>
-<div class="sub">Enterprise inventory — models, prompts, use cases, owners, and approval workflows</div>
-</div>
+{% include "partials/ecs_governance_chrome.html" %}
+{% set ws_tabs = [
+  {'id':'overview','label':'Overview'},{'id':'models','label':'Models'},{'id':'prompts','label':'Prompt Templates'},
+  {'id':'validation','label':'Validation Results'},{'id':'risk','label':'Risk Assessments'},
+  {'id':'approvals','label':'Approvals'},{'id':'evidence','label':'Evidence'},{'id':'audit','label':'Audit Trail'}
+] %}
+
+<div class="aisdlc-banner flex-shrink-0">
+<div><h2>Model & Prompt Registry</h2><div class="sub">Enterprise inventory — models, prompts, use cases, owners</div></div>
 <span class="aisdlc-pill">AI GOVERNANCE</span>
 </div>
-
-{% include "partials/ai_sdlc_subnav.html" %}
-
-<div class="aisdlc-kpi-grid">
+<div class="aisdlc-kpi-grid flex-shrink-0" style="margin-bottom:0.35rem">
 {% for k in v.kpis %}
 <div class="aisdlc-kpi tone-{{ k.tone|default('primary') }}" data-aisdlc-drill="registry" data-metric="{{ k.drill }}" tabindex="0">
-<div class="v">{{ k.value }}</div>
-<div class="l">{{ k.label }}</div>
-</div>
+<div class="v">{{ k.value }}</div><div class="l">{{ k.label }}</div></div>
 {% endfor %}
 </div>
 
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">AI Model Inventory <span class="meta">Click row for approval workflow</span></div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
-<thead><tr><th>Model ID</th><th>Name</th><th>Provider</th><th>Version</th><th>Risk</th><th>Status</th><th>Approved By</th><th>Expiry</th><th>Applications</th></tr></thead>
+{{ governance_workspace_open() }}
+{{ governance_workspace_tabs(ws_tabs) }}
+
+{{ governance_pane('overview', 'Registry Overview', v.models|length|string ~ ' models · ' ~ v.prompts|length|string ~ ' prompts', true) }}
+<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">
+<strong>Relationship mapping:</strong> Every model links to applications and prompts. Click any row to navigate Model → Application → Prompt.
+</div>
+{% if v.relationship_map %}
+<h6 class="small text-muted text-uppercase mb-1">Model → Application → Prompt Map</h6>
+{{ gov_table_open('registry-relationships') }}
+<thead><tr>
+<th data-key="model" data-width="180">Model</th>
+<th data-key="applications" data-min-width="350" class="ecs-gov-col-applications">Applications</th>
+<th data-key="prompts" data-min-width="220" class="ecs-gov-col-prompts">Prompts</th>
+</tr></thead>
+<tbody>{% for rel in v.relationship_map %}
+<tr data-aisdlc-drill="registry" data-metric="models" data-id="{{ rel.model_id }}">
+<td><strong>{{ rel.model }}</strong></td>
+<td class="ecs-gov-wrap ecs-gov-col-applications ecs-gov-rich-cell">{{ gov_app_cell(rel.applications) }}</td>
+<td class="ecs-gov-wrap ecs-gov-col-prompts ecs-gov-rich-cell">{{ gov_app_cell(rel.prompts) }}</td></tr>
+{% endfor %}</tbody>
+{{ gov_table_close() }}
+{% endif %}
+<div class="row g-2 mt-2">
+<div class="col-md-6">
+<h6 class="small text-muted text-uppercase">Use Cases</h6>
+{{ gov_table_open('registry-use-cases') }}
+<thead><tr><th>ID</th><th>Use Case</th><th>Risk</th><th>Status</th></tr></thead>
+<tbody>
+{% for u in v.use_cases %}
+<tr data-aisdlc-drill="registry" data-metric="use_cases" data-id="{{ u.id }}">
+<td>{{ u.id }}</td><td class="ecs-gov-wrap">{{ u.name }}</td>
+<td><span class="aisdlc-badge {{ u.risk }}">{{ u.risk }}</span></td><td>{{ u.status }}</td></tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}
+</div>
+<div class="col-md-6">
+<h6 class="small text-muted text-uppercase">AI Owners</h6>
+{{ gov_table_open('registry-owners') }}
+<thead><tr><th>Name</th><th>Role</th><th>Models</th><th>Prompts</th></tr></thead>
+<tbody>
+{% for o in v.owners %}
+<tr data-aisdlc-drill="registry" data-metric="owners" data-id="{{ o.name }}">
+<td>{{ o.name }}</td><td>{{ o.role }}</td><td>{{ o.models }}</td><td>{{ o.prompts }}</td></tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}
+</div>
+</div>
+{{ governance_pane_end() }}
+
+{{ governance_pane('models', 'AI Model Inventory', v.models|length|string ~ ' models') }}
+{{ gov_table_open('registry-models') }}
+<thead><tr>
+<th data-key="model" data-width="200">Model</th>
+<th data-key="applications" data-min-width="350" class="ecs-gov-col-applications">Applications Using Model</th>
+<th data-key="prompts">Prompts Using Model</th>
+<th data-key="owner">Owner</th>
+<th data-key="status">Approval Status</th>
+<th data-key="risk">Risk Tier</th>
+<th data-key="expiry">Expiry</th>
+</tr></thead>
 <tbody>
 {% for m in v.models %}
 <tr data-aisdlc-drill="registry" data-metric="models" data-id="{{ m.model_id }}">
-<td>{{ m.model_id }}</td>
-<td>{{ m.name|truncate(32, True, '') }}</td>
-<td>{{ m.provider|truncate(20, True, '') }}</td>
-<td>{{ m.version }}</td>
-<td><span class="aisdlc-badge {{ m.risk_tier }}">{{ m.risk_tier }}</span></td>
+<td class="ecs-gov-wrap"><strong>{{ m.name }}</strong><div class="small text-muted">{{ m.model_id }}</div></td>
+<td class="ecs-gov-wrap ecs-gov-col-applications ecs-gov-rich-cell">{{ gov_app_cell(m.applications_using_model|default(m.applications)) }}</td>
+<td class="small">{{ m.prompts_count|default(m.prompts_using_model|length) }} prompts</td>
+<td>{{ m.owner }}</td>
 <td><span class="aisdlc-badge {{ m.status }}">{{ m.status }}</span></td>
-<td>{{ m.approved_by|truncate(18, True, '') }}</td>
-<td>{{ m.expiry }}</td>
-<td class="small">{{ m.applications|join(', ')|truncate(40, True, '…') }}</td>
-</tr>
+<td><span class="aisdlc-badge {{ m.risk_tier }}">{{ m.risk_tier }}</span></td><td>{{ m.expiry }}</td></tr>
 {% endfor %}
 </tbody>
-</table>
-</div>
-</div>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
 
-<div class="row g-2">
-<div class="col-lg-6">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Model Approval Workflow</div>
-<div class="aisdlc-workflow">
-{% for s in v.model_approval_workflow %}
-<div class="aisdlc-wf-step {% if s.status == 'Complete' %}is-done{% elif s.status in ('In Progress','Conditional') %}is-active{% endif %}">
-<div class="step-n">{{ s.step }}</div>
-<div>{{ s.stage }}</div>
-<div class="text-muted">{{ s.actor }}</div>
-<div><span class="aisdlc-badge {{ s.status }}">{{ s.status }}</span></div>
-</div>
-{% endfor %}
-</div>
-</div>
-</div>
-<div class="col-lg-6">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Prompt Approval Workflow</div>
-<div class="aisdlc-workflow">
-{% for s in v.prompt_approval_workflow %}
-<div class="aisdlc-wf-step {% if s.status == 'Complete' %}is-done{% elif s.status == 'In Progress' %}is-active{% endif %}">
-<div class="step-n">{{ s.step }}</div>
-<div>{{ s.stage }}</div>
-<div class="text-muted">{{ s.actor }}</div>
-<div><span class="aisdlc-badge {{ s.status }}">{{ s.status }}</span></div>
-</div>
-{% endfor %}
-</div>
-</div>
-</div>
-</div>
-
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Prompt Inventory <span class="meta">{{ v.prompts|length }} templates</span></div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
-<thead><tr><th>Prompt ID</th><th>Name</th><th>Application</th><th>Version</th><th>Owner</th><th>Status</th><th>Last Updated</th></tr></thead>
+{{ governance_pane('prompts', 'Prompt Inventory', v.prompts|length|string ~ ' templates') }}
+{{ gov_table_open('registry-prompts') }}
+<thead><tr><th>Prompt</th><th>Application</th><th>Use Case</th><th>Owner</th><th>Model</th><th>Risk Score</th><th>Approval Status</th></tr></thead>
 <tbody>
 {% for p in v.prompts %}
 <tr data-aisdlc-drill="registry" data-metric="prompts" data-id="{{ p.prompt_id }}">
-<td>{{ p.prompt_id }}</td>
-<td>{{ p.name|truncate(36, True, '') }}</td>
-<td>{{ p.application|truncate(24, True, '') }}</td>
-<td>{{ p.version }}</td>
-<td>{{ p.owner }}</td>
-<td><span class="aisdlc-badge {{ p.status }}">{{ p.status }}</span></td>
-<td>{{ p.last_updated }}</td>
-</tr>
+<td class="ecs-gov-wrap"><strong>{{ p.name }}</strong><div class="small text-muted">{{ p.prompt_id }}</div></td>
+<td>{{ p.application }}</td><td class="ecs-gov-wrap small">{{ p.use_case|default('—') }}</td>
+<td>{{ p.owner }}</td><td>{{ p.model|default('—') }}</td><td>{{ p.risk_score|default('—') }}</td>
+<td><span class="aisdlc-badge {{ p.status }}">{{ p.status }}</span></td></tr>
 {% endfor %}
 </tbody>
-</table>
-</div>
-</div>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
 
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">Prompt Version History</div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+{{ governance_pane('validation', 'Prompt Version History & Validation', v.prompt_version_history|length|string ~ ' versions') }}
+{{ gov_table_open('registry-validation') }}
 <thead><tr><th>Prompt ID</th><th>Version</th><th>Changed By</th><th>Change</th><th>Date</th><th>Status</th></tr></thead>
 <tbody>
 {% for h in v.prompt_version_history %}
 <tr data-aisdlc-drill="registry" data-metric="prompts" data-id="{{ h.prompt_id }}">
-<td>{{ h.prompt_id }}</td>
-<td>{{ h.version }}</td>
-<td>{{ h.changed_by }}</td>
-<td>{{ h.change|truncate(48, True, '…') }}</td>
-<td>{{ h.date }}</td>
-<td><span class="aisdlc-badge {{ h.status }}">{{ h.status }}</span></td>
-</tr>
+<td>{{ h.prompt_id }}</td><td>{{ h.version }}</td><td>{{ h.changed_by }}</td>
+<td class="ecs-gov-wrap">{{ h.change }}</td><td>{{ h.date }}</td><td><span class="aisdlc-badge {{ h.status }}">{{ h.status }}</span></td></tr>
 {% endfor %}
 </tbody>
-</table>
-</div>
-</div>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
 
-<div class="row g-2">
-<div class="col-md-6">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">AI Use Case Registry</div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
+{{ governance_pane('risk', 'Risk Assessments', v.use_cases|length|string ~ ' use cases') }}
+{{ gov_table_open('registry-risk') }}
 <thead><tr><th>ID</th><th>Use Case</th><th>Apps</th><th>Risk</th><th>Owner</th><th>Status</th></tr></thead>
 <tbody>
 {% for u in v.use_cases %}
 <tr data-aisdlc-drill="registry" data-metric="use_cases" data-id="{{ u.id }}">
-<td>{{ u.id }}</td>
-<td>{{ u.name }}</td>
-<td>{{ u.applications }}</td>
-<td><span class="aisdlc-badge {{ u.risk }}">{{ u.risk }}</span></td>
-<td>{{ u.owner }}</td>
-<td>{{ u.status }}</td>
-</tr>
+<td>{{ u.id }}</td><td class="ecs-gov-wrap">{{ u.name }}</td><td>{{ u.applications }}</td>
+<td><span class="aisdlc-badge {{ u.risk }}">{{ u.risk }}</span></td><td>{{ u.owner }}</td><td>{{ u.status }}</td></tr>
 {% endfor %}
 </tbody>
-</table>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
+
+{{ governance_pane('approvals', 'Approval Workflows', 'Model & prompt gates') }}
+<div class="row g-2">
+<div class="col-md-6"><h6 class="small text-muted">Model Approval</h6>
+<div class="aisdlc-workflow">{% for s in v.model_approval_workflow %}
+<div class="aisdlc-wf-step {% if s.status == 'Complete' %}is-done{% elif s.status in ('In Progress','Conditional') %}is-active{% endif %}">
+<div class="step-n">{{ s.step }}</div><div>{{ s.stage }}</div><div class="text-muted small">{{ s.actor }}</div></div>
+{% endfor %}</div></div>
+<div class="col-md-6"><h6 class="small text-muted">Prompt Approval</h6>
+<div class="aisdlc-workflow">{% for s in v.prompt_approval_workflow %}
+<div class="aisdlc-wf-step {% if s.status == 'Complete' %}is-done{% elif s.status == 'In Progress' %}is-active{% endif %}">
+<div class="step-n">{{ s.step }}</div><div>{{ s.stage }}</div><div class="text-muted small">{{ s.actor }}</div></div>
+{% endfor %}</div></div>
 </div>
-</div>
-</div>
-<div class="col-md-6">
-<div class="aisdlc-section">
-<div class="aisdlc-section-title">AI Owner Registry</div>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="aisdlc-table ecs-paginated-table ecs-compact-table ecs-fit-table mb-0">
-<thead><tr><th>Name</th><th>Role</th><th>Applications</th><th>Models</th><th>Prompts</th></tr></thead>
+{{ governance_pane_end() }}
+
+{{ governance_pane('evidence', 'Registry Evidence', 'Model cards & prompt specs') }}
+<p class="small text-muted mb-2">Click any model row to expand full details or open approval workflow drill-down.</p>
+{{ gov_table_open('registry-evidence') }}
+<thead><tr><th>Model ID</th><th>Approved By</th><th>Applications</th><th>Status</th></tr></thead>
 <tbody>
-{% for o in v.owners %}
-<tr data-aisdlc-drill="registry" data-metric="owners" data-id="{{ o.name }}">
-<td>{{ o.name }}</td>
-<td>{{ o.role }}</td>
-<td class="small">{{ o.applications|join(', ')|truncate(32, True, '…') }}</td>
-<td>{{ o.models }}</td>
-<td>{{ o.prompts }}</td>
-</tr>
+{% for m in v.models %}
+<tr data-aisdlc-drill="registry" data-metric="models" data-id="{{ m.model_id }}">
+<td>{{ m.model_id }}</td><td>{{ m.approved_by }}</td>
+<td class="ecs-gov-wrap ecs-gov-rich-cell">{{ gov_app_cell(m.applications) }}</td>
+<td><span class="aisdlc-badge {{ m.status }}">{{ m.status }}</span></td></tr>
 {% endfor %}
 </tbody>
-</table>
-</div>
-</div>
-</div>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
 
-<p class="text-muted small mt-2">
-<a href="/mvp/ai-governance{{ q }}">← AI Governance Posture</a> ·
-<a href="/mvp/sdlc-gates{{ q }}">SDLC Compliance Gates →</a>
-</p>
+{{ governance_pane('audit', 'Audit Trail', v.audit_trail|length|string ~ ' events') }}
+{{ gov_table_open('registry-audit') }}
+<thead><tr><th>Timestamp</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead>
+<tbody>
+{% for e in v.audit_trail|default([]) %}
+<tr data-aisdlc-drill="registry" data-metric="audit" tabindex="0">
+<td>{{ e.timestamp }}</td><td>{{ e.action }}</td><td>{{ e.actor }}</td><td class="ecs-gov-wrap">{{ e.detail }}</td></tr>
+{% else %}
+<tr><td colspan="4" class="text-muted">Model registration, prompt versioning, and approval events tracked in enterprise audit log.</td></tr>
+{% endfor %}
+</tbody>
+{{ gov_table_close() }}
+{{ governance_pane_end() }}
 
+{{ governance_workspace_close() }}
 </div></div></div>
-
+{% include "partials/ecs_governance_table_framework.html" %}
 {% include "partials/ai_sdlc_drill_modal.html" %}
 </body></html>

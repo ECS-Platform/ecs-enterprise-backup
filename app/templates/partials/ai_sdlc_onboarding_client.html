@@ -1,0 +1,214 @@
+{# AI SDLC Application Onboarding — Run Onboarder + drill modals #}
+<div class="modal fade" id="ecsObDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="ecsObDrillTitle">Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="ecsObDrillBody"></div>
+<div class="modal-footer py-2"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+
+<script>
+(function () {
+  'use strict';
+  var qs = window.location.search || '';
+  var runData = null;
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showModal(title, html) {
+    document.getElementById('ecsObDrillTitle').textContent = title;
+    document.getElementById('ecsObDrillBody').innerHTML = html;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('ecsObDrillModal')).show();
+  }
+
+  function dlRow(label, val) {
+    return '<dt class="col-5">' + esc(label) + '</dt><dd class="col-7">' + esc(val) + '</dd>';
+  }
+
+  function tableHtml(headers, rows, keys) {
+    var h = '<div class="table-responsive"><table class="table table-sm mb-0 ecs-gov-data-table"><thead><tr>';
+    headers.forEach(function (hd) { h += '<th>' + esc(hd) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr>';
+      keys.forEach(function (k) { h += '<td class="ecs-gov-wrap">' + esc(r[k]) + '</td>'; });
+      h += '</tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  function renderSummaryCards(summary) {
+    var items = [
+      ['Applications Discovered', summary.applications_discovered],
+      ['Framework Mappings', summary.framework_mappings],
+      ['Controls Assigned', summary.controls_assigned.toLocaleString()],
+      ['Evidence Requests', summary.evidence_requests.toLocaleString()],
+      ['Work Packages Generated', summary.work_packages_generated.toLocaleString()],
+      ['Onboarding Success Rate', summary.success_rate_pct + '%']
+    ];
+    return items.map(function (pair) {
+      return '<div class="col-md-4 col-6"><div class="ecs-ob-summary-card"><div class="lbl">' +
+        esc(pair[0]) + '</div><div class="val">' + esc(pair[1]) + '</div></div></div>';
+    }).join('');
+  }
+
+  function renderFrameworkTable(rows) {
+    var h = tableHtml(
+      ['Framework', 'Applications', 'Controls', 'Coverage %', 'Status'],
+      rows.map(function (r) {
+        return {
+          framework: r.framework,
+          applications: r.applications,
+          controls: r.controls,
+          coverage: r.coverage_pct + '%',
+          status: r.status
+        };
+      }),
+      ['framework', 'applications', 'controls', 'coverage', 'status']
+    );
+    var wrap = document.createElement('div');
+    wrap.innerHTML = h;
+    wrap.querySelectorAll('tbody tr').forEach(function (tr, i) {
+      var fw = rows[i].framework;
+      var td = tr.querySelector('td');
+      td.innerHTML = '<button type="button" class="btn btn-link btn-sm p-0 fw-semibold ecs-ob-fw-drill" data-fw="' +
+        esc(fw) + '">' + esc(fw) + '</button>';
+    });
+    return wrap.innerHTML;
+  }
+
+  function renderApplicationTable(rows) {
+    var h = tableHtml(
+      ['Application', 'Frameworks Assigned', 'Controls Assigned', 'Readiness %', 'Status'],
+      rows.map(function (r) {
+        return {
+          application: r.application,
+          frameworks: r.frameworks_assigned,
+          controls: r.controls_assigned,
+          readiness: r.readiness_pct + '%',
+          status: r.status
+        };
+      }),
+      ['application', 'frameworks', 'controls', 'readiness', 'status']
+    );
+    var wrap = document.createElement('div');
+    wrap.innerHTML = h;
+    wrap.querySelectorAll('tbody tr').forEach(function (tr, i) {
+      var app = rows[i].application;
+      var td = tr.querySelector('td');
+      td.innerHTML = '<button type="button" class="btn btn-link btn-sm p-0 fw-semibold ecs-ob-app-drill" data-app="' +
+        esc(app) + '">' + esc(app) + '</button>';
+    });
+    return wrap.innerHTML;
+  }
+
+  function bindDrills() {
+    document.querySelectorAll('.ecs-ob-fw-drill').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        fetch('/api/ai-sdlc/onboarding/drill/framework?framework=' + encodeURIComponent(btn.getAttribute('data-fw')) + qs.replace('?', '&'))
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (!res.ok) return;
+            var d = res.data;
+            var html = '<dl class="row small mb-2">' +
+              dlRow('Applications mapped', d.applications_mapped) +
+              dlRow('Controls assigned', d.controls_assigned) +
+              dlRow('Readiness %', d.readiness_pct + '%') +
+              dlRow('Status', d.status) +
+              dlRow('Open gaps', d.open_gaps) +
+              dlRow('Pending requirements', d.pending_requirements) +
+              dlRow('Pending design activities', d.pending_design) +
+              dlRow('Pending testing activities', d.pending_testing) +
+              dlRow('Evidence pending', d.evidence_pending) +
+              '</dl>';
+            html += '<h6 class="small text-muted">Domains</h6><p class="small">' + esc((d.domains || []).join(', ')) + '</p>';
+            html += '<h6 class="small text-muted">Applications Mapped</h6><ul class="small mb-0">' +
+              (d.applications || []).map(function (a) { return '<li>' + esc(a) + '</li>'; }).join('') + '</ul>';
+            showModal(d.title, html);
+          });
+      });
+    });
+    document.querySelectorAll('.ecs-ob-app-drill').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        fetch('/api/ai-sdlc/onboarding/drill/application?application=' + encodeURIComponent(btn.getAttribute('data-app')) + qs.replace('?', '&'))
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (!res.ok) return;
+            var d = res.data;
+            var html = '<dl class="row small mb-2">' +
+              dlRow('Owner', d.owner) +
+              dlRow('Frameworks', (d.frameworks || []).join(', ')) +
+              dlRow('Controls assigned', d.controls_assigned) +
+              dlRow('Readiness %', d.readiness_pct + '%') +
+              dlRow('Open requirement activities', d.open_requirements) +
+              dlRow('Open controlled design activities', d.open_design) +
+              dlRow('Open controlled development activities', d.open_development) +
+              dlRow('Open controlled testing activities', d.open_testing) +
+              dlRow('Open go-live activities', d.open_golive) +
+              dlRow('Evidence pending', d.evidence_pending) +
+              dlRow('Open findings', d.open_findings) +
+              dlRow('Remediation status', d.remediation_status) +
+              '</dl>';
+            html += '<h6 class="small text-muted">Assigned Controls</h6>' +
+              tableHtml(['Framework', 'Control ID', 'Control Name'], d.controls || [], ['framework', 'control_id', 'control_name']);
+            showModal(d.title, html);
+          });
+      });
+    });
+  }
+
+  function runAnimation(steps, onDone) {
+    var panel = document.getElementById('ecsObExecPanel');
+    var bar = document.getElementById('ecsObProgressBar');
+    var progWrap = document.getElementById('ecsObProgressWrap');
+    panel.classList.remove('d-none');
+    progWrap.classList.remove('d-none');
+    panel.innerHTML = '';
+    var i = 0;
+    function next() {
+      if (i >= steps.length) { if (onDone) onDone(); return; }
+      var step = steps[i];
+      var pct = Math.round(((i + 1) / steps.length) * 100);
+      if (bar) bar.style.width = pct + '%';
+      var block = document.createElement('div');
+      block.className = 'ecs-ob-step-block';
+      block.innerHTML = '<div class="ecs-ob-step-head"><span class="step-num">Step ' + step.step + '</span> ' +
+        esc(step.phase) + '</div>';
+      if (step.results && step.results.length) {
+        block.innerHTML += '<ul class="ecs-ob-step-results mb-0">' +
+          step.results.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>';
+      }
+      panel.appendChild(block);
+      block.classList.add('is-visible');
+      i += 1;
+      setTimeout(next, 650);
+    }
+    next();
+  }
+
+  function showResults(data) {
+    document.getElementById('ecsObSuccessBanner').classList.remove('d-none');
+    document.getElementById('ecsObResults').classList.remove('d-none');
+    document.getElementById('ecsObSummaryCards').innerHTML = renderSummaryCards(data.summary);
+    document.getElementById('ecsObFrameworkTable').innerHTML = renderFrameworkTable(data.framework_readiness);
+    document.getElementById('ecsObApplicationTable').innerHTML = renderApplicationTable(data.application_results);
+    bindDrills();
+  }
+
+  document.getElementById('ecsRunOnboarderBtn').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    fetch('/api/ai-sdlc/onboarding/run' + qs)
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) { btn.disabled = false; return; }
+        runData = res.data;
+        runAnimation(runData.execution_steps, function () { showResults(runData); });
+      })
+      .catch(function () { btn.disabled = false; });
+  });
+})();
+</script>

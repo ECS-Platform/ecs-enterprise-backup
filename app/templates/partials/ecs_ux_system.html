@@ -472,17 +472,7 @@ body.bg-light {
     });
   }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ initPageLoad(); initAccordions(); initNavGroups(); });
-  } else { initPageLoad(); initAccordions(); initNavGroups(); }
-  function initNavGroups() {
-    document.querySelectorAll('.ecs-nav-group-toggle').forEach(function(btn){
-      var target = btn.getAttribute('data-bs-target');
-      if (!target) return;
-      var panel = document.querySelector(target);
-      if (!panel) return;
-      panel.addEventListener('show.bs.collapse', function(){ btn.classList.add('is-open'); });
-      panel.addEventListener('hide.bs.collapse', function(){ btn.classList.remove('is-open'); });
-    });
-  }
+    document.addEventListener('DOMContentLoaded', function(){ initPageLoad(); initAccordions(); if (window.ecsInitNavGroups) window.ecsInitNavGroups(); });
+  } else { initPageLoad(); initAccordions(); if (window.ecsInitNavGroups) window.ecsInitNavGroups(); }
 })();
 </script>

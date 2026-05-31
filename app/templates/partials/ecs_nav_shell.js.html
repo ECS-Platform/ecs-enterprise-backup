@@ -1,0 +1,41 @@
+<script>
+(function () {
+  'use strict';
+
+  function initNavGroups() {
+    if (typeof bootstrap === 'undefined') return;
+    document.querySelectorAll('.ecs-nav-group-toggle').forEach(function (btn) {
+      var targetSel = btn.getAttribute('data-bs-target');
+      if (!targetSel) return;
+      var panel = document.querySelector(targetSel);
+      if (!panel) return;
+
+      btn.removeAttribute('data-bs-toggle');
+
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var inst = bootstrap.Collapse.getOrCreateInstance(panel, { toggle: false });
+        if (panel.classList.contains('show')) inst.hide();
+        else inst.show();
+      });
+
+      panel.addEventListener('show.bs.collapse', function () {
+        btn.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+      });
+      panel.addEventListener('hide.bs.collapse', function () {
+        btn.classList.remove('is-open');
+        btn.setAttribute('aria-expanded', 'false');
+      });
+
+      if (panel.classList.contains('show')) {
+        btn.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    });
+  }
+
+  window.ecsInitNavGroups = initNavGroups;
+})();
+</script>

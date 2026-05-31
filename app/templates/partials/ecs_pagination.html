@@ -227,10 +227,11 @@
     attachBar(container, bar);
   }
 
-  function boot() {
-    document.querySelectorAll('table').forEach(initTable);
-    document.querySelectorAll('ul.ecs-paginated-list, ol.ecs-paginated-list').forEach(initList);
-    document.querySelectorAll('.ecs-paginated-blocks').forEach(initBlocks);
+  function boot(root) {
+    var scope = (root && root.querySelectorAll) ? root : document;
+    scope.querySelectorAll('table').forEach(initTable);
+    scope.querySelectorAll('ul.ecs-paginated-list, ol.ecs-paginated-list').forEach(initList);
+    scope.querySelectorAll('.ecs-paginated-blocks').forEach(initBlocks);
   }
 
   var bootTimer;

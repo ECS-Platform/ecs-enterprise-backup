@@ -518,7 +518,9 @@ def register_mvp_routes(app, templates):
         from app.audit_schedule_engine import build_kpi_drilldowns
 
         valid = ("draft", "submitted", "reupload", "approval_rate",
-                 "avg_review_time", "rejection_trend", "pending_aging")
+                 "avg_review_time", "rejection_trend", "pending_aging",
+                 "controls_pending_review", "evidence_pending_upload", "reusable_evidence_found",
+                 "auditor_requests", "blockers")
         if metric not in valid:
             return JSONResponse(
                 {"ok": False, "error": f"Unknown metric '{metric}'. Expected one of {valid}."},

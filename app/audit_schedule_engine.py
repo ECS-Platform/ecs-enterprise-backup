@@ -730,6 +730,73 @@ def build_kpi_drilldowns(audits: list[dict] | None = None) -> dict[str, Any]:
                 if d["draft_age_days"] > 14
             ][:25],
         },
+        ** _pipeline_kpi_drilldowns(audits, obs),
+    }
+
+
+def _pipeline_kpi_drilldowns(audits: list[dict], obs: list[dict]) -> dict[str, Any]:
+    """Drill datasets for Audit Preparation Pipeline cards."""
+    pipeline = generate_preparation_pipeline(audits)
+    drafts = [o for o in obs if o["status"] == "Draft"]
+    submitted = [o for o in obs if o["status"] == "Submitted"]
+    reupload = [o for o in obs if o["status"] == "Re-upload Requested"]
+    reusable_rows = []
+    for a in audits:
+        for ctrl in a.get("control_breakdown", {}).get("reusable_controls", [])[:3]:
+            reusable_rows.append([ctrl, a["framework"], a["application"], a["owner"], "Eligible"])
+        if not a.get("control_breakdown", {}).get("reusable_controls"):
+            for _ in range(min(a["control_breakdown"].get("reusable", 0), 2)):
+                reusable_rows.append([f"CTRL-{a['audit_id'][-3:]}", a["framework"], a["application"], a["owner"], "Eligible"])
+    blocker_rows = []
+    for a in audits:
+        if a.get("blockers"):
+            blocker_rows.append([a["application"], a["framework"], a["blockers"], a["owner"], a["start_date"], a["readiness_pct"]])
+    return {
+        "controls_pending_review": {
+            "title": f"Controls Pending Review · {pipeline['controls_pending_review']}",
+            "count": pipeline["controls_pending_review"],
+            "subtitle": "Controls awaiting App Owner or auditor review",
+            "columns": ["Observation", "Framework", "Application", "Control", "Owner", "Draft Age"],
+            "rows": [
+                [d["observation_id"], d["framework"], d["application"], d["control"], d["owner"], f"{d['draft_age_days']}d"]
+                for d in drafts[:40]
+            ],
+            "owner_workload": [[w["owner"], w["open_controls"]] for w in pipeline.get("owner_workload", [])],
+        },
+        "evidence_pending_upload": {
+            "title": f"Evidence Pending Upload · {pipeline['evidence_pending_upload']}",
+            "count": pipeline["evidence_pending_upload"],
+            "subtitle": "Evidence submitted or missing for upcoming audits",
+            "columns": ["Observation", "Framework", "Application", "Auditor", "Submitted On"],
+            "rows": [
+                [s["observation_id"], s["framework"], s["application"], s["auditor"], s.get("submitted_on", "—")]
+                for s in submitted[:40]
+            ],
+        },
+        "reusable_evidence_found": {
+            "title": f"Reusable Evidence · {pipeline['reusable_evidence_found']}",
+            "count": pipeline["reusable_evidence_found"],
+            "subtitle": "Prior-cycle evidence eligible for reuse",
+            "columns": ["Control", "Framework", "Application", "Owner", "Status"],
+            "rows": reusable_rows[:40],
+        },
+        "auditor_requests": {
+            "title": f"Auditor Requests · {pipeline['auditor_requests']}",
+            "count": pipeline["auditor_requests"],
+            "subtitle": "Active auditor re-upload and clarification requests",
+            "columns": ["Observation", "Reason", "Framework", "Application", "Owner"],
+            "rows": [
+                [r["observation_id"], r.get("reason", ""), r["framework"], r["application"], r["owner"]]
+                for r in reupload[:40]
+            ],
+        },
+        "blockers": {
+            "title": f"Audit Blockers · {pipeline['blockers']}",
+            "count": pipeline["blockers"],
+            "subtitle": "Items blocking audit readiness sign-off",
+            "columns": ["Application", "Framework", "Blockers", "Owner", "Start Date", "Readiness %"],
+            "rows": blocker_rows[:40],
+        },
     }
 
 
