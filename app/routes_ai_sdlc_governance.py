@@ -6,10 +6,10 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from app import ecs_state
-from app.enterprise_context import enterprise_widgets_context
-from app.role_permissions import permission_ctx
-from app.ecs_sdlc_stage_dashboard import STAGE_KEY_TO_SLUG, resolve_stage_key
-from app.ai_sdlc_governance_service import (
+from modules.shared.services.enterprise_context import enterprise_widgets_context
+from modules.shared.services.role_permissions import permission_ctx
+from modules.ai_sdlc.engines.ecs_sdlc_stage_dashboard import STAGE_KEY_TO_SLUG, resolve_stage_key
+from modules.ai_sdlc.engines.ai_sdlc_governance_service import (
     control_tower_view,
     control_tower_tab_view,
     control_tower_readiness_drill,
@@ -38,7 +38,7 @@ from app.ai_sdlc_governance_service import (
 )
 
 
-from app.ecs_nav_framework import build_breadcrumb_trail, drill_footer_link
+from modules.shared.services.ecs_nav_framework import build_breadcrumb_trail, drill_footer_link
 
 
 def _ctx(role: str, user: str, page_module: str, **extra):
@@ -286,7 +286,7 @@ def register_ai_sdlc_routes(app, templates):
 
     @app.get("/api/ai-sdlc/workflow")
     def api_ai_sdlc_workflow(stage: str = ""):
-        from app.ai_sdlc_workflow_engine import build_stage_worklist, build_evidence_collection
+        from modules.ai_sdlc.engines.ai_sdlc_workflow_engine import build_stage_worklist, build_evidence_collection
         if stage:
             return JSONResponse({"ok": True, "data": build_stage_worklist(stage)})
         return JSONResponse({"ok": True, "data": {"landing": landing_view(), "evidence": build_evidence_collection()}})
@@ -337,17 +337,17 @@ def register_ai_sdlc_routes(app, templates):
 
     @app.get("/mvp/governance-quality", response_class=HTMLResponse)
     def mvp_governance_quality(request: Request, role: str = "cio", user: str = "CIO"):
-        from app.ecs_governance_qa_engine import build_quality_dashboard
+        from modules.enterprise_grc.engines.ecs_governance_qa_engine import build_quality_dashboard
         dashboard = build_quality_dashboard()
         ctx = _ctx(role, user, "governance_quality", quality_dashboard=dashboard)
         return templates.TemplateResponse(request, "mvp_governance_quality.html", ctx)
 
     @app.get("/api/ai-sdlc/governance-quality")
     def api_governance_quality():
-        from app.ecs_governance_qa_engine import build_quality_dashboard
+        from modules.enterprise_grc.engines.ecs_governance_qa_engine import build_quality_dashboard
         return JSONResponse({"ok": True, "data": build_quality_dashboard()})
 
     @app.get("/api/ai-sdlc/governance-scan")
     def api_governance_scan():
-        from app.ecs_governance_qa_engine import self_heal_governance
+        from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
         return JSONResponse({"ok": True, "data": self_heal_governance()})

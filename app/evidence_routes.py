@@ -7,7 +7,7 @@ from urllib.parse import quote
 from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 
-from app.evidence_api import (
+from modules.shared.services.evidence_api import (
     export_audit_package,
     generate_audit_package,
     get_evidence_by_id,
@@ -52,7 +52,7 @@ def register_evidence_routes(app, templates):
         return_url: str = Form(""),
         evidence_file: UploadFile | None = File(None),
     ):
-        from app.role_permissions import can_upload_evidence
+        from modules.shared.services.role_permissions import can_upload_evidence
 
         if not can_upload_evidence(role):
             err = {
@@ -136,7 +136,7 @@ def register_evidence_routes(app, templates):
         evidence_id: str = Form(""),
         return_url: str = Form(""),
     ):
-        from app.role_permissions import can_submit_to_auditor
+        from modules.shared.services.role_permissions import can_submit_to_auditor
 
         if not can_submit_to_auditor(role):
             err = {"status": "error", "message": "Access denied: only App Owners may submit evidence to auditor review."}

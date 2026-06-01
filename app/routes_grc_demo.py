@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi.responses import JSONResponse
 
-from app.grc_demo_service import governance_drill, risk_drill
+from modules.enterprise_grc.engines.grc_demo_service import governance_drill, risk_drill
 
 
 def register_grc_demo_routes(app):
@@ -18,7 +18,7 @@ def register_grc_demo_routes(app):
 
     @app.get("/api/grc-demo/governance/intel")
     def api_governance_intel(role: str = "cio"):
-        from app.grc_demo_service import build_governance_analytics_demo_view
+        from modules.enterprise_grc.engines.grc_demo_service import build_governance_analytics_demo_view
 
         view = build_governance_analytics_demo_view(role)
         intel = view["intel"]

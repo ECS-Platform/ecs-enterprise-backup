@@ -7,34 +7,34 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app import ecs_state
-from app.chatbot_enhanced import (
+from modules.shared.services.chatbot_enhanced import (
     FALLBACK,
     format_chatbot_response,
     try_enhanced_answer,
     try_framework_definition,
 )
-from app.demo_seed import seed_demo_workflow_state
-from app.evidence_repository import refresh_repository_from_frameworks
-from app.framework_catalog import (
+from modules.executive_overview.engines.demo_seed import seed_demo_workflow_state
+from modules.operations.engines.evidence_repository import refresh_repository_from_frameworks
+from modules.frameworks.engines.framework_catalog import (
     catalog_stats,
     get_framework_controls,
     resolve_framework_name,
 )
-from app.framework_dashboards import build_framework_dashboard
-from app.enterprise_context import enterprise_widgets_context
-from app.audit_trail import log_event, record_approval, record_rejection
-from app.evidence_review import build_evidence_review, review_url, review_url_for_ev
+from modules.frameworks.engines.framework_dashboards import build_framework_dashboard
+from modules.shared.services.enterprise_context import enterprise_widgets_context
+from modules.shared.services.audit_trail import log_event, record_approval, record_rejection
+from modules.governance.engines.evidence_review import build_evidence_review, review_url, review_url_for_ev
 from app.routes_mvp import register_mvp_routes
 from app.evidence_routes import register_evidence_routes
-from app.role_permissions import permission_ctx
-from app.evidence_workflow_engine import (
+from modules.shared.services.role_permissions import permission_ctx
+from modules.shared.services.evidence_workflow_engine import (
     build_workflow_context,
     close_observations_for_control,
     observation_id_for,
     record_transition,
     toast_payload,
 )
-from app.workflow_module import (
+from modules.governance.engines.workflow_module import (
     build_auditor_review_queue,
     build_closed_observations_queue,
     build_owner_work_queue,
@@ -86,12 +86,12 @@ def _redirect_with_toast(
 
 @asynccontextmanager
 async def ecs_lifespan(application: FastAPI):
-    from app.ecs_logging import configure_logging, log_platform_ready, mark_startup_complete
+    from modules.shared.services.ecs_logging import configure_logging, log_platform_ready, mark_startup_complete
 
     configure_logging()
     refresh_repository_from_frameworks(source="startup")
     seed_demo_workflow_state()
-    from app.ecs_governance_qa_engine import self_heal_governance
+    from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
     self_heal_governance()
     mark_startup_complete()
     log_platform_ready(host="127.0.0.1", port=8000)
@@ -100,7 +100,21 @@ async def ecs_lifespan(application: FastAPI):
 
 app = FastAPI(title="ECS Consolidated Demo V13", lifespan=ecs_lifespan)
 
-templates = Jinja2Templates(directory="app/templates")
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader
+
+_template_dirs = [
+    "modules/shared/templates",
+    "modules/executive_overview/templates",
+    "modules/frameworks/templates",
+    "modules/operations/templates",
+    "modules/governance/templates",
+    "modules/enterprise_grc/templates",
+    "modules/ai_sdlc/templates",
+    "app/templates",
+]
+templates = Jinja2Templates(
+    env=Environment(loader=ChoiceLoader([FileSystemLoader(d) for d in _template_dirs]))
+)
 templates.env.globals["review_url"] = review_url
 templates.env.globals["review_url_for_ev"] = review_url_for_ev
 
@@ -132,7 +146,7 @@ def chatbot_answer(query: str, role: str = "owner", user: str = "User", framewor
 
     definition = try_framework_definition(query)
     if definition:
-        from app.chatbot_engine import record_exchange
+        from modules.shared.services.chatbot_engine import record_exchange
         record_exchange(user, role, query, definition)
         return definition
 
@@ -150,11 +164,11 @@ def chatbot_answer(query: str, role: str = "owner", user: str = "User", framewor
             "Rejected evidences and reasons — " + " | ".join(lines),
             fw_hint,
         )
-        from app.chatbot_engine import record_exchange
+        from modules.shared.services.chatbot_engine import record_exchange
         record_exchange(user, role, query, ans)
         return ans
 
-    from app.chatbot_engine import process_query, record_exchange
+    from modules.shared.services.chatbot_engine import process_query, record_exchange
     clarification = process_query(query, role=role, user=user)
     if clarification:
         return clarification
@@ -175,7 +189,7 @@ def login_page(request: Request):
 
 @app.post("/login")
 def login(role: str = Form(...)):
-    from app.ecs_logging import log_login
+    from modules.shared.services.ecs_logging import log_login
 
     if role == "cio":
         log_login("cio", "CIO", "CIO dashboard")
@@ -251,7 +265,7 @@ def cio_dashboard(
     user: str = "CIO",
     response: str = "",
 ):
-    from app.demo_metrics import display_framework_maturity
+    from modules.executive_overview.engines.demo_metrics import display_framework_maturity
 
     analytics = build_evidence_analytics()
     analytics["framework_stats"] = display_framework_maturity(analytics["framework_stats"])
@@ -276,7 +290,7 @@ def chat(
     framework_name: str = Form(""),
 ):
     response = chatbot_answer(query, role=role, user=user, framework_hint=framework_name)
-    from app.ecs_logging import log_chatbot
+    from modules.shared.services.ecs_logging import log_chatbot
 
     log_chatbot(user, role, query, framework_name)
     encoded = quote(response)
@@ -321,7 +335,7 @@ def itpp_action(
     role: str = Form("owner"),
     user: str = Form("User"),
 ):
-    from app.itpp_module import execute_itpp_action
+    from modules.frameworks.engines.itpp_module import execute_itpp_action
 
     notice = execute_itpp_action(action, domain, user, role)
     return RedirectResponse(
@@ -370,12 +384,12 @@ def framework_page(
         "fw_app": fw_app,
         "fw_tab": fw_tab,
     }
-    from app.application_governance import build_application_grid, build_application_view
+    from modules.frameworks.engines.application_governance import build_application_grid, build_application_view
 
     ctx["application_grid"] = build_application_grid(framework_name, catalog_controls)
     ctx["application_view"] = build_application_view(framework_name, fw_app, catalog_controls) if fw_app else None
     if framework_name == "ITPP":
-        from app.itpp_module import (
+        from modules.frameworks.engines.itpp_module import (
             build_itpp_app_view,
             build_itpp_domain_view,
             build_itpp_landing_cards,
@@ -389,7 +403,7 @@ def framework_page(
             else None
         )
     ctx.update(enterprise_widgets_context(role, page_module="framework", framework=resolved_fw, user=user))
-    from app.ecs_logging import log_navigation
+    from modules.shared.services.ecs_logging import log_navigation
 
     log_navigation(user, role, f"{framework_name} framework dashboard")
     return templates.TemplateResponse(
@@ -403,8 +417,8 @@ def framework_page(
 def api_framework_kpi_drill(framework: str = "", metric: str = ""):
     from fastapi.responses import JSONResponse
 
-    from app.framework_kpi_drill_engine import drill_framework_kpi
-    from app.framework_catalog import resolve_framework_name
+    from modules.frameworks.engines.framework_kpi_drill_engine import drill_framework_kpi
+    from modules.frameworks.engines.framework_catalog import resolve_framework_name
 
     fw = resolve_framework_name(framework) if framework else framework
     if not fw or not metric:
@@ -416,8 +430,8 @@ def api_framework_kpi_drill(framework: str = "", metric: str = ""):
 def api_framework_workflow_drill(framework: str = "", metric: str = ""):
     from fastapi.responses import JSONResponse
 
-    from app.framework_catalog import resolve_framework_name
-    from app.framework_workflow_engine import drill_framework_workflow
+    from modules.frameworks.engines.framework_catalog import resolve_framework_name
+    from modules.frameworks.engines.framework_workflow_engine import drill_framework_workflow
 
     fw = resolve_framework_name(framework) if framework else framework
     if not fw or not metric:
@@ -429,8 +443,8 @@ def api_framework_workflow_drill(framework: str = "", metric: str = ""):
 def api_framework_row_drill(framework: str = "", type: str = "", id: str = ""):
     from fastapi.responses import JSONResponse
 
-    from app.ecs_row_drill_engine import drill_framework_row
-    from app.framework_catalog import resolve_framework_name
+    from modules.frameworks.engines.ecs_row_drill_engine import drill_framework_row
+    from modules.frameworks.engines.framework_catalog import resolve_framework_name
 
     fw = resolve_framework_name(framework) if framework else framework
     if not fw:
@@ -442,8 +456,8 @@ def api_framework_row_drill(framework: str = "", type: str = "", id: str = ""):
 def api_framework_tab_drill(framework: str = "", tab: str = ""):
     from fastapi.responses import JSONResponse
 
-    from app.ecs_row_drill_engine import drill_framework_row
-    from app.framework_catalog import resolve_framework_name
+    from modules.frameworks.engines.ecs_row_drill_engine import drill_framework_row
+    from modules.frameworks.engines.framework_catalog import resolve_framework_name
 
     fw = resolve_framework_name(framework) if framework else framework
     if not fw or not tab:
@@ -501,7 +515,7 @@ def evidence_review_close_observation(
     user: str = Form(...),
     observation_id: str = Form(""),
 ):
-    from app.role_permissions import guard_auditor_governance
+    from modules.shared.services.role_permissions import guard_auditor_governance
 
     deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
     if deny:
@@ -557,7 +571,7 @@ def evidence_review_submit(
     role: str = Form(...),
     user: str = Form(...),
 ):
-    from app.role_permissions import guard_submit_to_auditor
+    from modules.shared.services.role_permissions import guard_submit_to_auditor
 
     deny = guard_submit_to_auditor(role, user, f"/framework/{framework_name}")
     if deny:
@@ -567,7 +581,7 @@ def evidence_review_submit(
         return _review_redirect(framework_name, role, user, "Cannot resubmit: observation is closed.", control_name, evidence_id)
     was_rejected = key in rejected_controls
     if was_rejected:
-        from app.resubmission import can_resubmit_to_auditor
+        from modules.operations.engines.resubmission import can_resubmit_to_auditor
 
         if not can_resubmit_to_auditor(key):
             return _review_redirect(
@@ -612,7 +626,7 @@ def evidence_review_approve(
     role: str = Form(...),
     user: str = Form(...),
 ):
-    from app.role_permissions import guard_auditor_governance
+    from modules.shared.services.role_permissions import guard_auditor_governance
 
     deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
     if deny:
@@ -636,7 +650,7 @@ def evidence_review_reject(
     user: str = Form(...),
     reject_reason: str = Form(...),
 ):
-    from app.role_permissions import guard_auditor_governance
+    from modules.shared.services.role_permissions import guard_auditor_governance
 
     deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
     if deny:
@@ -661,7 +675,7 @@ def evidence_review_clarify(
     user: str = Form(...),
     message: str = Form(...),
 ):
-    from app.role_permissions import guard_auditor_governance
+    from modules.shared.services.role_permissions import guard_auditor_governance
 
     deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
     if deny:
@@ -687,7 +701,7 @@ def evidence_review_request_reupload(
 ):
     from datetime import datetime, timezone
 
-    from app.role_permissions import can_request_reupload, deny_redirect
+    from modules.shared.services.role_permissions import can_request_reupload, deny_redirect
 
     if not can_request_reupload(role):
         return deny_redirect(role, user, f"/framework/{framework_name}")
@@ -788,7 +802,7 @@ def evidence_review_request_resubmission(
     role: str = Form(...),
     user: str = Form(...),
 ):
-    from app.resubmission import advance_stage
+    from modules.operations.engines.resubmission import advance_stage
 
     key = control_key(framework_name, control_name)
     advance_stage(key, "team_resubmission")
@@ -804,12 +818,12 @@ def evidence_review_upload_revised(
     role: str = Form(...),
     user: str = Form(...),
 ):
-    from app.role_permissions import guard_upload
+    from modules.shared.services.role_permissions import guard_upload
 
     deny = guard_upload(role, user, f"/framework/{framework_name}")
     if deny:
         return deny
-    from app.resubmission import advance_stage
+    from modules.operations.engines.resubmission import advance_stage
 
     key = control_key(framework_name, control_name)
     advance_stage(key, "reevaluate")
@@ -825,7 +839,7 @@ def evidence_review_reevaluate(
     role: str = Form(...),
     user: str = Form(...),
 ):
-    from app.resubmission import advance_stage
+    from modules.operations.engines.resubmission import advance_stage
 
     key = control_key(framework_name, control_name)
     advance_stage(key, "ready_resubmit")
@@ -841,7 +855,7 @@ def submit(
     user: str = Form(...),
     return_to: str = Form("framework"),
 ):
-    from app.role_permissions import guard_submit_to_auditor
+    from modules.shared.services.role_permissions import guard_submit_to_auditor
 
     deny = guard_submit_to_auditor(role, user, f"/framework/{framework_name}")
     if deny:
@@ -853,7 +867,7 @@ def submit(
 
     was_rejected = key in rejected_controls
     if was_rejected:
-        from app.resubmission import can_resubmit_to_auditor
+        from modules.operations.engines.resubmission import can_resubmit_to_auditor
 
         if not can_resubmit_to_auditor(key):
             return _workflow_redirect(
@@ -898,7 +912,7 @@ def approve(
     return_to: str = Form("framework"),
     evidence_id: str = Form(""),
 ):
-    from app.role_permissions import guard_auditor_governance
+    from modules.shared.services.role_permissions import guard_auditor_governance
 
     deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
     if deny:
@@ -945,7 +959,7 @@ def reject(
     return_to: str = Form("framework"),
     evidence_id: str = Form(""),
 ):
-    from app.role_permissions import guard_auditor_governance
+    from modules.shared.services.role_permissions import guard_auditor_governance
 
     deny = guard_auditor_governance(role, user, f"/framework/{framework_name}")
     if deny:
@@ -956,7 +970,7 @@ def reject(
     if not reason:
         return _workflow_redirect(role, user, framework_name, return_to, "Reject reason is required.")
 
-    from app.resubmission import init_rejection
+    from modules.operations.engines.resubmission import init_rejection
 
     init_rejection(key, reason, user, internal=False)
     if key in approved_controls:

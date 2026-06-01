@@ -6,7 +6,7 @@ from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from app import ecs_state
-from app.analytics_module import (
+from modules.governance.engines.analytics_module import (
     application_comparison,
     audit_preparation_checklist,
     completeness_report,
@@ -14,7 +14,7 @@ from app.analytics_module import (
     enterprise_dashboard,
     lifecycle_timeline,
 )
-from app.evidence_repository import (
+from modules.operations.engines.evidence_repository import (
     evidence_repository,
     get_health_dashboard,
     get_reuse_graph,
@@ -22,12 +22,12 @@ from app.evidence_repository import (
     register_upload,
     upload_tracker,
 )
-from app.integrations_module import get_integration_dashboard, simulate_sync
-from app.reporting_module import generate_report_content, generate_report_export, list_reports
-from app.scheduler_module import get_scheduler_dashboard, run_scheduled_pull, retry_failed_observation
-from app.search_module import build_search_discovery, search_evidences
-from app.enterprise_context import enterprise_widgets_context
-from app.demo_metrics import REUSE_METRICS
+from modules.operations.engines.integrations_module import get_integration_dashboard, simulate_sync
+from modules.executive_overview.engines.reporting_module import generate_report_content, generate_report_export, list_reports
+from modules.operations.engines.scheduler_module import get_scheduler_dashboard, run_scheduled_pull, retry_failed_observation
+from modules.governance.engines.search_module import build_search_discovery, search_evidences
+from modules.shared.services.enterprise_context import enterprise_widgets_context
+from modules.executive_overview.engines.demo_metrics import REUSE_METRICS
 
 
 def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_module: str = "", analytics_filters: dict | None = None):
@@ -146,7 +146,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/demo/kpi-drill")
     def api_demo_kpi_drill(metric: str = ""):
-        from app.demo_kpi_drill_engine import drill_demo_kpi
+        from modules.executive_overview.engines.demo_kpi_drill_engine import drill_demo_kpi
 
         if not metric:
             return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
@@ -154,7 +154,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/mvp/reports/view/{report_type}", response_class=HTMLResponse)
     def mvp_report_view(request: Request, report_type: str, role: str = "cio", user: str = "cio@bank.com"):
-        from app.ecs_reports_engine import build_report
+        from modules.executive_overview.engines.ecs_reports_engine import build_report
 
         report = build_report(report_type)
         if not report:
@@ -165,7 +165,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/mvp/ai-ops-assistant/summary/{mode}", response_class=HTMLResponse)
     def mvp_ai_ops_summary(request: Request, mode: str, scenario: str = "net_banking", role: str = "cio", user: str = "cio@bank.com"):
-        from app.ai_ops_summary_engine import build_summary_page
+        from modules.operations.engines.ai_ops_summary_engine import build_summary_page
 
         page = build_summary_page(mode, scenario, role)
         if not page:
@@ -176,14 +176,14 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/module-kpi/drill")
     def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: int = 0):
-        from app.module_kpi_drill_engine import drill_module_kpi
+        from modules.shared.drilldowns.module_kpi_drill_engine import drill_module_kpi
 
         if not module:
             return JSONResponse({"ok": False, "error": "module required"}, status_code=400)
         body = drill_module_kpi(module, metric, role)
         if count:
-            from app.demo_data_standards import ensure_drill_rows
-            from app.ecs_universal_drill_engine import _target_rows
+            from modules.shared.utils.demo_data_standards import ensure_drill_rows
+            from modules.shared.drilldowns.ecs_universal_drill_engine import _target_rows
 
             target = _target_rows(count)
             body["rows"] = ensure_drill_rows(body.get("rows", []), target, metric=metric or module)
@@ -205,7 +205,7 @@ def register_mvp_routes(app, templates):
         framework: str = "",
         label: str = "",
     ):
-        from app.ecs_universal_drill_engine import (
+        from modules.shared.drilldowns.ecs_universal_drill_engine import (
             drill_universal_chart,
             drill_universal_kpi,
             drill_universal_row,
@@ -221,7 +221,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/ecs/workflow-drill")
     def api_ecs_workflow_drill(metric: str = "", count: int = 0, role: str = "cio"):
-        from app.ecs_universal_drill_engine import drill_enterprise_workflow
+        from modules.shared.drilldowns.ecs_universal_drill_engine import drill_enterprise_workflow
 
         if not metric:
             return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
@@ -230,7 +230,7 @@ def register_mvp_routes(app, templates):
     @app.post("/mvp/scheduler/run")
     def mvp_scheduler_run(role: str = Form(...), user: str = Form(...)):
         try:
-            from app.ecs_logging import log_scheduler
+            from modules.shared.services.ecs_logging import log_scheduler
             log_scheduler("Manual scheduler run triggered", user=user)
         except Exception:
             pass
@@ -259,13 +259,13 @@ def register_mvp_routes(app, templates):
 
     @app.post("/mvp/scheduler/pause")
     def mvp_scheduler_pause(role: str = Form(...), user: str = Form(...)):
-        from app.scheduler_module import pause_scheduler
+        from modules.operations.engines.scheduler_module import pause_scheduler
         notice = quote(pause_scheduler(user))
         return RedirectResponse(url=f"/mvp/scheduler?role={role}&user={user}&notice={notice}", status_code=303)
 
     @app.post("/mvp/scheduler/resume")
     def mvp_scheduler_resume(role: str = Form(...), user: str = Form(...)):
-        from app.scheduler_module import resume_scheduler
+        from modules.operations.engines.scheduler_module import resume_scheduler
         notice = quote(resume_scheduler(user))
         return RedirectResponse(url=f"/mvp/scheduler?role={role}&user={user}&notice={notice}", status_code=303)
 
@@ -280,7 +280,7 @@ def register_mvp_routes(app, templates):
         application: str = "",
         control: str = "",
     ):
-        from app.role_permissions import guard_upload
+        from modules.shared.services.role_permissions import guard_upload
 
         deny = guard_upload(role, user, "/mvp/completeness")
         if deny:
@@ -299,7 +299,7 @@ def register_mvp_routes(app, templates):
         application: str = Form("Net Banking"),
         files: list[UploadFile] = File(...),
     ):
-        from app.role_permissions import guard_upload
+        from modules.shared.services.role_permissions import guard_upload
 
         deny = guard_upload(role, user, "/mvp/completeness")
         if deny:
@@ -397,7 +397,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/onboarding/simulate")
     async def api_onboarding_simulate(request: Request):
-        from app.onboarding_engine import simulate_onboarding
+        from modules.operations.engines.onboarding_engine import simulate_onboarding
 
         try:
             payload = await request.json()
@@ -408,7 +408,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/onboarding/export")
     async def api_onboarding_export(request: Request):
-        from app.onboarding_engine import export_onboarding_summary, simulate_onboarding
+        from modules.operations.engines.onboarding_engine import export_onboarding_summary, simulate_onboarding
 
         try:
             payload = await request.json()
@@ -431,8 +431,8 @@ def register_mvp_routes(app, templates):
         notice: str = "",
         framework_id: str = "",
     ):
-        from app.framework_loader_service import build_loader_dashboard
-        from app.role_permissions import can_manage_frameworks
+        from modules.frameworks.engines.framework_loader_service import build_loader_dashboard
+        from modules.shared.services.role_permissions import can_manage_frameworks
 
         ctx = _base_ctx(role, user, notice=notice, page_module="framework_loader")
         ctx["loader"] = build_loader_dashboard(role, framework_id)
@@ -441,7 +441,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/mvp/framework-loader/upload")
     async def mvp_framework_loader_upload(request: Request):
-        from app.framework_loader_service import submit_upload
+        from modules.frameworks.engines.framework_loader_service import submit_upload
 
         form = await request.form()
         role = form.get("role", "cio")
@@ -491,7 +491,7 @@ def register_mvp_routes(app, templates):
         owner: str = "",
         notice: str = "",
     ):
-        from app.ecs_mock_engine import build_demo_overview
+        from modules.shared.services.ecs_mock_engine import build_demo_overview
 
         ctx = _base_ctx(role, user, notice=notice, page_module="demo_overview")
         ctx["demo_overview"] = build_demo_overview()
@@ -504,7 +504,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/demo/status")
     def api_demo_status():
-        from app.ecs_mock_engine import DEMO_MODE, DEMO_ANCHOR_DATE
+        from modules.shared.services.ecs_mock_engine import DEMO_MODE, DEMO_ANCHOR_DATE
 
         return JSONResponse({
             "ok": True,
@@ -514,25 +514,25 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/demo/overview")
     def api_demo_overview():
-        from app.ecs_mock_engine import build_demo_overview
+        from modules.shared.services.ecs_mock_engine import build_demo_overview
 
         return JSONResponse({"ok": True, "data": build_demo_overview()})
 
     @app.get("/api/demo/banking-applications")
     def api_demo_banking_applications():
-        from app.ecs_mock_engine import list_banking_applications
+        from modules.shared.services.ecs_mock_engine import list_banking_applications
 
         return JSONResponse({"ok": True, "rows": list_banking_applications()})
 
     @app.get("/api/demo/frameworks")
     def api_demo_frameworks():
-        from app.ecs_mock_engine import list_frameworks_catalog
+        from modules.shared.services.ecs_mock_engine import list_frameworks_catalog
 
         return JSONResponse({"ok": True, "rows": list_frameworks_catalog()})
 
     @app.get("/api/demo/servicenow")
     def api_demo_servicenow(limit: int = 60, type: str = ""):
-        from app.ecs_mock_engine import generate_servicenow_tickets
+        from modules.shared.services.ecs_mock_engine import generate_servicenow_tickets
 
         rows = generate_servicenow_tickets(count=limit)
         if type:
@@ -541,31 +541,31 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/demo/ai-governance")
     def api_demo_ai_governance():
-        from app.ecs_mock_engine import generate_ai_governance
+        from modules.shared.services.ecs_mock_engine import generate_ai_governance
 
         return JSONResponse({"ok": True, "data": generate_ai_governance()})
 
     @app.get("/api/demo/prompt-audit")
     def api_demo_prompt_audit(limit: int = 80):
-        from app.ecs_mock_engine import generate_prompt_audit
+        from modules.shared.services.ecs_mock_engine import generate_prompt_audit
 
         return JSONResponse({"ok": True, "rows": generate_prompt_audit(count=limit)})
 
     @app.get("/api/demo/hallucinations")
     def api_demo_hallucinations():
-        from app.ecs_mock_engine import generate_hallucination_alerts
+        from modules.shared.services.ecs_mock_engine import generate_hallucination_alerts
 
         return JSONResponse({"ok": True, "rows": generate_hallucination_alerts()})
 
     @app.get("/api/demo/token-usage")
     def api_demo_token_usage():
-        from app.ecs_mock_engine import generate_token_usage
+        from modules.shared.services.ecs_mock_engine import generate_token_usage
 
         return JSONResponse({"ok": True, "data": generate_token_usage()})
 
     @app.get("/api/demo/audit-history")
     def api_demo_audit_history(years: int = 5):
-        from app.ecs_mock_engine import generate_audit_history, summarize_audit_history
+        from modules.shared.services.ecs_mock_engine import generate_audit_history, summarize_audit_history
 
         rows = generate_audit_history(years=years)
         return JSONResponse({
@@ -576,37 +576,37 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/demo/risk-heatmap")
     def api_demo_risk_heatmap():
-        from app.ecs_mock_engine import build_risk_heatmap
+        from modules.shared.services.ecs_mock_engine import build_risk_heatmap
 
         return JSONResponse({"ok": True, "data": build_risk_heatmap()})
 
     @app.get("/api/demo/drift")
     def api_demo_drift():
-        from app.ecs_mock_engine import generate_baselining_drift
+        from modules.shared.services.ecs_mock_engine import generate_baselining_drift
 
         return JSONResponse({"ok": True, "data": generate_baselining_drift()})
 
     @app.get("/api/demo/evidence-lineage")
     def api_demo_evidence_lineage(limit: int = 25):
-        from app.ecs_mock_engine import generate_evidence_lineage
+        from modules.shared.services.ecs_mock_engine import generate_evidence_lineage
 
         return JSONResponse({"ok": True, "rows": generate_evidence_lineage(limit=limit)})
 
     @app.get("/api/demo/vapt")
     def api_demo_vapt():
-        from app.ecs_mock_engine import generate_vapt_findings
+        from modules.shared.services.ecs_mock_engine import generate_vapt_findings
 
         return JSONResponse({"ok": True, "data": generate_vapt_findings()})
 
     @app.get("/api/demo/cio-executive")
     def api_demo_cio_executive():
-        from app.ecs_mock_engine import generate_cio_executive
+        from modules.shared.services.ecs_mock_engine import generate_cio_executive
 
         return JSONResponse({"ok": True, "data": generate_cio_executive()})
 
     @app.get("/api/audit-prep/kpi-drill")
     def api_audit_prep_kpi_drill(metric: str = ""):
-        from app.audit_schedule_engine import build_kpi_drilldowns
+        from modules.governance.engines.audit_schedule_engine import build_kpi_drilldowns
 
         valid = ("draft", "submitted", "reupload", "approval_rate",
                  "avg_review_time", "rejection_trend", "pending_aging",
@@ -622,7 +622,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/audit-prep/audit-detail")
     def api_audit_prep_audit_detail(audit_id: str = ""):
-        from app.audit_schedule_engine import get_audit_detail
+        from modules.governance.engines.audit_schedule_engine import get_audit_detail
 
         if not audit_id:
             return JSONResponse(
@@ -640,7 +640,7 @@ def register_mvp_routes(app, templates):
         status: str = "",
         owner: str = "",
     ):
-        from app.audit_schedule_engine import build_audit_operations
+        from modules.governance.engines.audit_schedule_engine import build_audit_operations
 
         ops = build_audit_operations("auditor", {
             "framework": framework, "application": application,
@@ -656,7 +656,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/framework-loader/control-drill")
     def api_framework_loader_control_drill(theme: str = ""):
-        from app.framework_intelligence import drill_theme
+        from modules.frameworks.engines.framework_intelligence import drill_theme
 
         if not theme:
             return JSONResponse(
@@ -668,7 +668,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/framework-loader/application-scan")
     def api_framework_loader_application_scan():
-        from app.framework_intelligence import (
+        from modules.frameworks.engines.framework_intelligence import (
             build_application_scan,
             build_control_index,
         )
@@ -683,7 +683,7 @@ def register_mvp_routes(app, templates):
         role: str = Form("cio"),
         user: str = Form("User"),
     ):
-        from app.framework_loader_service import activate_framework
+        from modules.frameworks.engines.framework_loader_service import activate_framework
 
         result = activate_framework(framework_id, user, role)
         message = (
@@ -710,8 +710,8 @@ def register_mvp_routes(app, templates):
         framework_id: str = "",
         toast: str = "",
     ):
-        from app.framework_onboarding_engine import build_admin_dashboard, get_onboarding_record
-        from app.role_permissions import can_manage_frameworks, deny_redirect
+        from modules.frameworks.engines.framework_onboarding_engine import build_admin_dashboard, get_onboarding_record
+        from modules.shared.services.role_permissions import can_manage_frameworks, deny_redirect
 
         if not can_manage_frameworks(role) and role not in ("auditor", "owner"):
             return deny_redirect(role, user, "/dashboard", "Framework administration requires Admin, CIO, or Compliance Head access.")
@@ -737,8 +737,8 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/framework-onboarding/import")
     async def api_framework_onboarding_import(request: Request):
-        from app.framework_onboarding_engine import run_onboarding_pipeline
-        from app.role_permissions import can_manage_frameworks
+        from modules.frameworks.engines.framework_onboarding_engine import run_onboarding_pipeline
+        from modules.shared.services.role_permissions import can_manage_frameworks
 
         form = await request.form()
         role = form.get("role", "cio")
@@ -776,7 +776,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/framework-onboarding/lifecycle")
     async def api_framework_onboarding_lifecycle(request: Request):
-        from app.framework_onboarding_engine import advance_lifecycle
+        from modules.frameworks.engines.framework_onboarding_engine import advance_lifecycle
 
         body = await request.json()
         msg = advance_lifecycle(body.get("framework_id", ""), body.get("action", ""), body.get("user", "User"), body.get("role", "cio"))
@@ -784,7 +784,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/framework-onboarding/reuse-decision")
     async def api_framework_reuse_decision(request: Request):
-        from app.framework_onboarding_engine import apply_evidence_reuse
+        from modules.frameworks.engines.framework_onboarding_engine import apply_evidence_reuse
 
         body = await request.json()
         msg = apply_evidence_reuse(
@@ -795,7 +795,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/framework-onboarding/{framework_id}")
     def api_framework_onboarding_get(framework_id: str):
-        from app.framework_onboarding_engine import get_onboarding_record
+        from modules.frameworks.engines.framework_onboarding_engine import get_onboarding_record
         rec = get_onboarding_record(framework_id)
         if not rec:
             return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
@@ -803,7 +803,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/mvp/framework-admin/export/{framework_id}")
     def mvp_framework_export(framework_id: str, format: str = "pdf", role: str = "cio", user: str = "User"):
-        from app.framework_onboarding_engine import export_onboarding_analysis
+        from modules.frameworks.engines.framework_onboarding_engine import export_onboarding_analysis
         try:
             content, media_type, filename = export_onboarding_analysis(framework_id, format)
             return Response(content=content, media_type=media_type, headers={
@@ -849,8 +849,8 @@ def register_mvp_routes(app, templates):
         include_missing: str = Form("on"),
         include_audit_impact: str = Form("on"),
     ):
-        from app.audit_trail import log_event
-        from app.gap_export_engine import (
+        from modules.shared.services.audit_trail import log_event
+        from modules.governance.engines.gap_export_engine import (
             build_gap_export_payload,
             generate_gap_export_file,
             record_export,
@@ -901,7 +901,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/mvp/exports/download/{export_id}")
     def mvp_export_download(export_id: str, user: str = "User"):
-        from app.ecs_logging import log_export
+        from modules.shared.services.ecs_logging import log_export
 
         rec = ecs_state.export_registry.get(export_id)
         if not rec:
@@ -918,7 +918,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/mvp/exports/preview/{export_id}", response_class=HTMLResponse)
     def mvp_export_preview(export_id: str):
-        from app.gap_export_engine import build_html_preview
+        from modules.governance.engines.gap_export_engine import build_html_preview
 
         rec = ecs_state.export_registry.get(export_id)
         if not rec:
@@ -969,7 +969,7 @@ def register_mvp_routes(app, templates):
         application: str = "",
     ):
         try:
-            from app.ecs_logging import log_export
+            from modules.shared.services.ecs_logging import log_export
             log_export(user, report_id)
         except Exception:
             pass
@@ -1024,7 +1024,7 @@ def register_mvp_routes(app, templates):
         ctx["prep"] = audit_preparation_checklist()
         ctx["audit_filters"] = filters
         ctx["show_modal"] = show_modal
-        from app.audit_prep_data import build_audit_package_preview, build_export_bundle_preview
+        from modules.governance.engines.audit_prep_data import build_audit_package_preview, build_export_bundle_preview
         ctx["package_preview"] = build_audit_package_preview(filters=filters)
         ctx["export_preview"] = build_export_bundle_preview(filters)
         ctx["mock_audit_frameworks"] = list(__import__("app.governance_relational_model", fromlist=["FRAMEWORK_GRAPHS"]).FRAMEWORK_GRAPHS.keys())
@@ -1040,7 +1040,7 @@ def register_mvp_routes(app, templates):
         return_module: str = "audit_prep",
         notice: str = "",
     ):
-        from app.operational_workflows import build_close_gap_view
+        from modules.governance.engines.operational_workflows import build_close_gap_view
 
         ctx = _base_ctx(role, user, notice=notice, page_module=return_module or "audit_prep")
         ctx.update(build_close_gap_view(framework, control, role, user, return_module))
@@ -1058,7 +1058,7 @@ def register_mvp_routes(app, templates):
         target_date: str = Form(""),
         return_module: str = Form("audit_prep"),
     ):
-        from app.operational_workflows import _return_url, process_close_gap
+        from modules.governance.engines.operational_workflows import _return_url, process_close_gap
 
         notice = process_close_gap(
             framework=framework,
@@ -1083,7 +1083,7 @@ def register_mvp_routes(app, templates):
         return_module: str = "audit_prep",
         notice: str = "",
     ):
-        from app.operational_workflows import build_assign_owner_view
+        from modules.governance.engines.operational_workflows import build_assign_owner_view
 
         ctx = _base_ctx(role, user, notice=notice, page_module=return_module or "audit_prep")
         ctx.update(build_assign_owner_view(framework, control, role, user, return_module))
@@ -1103,7 +1103,7 @@ def register_mvp_routes(app, templates):
         comments: str = Form(""),
         return_module: str = Form("audit_prep"),
     ):
-        from app.operational_workflows import _return_url, process_assign_owner
+        from modules.governance.engines.operational_workflows import _return_url, process_assign_owner
 
         notice = process_assign_owner(
             framework=framework,
@@ -1131,8 +1131,8 @@ def register_mvp_routes(app, templates):
         return_module: str = "audit_prep",
         notice: str = "",
     ):
-        from app.operational_workflows import build_upload_missing_view
-        from app.role_permissions import guard_upload
+        from modules.governance.engines.operational_workflows import build_upload_missing_view
+        from modules.shared.services.role_permissions import guard_upload
 
         deny = guard_upload(role, user, f"/mvp/{return_module.replace('_', '-')}")
         if deny:
@@ -1160,8 +1160,8 @@ def register_mvp_routes(app, templates):
         return_module: str = Form("audit_prep"),
         evidence_file: UploadFile | None = File(None),
     ):
-        from app.operational_workflows import _return_url, process_upload_missing
-        from app.role_permissions import guard_upload
+        from modules.governance.engines.operational_workflows import _return_url, process_upload_missing
+        from modules.shared.services.role_permissions import guard_upload
 
         deny = guard_upload(role, user, f"/mvp/{return_module.replace('_', '-')}")
         if deny:
@@ -1208,8 +1208,8 @@ def register_mvp_routes(app, templates):
         residual_risk: str = Form("Medium"),
         return_url: str = Form("/mvp/exceptions"),
     ):
-        from app.exception_state_engine import create_exception
-        from app.role_permissions import can_raise_exception, deny_redirect
+        from modules.governance.engines.exception_state_engine import create_exception
+        from modules.shared.services.role_permissions import can_raise_exception, deny_redirect
 
         if not can_raise_exception(role):
             return deny_redirect(role, user, return_url or "/mvp/exceptions")
@@ -1246,8 +1246,8 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/exceptions/raise")
     async def api_raise_exception(request: Request):
-        from app.exception_state_engine import create_exception
-        from app.role_permissions import can_raise_exception
+        from modules.governance.engines.exception_state_engine import create_exception
+        from modules.shared.services.role_permissions import can_raise_exception
 
         body = await request.json()
         role = body.get("role", "owner")
@@ -1284,9 +1284,9 @@ def register_mvp_routes(app, templates):
         comments: str = Form(""),
         return_module: str = Form("audit_prep"),
     ):
-        from app.missing_evidence_engine import apply_request_reupload
-        from app.operational_workflows import _return_url
-        from app.role_permissions import can_request_reupload, deny_redirect
+        from modules.governance.engines.missing_evidence_engine import apply_request_reupload
+        from modules.governance.engines.operational_workflows import _return_url
+        from modules.shared.services.role_permissions import can_request_reupload, deny_redirect
 
         if not can_request_reupload(role):
             return deny_redirect(role, user, f"/mvp/{return_module.replace('_', '-')}")
@@ -1303,7 +1303,7 @@ def register_mvp_routes(app, templates):
         return_module: str = "audit_prep",
         notice: str = "",
     ):
-        from app.operational_workflows import build_mock_audit_view
+        from modules.governance.engines.operational_workflows import build_mock_audit_view
 
         ctx = _base_ctx(role, user, notice=notice, page_module="audit_prep")
         ctx.update(build_mock_audit_view(role, user, executed=bool(executed), return_module=return_module))
@@ -1319,7 +1319,7 @@ def register_mvp_routes(app, templates):
         auditor: str = Form("Deloitte"),
         audit_cycle: str = Form("Q2 2026"),
     ):
-        from app.operational_workflows import execute_mock_audit
+        from modules.governance.engines.operational_workflows import execute_mock_audit
 
         execute_mock_audit(user, role, framework=framework, applications=applications, auditor=auditor, audit_cycle=audit_cycle)
         return RedirectResponse(
@@ -1334,7 +1334,7 @@ def register_mvp_routes(app, templates):
         submit_type: str = Form(...),
         return_module: str = Form("audit_prep"),
     ):
-        from app.operational_workflows import _return_url, process_mock_audit_action
+        from modules.governance.engines.operational_workflows import _return_url, process_mock_audit_action
 
         notice = process_mock_audit_action(submit_type, user, role)
         dest = _return_url(role, user, return_module)
@@ -1342,7 +1342,7 @@ def register_mvp_routes(app, templates):
 
     @app.get("/mvp/workflow/mock-audit/report", response_class=PlainTextResponse)
     def workflow_mock_audit_report(audit_id: str = ""):
-        from app.operational_workflows import generate_mock_audit_report
+        from modules.governance.engines.operational_workflows import generate_mock_audit_report
 
         return PlainTextResponse(generate_mock_audit_report(audit_id), media_type="text/plain")
 
@@ -1360,7 +1360,7 @@ def register_mvp_routes(app, templates):
         region: str = "All Regions",
         business_unit: str = "All Units",
     ):
-        from app.governance_intelligence import get_filter_options, parse_analytics_filters
+        from modules.governance.engines.governance_intelligence import get_filter_options, parse_analytics_filters
 
         filters = parse_analytics_filters(
             framework=framework,
@@ -1388,7 +1388,7 @@ def register_mvp_routes(app, templates):
         region: str = "All Regions",
         business_unit: str = "All Units",
     ):
-        from app.governance_intelligence import build_contextual_trends, parse_analytics_filters
+        from modules.governance.engines.governance_intelligence import build_contextual_trends, parse_analytics_filters
 
         filters = parse_analytics_filters(
             framework=framework,
@@ -1408,13 +1408,13 @@ def register_mvp_routes(app, templates):
 
     @app.get("/api/ecs/filters/options", response_class=JSONResponse)
     def api_ecs_filter_options(role: str = "owner"):
-        from app.global_filter_engine import filter_options
+        from modules.shared.utils.global_filter_engine import filter_options
 
         return JSONResponse(filter_options(role))
 
     @app.post("/api/ecs/filters/apply", response_class=JSONResponse)
     async def api_ecs_filters_apply(request: Request):
-        from app.global_filter_engine import apply_filters
+        from modules.shared.utils.global_filter_engine import apply_filters
 
         body = await request.json()
         module = body.get("module", "")
@@ -1458,7 +1458,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/mvp/integrations-hub/sync")
     def mvp_integrations_hub_sync(connector: str = Form(...), role: str = Form(...), user: str = Form(...)):
-        from app.integrations_module import simulate_sync
+        from modules.operations.engines.integrations_module import simulate_sync
         simulate_sync(connector)
         notice = quote(f"Integrations Hub sync complete for {connector}")
         return RedirectResponse(url=f"/mvp/integrations-hub?role={role}&user={user}&notice={notice}", status_code=303)
@@ -1481,7 +1481,7 @@ def register_mvp_routes(app, templates):
         region: str = "All Regions",
         business_unit: str = "All Units",
     ):
-        from app.governance_intelligence import get_filter_options, parse_analytics_filters
+        from modules.governance.engines.governance_intelligence import get_filter_options, parse_analytics_filters
 
         filters = parse_analytics_filters(
             framework=framework,
@@ -1505,7 +1505,7 @@ def register_mvp_routes(app, templates):
         user: str = Form(...),
         item_id: str = Form(""),
     ):
-        from app.enterprise_grc import execute_grc_action
+        from modules.enterprise_grc.engines.enterprise_grc import execute_grc_action
         notice = execute_grc_action(module, action, item_id, user, role)
         return _module_redirect(module, role, user, notice)
 
@@ -1517,19 +1517,19 @@ def register_mvp_routes(app, templates):
         user: str = Form(...),
         item_id: str = Form(""),
     ):
-        from app.audit_trail import log_event
-        from app.analytics_module import completeness_report
+        from modules.shared.services.audit_trail import log_event
+        from modules.governance.engines.analytics_module import completeness_report
 
         workflow_actions = {"close_gap", "assign_owner", "assign_gap", "upload_missing", "mock_audit", "request_reupload"}
         if action in workflow_actions:
-            from app.role_permissions import action_allowed, guard_upload
+            from modules.shared.services.role_permissions import action_allowed, guard_upload
 
             if action == "upload_missing":
                 deny = guard_upload(role, user, f"/mvp/{module.replace('_', '-')}")
                 if deny:
                     return deny
             elif not action_allowed(role, action):
-                from app.role_permissions import deny_redirect
+                from modules.shared.services.role_permissions import deny_redirect
                 return deny_redirect(role, user, f"/mvp/{module.replace('_', '-')}")
             framework = ""
             if item_id:
@@ -1555,22 +1555,22 @@ def register_mvp_routes(app, templates):
                 return RedirectResponse(url=f"/mvp/workflow/{flow}?{q}", status_code=303)
 
         if module == "audit_prep" and action == "escalate":
-            from app.audit_trail import log_event
+            from modules.shared.services.audit_trail import log_event
             log_event("Audit Gap Escalated", user, "", item_id, "Escalated to CISO office from Audit Prep", role=role)
             return RedirectResponse(
                 url=f"/mvp/audit-prep?role={role}&user={user}&notice={quote('Gap escalated to CISO office — executive queue updated.')}",
                 status_code=303,
             )
         if module == "audit_prep" and action == "generate_package":
-            from app.audit_prep_data import build_audit_package_preview
-            from app.audit_trail import log_event
+            from modules.governance.engines.audit_prep_data import build_audit_package_preview
+            from modules.shared.services.audit_trail import log_event
             preview = build_audit_package_preview()
             log_event("Audit Package Generated", user, "", preview["package_name"], preview["auditor_notes"], role=role)
             fq = f"role={role}&user={user}&show_modal=package&notice={quote('Audit package ' + preview['package_name'] + ' generated — review preview below.')}"
             return RedirectResponse(url=f"/mvp/audit-prep?{fq}", status_code=303)
         if module == "audit_prep" and action == "export_pdf":
-            from app.audit_prep_data import build_export_bundle_preview
-            from app.audit_trail import log_event
+            from modules.governance.engines.audit_prep_data import build_export_bundle_preview
+            from modules.shared.services.audit_trail import log_event
             preview = build_export_bundle_preview()
             log_event("Evidence Bundle Export", user, "", preview["bundle_name"], preview["scope"], role=role)
             fq = f"role={role}&user={user}&show_modal=export&notice={quote('Export bundle ' + preview['bundle_name'] + ' ready for download.')}"
@@ -1589,17 +1589,17 @@ def register_mvp_routes(app, templates):
             result = retry_failed_observation(item_id, user)
             return _module_redirect(module, role, user, result["message"])
         if module == "scheduler" and action == "pause":
-            from app.scheduler_module import pause_scheduler
+            from modules.operations.engines.scheduler_module import pause_scheduler
             notice = pause_scheduler(user)
             return _module_redirect(module, role, user, notice)
         if module == "scheduler" and action == "resume":
-            from app.scheduler_module import resume_scheduler
+            from modules.operations.engines.scheduler_module import resume_scheduler
             notice = resume_scheduler(user)
             return _module_redirect(module, role, user, notice)
         if module == "integrations" and action == "sync_now" and item_id:
             simulate_sync(item_id)
         if module == "integrations_hub":
-            from app.integrations_module import simulate_sync as hub_sync, test_connection, retry_failed_sync
+            from modules.operations.engines.integrations_module import simulate_sync as hub_sync, test_connection, retry_failed_sync
             if action == "sync_now" and item_id:
                 hub_sync(item_id)
             elif action == "test_connection" and item_id:
@@ -1609,7 +1609,7 @@ def register_mvp_routes(app, templates):
                 notice = retry_failed_sync(item_id)
                 return _module_redirect(module, role, user, notice)
         if module in ("risk_register", "exceptions_td", "exception_governance", "cmdb", "regulatory_mapping", "executive_heatmaps", "correlation", "governance_analytics", "evidence_approval"):
-            from app.enterprise_grc import execute_grc_action
+            from modules.enterprise_grc.engines.enterprise_grc import execute_grc_action
             notice = execute_grc_action(module, action, item_id, user, role)
             return _module_redirect(module, role, user, notice)
         if module == "reports" and action in ("export_pdf", "export_excel", "export_csv") and item_id:
@@ -1624,7 +1624,7 @@ def register_mvp_routes(app, templates):
                 status_code=303,
             )
         if module == "pan_india" and action == "export_regional":
-            from app.ecs_state import PAN_INDIA_REGIONS
+            from modules.shared.services.ecs_state import PAN_INDIA_REGIONS
             import csv, io
             buf = io.StringIO()
             w = csv.DictWriter(buf, fieldnames=["region", "score", "branches", "applications", "observations_open", "audit_readiness_pct"])
@@ -1649,7 +1649,7 @@ def register_mvp_routes(app, templates):
                 "Content-Disposition": 'attachment; filename="governance_analytics_export.csv"',
             })
         if module == "evidence_approval" and action == "export_summary":
-            from app.evidence_approval_engine import build_evidence_approval_view
+            from modules.governance.engines.evidence_approval_engine import build_evidence_approval_view
             dash = build_evidence_approval_view(role)
             lines = ["Evidence Approval Summary Export", f"Generated by: {user}"]
             for kpi in dash.get("kpis", []):
@@ -1670,7 +1670,7 @@ def register_mvp_routes(app, templates):
         return_url: str = Form("/dashboard"),
     ):
         from app.main import chatbot_answer
-        from app.ecs_logging import log_chatbot
+        from modules.shared.services.ecs_logging import log_chatbot
 
         log_chatbot(user, role, query, framework_name)
         response = chatbot_answer(query, role=role, user=user, framework_hint=framework_name)
@@ -1685,9 +1685,9 @@ def register_mvp_routes(app, templates):
         user: str = Form(...),
         scenario: str = Form(""),
     ):
-        from app.chatbot_context_engine import execute_quick_action
-        from app.chatbot_engine import get_context, record_exchange, set_chat_structured
-        from app.operations_intelligence import OUTAGE_SCENARIOS, _build_summary_html
+        from modules.shared.services.chatbot_context_engine import execute_quick_action
+        from modules.shared.services.chatbot_engine import get_context, record_exchange, set_chat_structured
+        from modules.operations.engines.operations_intelligence import OUTAGE_SCENARIOS, _build_summary_html
 
         ctx = get_context(user, role)
         if scenario:
