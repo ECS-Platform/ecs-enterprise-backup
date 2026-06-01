@@ -466,6 +466,11 @@ tr.row-approved { background-color: #d1e7dd !important; }
 .ecs-trend-bar-track { height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; margin-top:2px; }
 .ecs-trend-bar-fill { height:100%; background:var(--ecs-chart-blue, #3b6ea5); border-radius:3px; }
 .ecs-evolution-chip { display:inline-block; font-size:0.68rem; padding:0.15rem 0.4rem; border:1px solid #e2e8f0; border-radius:4px; margin:0.1rem; }
+.ecs-kpi-clickable, [data-grc-drill], [data-ecs-demo-kpi], [data-ecs-kpi-link], [data-ecs-framework-kpi], [data-ecs-framework-wf-drill], [data-ecs-enterprise-wf-drill], [data-ecs-universal-kpi], [data-ecs-universal-chart], .ecs-drill-row-clickable, [data-ecs-framework-row-drill], [data-ecs-universal-row] { cursor: pointer; }
+.ecs-kpi-clickable:hover, [data-grc-drill]:hover, [data-ecs-framework-kpi]:hover, .ecs-drill-row-clickable:hover { filter: brightness(0.97); }
+.ecs-exec-kpi[data-ecs-framework-kpi]::after { content: '↗'; position: absolute; top: 3px; right: 6px; font-size: 0.58rem; opacity: 0.45; }
+.ecs-exec-kpi[data-ecs-framework-kpi] { position: relative; }
+.ecs-kpi-drill-search { max-width: 320px; }
 </style>
 {% include "partials/ecs_executive_table_system.html" %}
 {% include "partials/evidence_workflow_system.html" %}
@@ -473,4 +478,8 @@ tr.row-approved { background-color: #d1e7dd !important; }
 {% include "partials/ecs_nav_shell.js.html" %}
 {% include "partials/ecs_ux_system.html" %}
 {% include "partials/ecs_pagination.html" %}
+{% include "partials/ecs_module_kpi_drill.html" %}
+{% include "partials/grc_demo_drill_modal.html" %}
+{% include "partials/ai_sdlc_drill_modal.html" %}
+{% include "partials/ecs_universal_drill.html" %}
 {% include "partials/ecs_floating_action_portal.html" %}

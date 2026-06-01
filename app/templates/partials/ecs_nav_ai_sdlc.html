@@ -1,5 +1,6 @@
 {# AI SDLC Governance — workflow execution navigation #}
-{% set ai_sdlc_open = nav_module.startswith('ai_sdlc') or nav_module in ['ai_governance', 'sdlc_gates', 'ai_registry', 'governance_quality'] %}
+{% set _nav = nav_module|default('', true) %}
+{% set ai_sdlc_open = _nav.startswith('ai_sdlc') or _nav in ['ai_governance', 'sdlc_gates', 'ai_registry', 'governance_quality'] %}
 <div class="ecs-nav-group">
 <button class="ecs-nav-group-toggle{% if ai_sdlc_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-ai-sdlc" aria-expanded="{{ 'true' if ai_sdlc_open else 'false' }}">
 <span class="ecs-nav-group-label">AI SDLC Governance</span>

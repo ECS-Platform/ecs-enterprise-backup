@@ -1,0 +1,164 @@
+{# Framework KPI / workflow / row drill modal #}
+<div class="modal fade" id="ecsFrameworkKpiDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-xl modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="ecsFrameworkKpiDrillTitle">Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body small" id="ecsFrameworkKpiDrillBody"></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+<script>
+(function(){
+  if (window.__ecsFrameworkDrillInit) return;
+
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function tableHtml(rows, cols) {
+    if (!rows || !rows.length) return '<p class="text-muted mb-0">No supporting records.</p>';
+    var h = '<div class="ecs-kpi-drill-toolbar mb-2">' +
+      '<input type="search" class="form-control form-control-sm ecs-kpi-drill-search" placeholder="Search records…" aria-label="Search drill records">' +
+      '<div class="text-muted small mt-1 ecs-kpi-drill-count">' + rows.length + ' records</div></div>';
+    h += '<div class="table-responsive ecs-paginated-wrap ecs-fit-view ecs-kpi-drill-table-wrap"><table class="table table-sm ecs-paginated-table ecs-compact-table ecs-force-paginate mb-0"><thead><tr>';
+    cols.forEach(function(c){ h += '<th>' + esc(c.replace(/_/g,' ')) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function(r){
+      h += '<tr>';
+      cols.forEach(function(c){ h += '<td>' + esc(r[c]) + '</td>'; });
+      h += '</tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  function detailHtml(detail) {
+    if (!detail) return '';
+    var h = '<div class="row g-2 mb-3">';
+    Object.keys(detail).forEach(function(k){
+      if (typeof detail[k] === 'object') return;
+      h += '<div class="col-md-3"><div class="text-muted small">' + esc(k.replace(/_/g,' ')) + '</div><strong>' + esc(detail[k]) + '</strong></div>';
+    });
+    return h + '</div>';
+  }
+
+  function sectionsHtml(sections) {
+    if (!sections) return '';
+    var h = '';
+    Object.keys(sections).forEach(function(name){
+      var rows = sections[name];
+      if (!rows || !rows.length) return;
+      h += '<h6 class="text-muted small text-uppercase mt-3 mb-1">' + esc(name.replace(/_/g,' ')) + '</h6>';
+      h += tableHtml(rows, ['application','framework','control','finding','evidence','owner','status','risk','last_updated']);
+    });
+    return h;
+  }
+
+  function attachSearch(bodyEl) {
+    var input = bodyEl.querySelector('.ecs-kpi-drill-search');
+    var table = bodyEl.querySelector('.ecs-kpi-drill-table-wrap table');
+    var countEl = bodyEl.querySelector('.ecs-kpi-drill-count');
+    if (!input || !table || !table.tBodies.length) return;
+    input.addEventListener('input', function(){
+      var q = input.value.trim().toLowerCase();
+      var visible = 0;
+      Array.from(table.tBodies[0].rows).forEach(function(tr){
+        var match = !q || tr.textContent.toLowerCase().indexOf(q) >= 0;
+        tr.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      if (countEl) countEl.textContent = q ? (visible + ' matching records') : (table.tBodies[0].rows.length + ' records');
+      if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+    });
+  }
+
+  function showModal(title, html) {
+    var modalEl = document.getElementById('ecsFrameworkKpiDrillModal');
+    var titleEl = document.getElementById('ecsFrameworkKpiDrillTitle');
+    var bodyEl = document.getElementById('ecsFrameworkKpiDrillBody');
+    if (!modalEl || !bodyEl || typeof bootstrap === 'undefined') return;
+    titleEl.textContent = title || 'Detail';
+    bodyEl.innerHTML = html;
+    attachSearch(bodyEl);
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  function fetchJson(url, title) {
+    var bodyEl = document.getElementById('ecsFrameworkKpiDrillBody');
+    if (bodyEl) bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
+    var modalEl = document.getElementById('ecsFrameworkKpiDrillModal');
+    if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    fetch(url).then(function(r){ return r.json(); }).then(function(j){
+      if (!j.ok) { showModal(title, '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'); return; }
+      var html = '';
+      if (j.detail) html += detailHtml(j.detail);
+      html += '<p class="text-muted small mb-2">' + (j.rows || []).length + ' supporting records</p>';
+      html += tableHtml(j.rows, j.columns || ['application','framework','control','owner','status','evidence']);
+      html += sectionsHtml(j.sections);
+      showModal(j.title || title, html);
+    }).catch(function(){ showModal(title, '<p class="text-danger">Request failed.</p>'); });
+  }
+
+  window.ecsOpenFrameworkKpiDrill = function(framework, metric, label) {
+    fetchJson('/api/framework/kpi-drill?framework=' + encodeURIComponent(framework || '') +
+      '&metric=' + encodeURIComponent(metric || ''), label || metric);
+  };
+
+  window.ecsOpenFrameworkWorkflowDrill = function(framework, metric, label) {
+    fetchJson('/api/framework/workflow-drill?framework=' + encodeURIComponent(framework || '') +
+      '&metric=' + encodeURIComponent(metric || ''), label || metric);
+  };
+
+  window.ecsOpenFrameworkRowDrill = function(framework, rowType, rowId) {
+    fetchJson('/api/framework/row-drill?framework=' + encodeURIComponent(framework || '') +
+      '&type=' + encodeURIComponent(rowType || '') + '&id=' + encodeURIComponent(rowId || ''), rowType + ': ' + rowId);
+  };
+
+  window.ecsOpenFrameworkTabDrill = function(framework, tabId, label) {
+    fetchJson('/api/framework/tab-drill?framework=' + encodeURIComponent(framework || '') +
+      '&tab=' + encodeURIComponent(tabId || ''), label || tabId);
+  };
+
+  function bindClicks() {
+    document.addEventListener('click', function(e){
+      var kpi = e.target.closest('[data-ecs-framework-kpi]');
+      if (kpi) {
+        e.preventDefault();
+        ecsOpenFrameworkKpiDrill(kpi.getAttribute('data-ecs-framework-kpi-framework'), kpi.getAttribute('data-ecs-framework-kpi-metric'), kpi.getAttribute('data-ecs-framework-kpi-label'));
+        return;
+      }
+      var wf = e.target.closest('[data-ecs-framework-wf-drill]');
+      if (wf) {
+        e.preventDefault();
+        ecsOpenFrameworkWorkflowDrill(wf.getAttribute('data-ecs-framework-wf-framework'), wf.getAttribute('data-ecs-framework-wf-metric'), wf.getAttribute('data-ecs-framework-wf-label'));
+        return;
+      }
+      var row = e.target.closest('[data-ecs-framework-row-drill]');
+      if (row) {
+        if (e.target.closest('a, button, .dropdown-menu, .ecs-sticky-actions, .btn')) return;
+        e.preventDefault();
+        ecsOpenFrameworkRowDrill(row.getAttribute('data-ecs-framework-row-framework'), row.getAttribute('data-ecs-framework-row-type'), row.getAttribute('data-ecs-framework-row-id'));
+        return;
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var el = e.target.closest('[data-ecs-framework-kpi],[data-ecs-framework-wf-drill],[data-ecs-framework-row-drill]');
+      if (!el) return;
+      e.preventDefault();
+      el.click();
+    });
+  }
+
+  function init() {
+    if (typeof bootstrap === 'undefined') { setTimeout(init, 40); return; }
+    window.__ecsFrameworkDrillInit = true;
+    bindClicks();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>

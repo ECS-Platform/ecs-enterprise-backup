@@ -16,6 +16,7 @@ from app.demo_data_standards import (
     pick,
     seed,
 )
+from app.demo_data_standards import ensure_drill_rows, generate_standard_drill_row
 from app.demo_metrics import FRAMEWORK_MATURITY_BASELINE
 from app.enterprise_grc import RISK_CATEGORIES, RISK_TREATMENTS
 
@@ -358,12 +359,13 @@ def drill_risk_register(metric: str, item_id: str = "", role: str = "owner") -> 
     data = build_risk_register_demo(role)
     risks = data["rows"]
     if metric == "total":
-        return {"type": "list", "title": f"All Enterprise Risks ({len(risks)})", "rows": risks}
+        rows = _pad_rows(risks, metric)
+        return {"type": "list", "title": f"All Enterprise Risks ({len(rows)})", "rows": rows}
     if metric == "high_open":
-        rows = data["high_open"]
+        rows = _pad_rows(data["high_open"], metric)
         return {"type": "list", "title": f"Open High/Critical Risks ({len(rows)})", "rows": rows}
     if metric == "escalated":
-        rows = [r for r in risks if r["status"] == "Escalated"]
+        rows = _pad_rows([r for r in risks if r["status"] == "Escalated"], metric)
         return {"type": "list", "title": f"Escalated Risks ({len(rows)})", "rows": rows}
     if metric == "aging":
         return {"type": "list", "title": "Risk Aging Distribution", "rows": data["aging_trend"]}
@@ -389,23 +391,42 @@ def drill_risk_register(metric: str, item_id: str = "", role: str = "owner") -> 
     if item_id:
         row = next((r for r in risks if r["risk_id"] == item_id), risks[0])
         return {"type": "risk", "title": f"{row['risk_id']} — {row['title'][:50]}", "data": row}
-    return {"type": "summary", "title": "Risk Register", "data": {"total": len(risks)}, "rows": risks[:20]}
+    return {"type": "summary", "title": "Risk Register", "data": {"total": len(risks)}, "rows": _pad_rows(risks[:20], "risk")}
+
+
+def _pad_rows(rows: list[dict], metric: str = "") -> list[dict]:
+    if not rows:
+        rows = [generate_standard_drill_row(i, metric=metric) for i in range(25)]
+    return ensure_drill_rows(rows, 25, metric=metric)
 
 
 def drill_governance_analytics(metric: str, item_id: str = "", role: str = "cio") -> dict[str, Any]:
     data = build_governance_analytics_demo(role)
     intel = data["intel"]
     if metric == "audit_readiness":
-        return {"type": "list", "title": "Framework Effectiveness", "rows": data["framework_effectiveness_rows"]}
+        rows = _pad_rows(data["framework_effectiveness_rows"], metric)
+        return {"type": "list", "title": "Framework Effectiveness", "rows": rows}
     if metric == "open_findings":
-        rows = data["open_findings"]
+        rows = _pad_rows(data["open_findings"], metric)
         return {"type": "list", "title": f"Open Audit Findings ({len(rows)})", "rows": rows}
     if metric == "high_risk_controls":
-        rows = data["high_risk_controls"]
+        rows = _pad_rows(data["high_risk_controls"], metric)
         return {"type": "list", "title": f"High-Risk Controls ({len(rows)})", "rows": rows}
     if metric == "evidence_freshness":
-        stale = intel["implementation_coverage"]["_series_full"][-1]
-        return {"type": "list", "title": "Stale Evidence by Application", "rows": data["top_risk_applications"]}
+        rows = _pad_rows(data["top_risk_applications"], metric)
+        return {"type": "list", "title": "Stale Evidence by Application", "rows": rows}
+    if metric == "sla_breaches":
+        rows = _pad_rows([a for a in data["top_risk_applications"] if a.get("sla_breaches", 0) > 0] or data["top_risk_applications"], metric)
+        return {"type": "list", "title": f"SLA Breaches ({len(rows)})", "rows": rows}
+    if metric == "escalated":
+        rows = _pad_rows(data.get("high_risk_controls", []), metric)
+        return {"type": "list", "title": f"Escalated Controls ({len(rows)})", "rows": rows}
+    if metric == "implementation_coverage":
+        rows = _pad_rows(data["top_risk_applications"], metric)
+        return {"type": "list", "title": "Implementation Coverage by Application", "rows": rows}
+    if metric == "top_risk_applications":
+        rows = _pad_rows(data["top_risk_applications"], metric)
+        return {"type": "list", "title": "Top Risk Applications", "rows": rows}
     if metric == "coverage_month" and item_id:
         row = next((r for r in intel["implementation_coverage"]["_series_full"] if r["month_key"] == item_id or r["month"] == item_id), None)
         if row:

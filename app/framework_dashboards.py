@@ -15,6 +15,7 @@ from app.framework_governance_data import (
 )
 from app.framework_governance_context import build_governance_context
 from app.framework_trends_engine import validate_control_mapping
+from app.framework_kpi_drill_engine import build_framework_kpi_list
 from app.governance_relational_model import get_framework_graph
 
 
@@ -28,6 +29,9 @@ FRAMEWORK_THEMES: dict[str, dict[str, str]] = {
     "VAPT": {"css_class": "ecs-fw-vapt", "accent": "#991b1b", "accent_soft": "#fecaca", "icon": "VAPT"},
     "CSITE": {"css_class": "ecs-fw-csite", "accent": "#334155", "accent_soft": "#e2e8f0", "icon": "SOC"},
     "ITPP": {"css_class": "ecs-fw-itpp", "accent": "#1e3a5f", "accent_soft": "#e0e7ef", "icon": "ITPP"},
+    "ITDRM": {"css_class": "ecs-fw-itdrm", "accent": "#b45309", "accent_soft": "#fef3c7", "icon": "DR"},
+    "SOC2": {"css_class": "ecs-fw-soc2", "accent": "#0369a1", "accent_soft": "#e0f2fe", "icon": "SOC2"},
+    "ISO27001": {"css_class": "ecs-fw-iso", "accent": "#4c1d95", "accent_soft": "#ede9fe", "icon": "ISO"},
 }
 
 
@@ -387,92 +391,7 @@ def _drill_modules(framework_name: str) -> list[dict]:
 
 
 def _framework_kpis(framework: str, controls: list[dict], stats: dict[str, int]) -> list[dict]:
-    n_ctrl = len(controls)
-    n_ev = stats["evidence_total"]
-    fw = framework
-
-    def pci():
-        return [
-            {"label": "PCI Maturity", "value": f"{_seed_int(fw+'maturity', 78, 92)}%", "hint": "CDE posture", "tone": "primary"},
-            {"label": "Critical Gaps", "value": _seed_int(fw + "gaps", 2, 8), "hint": "Open audit obs.", "tone": "danger"},
-            {"label": "Encryption Checks", "value": f"{_seed_int(fw+'enc', 88, 98)}%", "hint": "At-rest & in-transit", "tone": "success"},
-            {"label": "MFA Exceptions", "value": _seed_int(fw + "mfa", 0, 4), "hint": "CDE access", "tone": "warning"},
-            {"label": "Controls", "value": n_ctrl, "hint": f"{n_ev} evidences", "tone": "navy"},
-            {"label": "Stale / Expired Evidence", "value": stats["stale"] + stats["expired"], "hint": "Active evidence past refresh window", "tone": "teal"},
-        ]
-
-    builders = {
-        "PCI DSS": pci,
-        "DPSC": lambda: [
-            {"label": "Privacy Compliance", "value": f"{_seed_int(fw+'priv', 82, 94)}%", "hint": "DPSC assessment", "tone": "teal"},
-            {"label": "Privacy Exceptions", "value": _seed_int(fw + "exc", 3, 11), "hint": "Active waivers", "tone": "warning"},
-            {"label": "Retention Violations", "value": _seed_int(fw + "ret", 1, 6), "hint": "Expired retention", "tone": "danger"},
-            {"label": "Masking Compliance", "value": f"{_seed_int(fw+'mask', 90, 99)}%", "hint": "Non-prod data", "tone": "success"},
-            {"label": "Controls", "value": n_ctrl, "hint": f"{stats['applications']} apps", "tone": "primary"},
-            {"label": "Sensitive Exposure", "value": _seed_int(fw + "exp", 0, 3), "hint": "Apps flagged", "tone": "danger"},
-        ],
-        "OS Baselining": lambda: [
-            {"label": "Hardened Servers", "value": f"{_seed_int(fw+'hard', 84, 96)}%", "hint": "CIS L2 compliant", "tone": "success"},
-            {"label": "Patch Gaps", "value": _seed_int(fw + "patch", 8, 24), "hint": "Critical missing", "tone": "danger"},
-            {"label": "Unsupported OS", "value": _seed_int(fw + "os", 2, 9), "hint": "End-of-life hosts", "tone": "warning"},
-            {"label": "Failed Checks", "value": _seed_int(fw + "fail", 12, 38), "hint": "Hardening drift", "tone": "warning"},
-            {"label": "Controls", "value": n_ctrl, "hint": f"{n_ev} scan artefacts", "tone": "primary"},
-            {"label": "Platform Split", "value": f"{_seed_int(fw+'lin', 58, 72)}% Linux", "hint": "Rest Windows", "tone": "navy"},
-        ],
-        "DB Baselining": lambda: [
-            {"label": "DB Drift Items", "value": _seed_int(fw + "drift", 5, 18), "hint": "Config deviations", "tone": "warning"},
-            {"label": "Weak Passwords", "value": _seed_int(fw + "pwd", 2, 9), "hint": "Rotation gaps", "tone": "danger"},
-            {"label": "Audit Logging Off", "value": _seed_int(fw + "audit", 1, 5), "hint": "DB instances", "tone": "danger"},
-            {"label": "Backup Failures", "value": _seed_int(fw + "bk", 0, 4), "hint": "Last 30 days", "tone": "warning"},
-            {"label": "Controls", "value": n_ctrl, "hint": "Oracle/MSSQL/MySQL", "tone": "primary"},
-            {"label": "TDE Coverage", "value": f"{_seed_int(fw+'tde', 91, 99)}%", "hint": "Production DBs", "tone": "success"},
-        ],
-        "Nginx Baselining": lambda: [
-            {"label": "TLS Posture", "value": f"{_seed_int(fw+'tls', 86, 97)}%", "hint": "TLS 1.2+ enforced", "tone": "success"},
-            {"label": "Weak TLS Configs", "value": _seed_int(fw + "weak", 2, 8), "hint": "Cipher issues", "tone": "danger"},
-            {"label": "Expired Certs", "value": _seed_int(fw + "cert", 1, 6), "hint": "Edge / DMZ", "tone": "warning"},
-            {"label": "Insecure Headers", "value": _seed_int(fw + "hdr", 3, 12), "hint": "Missing CSP/HSTS", "tone": "warning"},
-            {"label": "Controls", "value": n_ctrl, "hint": f"{n_ev} edge configs", "tone": "primary"},
-            {"label": "Internet Exposure", "value": _seed_int(fw + "iexp", 4, 14), "hint": "Public apps", "tone": "danger"},
-        ],
-        "AppSec": lambda: [
-            {"label": "Critical Vulns", "value": _seed_int(fw + "crit", 3, 14), "hint": "Open findings", "tone": "danger"},
-            {"label": "Open AppSec Items", "value": _seed_int(fw + "open", 18, 45), "hint": "All severities", "tone": "warning"},
-            {"label": "Vulnerable Apps", "value": _seed_int(fw + "apps", 4, 9), "hint": "Tier-1 systems", "tone": "danger"},
-            {"label": "Remediation SLA", "value": f"{_seed_int(fw+'sla', 72, 89)}%", "hint": "Within TAT", "tone": "success"},
-            {"label": "Controls", "value": n_ctrl, "hint": "SAST/DAST/SCA", "tone": "primary"},
-            {"label": "Release Risk", "value": _seed_int(fw + "rel", 22, 58), "hint": "Avg. this sprint", "tone": "warning"},
-        ],
-        "VAPT": lambda: [
-            {"label": "Exploitable Vulns", "value": _seed_int(fw + "exploit", 2, 11), "hint": "Confirmed", "tone": "danger"},
-            {"label": "Internet Findings", "value": _seed_int(fw + "inet", 6, 19), "hint": "External scope", "tone": "warning"},
-            {"label": "Overdue Remediation", "value": _seed_int(fw + "od", 4, 13), "hint": "Past SLA", "tone": "danger"},
-            {"label": "Critical CVEs", "value": _seed_int(fw + "cve", 1, 7), "hint": "CVSS >= 9.0", "tone": "danger"},
-            {"label": "Controls", "value": n_ctrl, "hint": f"{n_ev} test artefacts", "tone": "primary"},
-            {"label": "Retest Pass Rate", "value": f"{_seed_int(fw+'ret', 78, 94)}%", "hint": "Closure validation", "tone": "success"},
-        ],
-        "CSITE": lambda: [
-            {"label": "Open Observations", "value": _seed_int(fw + "obs", 12, 28), "hint": "Internal audit", "tone": "danger"},
-            {"label": "Audit Aging >45d", "value": _seed_int(fw + "age", 4, 12), "hint": "Overdue closure", "tone": "warning"},
-            {"label": "Pending Auditor Review", "value": _seed_int(fw + "par", 6, 14), "hint": "Awaiting sign-off", "tone": "warning"},
-            {"label": "Reopened Findings", "value": _seed_int(fw + "reop", 1, 5), "hint": "Repeat observations", "tone": "danger"},
-            {"label": "Controls", "value": n_ctrl, "hint": "Audit scope", "tone": "primary"},
-            {"label": "Closure Effectiveness", "value": f"{_seed_int(fw+'close', 78, 92)}%", "hint": "Within SLA", "tone": "success"},
-        ],
-        "ITPP": lambda: [
-            {"label": "DR Test Compliance", "value": f"{_seed_int(fw+'dr', 88, 98)}%", "hint": "Semi-annual drills", "tone": "success"},
-            {"label": "Failed Backups", "value": _seed_int(fw + "fbk", 1, 6), "hint": "Last 7 days", "tone": "danger"},
-            {"label": "Overdue Changes", "value": _seed_int(fw + "chg", 3, 12), "hint": "CAB pending", "tone": "warning"},
-            {"label": "Capacity Risks", "value": _seed_int(fw + "cap", 2, 8), "hint": "Saturation alerts", "tone": "warning"},
-            {"label": "Controls", "value": n_ctrl, "hint": "7 ITPP domains", "tone": "navy"},
-            {"label": "Policy Adherence", "value": f"{_seed_int(fw+'pol', 85, 96)}%", "hint": "Governance score", "tone": "primary"},
-        ],
-    }
-    fn = builders.get(framework)
-    return fn() if fn else [
-        {"label": "Controls", "value": n_ctrl, "hint": "In scope", "tone": "primary"},
-        {"label": "Evidence", "value": n_ev, "hint": "Linked artefacts", "tone": "teal"},
-    ]
+    return build_framework_kpi_list(framework, controls, stats)
 
 
 def _insight_sections(framework: str) -> list[dict]:

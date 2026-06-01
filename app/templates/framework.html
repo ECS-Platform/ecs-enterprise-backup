@@ -40,10 +40,11 @@
 </div>
 
 {% if notice %}<div class="alert alert-warning py-2 mb-2">{{ notice }}</div>{% endif %}
-{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
-{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
-{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics) }}{% endif %}
-{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
+{% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills, workflow_summary_cards %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary, framework_name, true) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics, framework_name, true) }}{% endif %}
+{% if evidence_workflow is defined and evidence_workflow.summary_cards is defined %}{{ workflow_summary_cards(evidence_workflow.summary_cards, framework_name, true) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues, framework_name, true) }}{% endif %}
 
 {% if fw_app %}
 {% include "partials/framework_application_grid.html" %}
@@ -68,5 +69,6 @@
 </div></div></div>
 {% include "partials/chatbot_global.html" %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include "partials/ecs_framework_kpi_drill.html" %}
 {% include "partials/evidence_upload_modal.html" %}
 </body></html>

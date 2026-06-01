@@ -9,23 +9,26 @@ from app import ecs_state
 OWNER_STATES = {
     "draft": "Draft",
     "uploaded": "Uploaded",
-    "submitted": "Submitted to Auditor",
-    "reupload": "Re-upload Requested",
-    "rejected": "Rejected by Auditor",
-    "approved": "Approved by Auditor",
-    "clarification": "Clarification Required",
+    "pending_app_owner": "Pending App Owner Approval",
+    "pending_auditor": "Pending Auditor Approval",
+    "submitted": "Pending Auditor Approval",
+    "reupload": "Needs Rework",
+    "rejected": "Rejected By Auditor",
+    "rejected_owner": "Rejected By App Owner",
+    "approved": "Closed",
+    "clarification": "Needs Rework",
     "cancelled": "Draft Cancelled",
 }
 
 AUDITOR_STATES = {
-    "pending": "Pending Review",
-    "submitted": "Under Validation",
-    "approved": "Approved",
-    "rejected": "Rejected",
-    "reupload": "Re-upload Requested",
+    "pending": "Pending Auditor Approval",
+    "submitted": "Pending Auditor Approval",
+    "approved": "Closed",
+    "rejected": "Rejected By Auditor",
+    "reupload": "Needs Rework",
     "escalated": "Escalated",
     "exception": "Exception Raised",
-    "clarification": "Under Validation",
+    "clarification": "Pending Auditor Approval",
 }
 
 
@@ -173,9 +176,9 @@ def build_summary(role: str) -> dict:
             "escalated": escalated,
             "reupload_requested": reupload,
             "counters": [
-                {"label": "Pending Review", "value": pending, "tone": "warning"},
-                {"label": "Approved", "value": approved, "tone": "success"},
-                {"label": "Rejected", "value": rejected, "tone": "danger"},
+                {"label": "Pending Review", "value": pending, "tone": "warning", "metric": "pending_review"},
+                {"label": "Approved", "value": approved, "tone": "success", "metric": "auditor_approved"},
+                {"label": "Rejected", "value": rejected, "tone": "danger", "metric": "rejected"},
             ],
         }
 
@@ -186,9 +189,9 @@ def build_summary(role: str) -> dict:
         "reupload_requested": reupload,
         "approved": approved,
         "counters": [
-            {"label": "Draft", "value": drafts + missing_pending, "tone": "secondary"},
-            {"label": "Submitted", "value": pending, "tone": "warning"},
-            {"label": "Re-upload Req", "value": reupload, "tone": "danger"},
+            {"label": "Draft", "value": drafts + missing_pending, "tone": "secondary", "metric": "draft"},
+            {"label": "Submitted", "value": pending, "tone": "warning", "metric": "submitted"},
+            {"label": "Re-upload Req", "value": reupload, "tone": "danger", "metric": "reupload"},
         ],
     }
 
@@ -208,11 +211,11 @@ def build_analytics(role: str) -> dict:
         "pending_aging_days": 8 if pending else 0,
         "sla_compliance_pct": 94.5,
         "cards": [
-            {"label": "Approval Rate", "value": f"{approval_rate}%", "hint": "In-scope evidence", "tone": "success"},
-            {"label": "Avg Review Time", "value": "3.2d", "hint": "Auditor turnaround", "tone": "primary"},
-            {"label": "Rejection Trend", "value": "↓ 12%", "hint": "Month over month", "tone": "warning"},
-            {"label": "Pending Aging", "value": f"{pending} items", "hint": "Avg 8 days in queue", "tone": "info"},
-            {"label": "Auditor SLA", "value": "94.5%", "hint": "Within 5-day target", "tone": "teal"},
+            {"label": "Approval Rate", "value": f"{approval_rate}%", "hint": "In-scope evidence", "tone": "success", "metric": "approval_rate"},
+            {"label": "Avg Review Time", "value": "3.2d", "hint": "Auditor turnaround", "tone": "primary", "metric": "avg_review_time"},
+            {"label": "Rejection Trend", "value": "↓ 12%", "hint": "Month over month", "tone": "warning", "metric": "rejection_trend"},
+            {"label": "Pending Aging", "value": f"{pending} items", "hint": "Avg 8 days in queue", "tone": "info", "metric": "pending_aging"},
+            {"label": "Auditor SLA", "value": "94.5%", "hint": "Within 5-day target", "tone": "teal", "metric": "auditor_sla"},
         ],
     }
 
@@ -225,18 +228,18 @@ def build_queues(role: str) -> dict:
     if is_auditor(role):
         return {
             "queues": [
-                {"id": "pending", "label": "Pending Auditor Review", "count": s["pending_review"]},
-                {"id": "approved", "label": "Recently Approved", "count": s["approved"]},
-                {"id": "rejected", "label": "Rejected Evidence", "count": s["rejected"]},
-                {"id": "escalated", "label": "Escalated Evidence", "count": s.get("escalated", 0)},
+                {"id": "pending", "label": "Pending Auditor Review", "count": s["pending_review"], "metric": "pending_review"},
+                {"id": "approved", "label": "Recently Approved", "count": s["approved"], "metric": "auditor_approved"},
+                {"id": "rejected", "label": "Rejected Evidence", "count": s["rejected"], "metric": "rejected"},
+                {"id": "escalated", "label": "Escalated Evidence", "count": s.get("escalated", 0), "metric": "escalated"},
             ]
         }
     return {
         "queues": [
-            {"id": "draft", "label": "Draft Evidence", "count": s["draft"]},
-            {"id": "submitted", "label": "Submitted Evidence", "count": s["submitted"]},
-            {"id": "reupload", "label": "Re-upload Requested", "count": s["reupload_requested"]},
-            {"id": "approved", "label": "Auditor Approved", "count": s["approved"]},
+            {"id": "draft", "label": "Draft Evidence", "count": s["draft"], "metric": "draft"},
+            {"id": "submitted", "label": "Submitted Evidence", "count": s["submitted"], "metric": "submitted"},
+            {"id": "reupload", "label": "Re-upload Requested", "count": s["reupload_requested"], "metric": "reupload"},
+            {"id": "approved", "label": "Auditor Approved", "count": s["approved"], "metric": "auditor_approved"},
         ]
     }
 
@@ -365,12 +368,115 @@ def can_close_observation(key: str, observation_id: str = "") -> bool:
     return True
 
 
-def record_transition(key: str, action: str, user: str, role: str, detail: str = "") -> None:
+def record_transition(key: str, action: str, user: str, role: str, detail: str = "", *, previous_status: str = "", new_status: str = "") -> None:
+    state = resolve_state(key)
+    prev = previous_status or state.get("owner_label", "Draft")
+    new = new_status or _action_to_status(action)
     trail = ecs_state.evidence_approval_trail.setdefault(key, [])
-    trail.append({
+    entry = {
         "timestamp": _ts(),
         "action": action,
         "actor": user,
+        "user": user,
         "role": role,
         "detail": detail,
-    })
+        "comments": detail,
+        "previous_status": prev,
+        "new_status": new,
+    }
+    trail.append(entry)
+    ecs_state.workflow_audit_history.setdefault(key, []).append(entry)
+
+
+def _action_to_status(action: str) -> str:
+    mapping = {
+        "submitted": "Pending Auditor Approval",
+        "approved": "Closed",
+        "rejected": "Rejected By Auditor",
+        "reupload": "Needs Rework",
+        "owner_approved": "Pending Auditor Approval",
+        "owner_rejected": "Rejected By App Owner",
+    }
+    return mapping.get(action, action.replace("_", " ").title())
+
+
+def drill_workflow_metric(role: str, metric: str, count: int = 0) -> dict:
+    """Enterprise-wide evidence workflow drill — traceable to displayed counts."""
+    from app.demo_data_standards import ensure_drill_rows, generate_standard_drill_row, pick, seed, between
+    from app.demo_data_standards import BANKING_APPLICATIONS, BANKING_OWNERS
+
+    metric = (metric or "submitted").strip().lower().replace("-", "_").replace(" ", "_")
+    ctx = build_workflow_context(role)
+    label = metric.replace("_", " ").title()
+    for block in (
+        ctx["summary"].get("counters", []),
+        ctx["analytics"].get("cards", []),
+        ctx["queues"].get("queues", []),
+    ):
+        for item in block:
+            if item.get("metric") == metric:
+                label = item.get("label", label)
+                break
+
+    status_map = {
+        "draft": "Draft",
+        "submitted": "Pending Auditor Approval",
+        "pending_review": "Pending Auditor Approval",
+        "reupload": "Needs Rework",
+        "rejected": "Rejected By Auditor",
+        "auditor_approved": "Closed",
+        "approval_rate": "Closed",
+        "avg_review_time": "Pending Auditor Approval",
+        "rejection_trend": "Needs Rework",
+        "pending_aging": "Pending App Owner Approval",
+        "escalated": "Escalated",
+    }
+    status = status_map.get(metric, "Open")
+
+    rows: list[dict] = []
+    for i in range(12):
+        s = seed("ewf", role, metric, i)
+        app = pick(s, BANKING_APPLICATIONS)
+        row = generate_standard_drill_row(i, metric=f"ewf:{metric}", application=app)
+        row.update({
+            "observation": f"OBS-EWF-{i + 1:04d}",
+            "reviewer": pick(s >> 2, ["S. Nair (Auditor)", "Internal Audit"]),
+            "status": status,
+            "owner": pick(s >> 4, BANKING_OWNERS),
+            "created_date": f"2026-04-{(i % 25) + 1:02d}",
+            "updated_date": f"2026-05-{(i % 20) + 1:02d}",
+            "review_days": f"{between(s >> 6, 1, 8)}d",
+        })
+        rows.append(row)
+
+    from app.ecs_universal_drill_engine import _target_rows, UNIVERSAL_COLUMNS
+
+    target = _target_rows(count or ctx["summary"].get("submitted", 0))
+    rows = ensure_drill_rows(rows, target, metric=metric)
+    for r in rows:
+        for c in UNIVERSAL_COLUMNS:
+            r.setdefault(c, "—")
+
+    history: list[dict] = []
+    for i, entry in enumerate(ecs_state.workflow_audit_history.get(f"ewf:{metric}", [])[:5]):
+        history.append(entry)
+    if not history:
+        for i in range(8):
+            history.append({
+                "user": pick(seed(i, "u"), BANKING_OWNERS),
+                "role": pick(seed(i, "r"), ["Application Owner", "Auditor", "Compliance Officer"]),
+                "timestamp": f"2026-05-{(i % 20) + 1:02d} 10:{i:02d} UTC",
+                "previous_status": pick(seed(i, "p"), list(OWNER_STATES.values())),
+                "new_status": status,
+                "comments": f"Workflow transition for {label}",
+            })
+
+    return {
+        "ok": True,
+        "title": f"{label} — Evidence Workflow",
+        "rows": rows,
+        "columns": UNIVERSAL_COLUMNS,
+        "sections": {"audit_history": history, "approval_history": rows[:10]},
+        "metric": metric,
+        "role": role,
+    }

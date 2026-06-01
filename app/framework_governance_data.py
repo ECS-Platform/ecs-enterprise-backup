@@ -366,7 +366,15 @@ def build_framework_governance_analytics(framework_name: str) -> dict[str, Any]:
             for a in sorted(apps, key=lambda x: -x.get("findings", 0))[:3]
         ],
         "top_risk_applications": [
-            {"application": a["name"], "compliance_pct": a["compliance_pct"], "open_observations": a["findings"], "sla_breaches": _seed(a["name"], 0, 3)}
+            {
+                "application": a["name"],
+                "compliance_pct": a["compliance_pct"],
+                "open_observations": a["findings"],
+                "high_risk_gaps": max(1, a["findings"] // 2),
+                "stale_evidences": _seed(a["name"] + "st", 1, 5),
+                "sla_breaches": _seed(a["name"], 0, 3),
+                "risk": "High" if a["compliance_pct"] < 80 else "Medium",
+            }
             for a in sorted(apps, key=lambda x: x.get("compliance_pct", 100))[:4]
         ],
         "trends": trends,

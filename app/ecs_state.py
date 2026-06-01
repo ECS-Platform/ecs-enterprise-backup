@@ -68,6 +68,7 @@ itpp_drill_log: list[dict] = []
 grc_action_log: dict = {}
 exception_registry: dict[str, dict] = {}
 evidence_approval_trail: dict[str, list] = {}
+workflow_audit_history: dict[str, list] = {}
 missing_evidence_registry: dict[str, dict] = {}
 closed_observations: dict[str, dict] = {}
 export_registry: dict[str, dict] = {}

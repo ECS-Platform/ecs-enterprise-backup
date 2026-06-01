@@ -388,7 +388,7 @@ def framework_page(
             if itpp_domain and itpp_app
             else None
         )
-    ctx.update(enterprise_widgets_context(role, framework=resolved_fw, user=user))
+    ctx.update(enterprise_widgets_context(role, page_module="framework", framework=resolved_fw, user=user))
     from app.ecs_logging import log_navigation
 
     log_navigation(user, role, f"{framework_name} framework dashboard")
@@ -397,6 +397,70 @@ def framework_page(
         name="framework.html",
         context=ctx,
     )
+
+
+@app.get("/api/framework/kpi-drill")
+def api_framework_kpi_drill(framework: str = "", metric: str = ""):
+    from fastapi.responses import JSONResponse
+
+    from app.framework_kpi_drill_engine import drill_framework_kpi
+    from app.framework_catalog import resolve_framework_name
+
+    fw = resolve_framework_name(framework) if framework else framework
+    if not fw or not metric:
+        return JSONResponse({"ok": False, "error": "framework and metric required"}, status_code=400)
+    return JSONResponse(drill_framework_kpi(fw, metric))
+
+
+@app.get("/api/framework/workflow-drill")
+def api_framework_workflow_drill(framework: str = "", metric: str = ""):
+    from fastapi.responses import JSONResponse
+
+    from app.framework_catalog import resolve_framework_name
+    from app.framework_workflow_engine import drill_framework_workflow
+
+    fw = resolve_framework_name(framework) if framework else framework
+    if not fw or not metric:
+        return JSONResponse({"ok": False, "error": "framework and metric required"}, status_code=400)
+    return JSONResponse(drill_framework_workflow(fw, metric))
+
+
+@app.get("/api/framework/row-drill")
+def api_framework_row_drill(framework: str = "", type: str = "", id: str = ""):
+    from fastapi.responses import JSONResponse
+
+    from app.ecs_row_drill_engine import drill_framework_row
+    from app.framework_catalog import resolve_framework_name
+
+    fw = resolve_framework_name(framework) if framework else framework
+    if not fw:
+        return JSONResponse({"ok": False, "error": "framework required"}, status_code=400)
+    return JSONResponse(drill_framework_row(fw, type, id))
+
+
+@app.get("/api/framework/tab-drill")
+def api_framework_tab_drill(framework: str = "", tab: str = ""):
+    from fastapi.responses import JSONResponse
+
+    from app.ecs_row_drill_engine import drill_framework_row
+    from app.framework_catalog import resolve_framework_name
+
+    fw = resolve_framework_name(framework) if framework else framework
+    if not fw or not tab:
+        return JSONResponse({"ok": False, "error": "framework and tab required"}, status_code=400)
+    tab_map = {
+        "applications": ("application", "all"),
+        "controls": ("control", "all"),
+        "evidence": ("evidence", "repository"),
+        "findings": ("finding", "open"),
+        "pending": ("pending", "actions"),
+        "integrations": ("integration", "hub"),
+        "exceptions": ("exception", "register"),
+        "reuse": ("reuse", "mapping"),
+        "trends": ("trend", "analytics"),
+    }
+    row_type, row_id = tab_map.get(tab, (tab, "all"))
+    return JSONResponse(drill_framework_row(fw, row_type, row_id))
 
 
 @app.get("/evidence/review", response_class=HTMLResponse)

@@ -25,9 +25,9 @@
 
 {{ page_header(role.upper() ~ ' Dashboard', 'Governance posture and prioritized actions', user, role) }}
 {% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
-{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
-{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics) }}{% endif %}
-{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary, enterprise_drill=true) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics, enterprise_drill=true) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues, enterprise_drill=true) }}{% endif %}
 
 {# ── TOP: KPI summary ── #}
 {{ zone_open('top') }}

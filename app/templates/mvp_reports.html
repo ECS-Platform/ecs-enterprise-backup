@@ -23,7 +23,8 @@
 <tr data-ecs-filter-row data-filter-framework="{{ r.framework|default('Enterprise-wide') }}" data-filter-application="{{ r.application|default('All Applications') }}" data-filter-risk="{{ r.risk|default('Low') }}" data-filter-status="{{ r.status }}">
 <td><strong>{{ r.title|default(r.id) }}</strong><br><span class="small text-muted">{{ r.description|default('Enterprise compliance export')|truncate(60) }}</span></td>
 <td>{{ r.format }}</td><td>{{ r.framework|default('Enterprise-wide') }}</td><td>{{ r.application|default('All Applications') }}</td><td>{{ r.schedule }}</td><td><span class="badge bg-secondary">{{ r.status }}</span></td>
-<td class="text-nowrap">{% if r.id %}<a href="/mvp/reports/download/{{ r.id }}?format=pdf&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-primary">PDF</a>{% endif %}
+<td class="text-nowrap">{% if r.id %}<a href="/mvp/reports/view/{{ r.view_type }}?role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-primary">Generate Report</a>{% endif %}
+<a href="/mvp/reports/download/{{ r.id }}?format=pdf&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-primary">PDF</a>
 <a href="/mvp/reports/download/{{ r.id }}?format=excel&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-success">Excel</a>
 <a href="/mvp/reports/download/{{ r.id }}?format=csv&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-secondary">CSV</a>
 {{ module_action('reports','schedule',role,user,'Schedule','btn-sm btn-outline-secondary',r.id|default('')) }}</td></tr>

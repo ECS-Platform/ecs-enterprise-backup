@@ -216,9 +216,12 @@
 {% endmacro %}
 
 
-{% macro kpi_card(label, value, hint='', tone='primary', icon='') %}
+{% macro kpi_card(label, value, hint='', tone='primary', icon='', drill_metric='') %}
 <div class="col-md-4 col-lg-3 col-xl-2">
-<div class="ecs-kpi-modern ecs-kpi-{{ tone }}">
+<div class="ecs-kpi-modern ecs-kpi-{{ tone }} ecs-kpi-clickable" role="button" tabindex="0"
+  data-ecs-universal-kpi data-ecs-universal-page="dashboard" data-ecs-universal-metric="{{ drill_metric|default(label|lower|replace(' ','_')|replace('/','_')) }}"
+  data-ecs-universal-label="{{ label }}" data-ecs-universal-count="{{ value }}"
+  title="Click for {{ label }} supporting records">
 {% if icon %}<span class="ecs-kpi-icon">{{ icon }}</span>{% endif %}
 <div class="ecs-kpi-label">{{ label }}</div>
 <div class="ecs-kpi-value">{{ value }}</div>

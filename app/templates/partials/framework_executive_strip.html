@@ -1,9 +1,16 @@
-{# Compact horizontal executive KPI strip #}
+{# Compact horizontal executive KPI strip — framework-specific, clickable drilldowns #}
 {% if fw_dashboard is defined and fw_dashboard.kpis %}
 <div class="ecs-exec-strip mb-2">
 <div class="ecs-exec-strip-scroll">
 {% for k in fw_dashboard.kpis %}
-<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}" title="{{ k.hint|default('') }}">
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }} ecs-kpi-clickable"
+     role="button"
+     tabindex="0"
+     data-ecs-framework-kpi
+     data-ecs-framework-kpi-framework="{{ framework_name|e }}"
+     data-ecs-framework-kpi-metric="{{ k.metric|default('')|e }}"
+     data-ecs-framework-kpi-label="{{ k.label|e }}"
+     title="Click to drill down — {{ k.label|e }}">
 <span class="ecs-exec-kpi-val">{{ k.value }}</span>
 <span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
 {% if k.hint %}<span class="ecs-exec-kpi-hint">{{ k.hint }}</span>{% endif %}

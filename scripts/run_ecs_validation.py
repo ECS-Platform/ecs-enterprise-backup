@@ -67,6 +67,7 @@ def main() -> int:
     modules = [
         "tests.test_registry_table_rendering",
         "tests.test_ecs_governance_workflow",
+        "tests.test_ecs_demo_readiness",
         "tests.test_ai_sdlc_redesign",
         "tests.test_ai_sdlc_workflow",
         "tests.test_ai_sdlc_governance_corrections",
@@ -89,6 +90,7 @@ def main() -> int:
         "validate_demo_engine.py",
         "validate_framework_loader.py",
         "validate_audit_prep.py",
+        "validate_demo_readiness.py",
     ):
         ok, detail = _run_script(script)
         status = "PASS" if ok else "FAIL"

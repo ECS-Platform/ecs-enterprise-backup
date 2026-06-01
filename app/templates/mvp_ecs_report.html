@@ -1,0 +1,27 @@
+<!DOCTYPE html><html><head><title>{{ report.title }}</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light ecs-cap-reports"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<div class="d-flex justify-content-between align-items-start mb-2">
+<div>
+<h1 class="ecs-workspace-title h5 mb-1">{{ report.title }}</h1>
+<p class="ecs-exec-desc-muted mb-0">{{ report.subtitle }}</p>
+</div>
+<a href="/mvp/reports?role={{ role }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-secondary">← Reports</a>
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0 ecs-force-paginate"><thead><tr>
+{% for col in report.columns %}
+<th{% if col.wrap %} style="min-width:180px"{% endif %}>{{ col.label }}</th>
+{% endfor %}
+</tr></thead><tbody>
+{% for row in report.rows %}
+<tr>
+{% for col in report.columns %}
+<td{% if col.wrap %} class="ecs-gov-wrap" style="min-width:180px;white-space:normal;word-break:normal;overflow-wrap:break-word"{% endif %}>{{ row[col.key] }}</td>
+{% endfor %}
+</tr>
+{% endfor %}
+</tbody></table></div>
+</div></div></div>
+{% include "partials/chatbot_global.html" %}</body></html>

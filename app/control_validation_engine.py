@@ -345,10 +345,20 @@ def build_governance_analytics() -> dict:
     repeat_failures: list[dict] = []
     for key, info in ecs_state.rejected_controls.items():
         fw, ctrl = key.split("::", 1)
-        repeat_failures.append({"framework": fw, "control": ctrl, "reason": info.get("reason", "")[:80], "count": 1})
+        repeat_failures.append({
+            "framework": fw, "control": ctrl, "application": "Net Banking",
+            "evidence": ctrl[:40], "finding": info.get("reason", "")[:80],
+            "owner": "App Owner", "status": "Rejected", "risk": "High",
+            "reason": info.get("reason", "")[:80], "count": 1,
+        })
     for key in ecs_state.escalated_controls:
         fw, ctrl = key.split("::", 1)
-        repeat_failures.append({"framework": fw, "control": ctrl, "reason": "Escalated — SLA breach", "count": 2})
+        repeat_failures.append({
+            "framework": fw, "control": ctrl, "application": "UPI",
+            "evidence": "Escalated evidence pack", "finding": "SLA breach",
+            "owner": "Compliance Officer", "status": "Escalated", "risk": "Critical",
+            "reason": "Escalated — SLA breach", "count": 2,
+        })
 
     risky = build_owner_work_queue(100)
     risky = [i for i in risky if i.get("risk_rating") in ("Critical", "High")]

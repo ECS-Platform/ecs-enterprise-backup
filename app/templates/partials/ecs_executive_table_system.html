@@ -74,17 +74,17 @@
   overflow-y: auto;
 }
 
-/* Proportional column hints (wide audit tables) */
-.ecs-executive-table th:nth-child(1),
-.ecs-executive-table td:nth-child(1) { width: 8%; }
-.ecs-executive-table th:nth-child(2),
-.ecs-executive-table td:nth-child(2) { width: 10%; }
-.ecs-executive-table th:nth-child(3),
-.ecs-executive-table td:nth-child(3) { width: 9%; }
-.ecs-executive-table th:nth-child(5),
-.ecs-executive-table td:nth-child(5) { width: 14%; }
-.ecs-executive-table th:nth-child(6),
-.ecs-executive-table td:nth-child(6) { width: 14%; }
+/* Proportional column hints (wide audit tables) — never crush demo top-risk table */
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) th:nth-child(1),
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) td:nth-child(1) { width: 8%; }
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) th:nth-child(2),
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) td:nth-child(2) { width: 10%; }
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) th:nth-child(3),
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) td:nth-child(3) { width: 9%; }
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) th:nth-child(5),
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) td:nth-child(5) { width: 14%; }
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) th:nth-child(6),
+.ecs-executive-table:not(.demo-table):not(.ecs-top-risk-applications) td:nth-child(6) { width: 14%; }
 
 /* Compact controls */
 .ecs-executive-table .badge,
@@ -172,6 +172,7 @@
 
   function enhanceTable(table) {
     if (!table || table.dataset.ecsExecEnhanced) return;
+    if (table.classList.contains('demo-table') || table.classList.contains('ecs-skip-exec-table')) return;
     table.dataset.ecsExecEnhanced = '1';
     table.classList.add('ecs-executive-table');
     if (!table.classList.contains('ecs-fit-table')) table.classList.add('ecs-fit-table');

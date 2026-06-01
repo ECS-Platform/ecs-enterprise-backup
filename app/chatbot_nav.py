@@ -26,6 +26,7 @@ MODULE_PATHS = {
     "scheduler": "/mvp/scheduler",
     "upload": "/mvp/upload",
     "onboarding": "/mvp/onboarding",
+    "ai_ops_assistant": "/mvp/ai-ops-assistant",
     "framework_admin": "/mvp/framework-admin",
     "trends": "/mvp/trends",
     "cmdb": "/mvp/cmdb",

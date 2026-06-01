@@ -72,8 +72,9 @@
     var tb = document.getElementById('ecsTrendRiskAppsBody');
     if (tb && intel.top_risk_applications) {
       tb.innerHTML = intel.top_risk_applications.map(function(a) {
-        return '<tr><td>' + esc(a.application) + '</td><td>' + a.compliance_pct + '%</td><td>' + esc(a.risk) + '</td><td>' + a.open_observations + '</td><td>' + a.high_risk_gaps + '</td></tr>';
+        return '<tr data-grc-drill data-grc-module="governance" data-grc-metric="application" data-grc-id="' + esc(a.application) + '"><td>' + esc(a.application) + '</td><td>' + a.compliance_pct + '%</td><td>' + esc(a.risk || 'Elevated') + '</td><td>' + a.open_observations + '</td><td>' + (a.high_risk_gaps || 0) + '</td></tr>';
       }).join('') || '<tr><td colspan="5" class="text-muted small">No applications in scope.</td></tr>';
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination();
     }
     var sum = document.getElementById('ecsAnalyticsFilterSummary');
     if (sum) sum.textContent = 'Live scope: ' + (data.scope_summary || intel.scope_summary || 'updated');

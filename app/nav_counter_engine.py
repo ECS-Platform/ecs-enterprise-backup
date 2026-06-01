@@ -39,6 +39,7 @@ MODULE_LABELS = {
     "governance_analytics": "governance trend alerts",
     "evidence_approval": "evidence pending validation or stale",
     "exception_governance": "exceptions pending CAB or expiring TD",
+    "ai_ops_assistant": "active incident scenarios for copilot",
 }
 
 MODULE_KEYS = list(MODULE_LABELS.keys())

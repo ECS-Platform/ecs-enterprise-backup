@@ -1,0 +1,94 @@
+{# Top Risk Applications — final override loaded after global table systems #}
+<style>
+table[data-ecs-top-risk-table],
+table.ecs-top-risk-applications {
+  table-layout: auto !important;
+  width: max-content !important;
+  min-width: 580px !important;
+  max-width: none !important;
+}
+table[data-ecs-top-risk-table] col.col-app,
+table[data-ecs-top-risk-table] .col-app {
+  min-width: 250px !important;
+  width: 250px !important;
+  max-width: none !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  hyphens: none !important;
+}
+table[data-ecs-top-risk-table] col.col-risk,
+table[data-ecs-top-risk-table] .col-risk {
+  min-width: 80px !important;
+  width: 80px !important;
+}
+table[data-ecs-top-risk-table] col.col-readiness,
+table[data-ecs-top-risk-table] .col-readiness {
+  min-width: 100px !important;
+  width: 100px !important;
+}
+table[data-ecs-top-risk-table] col.col-owner,
+table[data-ecs-top-risk-table] .col-owner {
+  min-width: 150px !important;
+  width: 150px !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+table[data-ecs-top-risk-table] .col-app strong {
+  display: inline !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+.ecs-top-risk-scroll {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  max-width: 100% !important;
+  display: block !important;
+  -webkit-overflow-scrolling: touch;
+}
+</style>
+<script>
+(function(){
+  function protectTopRiskTable(root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll('[data-ecs-top-risk-table]').forEach(function(table) {
+      table.classList.remove('ecs-executive-table', 'ecs-fit-table');
+      table.classList.add('ecs-skip-exec-table', 'ecs-top-risk-applications');
+      table.style.tableLayout = 'auto';
+      table.style.width = 'max-content';
+      table.style.minWidth = '580px';
+      table.querySelectorAll('.col-app, .col-app strong').forEach(function(cell) {
+        cell.style.minWidth = '250px';
+        cell.style.width = cell.tagName === 'COL' ? '250px' : '';
+        cell.style.wordBreak = 'normal';
+        cell.style.whiteSpace = 'normal';
+        cell.style.overflowWrap = 'break-word';
+        cell.style.hyphens = 'none';
+      });
+      var wrap = table.closest('.ecs-top-risk-scroll, .demo-table-wrap');
+      if (wrap) {
+        wrap.style.overflowX = 'auto';
+        wrap.style.maxWidth = '100%';
+      }
+    });
+  }
+  window.ecsProtectTopRiskTable = protectTopRiskTable;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ protectTopRiskTable(); });
+  } else {
+    protectTopRiskTable();
+  }
+  document.addEventListener('ecsPaginationChanged', function(){ protectTopRiskTable(); });
+  if (window.ecsEnhanceExecutiveTables) {
+    var orig = window.ecsEnhanceExecutiveTables;
+    window.ecsEnhanceExecutiveTables = function() {
+      orig.apply(this, arguments);
+      protectTopRiskTable();
+    };
+  }
+  setTimeout(protectTopRiskTable, 150);
+  setTimeout(protectTopRiskTable, 500);
+})();
+</script>

@@ -1,0 +1,75 @@
+<script>
+(function(){
+  var role = {{ role|tojson }};
+  var user = {{ user|tojson }};
+
+  function bindSuggestButtons(root) {
+    (root || document).querySelectorAll('.ecs-suggest-btn, .ecs-outage-mode-btn').forEach(function(btn){
+      if (btn._ecsBound) return;
+      btn._ecsBound = true;
+      btn.addEventListener('click', function(){
+        var input = document.getElementById('ecsChatInput');
+        if (input) { input.value = btn.getAttribute('data-q'); document.getElementById('ecsChatForm').submit(); }
+      });
+    });
+  }
+
+  function bindQuickActions(root) {
+    (root || document).querySelectorAll('.ecs-chat-quick-action').forEach(function(btn){
+      if (btn._ecsQuickBound) return;
+      btn._ecsQuickBound = true;
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var action = btn.getAttribute('data-action');
+        var scenario = btn.getAttribute('data-scenario') || '';
+        if (!action) return;
+        btn.disabled = true;
+        var fd = new FormData();
+        fd.append('action', action);
+        fd.append('role', role);
+        fd.append('user', user);
+        fd.append('scenario', scenario);
+        fetch('/mvp/api/chat-action', { method: 'POST', body: fd })
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            if (!data || !data.html) return;
+            var panel = document.getElementById('ecsChatLatest');
+            if (panel) {
+              panel.innerHTML = data.html;
+              panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            splitCopilotPanels();
+            bindQuickActions(panel);
+            bindSuggestButtons(panel);
+            if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+          })
+          .finally(function(){ btn.disabled = false; });
+      });
+    });
+  }
+
+  function splitCopilotPanels() {
+    var latest = document.getElementById('ecsChatLatest');
+    var refBody = document.getElementById('ecsChatRefBody');
+    if (!latest || !refBody) return;
+    var existing = refBody.querySelectorAll('a.btn');
+    var refHtml = Array.from(existing).map(function(el){ return el.outerHTML; });
+    latest.querySelectorAll('a, .btn:not(.ecs-outage-mode-btn)').forEach(function(el) {
+      if (el.tagName === 'A' || (el.classList.contains('btn') && !el.classList.contains('ecs-outage-mode-btn'))) {
+        if (refHtml.indexOf(el.outerHTML) === -1) refHtml.push(el.outerHTML);
+      }
+    });
+    if (refHtml.length) {
+      refBody.innerHTML = '<div class="ecs-chat-ref-cards d-flex flex-wrap gap-1 ecs-paginated-blocks">' + refHtml.join('') + '</div>';
+      if (window.ecsRefreshPagination) window.ecsRefreshPagination(refBody);
+    }
+  }
+
+  bindSuggestButtons(document);
+  bindQuickActions(document);
+  splitCopilotPanels();
+  var latest = document.getElementById('ecsChatLatest');
+  if (latest) { bindSuggestButtons(latest); bindQuickActions(latest); }
+  if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+})();
+</script>

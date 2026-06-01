@@ -120,3 +120,60 @@ def expand_catalog(
         out.append(builder(n))
         n += 1
     return out
+
+
+FRAMEWORKS = [
+    "PCI DSS", "DPSC", "OS Baselining", "DB Baselining", "VAPT", "AppSec",
+    "CSITE", "ITPP", "RBI Cyber Security", "ISO27001", "SOC2", "Nginx Baselining",
+]
+
+DOMAINS = [
+    "Access Control", "Cryptography", "Network Security", "Incident Response",
+    "Change Management", "DR & BCP", "Logging & Monitoring", "Data Protection",
+]
+
+STATUSES = ["Open", "Submitted", "Approved", "Pending Review", "Escalated", "In Remediation", "Closed"]
+RISKS = ["Critical", "High", "Medium", "Low"]
+FINDING_TYPES = ["Observation", "VAPT Finding", "Drift", "SLA Breach", "Control Gap", "Exception"]
+
+
+def generate_standard_drill_row(index: int, *, metric: str = "", application: str = "") -> dict[str, Any]:
+    s = seed("std-drill", metric, index)
+    app = application or pick(s, BANKING_APPLICATIONS)
+    fw = pick(s >> 4, FRAMEWORKS)
+    dom = pick(s >> 6, DOMAINS)
+    ctrl_num = between(s >> 8, 1, 99)
+    return {
+        "application": app,
+        "framework": fw,
+        "domain": dom,
+        "control": f"{fw[:4].upper()}-{ctrl_num:02d} — {pick(s >> 10, ['Encryption', 'Access Review', 'Patch Mgmt', 'Logging', 'Backup Validation'])}",
+        "owner": pick(s >> 12, BANKING_OWNERS),
+        "status": pick(s >> 14, STATUSES),
+        "risk": pick(s >> 16, RISKS),
+        "evidence": f"EVD-{fw[:3].upper()}-{index:04d}",
+        "evidence_count": between(s >> 18, 1, 12),
+        "finding": f"{pick(s >> 20, FINDING_TYPES)} — {app} / {fw}",
+        "findings_count": between(s >> 22, 0, 8),
+        "finding_id": f"FND-{index:05d}",
+        "date": f"2026-{(index % 5) + 1:02d}-{(index % 28) + 1:02d}",
+        "last_updated": f"2026-05-{(index % 20) + 1:02d}",
+        "severity": pick(s >> 24, RISKS),
+    }
+
+
+def ensure_drill_rows(base: list[dict], minimum: int = 25, *, metric: str = "") -> list[dict]:
+    """Pad drill tables to demo minimum row count with realistic banking data."""
+    if len(base) >= minimum:
+        return base[: max(minimum, len(base))]
+    return expand_catalog(
+        base,
+        minimum,
+        lambda i: generate_standard_drill_row(len(base) + i, metric=metric),
+    )
+
+
+DRILL_COLUMNS = [
+    "application", "framework", "domain", "control", "owner", "status",
+    "risk", "evidence", "finding", "date",
+]

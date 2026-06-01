@@ -35,6 +35,7 @@ def enterprise_widgets_context(role: str = "", page_module: str = "", framework:
     stats = ecs_state.build_evidence_analytics()
     nav_counters = build_nav_counters(role)
     ctx = {
+        "nav_module": page_module or "",
         "catalog_stats": catalog_stats(),
         "role_metrics": role_dashboard_metrics(role) if role else {},
         "notifications": get_notifications(),
@@ -57,7 +58,6 @@ def enterprise_widgets_context(role: str = "", page_module: str = "", framework:
         "governance_analytics": enrich_governance_analytics(build_governance_analytics(), build_contextual_trends(analytics_filters)),
     }
     if page_module:
-        ctx["nav_module"] = page_module
         ctx["module_view"] = get_module_capability(page_module, role, analytics_filters)
         ctx["workspace"] = build_module_workspace(page_module, role)
         ctx["show_mvp_notifications"] = True
@@ -79,5 +79,9 @@ def enterprise_widgets_context(role: str = "", page_module: str = "", framework:
         ctx["leadership_title"] = titles.get(role, "Executive Workflow Queue")
     if role:
         ctx.update(permission_ctx(role))
-        ctx["evidence_workflow"] = build_workflow_context(role)
+        if framework:
+            from app.framework_workflow_engine import build_framework_workflow_context
+            ctx["evidence_workflow"] = build_framework_workflow_context(framework, role)
+        else:
+            ctx["evidence_workflow"] = build_workflow_context(role)
     return ctx

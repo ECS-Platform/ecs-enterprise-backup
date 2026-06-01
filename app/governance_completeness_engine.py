@@ -59,6 +59,7 @@ def _detail_row(app: str, fw: str) -> dict:
         "open_gaps": gaps,
         "failed_controls": failed,
         "evidence_status": evidence,
+        "status": evidence,
         "trend": trend,
         "risk": risk,
         "owner": owner_for(app),

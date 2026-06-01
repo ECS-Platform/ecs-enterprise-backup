@@ -3,7 +3,7 @@
 {% set q = '?role=' ~ role ~ '&user=' ~ user %}
 {% set exec_open = nav_module in ['enterprise','pan_india','reports','trends','demo_overview'] or nav_active in ['main_dashboard','role_dashboard'] %}
 {% set fw_open = framework_name is defined or nav_module in ['framework_admin', 'framework_loader'] %}
-{% set ops_open = nav_module in ['scheduler','upload','integrations','onboarding','integrations_hub'] %}
+{% set ops_open = nav_module in ['scheduler','upload','integrations','onboarding','integrations_hub','ai_ops_assistant'] %}
 {% set gov_open = nav_module in ['audit_prep','evidence_health','reuse','lifecycle','completeness','comparison','search','evidence_approval'] %}
 {% set grc_open = nav_module in ['risk_register','exceptions_td','cmdb','regulatory_mapping','executive_heatmaps','correlation','governance_analytics','exception_governance'] %}
 {% set ai_sdlc_open = nav_module in ['ai_governance', 'sdlc_gates', 'ai_registry'] %}
@@ -66,6 +66,7 @@
 <div id="nav-ops" class="collapse{% if ops_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
 <a href="/mvp/scheduler{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'scheduler' %} is-active{% endif %}">Scheduler {{ nav_badge(nav_counters.modules.scheduler if nav_counters is defined else 0, nav_counters.module_tooltips.scheduler if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/ai-ops-assistant{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'ai_ops_assistant' %} is-active{% endif %}">AI Ops Assistant {{ nav_badge(nav_counters.modules.ai_ops_assistant if nav_counters is defined else 0, nav_counters.module_tooltips.ai_ops_assistant if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 {% if perm_can_upload|default(role == 'owner') %}
 <a href="/mvp/upload{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'upload' %} is-active{% endif %}">Bulk Upload {{ nav_badge(nav_counters.modules.upload if nav_counters is defined else 0, nav_counters.module_tooltips.upload if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 {% endif %}

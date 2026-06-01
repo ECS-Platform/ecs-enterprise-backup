@@ -1,0 +1,62 @@
+{# Module KPI drill modal — Operations / Governance workspace strips #}
+<div class="modal fade" id="ecsModuleKpiDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="ecsModuleKpiDrillTitle">KPI Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body small" id="ecsModuleKpiDrillBody"></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+<script>
+(function(){
+  if (window.__ecsModuleKpiDrillInit) return;
+  window.__ecsModuleKpiDrillInit = true;
+  var modalEl = document.getElementById('ecsModuleKpiDrillModal');
+  if (!modalEl || typeof bootstrap === 'undefined') return;
+  var modal = new bootstrap.Modal(modalEl);
+  var titleEl = document.getElementById('ecsModuleKpiDrillTitle');
+  var bodyEl = document.getElementById('ecsModuleKpiDrillBody');
+  var role = '{{ role|default("cio")|e }}';
+
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function tableHtml(rows, cols) {
+    if (!rows || !rows.length) return '<p class="text-muted mb-0">No supporting records.</p>';
+    var h = '<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-paginated-table ecs-compact-table mb-0"><thead><tr>';
+    cols.forEach(function(c){ h += '<th>' + esc(c.replace(/_/g,' ')) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function(r){
+      h += '<tr>';
+      cols.forEach(function(c){ h += '<td>' + esc(r[c]) + '</td>'; });
+      h += '</tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  window.ecsOpenModuleKpiDrill = function(module, metric, label, count) {
+    titleEl.textContent = label || metric || 'KPI Detail';
+    bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
+    modal.show();
+    var url = '/api/module-kpi/drill?module=' + encodeURIComponent(module || '') +
+      '&metric=' + encodeURIComponent(metric || '') + '&role=' + encodeURIComponent(role);
+    if (count) url += '&count=' + encodeURIComponent(count);
+    fetch(url).then(function(r){ return r.json(); }).then(function(j){
+      if (!j.ok) { bodyEl.innerHTML = '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'; return; }
+      titleEl.textContent = j.title || label;
+      bodyEl.innerHTML = tableHtml(j.rows, j.columns || ['application','framework','control','evidence','owner','status']);
+      if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+    }).catch(function(){ bodyEl.innerHTML = '<p class="text-danger">Request failed.</p>'; });
+  };
+
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('[data-ecs-module-kpi]');
+    if (!el) return;
+    e.preventDefault();
+    ecsOpenModuleKpiDrill(el.getAttribute('data-ecs-module-kpi-module'), el.getAttribute('data-ecs-module-kpi-metric'), el.getAttribute('data-ecs-module-kpi-label') || el.querySelector('.ecs-exec-kpi-lbl')?.textContent, el.getAttribute('data-ecs-module-kpi-count'));
+  });
+})();
+</script>

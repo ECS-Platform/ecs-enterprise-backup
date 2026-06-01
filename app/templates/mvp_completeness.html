@@ -7,7 +7,7 @@
 <div class="col-md-10 ecs-workspace-main">
 <h1 class="ecs-workspace-title h5">Framework Coverage &amp; Readiness Analysis</h1>
 {% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_queue_pills %}
-{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary, enterprise_drill=true) }}{% endif %}
 {% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues) }}{% endif %}
 <p class="small text-muted mb-2">Tracks framework implementation maturity, missing controls, pending evidence, and audit readiness across applications.</p>
 {% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}

@@ -60,16 +60,14 @@
 <table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-ops-table="upload-tracker"><thead><tr>
 <th>File Name</th><th>Framework</th><th>Application</th><th>Uploaded By</th><th>Status</th><th>Timestamp</th>
 </tr></thead><tbody>
-{% for u in module_view.tracker_rows[:10] %}
+{% for u in module_view.tracker_rows %}
 <tr data-ecs-filter-row data-filter-status="{{ u.status }}" data-filter-framework="{{ u.framework|default('') }}" data-filter-application="{{ u.application|default('') }}" data-filter-owner="{{ u.owner|default('') }}" data-filter-risk="{{ u.risk|default('') }}">
 <td class="small">{{ u.filename|default(u.evidence_name|default(''))|truncate(40, True, '') }}</td>
-<td class="small">{{ u.uploaded_at|default('—') }}</td>
-<td class="small">{{ u.uploaded_by|default('—') }}</td>
-<td class="small">{{ u.application|default(u.tags|default('—')) }}</td>
 <td>{{ u.framework|default('—') }}</td>
+<td>{{ u.application|default(u.tags|default('—')) }}</td>
+<td class="small">{{ u.uploaded_by|default('—') }}</td>
 <td><span class="badge {% if u.status=='Approved' %}bg-success{% elif u.status=='Rejected' %}bg-danger{% elif u.status=='Expired' %}bg-secondary{% elif u.status=='Pending Review' %}bg-warning text-dark{% else %}bg-primary{% endif %}">{{ u.status|default('Uploaded') }}</span></td>
-<td class="small"><code>{{ u.control_id|default(u.mapped_controls|default('—')) }}</code></td>
-<td class="small">{{ u.evidence_type|default('—') }}</td></tr>
+<td class="small">{{ u.uploaded_at|default('—') }}</td></tr>
 {% endfor %}
 </tbody></table></div>
 {{ workspace_pane_end() }}

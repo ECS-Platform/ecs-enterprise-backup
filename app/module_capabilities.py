@@ -58,6 +58,7 @@ MODULE_PURPOSES = {
     "governance_analytics": "Enterprise governance intelligence — audit readiness, rejection patterns, remediation SLA, evidence freshness, and application risk posture.",
     "evidence_approval": "Evidence approval analytics — approved, rejected, pending validation, stale evidence, quality scorecards, and reviewer workload.",
     "exception_governance": "Exception governance dashboard — TD lifecycle, approval persistence, expiring exceptions, and CAB pending queue.",
+    "ai_ops_assistant": "ECS AI Ops Assistant — banking governance copilot for incidents, audit, compliance, frameworks, evidence, and operations drilldowns.",
 }
 
 
@@ -93,6 +94,7 @@ def get_module_capability(module: str, role: str = "owner", analytics_filters: d
         "governance_analytics": _governance_analytics_view,
         "evidence_approval": _evidence_approval_view,
         "exception_governance": _exception_governance_view,
+        "ai_ops_assistant": _ai_ops_assistant_view,
     }
     fn = builders.get(module)
     if not fn:
@@ -442,6 +444,7 @@ def _pan_india_view(role: str) -> dict:
 
 
 def _reports_view(role: str) -> dict:
+    from app.ecs_reports_engine import report_type_for_catalog_id
     from app.standard_filter_engine import build_standard_dataset
     from app.reporting_module import list_report_history
 
@@ -452,6 +455,7 @@ def _reports_view(role: str) -> dict:
     for r in reports:
         rows.append({
             **r,
+            "view_type": report_type_for_catalog_id(r["id"]),
             "generated_at": r.get("generated_at", "2026-05-20 14:00 UTC"),
             "format": r.get("format", "PDF"),
             "schedule": r.get("schedule", "On-demand"),
@@ -702,6 +706,15 @@ def _governance_analytics_view(role: str, filters: dict | None = None) -> dict:
     return view
 
 
+def _ai_ops_assistant_view(role: str) -> dict:
+    from app.ai_ops_assistant_engine import build_assistant_view
+
+    view = build_assistant_view(role, "cio@bank.com")
+    view["actions"] = []
+    view["rows"] = view.get("incident_rows", [])
+    return view
+
+
 def _actions_for(role: str, **flags) -> list[str]:
     """Return action keys allowed for role on this module type."""
     from app.role_permissions import filter_actions_for_role, is_auditor, is_executive_readonly
@@ -811,4 +824,6 @@ def module_counter_rows(module: str, role: str) -> int:
         return sum(1 for r in view.get("rows", []) if r.get("sync_health") != "Healthy" or r.get("failed_syncs", 0) > 0)
     if module == "correlation":
         return len([c for c in view.get("chains", []) if c.get("status") == "Open"])
+    if module == "ai_ops_assistant":
+        return len(view.get("incident_rows", []))
     return len(rows)

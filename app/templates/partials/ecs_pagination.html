@@ -2,7 +2,8 @@
 (function(){
   'use strict';
   var DEFAULT = 10;
-  var THRESHOLD = 10;
+  var THRESHOLD = 5;
+  var FORCE_MIN = 3;
 
   function storageKey(id) { return 'ecs_pg_' + id; }
 
@@ -161,7 +162,8 @@
     var tbody = table.tBodies[0];
     if (!tbody) return;
     var groups = collectGroups(tbody);
-    if (groups.length <= THRESHOLD) return;
+    var force = table.classList.contains('ecs-force-paginate');
+    if (groups.length <= THRESHOLD && !(force && groups.length >= FORCE_MIN)) return;
 
     table.dataset.ecsPaginationInit = '1';
     var id = ensureId(table, 'ecs-tbl-');

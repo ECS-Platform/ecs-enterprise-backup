@@ -77,6 +77,7 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "governance_analytics": "/mvp/governance-analytics",
         "evidence_approval": "/mvp/evidence-approval",
         "exception_governance": "/mvp/exception-governance",
+        "ai_ops_assistant": "/mvp/ai-ops-assistant",
     }
     base = paths.get(module, "/dashboard")
     return RedirectResponse(url=f"{base}?role={role}&user={user}&notice={quote(notice)}", status_code=303)
@@ -135,6 +136,96 @@ def register_mvp_routes(app, templates):
         ctx = _base_ctx(role, user, response, notice, page_module="scheduler")
         ctx["scheduler"] = get_scheduler_dashboard()
         return templates.TemplateResponse(request, "mvp_scheduler.html", ctx)
+
+    @app.get("/mvp/ai-ops-assistant", response_class=HTMLResponse)
+    def mvp_ai_ops_assistant(request: Request, role: str = "cio", user: str = "cio@bank.com", response: str = "", notice: str = ""):
+        from urllib.parse import unquote
+
+        ctx = _base_ctx(role, user, unquote(response) if response else "", notice, page_module="ai_ops_assistant")
+        return templates.TemplateResponse(request, "mvp_ai_ops_assistant.html", ctx)
+
+    @app.get("/api/demo/kpi-drill")
+    def api_demo_kpi_drill(metric: str = ""):
+        from app.demo_kpi_drill_engine import drill_demo_kpi
+
+        if not metric:
+            return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
+        return drill_demo_kpi(metric)
+
+    @app.get("/mvp/reports/view/{report_type}", response_class=HTMLResponse)
+    def mvp_report_view(request: Request, report_type: str, role: str = "cio", user: str = "cio@bank.com"):
+        from app.ecs_reports_engine import build_report
+
+        report = build_report(report_type)
+        if not report:
+            return RedirectResponse(url=f"/mvp/reports?role={role}&user={user}&notice=Unknown%20report", status_code=303)
+        ctx = _base_ctx(role, user, page_module="reports")
+        ctx["report"] = report
+        return templates.TemplateResponse(request, "mvp_ecs_report.html", ctx)
+
+    @app.get("/mvp/ai-ops-assistant/summary/{mode}", response_class=HTMLResponse)
+    def mvp_ai_ops_summary(request: Request, mode: str, scenario: str = "net_banking", role: str = "cio", user: str = "cio@bank.com"):
+        from app.ai_ops_summary_engine import build_summary_page
+
+        page = build_summary_page(mode, scenario, role)
+        if not page:
+            return RedirectResponse(url=f"/mvp/ai-ops-assistant?role={role}&user={user}", status_code=303)
+        ctx = _base_ctx(role, user, page_module="ai_ops_assistant")
+        ctx["page"] = page
+        return templates.TemplateResponse(request, "mvp_ai_ops_summary.html", ctx)
+
+    @app.get("/api/module-kpi/drill")
+    def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: int = 0):
+        from app.module_kpi_drill_engine import drill_module_kpi
+
+        if not module:
+            return JSONResponse({"ok": False, "error": "module required"}, status_code=400)
+        body = drill_module_kpi(module, metric, role)
+        if count:
+            from app.demo_data_standards import ensure_drill_rows
+            from app.ecs_universal_drill_engine import _target_rows
+
+            target = _target_rows(count)
+            body["rows"] = ensure_drill_rows(body.get("rows", []), target, metric=metric or module)
+            body["trace_count"] = count
+            body["row_count"] = len(body["rows"])
+        return body
+
+    @app.get("/api/ecs/universal-drill")
+    def api_ecs_universal_drill(
+        scope: str = "kpi",
+        page: str = "",
+        metric: str = "",
+        chart: str = "",
+        element: str = "",
+        type: str = "",
+        id: str = "",
+        count: int = 0,
+        role: str = "cio",
+        framework: str = "",
+        label: str = "",
+    ):
+        from app.ecs_universal_drill_engine import (
+            drill_universal_chart,
+            drill_universal_kpi,
+            drill_universal_row,
+        )
+
+        if scope == "row":
+            return JSONResponse(drill_universal_row(page, type or "record", id, role=role, framework=framework))
+        if scope == "chart":
+            return JSONResponse(drill_universal_chart(page, chart or "chart", element or metric, count=count, role=role))
+        if not metric and not label:
+            return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
+        return JSONResponse(drill_universal_kpi(page, metric or label, count=count, role=role, framework=framework, label=label))
+
+    @app.get("/api/ecs/workflow-drill")
+    def api_ecs_workflow_drill(metric: str = "", count: int = 0, role: str = "cio"):
+        from app.ecs_universal_drill_engine import drill_enterprise_workflow
+
+        if not metric:
+            return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
+        return JSONResponse(drill_enterprise_workflow(role, metric, count))
 
     @app.post("/mvp/scheduler/run")
     def mvp_scheduler_run(role: str = Form(...), user: str = Form(...)):

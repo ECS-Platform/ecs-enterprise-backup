@@ -15,7 +15,9 @@
 {% for ev in gc.evidence_repository %}
 {% set ckey = (ev.framework|default(framework_name)) ~ '::' ~ (ev.control|default(ev.control_name|default(''))) %}
 <tr data-ckey="{{ ckey }}" data-evidence-id="{{ ev.evidence_id }}"
-  class="{% if ev.workflow_code == 'approved' or ev.auditor_approved %}row-approved ecs-wf-row-approved{% elif ev.lifecycle == 'Rejected' %}table-danger{% elif ev.lifecycle == 'Pending Review' %}table-warning{% elif ev.lifecycle == 'Expired' %}table-secondary{% endif %}">
+  class="ecs-drill-row-clickable{% if ev.workflow_code == 'approved' or ev.auditor_approved %} row-approved ecs-wf-row-approved{% elif ev.lifecycle == 'Rejected' %}table-danger{% elif ev.lifecycle == 'Pending Review' %}table-warning{% elif ev.lifecycle == 'Expired' %}table-secondary{% endif %}"
+  data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ framework_name|e }}" data-ecs-framework-row-type="evidence" data-ecs-framework-row-id="{{ ev.evidence_id|e }}"
+  role="button" tabindex="0" title="Click for evidence detail">
 <td><code class="small">{{ ev.evidence_id }}</code><br><span class="text-muted small">{{ ev.name|truncate(26, True, '') }}</span></td>
 <td><code class="small">{{ ev.observation_id|default('—') }}</code></td>
 <td><code class="small">{{ ev.control_id }}</code><br><span class="small">{{ ev.control_name|default(ev.control|default(''))|truncate(28, True, '') }}</span></td>

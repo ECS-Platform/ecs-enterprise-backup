@@ -261,7 +261,10 @@ def _is_outage_intent(ql: str) -> bool:
 
 
 def _parse_mode_command(q: str) -> tuple[str, str] | None:
-    m = re.match(r"@outage-mode:([a-z_]+):(business|technical|customer)", q.strip(), re.I)
+    modes = (
+        "business|technical|customer|executive|audit|compliance|evidence|incident|root_cause"
+    )
+    m = re.match(rf"@outage-mode:([a-z_]+):({modes})", q.strip(), re.I)
     if m:
         return m.group(1), m.group(2).lower()
     m2 = re.match(r"@outage-follow:([a-z_]+):([a-z_]+)", q.strip(), re.I)
@@ -279,17 +282,12 @@ def _severity_class(sev: str) -> str:
 
 
 def _build_summary_html(scenario: dict, scenario_key: str, role: str) -> str:
+    from app.ai_ops_assistant_engine import build_summary_mode_buttons
+
     sev = scenario["severity"]
     badge = _severity_class(sev)
     signals = "".join(f'<li class="small">{s}</li>' for s in scenario["correlated_signals"])
-    modes = (
-        f'<button type="button" class="btn btn-sm btn-outline-primary ecs-outage-mode-btn" '
-        f'data-q="@outage-mode:{scenario_key}:business">Business Summary</button> '
-        f'<button type="button" class="btn btn-sm btn-outline-dark ecs-outage-mode-btn" '
-        f'data-q="@outage-mode:{scenario_key}:technical">Technical Summary</button> '
-        f'<button type="button" class="btn btn-sm btn-outline-success ecs-outage-mode-btn" '
-        f'data-q="@outage-mode:{scenario_key}:customer">Customer-Friendly Summary</button>'
-    )
+    modes = build_summary_mode_buttons(scenario_key)
     timeline = "".join(
         f'<div class="ecs-ops-timeline-item"><small class="text-muted">{t}</small><br>{e}</div>'
         for t, e in scenario.get("timeline", [])[:4]
@@ -316,39 +314,10 @@ def _build_summary_html(scenario: dict, scenario_key: str, role: str) -> str:
 </div>"""
 
 
-def _build_mode_html(scenario: dict, mode: str, scenario_key: str) -> str:
-    if mode == "business":
-        body = f"""
-<details class="ecs-ops-detail-wrap mb-2"><summary class="fw-semibold text-primary">Business View — click to expand</summary>
-<div class="ecs-ops-detail ecs-ops-business border-start border-4 border-primary ps-2 mt-2">
-<h6>Business View</h6>
-<p>{scenario['application']} is currently experiencing service disruption due to backend infrastructure instability.</p>
-<p><strong>Current impact:</strong></p><ul>
-<li>delayed logins and session timeouts</li>
-<li>delayed transaction confirmations</li>
-<li>intermittent payment failures on linked channels</li></ul>
-<p><strong>Impact level:</strong> {scenario['impact_level']}<br>
-<strong>Customer data compromise:</strong> {scenario['data_compromise']}</p>
-<p><strong>Current actions:</strong> infrastructure stabilization, database recovery validation, transaction queue restoration.</p>
-<p><strong>Estimated recovery:</strong> {scenario['eta']}</p>
-<p class="mb-0"><em>Customer advisory: Teams are actively working on service restoration.</em></p>
-</div></details>"""
-    elif mode == "technical":
-        obs = "".join(f"<li>{o}</li>" for o in scenario["governance_observations"])
-        causes = "".join(f"<li>{c}</li>" for c in scenario["technical_causes"])
-        apps = ", ".join(scenario["impacted_apps"])
-        actions = "".join(f"<li>{a}</li>" for a in scenario["recommended_actions"])
-        body = f"""
-<details class="ecs-ops-detail-wrap mb-2"><summary class="fw-semibold">Technical Governance View — click to expand</summary>
-<div class="ecs-ops-detail ecs-ops-technical border-start border-4 border-dark ps-2 mt-2">
-<h6>Technical Governance View</h6>
-<p><strong>Probable correlated causes:</strong></p><ul>{causes}</ul>
-<p><strong>Related enterprise observations:</strong></p><ul class="ecs-paginated-list">{obs}</ul>
-<p><strong>Applications impacted:</strong> {apps}<br>
-<strong>Operational risk:</strong> <span class="badge bg-{_severity_class(scenario['severity'])}">{scenario['severity']}</span></p>
-<p><strong>Recommended actions:</strong></p><ul class="ecs-paginated-list">{actions}</ul>
-</div></details>"""
-    else:
+def _build_mode_html(scenario: dict, mode: str, scenario_key: str, role: str, user: str = "User") -> str:
+    from app.ai_ops_assistant_engine import build_summary_mode_html
+
+    if mode == "customer":
         body = f"""
 <details class="ecs-ops-detail-wrap mb-2"><summary class="fw-semibold text-success">Customer Communication View — click to expand</summary>
 <div class="ecs-ops-detail ecs-ops-customer border-start border-4 border-success ps-2 mt-2">
@@ -361,11 +330,12 @@ def _build_mode_html(scenario: dict, mode: str, scenario_key: str) -> str:
 <p><strong>No customer data compromise has been identified.</strong></p>
 <p class="mb-0"><em>We regret the inconvenience and appreciate your patience.</em></p>
 </div></details>"""
-    back = (
-        f'<button type="button" class="btn btn-sm btn-link ecs-outage-mode-btn p-0" '
-        f'data-q="Why is {scenario["application"]} down?">← Back to outage summary</button>'
-    )
-    return body + f'<div class="mt-2">{back}</div>'
+        back = (
+            f'<button type="button" class="btn btn-sm btn-link ecs-outage-mode-btn p-0" '
+            f'data-q="Why is {scenario["application"]} down?">← Back to outage summary</button>'
+        )
+        return body + f'<div class="mt-2">{back}</div>'
+    return build_summary_mode_html(scenario, mode, scenario_key, role, user)
 
 
 def _build_follow_up_html(scenario: dict, follow_key: str, role: str, scenario_key: str) -> str:
@@ -401,7 +371,8 @@ def _plain_summary(scenario: dict) -> str:
         f"Correlated signals:\n"
         + "\n".join(f"  • {s}" for s in scenario["correlated_signals"])
         + "\n\nSelect a response mode using the buttons below:\n"
-        "  [Business Summary] [Technical Summary] [Customer-Friendly Summary]"
+        "  [Business Summary] [Technical Summary] [Executive Summary] [Audit Summary] "
+        "[Compliance Summary] [Evidence Summary] [Incident Summary] [Root Cause Analysis]"
     )
 
 
@@ -432,8 +403,13 @@ def try_operations_answer(query: str, role: str = "owner", user: str = "User") -
         if not scenario:
             return None
         ctx["active_outage"] = scenario_key
-        if mode_or_follow in ("business", "technical", "customer"):
-            html = _build_summary_html(scenario, scenario_key, role) + _build_mode_html(scenario, mode_or_follow, scenario_key)
+        if mode_or_follow in (
+            "business", "technical", "customer", "executive", "audit",
+            "compliance", "evidence", "incident", "root_cause",
+        ):
+            html = _build_summary_html(scenario, scenario_key, role) + _build_mode_html(
+                scenario, mode_or_follow, scenario_key, role, user
+            )
             plain = f"[{mode_or_follow.title()} View] — {scenario['application']}\nSee detailed response in copilot panel."
         else:
             return None

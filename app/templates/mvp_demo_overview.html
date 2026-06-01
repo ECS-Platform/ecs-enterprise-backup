@@ -67,10 +67,45 @@
 .demo-heat-cell.tone-empty     { background: #f1f5f9; color: #94a3b8; }
 .demo-heat-header .demo-heat-cell { background: #1e293b; color: #fff; font-weight: 600; }
 
-.demo-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
-.demo-table th, .demo-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #f1f5f9; }
+.demo-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; table-layout: auto; }
+.demo-table th, .demo-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
 .demo-table thead th { background: #f8fafc; color: #475569; text-align: left; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .demo-table tbody tr:hover { background: #f8fafc; cursor: pointer; }
+/* Top Risk Applications — immune to global ecs-executive-table 8% column crush */
+.demo-table.ecs-top-risk-applications {
+  table-layout: auto !important;
+  min-width: 580px;
+  width: max-content;
+  max-width: none !important;
+}
+.demo-table.ecs-top-risk-applications .col-app {
+  min-width: 250px !important;
+  width: 250px !important;
+  max-width: none !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  hyphens: none !important;
+}
+.demo-table.ecs-top-risk-applications .col-risk {
+  min-width: 80px !important;
+  width: 80px !important;
+  white-space: nowrap !important;
+}
+.demo-table.ecs-top-risk-applications .col-readiness {
+  min-width: 100px !important;
+  width: 100px !important;
+  white-space: nowrap !important;
+}
+.demo-table.ecs-top-risk-applications .col-owner {
+  min-width: 150px !important;
+  width: 150px !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+.demo-table .col-app { min-width: 250px; white-space: normal; word-break: normal; overflow-wrap: break-word; }
+.demo-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 
 .sev-Critical, .badge-Critical { background: #dc2626 !important; color: #fff; }
 .sev-High,     .badge-High     { background: #f59e0b !important; color: #fff; }
@@ -128,7 +163,7 @@
 <div class="row g-2">
 {% for k in d.cio_executive.kpis %}
 <div class="col-md-3 col-6">
-<div class="border rounded p-2 small text-center">
+<div class="border rounded p-2 small text-center ecs-kpi-clickable" role="button" data-ecs-demo-kpi="{{ k.metric|default(k.label|lower|replace(' ','_')) }}" title="Click for {{ k.label }} detail">
 <div class="text-muted small" style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.04em;">{{ k.label }}</div>
 <div class="fw-bold" style="font-size:1.1rem; color: {% if k.tone=='danger' %}#dc2626{% elif k.tone=='warning' %}#f59e0b{% elif k.tone=='success' %}#16a34a{% else %}#1e3a8a{% endif %};">{{ k.value }}</div>
 </div>
@@ -140,15 +175,22 @@
 <div class="col-md-5">
 <div class="demo-card">
 <div class="small text-muted mb-1">Top Risk Applications</div>
-<table class="demo-table">
-<thead><tr><th>App</th><th>Risk</th><th>Readiness</th><th>Owner</th></tr></thead>
+<div class="demo-table-wrap ecs-top-risk-scroll">
+<table class="demo-table ecs-top-risk-applications ecs-skip-exec-table ecs-paginated-table ecs-force-paginate" data-ecs-top-risk-table>
+<colgroup>
+<col class="col-app" style="min-width:250px;width:250px">
+<col class="col-risk" style="min-width:80px;width:80px">
+<col class="col-readiness" style="min-width:100px;width:100px">
+<col class="col-owner" style="min-width:150px;width:150px">
+</colgroup>
+<thead><tr><th class="col-app">Application</th><th class="col-risk">Risk</th><th class="col-readiness">Readiness</th><th class="col-owner">Owner</th></tr></thead>
 <tbody>
 {% for a in d.cio_executive.top_risk_apps %}
 <tr class="ecs-demo-drill" data-ecs-demo-app="{{ a.application }}">
-<td><strong>{{ a.application }}</strong></td>
-<td><span class="badge badge-{{ 'Critical' if a.risk_score >= 80 else 'High' if a.risk_score >= 65 else 'Medium' }}">{{ a.risk_score }}</span></td>
-<td>{{ a.readiness_pct }}%</td>
-<td>{{ a.owner }}</td>
+<td class="col-app"><strong>{{ a.application }}</strong></td>
+<td class="col-risk"><span class="badge badge-{{ 'Critical' if a.risk_score >= 80 else 'High' if a.risk_score >= 65 else 'Medium' }}">{{ a.risk_score }}</span></td>
+<td class="col-readiness">{{ a.readiness_pct }}%</td>
+<td class="col-owner">{{ a.owner }}</td>
 </tr>
 {% endfor %}
 </tbody>
@@ -383,89 +425,32 @@
     var tbody = '<tbody>' + rows.map(function(r){
       return '<tr>' + r.map(function(c){ return '<td>' + (c === null || c === undefined ? '—' : c) + '</td>'; }).join('') + '</tr>';
     }).join('') + '</tbody>';
-    return '<div class="table-responsive"><table class="table table-sm">' + thead + tbody + '</table></div>';
+    return '<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-paginated-table ecs-compact-table ecs-force-paginate mb-0">' + thead + tbody + '</table></div>';
   }
 
   function renderKpiDrill(metric) {
     drillTitle.textContent = 'Drill-down: ' + metric;
     drillBody.innerHTML = '<p class="text-muted">Fetching…</p>';
-    var routes = {
-      applications: '/api/demo/banking-applications',
-      frameworks: '/api/demo/frameworks',
-      controls: '/api/demo/frameworks',
-      evidence: '/api/demo/evidence-lineage?limit=50',
-      tickets: '/api/demo/servicenow?limit=80',
-      prompts: '/api/demo/prompt-audit?limit=60',
-      hallucinations: '/api/demo/hallucinations',
-      vapt: '/api/demo/vapt',
-      drift: '/api/demo/drift',
-      audit_history: '/api/demo/audit-history?years=5',
-    };
-    var url = routes[metric];
-    if (!url) {
-      drillBody.innerHTML = '<p class="text-muted">No drill-down configured for ' + metric + '.</p>';
-      return;
-    }
-    fetch(url).then(function(r){ return r.json(); }).then(function(payload) {
-      if (!payload.ok) { drillBody.innerHTML = '<p class="text-danger">' + (payload.error || 'Drill failed') + '</p>'; return; }
-      var html = '';
-      if (metric === 'applications') {
-        var rows = (payload.rows || []).map(function(a){
-          return [a.application, a.owner, a.vertical, a.criticality, a.risk_score, a.audit_readiness_pct + '%', 'L' + a.maturity_score, a.framework_count + ' FW', a.evidence_count];
+    fetch('/api/demo/kpi-drill?metric=' + encodeURIComponent(metric))
+      .then(function(r){ return r.json(); })
+      .then(function(payload) {
+        if (!payload.ok) { drillBody.innerHTML = '<p class="text-danger">' + (payload.error || 'Drill failed') + '</p>'; return; }
+        var cols = payload.columns || ['application','framework','control','owner','status','risk'];
+        var labels = cols.map(function(c){ return c.replace(/_/g,' ').replace(/\b\w/g, function(l){ return l.toUpperCase(); }); });
+        var rows = (payload.rows || []).map(function(row){
+          return cols.map(function(c){ return row[c]; });
         });
-        html = '<p class="text-muted small">' + rows.length + ' banking applications</p>' +
-               rowsTable(['Application', 'Owner', 'Vertical', 'Criticality', 'Risk', 'Readiness', 'Maturity', 'FW', 'Evidence'], rows);
-      } else if (metric === 'frameworks' || metric === 'controls') {
-        var rows = (payload.rows || []).map(function(f){
-          return [f.framework, f.category, f.audit_cycle, f.control_count, f.evidence_count, f.readiness_pct + '%'];
-        });
-        html = '<p class="text-muted small">' + rows.length + ' frameworks (total ' + rows.reduce(function(s,r){ return s + r[3]; }, 0) + ' controls)</p>' +
-               rowsTable(['Framework', 'Category', 'Cycle', 'Controls', 'Evidence', 'Readiness'], rows);
-      } else if (metric === 'tickets') {
-        var rows = (payload.rows || []).map(function(t){
-          return [t.ticket_id, t.type, t.title, t.application, t.framework, t.state, t.priority, t.owner, t.opened_at];
-        });
-        html = rowsTable(['Ticket', 'Type', 'Title', 'App', 'Framework', 'State', 'Priority', 'Owner', 'Opened'], rows);
-      } else if (metric === 'prompts') {
-        var rows = (payload.rows || []).map(function(p){
-          return [p.prompt_id, p.timestamp, p.user, p.model, p.tokens_total, p.risk_score, p.review_status];
-        });
-        html = rowsTable(['Prompt', 'Timestamp', 'User', 'Model', 'Tokens', 'Risk', 'Status'], rows);
-      } else if (metric === 'hallucinations') {
-        var rows = (payload.rows || []).map(function(h){
-          return [h.alert_id, h.timestamp, h.user, h.model, h.confidence_pct + '%', h.fabrication_signal, h.status];
-        });
-        html = rowsTable(['Alert', 'Time', 'User', 'Model', 'Confidence', 'Signal', 'Status'], rows);
-      } else if (metric === 'vapt') {
-        var rows = (payload.data.findings || []).map(function(f){
-          return [f.finding_id, f.title, f.application, f.severity, f.cvss, f.status, f.remediation_eta];
-        });
-        html = rowsTable(['Finding', 'Title', 'App', 'Severity', 'CVSS', 'Status', 'ETA'], rows);
-      } else if (metric === 'drift') {
-        var rows = (payload.data.by_application || []).map(function(d){
-          return [d.application, d.category, d.severity, d.drift_count, d.framework, d.remediation_owner, d.remediation_eta];
-        });
-        html = rowsTable(['App', 'Category', 'Severity', 'Count', 'Framework', 'Owner', 'ETA'], rows);
-      } else if (metric === 'evidence') {
-        var rows = (payload.rows || []).map(function(e){
-          return [e.evidence_id, e.evidence_name, e.original_framework, e.application, e.linked_frameworks.length + ' FW', e.lineage_confidence_pct + '%'];
-        });
-        html = rowsTable(['Evidence', 'Name', 'Origin', 'App', 'Linked', 'Confidence'], rows);
-      } else if (metric === 'audit_history') {
-        var rows = (payload.summary.year_trend || []).map(function(y){
-          return [y.year, y.findings_raised, y.findings_closed, y.closure_pct + '%', y.recurring_findings, y.avg_readiness_pct + '%'];
-        });
-        html = rowsTable(['Year', 'Raised', 'Closed', 'Closure', 'Recurring', 'Avg Ready'], rows);
-      }
-      drillBody.innerHTML = html;
-    }).catch(function(err){ drillBody.innerHTML = '<p class="text-danger">' + err.message + '</p>'; });
+        drillBody.innerHTML = '<p class="text-muted small">' + rows.length + ' supporting records</p>' + rowsTable(labels, rows);
+        if (window.ecsRefreshPagination) window.ecsRefreshPagination(drillBody);
+      }).catch(function(err){ drillBody.innerHTML = '<p class="text-danger">' + err.message + '</p>'; });
   }
 
   document.querySelectorAll('[data-ecs-demo-kpi]').forEach(function(el){
     el.addEventListener('click', function(){
       var metric = el.getAttribute('data-ecs-demo-kpi');
       if (!metric) return;
-      drillTitle.textContent = 'Drill-down: ' + el.querySelector('.l').textContent;
+      var labelEl = el.querySelector('.l') || el.querySelector('.text-muted');
+      drillTitle.textContent = 'Drill-down: ' + (labelEl ? labelEl.textContent.trim() : metric);
       drillBody.innerHTML = '<p class="text-muted">Fetching…</p>';
       bootstrap.Modal.getOrCreateInstance(drillModal).show();
       renderKpiDrill(metric);
@@ -555,4 +540,5 @@
   });
 })();
 </script>
+{% include "partials/ecs_top_risk_table_fix.html" %}
 </body></html>

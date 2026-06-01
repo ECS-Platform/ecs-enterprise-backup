@@ -8,10 +8,16 @@
 {% set rel_controls = gc.relational_controls if gc and gc.relational_controls else controls_bd %}
 {% from "partials/ecs_ux_macros.html" import governance_action_menu, workflow_state_group %}
 
+{% macro fw_row_drill(fw, row_type, row_id) -%}
+data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-ecs-framework-row-type="{{ row_type|e }}" data-ecs-framework-row-id="{{ row_id|e }}" role="button" tabindex="0" title="Click for full detail"
+{%- endmacro %}
+
 <div class="ecs-drill-zone">
 <nav class="ecs-drill-nav-grid ecs-drill-module-cards" aria-label="Framework drill-down">
 {% for mod in drill_modules %}
-<button type="button" class="ecs-drill-module-btn{% if mod.id == default_tab %} is-active{% endif %}" data-drill-tab="{{ mod.id }}" data-bs-target="#pane-{{ mod.id }}" aria-controls="pane-{{ mod.id }}">
+<button type="button" class="ecs-drill-module-btn{% if mod.id == default_tab %} is-active{% endif %}" data-drill-tab="{{ mod.id }}" data-bs-target="#pane-{{ mod.id }}" aria-controls="pane-{{ mod.id }}"
+  data-ecs-framework-tab-drill data-ecs-framework-tab-framework="{{ framework_name|e }}" data-ecs-framework-tab-id="{{ mod.id|e }}" data-ecs-framework-tab-label="{{ mod.label|e }}"
+  title="Open {{ mod.label }} — click for supporting dataset">
 <span class="ecs-drill-module-icon" aria-hidden="true">{{ mod.icon }}</span>
 <span class="ecs-drill-module-label">{{ mod.label }}</span>
 </button>
@@ -28,7 +34,7 @@
 <thead><tr><th>Application</th><th>Owner</th><th>Readiness</th><th>Controls</th><th>Findings</th><th>Failed</th><th>Last Validation</th><th>Risk</th><th></th></tr></thead>
 <tbody>
 {% for app in application_grid %}
-<tr>
+<tr class="ecs-drill-row-clickable" {{ fw_row_drill(framework_name, 'application', app.name) }}>
 <td><strong>{{ app.name }}</strong>{% if app.focus|default('') %}<br><span class="small text-muted">{{ app.focus|truncate(36, True, '') }}</span>{% endif %}</td>
 <td class="small">{{ app.owner|default('—') }}</td>
 <td>{{ app.audit_readiness_pct|default(app.compliance_pct) }}%</td>
@@ -50,7 +56,7 @@
 <thead><tr><th>Control ID</th><th>Control</th><th>Application</th><th>Owner</th><th>Evidence</th><th>Governance State</th><th></th></tr></thead>
 <tbody>
 {% for row in rel_controls %}
-<tr class="{% if row.validation == 'FAIL' or 'Rejected' in row.workflow_status %}table-danger{% elif row.validation == 'WARN' or 'Pending' in row.workflow_status %}table-warning{% endif %}">
+<tr class="ecs-drill-row-clickable{% if row.validation == 'FAIL' or 'Rejected' in row.workflow_status %} table-danger{% elif row.validation == 'WARN' or 'Pending' in row.workflow_status %} table-warning{% endif %}" {{ fw_row_drill(framework_name, 'control', row.control_id) }}>
 <td><code class="small">{{ row.control_id }}</code></td>
 <td><strong>{{ row.control|truncate(40, True, '') }}</strong></td>
 <td>{{ row.application }}</td>
@@ -72,7 +78,7 @@
 {% set pending_rows = gc.pending_actions_and_gaps if gc and gc.pending_actions_and_gaps is defined else (gc.pending_actions if gc else []) %}
 {% if pending_rows %}
 {% for pa in pending_rows %}
-<tr class="{% if pa.risk == 'Critical' %}table-danger{% elif pa.risk == 'High' %}table-warning{% endif %}">
+<tr class="ecs-drill-row-clickable{% if pa.risk == 'Critical' %} table-danger{% elif pa.risk == 'High' %} table-warning{% endif %}" {{ fw_row_drill(framework_name, 'pending', pa.control_id|default(pa.application)) }}>
 <td><strong>{{ pa.application }}</strong></td>
 <td><code class="small">{{ pa.control_id }}</code>{% if pa.finding_id and pa.finding_id != '—' %}<br><span class="small text-muted">Obs {{ pa.finding_id }}</span>{% endif %}<br><span class="small text-muted">{{ pa.control_name|default(pa.control|default(''))|truncate(28, True, '') }}</span></td>
 <td><span class="badge {% if pa.item_type == 'Open Gap' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ pa.item_type|default(pa.gap_type|default('Pending Action')) }}</span></td>
@@ -123,7 +129,7 @@
 <thead><tr><th>Obs ID</th><th>Application</th><th>Observation</th><th>Severity</th><th>Owner</th><th>Open Since</th><th>Control</th><th>Status</th></tr></thead>
 <tbody>
 {% for f in gc.open_findings if f.status not in ['Closed'] %}
-<tr class="{% if f.severity == 'Critical' %}table-danger{% elif f.severity == 'High' %}table-warning{% endif %}">
+<tr class="ecs-drill-row-clickable{% if f.severity == 'Critical' %} table-danger{% elif f.severity == 'High' %} table-warning{% endif %}" {{ fw_row_drill(framework_name, 'finding', f.finding_id) }}>
 <td><code class="small">{{ f.finding_id }}</code></td>
 <td><strong>{{ f.application }}</strong></td>
 <td class="small">{{ f.observation|truncate(48, True, '') }}</td>
@@ -141,7 +147,7 @@
 <thead><tr><th>Obs ID</th><th>Application</th><th>Observation</th><th>Severity</th><th>Closed</th><th>Owner</th><th>Closure Note</th></tr></thead>
 <tbody>
 {% for f in gc.open_findings if f.status == 'Closed' %}
-<tr class="table-success">
+<tr class="ecs-drill-row-clickable table-success" {{ fw_row_drill(framework_name, 'finding', f.finding_id) }}>
 <td><code class="small">{{ f.finding_id }}</code></td>
 <td><strong>{{ f.application }}</strong></td>
 <td class="small">{{ f.observation|truncate(50, True, '') }}</td>
@@ -166,7 +172,7 @@
 <thead><tr><th>Integration</th><th>Applications</th><th>Controls</th><th>Last Sync</th><th>Health</th><th>Evidence OK?</th><th></th></tr></thead>
 <tbody>
 {% for c in gc.integrations_detailed %}
-<tr class="{% if c.health == 'Degraded' %}table-warning{% elif c.health == 'Failed' %}table-danger{% endif %}">
+<tr class="ecs-drill-row-clickable{% if c.health == 'Degraded' %} table-warning{% elif c.health == 'Failed' %} table-danger{% endif %}" {{ fw_row_drill(framework_name, 'integration', c.name) }}>
 <td><strong>{{ c.name }}</strong></td>
 <td class="small">{{ c.affected_applications|default(c.applications)|join(', ')|truncate(48, True, '') }}</td>
 <td>{{ c.controls_populated }}</td>
@@ -185,7 +191,7 @@
 <tbody>
 {% for c in gc.integrations_detailed %}
 {% for ch in c.sync_challenges|default([]) %}
-<tr><td class="small">{{ c.name }}</td><td><strong>{{ ch.application }}</strong></td><td class="small">{{ ch.issue }}</td>
+<tr class="ecs-drill-row-clickable" {{ fw_row_drill(framework_name, 'integration', ch.application) }}><td class="small">{{ c.name }}</td><td><strong>{{ ch.application }}</strong></td><td class="small">{{ ch.issue }}</td>
 <td><span class="badge {% if ch.severity == 'Critical' %}bg-danger{% elif ch.severity == 'High' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ ch.severity }}</span></td>
 <td>{{ ch.status }}</td></tr>
 {% endfor %}
@@ -214,7 +220,7 @@
 </div>
 <div class="ecs-paginated-wrap ecs-paginated-list">
 {% for ex in exceptions %}
-<div class="ecs-priority-card ecs-paginated-item mb-2 py-2">
+<div class="ecs-priority-card ecs-paginated-item mb-2 py-2 ecs-drill-row-clickable" {{ fw_row_drill(framework_name, 'exception', ex.id) }}>
 <div class="ecs-priority-card-head mb-1">
 <div>
 <strong class="ecs-priority-title">{{ ex.id }} — {{ ex.title }}</strong>
@@ -254,7 +260,7 @@ Control <code>{{ ex.control_id|default('—') }}</code> · {{ ex.application|def
 <thead><tr><th>Source</th><th>Source Control</th><th>Target</th><th>Target Control</th><th>Shared Evidence</th><th>Confidence</th></tr></thead>
 <tbody>
 {% for r in gc.reuse_mappings %}
-<tr>
+<tr class="ecs-drill-row-clickable" {{ fw_row_drill(framework_name, 'reuse', r.source_control ~ '->' ~ r.target_control) }}>
 <td>{{ r.source_framework }}</td>
 <td class="small"><code>{{ r.source_control }}</code></td>
 <td>{{ r.target_framework }}</td>
@@ -283,7 +289,16 @@ Control <code>{{ ex.control_id|default('—') }}</code> · {{ ex.application|def
     if (pane) pane.classList.add('show','active');
   }
   document.querySelectorAll('.ecs-drill-module-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){ activateTab(btn.getAttribute('data-drill-tab')); });
+    btn.addEventListener('click', function(){
+      activateTab(btn.getAttribute('data-drill-tab'));
+      if (window.ecsOpenFrameworkTabDrill && btn.hasAttribute('data-ecs-framework-tab-drill')) {
+        ecsOpenFrameworkTabDrill(
+          btn.getAttribute('data-ecs-framework-tab-framework'),
+          btn.getAttribute('data-ecs-framework-tab-id'),
+          btn.getAttribute('data-ecs-framework-tab-label')
+        );
+      }
+    });
   });
   var initial = '{{ default_tab }}' || 'applications';
   if (document.getElementById('pane-' + initial)) activateTab(initial);

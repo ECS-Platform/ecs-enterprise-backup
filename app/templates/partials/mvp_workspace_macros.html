@@ -34,7 +34,13 @@
 {% if module_view is defined and module_view.kpis %}
 <div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
 {% for k in module_view.kpis %}
-<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}" data-ecs-ops-kpi="{{ k.label }}" title="{{ k.hint|default('') }}">
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }} ecs-kpi-clickable" role="button" tabindex="0"
+  data-ecs-module-kpi
+  data-ecs-module-kpi-module="{{ module_view.module|default('') }}"
+  data-ecs-module-kpi-metric="{{ k.drill|default(k.label|lower|replace(' ','_')|replace('/','_')) }}"
+  data-ecs-module-kpi-label="{{ k.label }}"
+  data-ecs-module-kpi-count="{{ k.value }}"
+  title="Click for {{ k.label }} detail">
 <span class="ecs-exec-kpi-val">{{ k.value }}</span>
 <span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
 </div>

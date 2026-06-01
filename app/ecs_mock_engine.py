@@ -51,6 +51,10 @@ _APP_META = {
     "Loan Origination": {"owner": "V. Rao", "vertical": "Lending", "region": "Pan-India", "criticality": "High", "tech_stack": "Newgen · Postgres"},
     "Digital Lending": {"owner": "M. D'Souza", "vertical": "Lending", "region": "Pan-India", "criticality": "High", "tech_stack": "Node.js · Postgres · Kubernetes"},
     "Customer Onboarding": {"owner": "M. D'Souza", "vertical": "Retail Digital", "region": "Pan-India", "criticality": "High", "tech_stack": "Camunda · Spring Boot"},
+    "Customer Onboarding Platform": {"owner": "M. D'Souza", "vertical": "Retail Digital", "region": "Pan-India", "criticality": "High", "tech_stack": "Camunda · Spring Boot"},
+    "Enterprise Payments Hub": {"owner": "A. Sharma", "vertical": "Digital Payments", "region": "Pan-India", "criticality": "Critical", "tech_stack": "Switch · HSM · API GW"},
+    "Digital Lending Platform": {"owner": "M. D'Souza", "vertical": "Lending", "region": "Pan-India", "criticality": "High", "tech_stack": "Node.js · Postgres · Kubernetes"},
+    "Core Banking Platform": {"owner": "S. Banerjee", "vertical": "Core Banking", "region": "Pan-India", "criticality": "Critical", "tech_stack": "Oracle · Tuxedo · AIX"},
     "AML Engine": {"owner": "P. Nair", "vertical": "Risk & Compliance", "region": "Pan-India", "criticality": "Critical", "tech_stack": "Actimize · Hadoop"},
     "Fraud Monitoring": {"owner": "P. Nair", "vertical": "Risk & Compliance", "region": "Pan-India", "criticality": "Critical", "tech_stack": "SAS · Kafka · Elastic"},
 }
@@ -703,6 +707,50 @@ def generate_vapt_findings() -> dict[str, Any]:
 # CIO executive dashboard snapshot
 # ---------------------------------------------------------------------------
 
+_DEMO_TOP_RISK_PIN: list[tuple[str, str | None]] = [
+    ("Customer Onboarding Platform", "Customer Onboarding"),
+    ("Mobile Banking Edge", None),
+    ("Enterprise Payments Hub", "Payments"),
+    ("Digital Lending Platform", "Digital Lending"),
+    ("Core Banking Platform", "Core Banking"),
+]
+
+
+def _pin_top_risk_apps(apps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Ensure demo walkthrough names appear first with high risk scores."""
+    by_name = {a["application"]: dict(a) for a in apps}
+    pinned: list[dict[str, Any]] = []
+    used: set[str] = set()
+    for i, (display, source) in enumerate(_DEMO_TOP_RISK_PIN):
+        base_name = source or display
+        row = dict(by_name.get(base_name) or _synthetic_top_risk_row(display))
+        row["application"] = display
+        row["risk_score"] = max(int(row.get("risk_score", 70)), 88 - i)
+        row["readiness_pct"] = row.get("audit_readiness_pct", row.get("readiness_pct", 62))
+        pinned.append(row)
+        used.add(display)
+        if base_name != display:
+            used.add(base_name)
+    rest = sorted(
+        (a for a in apps if a["application"] not in used),
+        key=lambda a: a["risk_score"],
+        reverse=True,
+    )
+    return pinned + rest[: max(25 - len(pinned), 0)]
+
+
+def _synthetic_top_risk_row(name: str) -> dict[str, Any]:
+    meta = _APP_META.get(name, {"owner": "Unassigned", "criticality": "High"})
+    seed = _seed("top-risk-pin", name)
+    return {
+        "application": name,
+        "owner": meta["owner"],
+        "risk_score": _between(seed, 82, 94),
+        "audit_readiness_pct": _between(seed >> 3, 48, 72),
+        "readiness_pct": _between(seed >> 3, 48, 72),
+        "criticality": meta.get("criticality", "High"),
+    }
+
 
 def generate_cio_executive() -> dict[str, Any]:
     apps = list_banking_applications()
@@ -712,19 +760,19 @@ def generate_cio_executive() -> dict[str, Any]:
     drift = generate_baselining_drift()
     ai_gov = generate_ai_governance()
     enterprise_readiness = round(sum(a["audit_readiness_pct"] for a in apps) / max(len(apps), 1), 1)
-    risky_apps = sorted(apps, key=lambda a: a["risk_score"], reverse=True)[:5]
+    risky_apps = _pin_top_risk_apps(apps)
     framework_coverage = len(FRAMEWORK_CATALOG)
     closure_velocity_pct = history_summary["year_trend"][-1]["closure_pct"] if history_summary["year_trend"] else 0
     return {
         "kpis": [
-            {"label": "Enterprise Readiness", "value": f"{enterprise_readiness}%", "tone": "primary"},
-            {"label": "Frameworks Live", "value": framework_coverage, "tone": "info"},
-            {"label": "Applications In Scope", "value": len(apps), "tone": "primary"},
-            {"label": "Open VAPT Findings", "value": vapt["summary"]["open"], "tone": "danger"},
-            {"label": "AI Hallucination Alerts", "value": ai_gov["summary"]["hallucination_alerts"], "tone": "warning"},
-            {"label": "Drift (Critical)", "value": len(drift["critical_drift"]), "tone": "danger"},
-            {"label": "Audit Closure Velocity", "value": f"{closure_velocity_pct}%", "tone": "success"},
-            {"label": "Regulator Readiness", "value": "Green" if enterprise_readiness >= 80 else "Amber", "tone": "success" if enterprise_readiness >= 80 else "warning"},
+            {"label": "Enterprise Readiness", "value": f"{enterprise_readiness}%", "tone": "primary", "metric": "applications"},
+            {"label": "Frameworks Live", "value": framework_coverage, "tone": "info", "metric": "frameworks"},
+            {"label": "Applications In Scope", "value": len(apps), "tone": "primary", "metric": "applications"},
+            {"label": "Open VAPT Findings", "value": vapt["summary"]["open"], "tone": "danger", "metric": "vapt"},
+            {"label": "AI Hallucination Alerts", "value": ai_gov["summary"]["hallucination_alerts"], "tone": "warning", "metric": "hallucinations"},
+            {"label": "Drift (Critical)", "value": len(drift["critical_drift"]), "tone": "danger", "metric": "drift"},
+            {"label": "Audit Closure Velocity", "value": f"{closure_velocity_pct}%", "tone": "success", "metric": "audit_history"},
+            {"label": "Regulator Readiness", "value": "Green" if enterprise_readiness >= 80 else "Amber", "tone": "success" if enterprise_readiness >= 80 else "warning", "metric": "frameworks"},
         ],
         "top_risk_apps": [
             {

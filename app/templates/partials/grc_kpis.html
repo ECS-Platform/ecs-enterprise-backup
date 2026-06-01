@@ -1,7 +1,11 @@
 {% macro grc_kpis(kpis) %}
 <div class="row g-3 mb-3">{% for k in kpis %}
 <div class="col-md-4 col-lg-3 col-xl-2">
-<div class="ecs-kpi-modern ecs-kpi-{{ k.tone|default('primary') }}">
+<div class="ecs-kpi-modern ecs-kpi-{{ k.tone|default('primary') }} ecs-kpi-clickable" role="button" tabindex="0"
+  data-grc-drill data-grc-module="governance" data-grc-metric="{{ k.drill|default(k.label|lower|replace(' ','_')|replace('/','_')) }}"
+  data-ecs-universal-kpi data-ecs-universal-page="grc" data-ecs-universal-metric="{{ k.drill|default(k.label|lower|replace(' ','_')) }}"
+  data-ecs-universal-label="{{ k.label }}" data-ecs-universal-count="{{ k.value }}"
+  title="Click for {{ k.label }} supporting records">
 <div class="ecs-kpi-label">{{ k.label }}{% if k.tooltip %}<span class="ecs-metric-info ms-1" tabindex="0" data-bs-toggle="tooltip" title="{{ k.tooltip }}">ⓘ</span>{% endif %}</div>
 <div class="ecs-kpi-value">{{ k.value }}</div>
 {% if k.context %}<div class="ecs-kpi-hint small text-muted">{{ k.context }}</div>{% endif %}

@@ -78,7 +78,7 @@
 <div class="table-responsive ecs-paginated-wrap ecs-fit-view">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table mb-0"><thead><tr><th>Application</th><th>Compliance</th><th>Risk</th><th>Obs</th><th>Gaps</th></tr></thead><tbody id="ecsTrendRiskAppsBody">
 {% for a in intel.top_risk_applications %}
-<tr><td>{{ a.application }}</td><td>{{ a.compliance_pct }}%</td><td>{{ a.risk }}</td><td>{{ a.open_observations }}</td><td>{{ a.high_risk_gaps }}</td></tr>
+<tr data-grc-drill data-grc-module="governance" data-grc-metric="application" data-grc-id="{{ a.application }}"><td>{{ a.application }}</td><td>{{ a.compliance_pct }}%</td><td>{{ a.risk|default('Elevated') }}</td><td>{{ a.open_observations }}</td><td>{{ a.high_risk_gaps|default(0) }}</td></tr>
 {% endfor %}
 </tbody></table></div>
 {{ workspace_pane_end() }}
@@ -87,6 +87,7 @@
 <script type="application/json" id="ecsAnalyticsIntelDataset">{{ {'intel': module_view.intel, 'kpis': module_view.kpis, 'scope_summary': module_view.intel.scope_summary}|tojson }}</script>
 <script type="application/json" id="ecsGranularityTrends">{{ module_view.granularity_trends|default({})|tojson }}</script>
 {% include "partials/analytics_filter_client.html" %}
+{% include "partials/grc_demo_drill_modal.html" %}
 <script>
 (function(){
   var granData = {};
