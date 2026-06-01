@@ -251,4 +251,47 @@
 .ecs-shell-context-bar .ecs-release-chip {
   background: #f1f5f9; border-radius: 4px; padding: 0.15rem 0.45rem;
 }
+
+/* AI SDLC Home — My Applications table */
+.aisdlc-home-apps-table {
+  table-layout: auto !important;
+  width: 100%;
+  min-width: 720px;
+}
+.aisdlc-home-apps-table th,
+.aisdlc-home-apps-table td {
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  text-overflow: unset !important;
+  overflow: visible !important;
+  vertical-align: top;
+  padding: 0.4rem 0.5rem;
+}
+.aisdlc-home-apps-table .aisdlc-col-criticality {
+  width: 8%;
+  max-width: 6.5rem;
+  white-space: nowrap !important;
+}
+.aisdlc-home-apps-table .aisdlc-col-frameworks,
+.aisdlc-home-apps-table .aisdlc-fw-cell {
+  width: 35%;
+  min-width: 12rem;
+}
+.aisdlc-fw-list {
+  display: inline;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+}
+.aisdlc-home-apps-wrap { overflow-x: auto; }
+
+/* Phase worklist — controlled document column */
+.aisdlc-doc-col { min-width: 11rem; }
+.aisdlc-table th.aisdlc-doc-col,
+.aisdlc-table td .btn-link[data-aisdlc-drill="document"] {
+  white-space: normal !important;
+  word-break: normal !important;
+}
 </style>

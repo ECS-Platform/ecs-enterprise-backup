@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.ai_ops_assistant_engine import SAMPLE_QUERY_GROUPS, SUMMARY_MODES, build_assistant_view
+from modules.operations.engines.ai_ops_assistant_engine import SAMPLE_QUERY_GROUPS, SUMMARY_MODES, build_assistant_view
 from app.main import app
-from app.operations_intelligence import OUTAGE_SCENARIOS, try_operations_answer
+from modules.operations.engines.operations_intelligence import OUTAGE_SCENARIOS, try_operations_answer
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -47,7 +47,7 @@ def test_assistant_view_has_summary_modes():
 
 
 def test_outage_query_returns_structured_html():
-    from app.chatbot_engine import get_chat_structured, clear_chat_structured
+    from modules.shared.services.chatbot_engine import get_chat_structured, clear_chat_structured
 
     clear_chat_structured("cio@bank.com", "cio")
     answer = try_operations_answer("Why is Net Banking down?", role="cio", user="cio@bank.com")
@@ -58,7 +58,7 @@ def test_outage_query_returns_structured_html():
 
 
 def test_all_summary_modes_generate_html():
-    from app.ai_ops_assistant_engine import build_summary_mode_html
+    from modules.operations.engines.ai_ops_assistant_engine import build_summary_mode_html
 
     scenario = OUTAGE_SCENARIOS["net_banking"]
     for mode_id, label, _btn in SUMMARY_MODES:
@@ -68,7 +68,7 @@ def test_all_summary_modes_generate_html():
 
 
 def test_summary_mode_commands_via_engine():
-    from app.chatbot_engine import clear_chat_structured, get_chat_structured
+    from modules.shared.services.chatbot_engine import clear_chat_structured, get_chat_structured
 
     for mode_id, _, _ in SUMMARY_MODES:
         clear_chat_structured("cio@bank.com", "cio")

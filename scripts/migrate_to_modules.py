@@ -50,8 +50,16 @@ PYTHON_MAP: dict[str, list[str]] = {
         "ai_sdlc_governance_service.py", "ai_sdlc_governance_mock.py", "ai_sdlc_control_tower_engine.py",
         "ai_sdlc_onboarding_engine.py", "ai_sdlc_workflow_engine.py", "ai_sdlc_workflow_store.py",
         "ai_sdlc_reports_engine.py", "ai_sdlc_knowledge_repository.py", "ai_sdlc_document_artifacts.py",
+        "ai_sdlc_controlled_documents.py",
         "ecs_ai_governance_drilldowns.py", "ecs_sdlc_stage_dashboard.py",
     ],
+}
+
+ROUTE_MAP: dict[str, str] = {
+    "routes_ai_sdlc_governance.py": "ai_sdlc/routes/routes_ai_sdlc_governance.py",
+    "routes_grc_demo.py": "enterprise_grc/routes/routes_grc_demo.py",
+    "evidence_routes.py": "shared/routes/evidence_routes.py",
+    "routes_mvp.py": "shared/routes/routes_mvp.py",
 }
 
 SHARED_SUBDIRS: dict[str, list[str]] = {

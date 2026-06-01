@@ -45,6 +45,22 @@
 <button type="button" class="btn btn-sm btn-danger" id="aisdlcRejectConfirm">Confirm Reject</button></div>
 </div></div></div>
 
+<div class="modal fade" id="aisdlcControlledDocModal" tabindex="-1" aria-labelledby="aisdlcControlledDocTitle" aria-hidden="true">
+<div class="modal-dialog modal-xl ecs-gov-modal-full"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="aisdlcControlledDocTitle">Controlled SDLC Document</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="aisdlcControlledDocBody"><p class="text-muted small">Loading…</p></div>
+<div class="modal-footer py-2"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+
+<div class="modal fade" id="aisdlcDrillModal" tabindex="-1" aria-labelledby="aisdlcDrillTitle" aria-hidden="true">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<div class="modal-header py-2"><h6 class="modal-title" id="aisdlcDrillTitle">Drilldown</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body" id="aisdlcDrillBody"><p class="text-muted small">Loading…</p></div>
+<div class="modal-footer py-2"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+
 <script>
 (function () {
   'use strict';
@@ -204,6 +220,18 @@
   });
 
   document.addEventListener('click', function (e) {
+    var drillBtn = e.target.closest('[data-aisdlc-drill]');
+    if (drillBtn) {
+      e.preventDefault();
+      var tr = drillBtn.closest('tr[data-wf-id]');
+      if (!tr) return;
+      var kind = drillBtn.getAttribute('data-aisdlc-drill');
+      if (kind === 'document') openControlledDocument(tr);
+      else if (kind === 'control') openControlDrill(tr);
+      else if (kind === 'observation') openObservationDrill(tr);
+      else if (kind === 'evidence') openEvidenceDrill(tr);
+      return;
+    }
     var btn = e.target.closest('[data-wf-action]');
     if (!btn) return;
     e.preventDefault();
@@ -232,5 +260,96 @@
       });
     }
   });
+
+  function rowParams(tr) {
+    return {
+      application: tr.getAttribute('data-app') || '',
+      framework: tr.getAttribute('data-fw') || '',
+      domain: tr.getAttribute('data-domain') || '',
+      control_id: tr.getAttribute('data-control-id') || '',
+      stage: tr.getAttribute('data-stage-key') || tr.getAttribute('data-stage') || '',
+      observation_id: tr.getAttribute('data-observation-id') || '',
+      evidence_id: tr.getAttribute('data-evidence-id') || ''
+    };
+  }
+
+  function renderDrillDl(data, fields) {
+    var h = '<dl class="row small mb-0">';
+    fields.forEach(function (f) {
+      h += '<dt class="col-4">' + esc(f.label) + '</dt><dd class="col-8 ecs-gov-wrap">' + esc(data[f.key] || '—') + '</dd>';
+    });
+    return h + '</dl>';
+  }
+
+  function openControlledDocument(tr) {
+    var p = rowParams(tr);
+    var body = document.getElementById('aisdlcControlledDocBody');
+    var title = document.getElementById('aisdlcControlledDocTitle');
+    body.innerHTML = '<p class="text-muted small">Loading…</p>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('aisdlcControlledDocModal')).show();
+    var q = new URLSearchParams({
+      stage: p.stage, application: p.application, framework: p.framework,
+      domain: p.domain, control_id: p.control_id
+    });
+    fetch('/api/ai-sdlc/controlled-document?' + q.toString()).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { body.innerHTML = '<p class="text-danger">' + esc(res.error || 'Failed to load document') + '</p>'; return; }
+      title.textContent = res.data.document_type_label || 'Controlled SDLC Document';
+      body.innerHTML = res.data.html || '<p class="text-muted">No content</p>';
+    });
+  }
+
+  function openControlDrill(tr) {
+    var p = rowParams(tr);
+    var body = document.getElementById('aisdlcDrillBody');
+    document.getElementById('aisdlcDrillTitle').textContent = 'View Control — ' + p.control_id;
+    body.innerHTML = '<p class="text-muted small">Loading…</p>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('aisdlcDrillModal')).show();
+    var q = new URLSearchParams(p);
+    fetch('/api/ai-sdlc/control-drill?' + q.toString()).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { body.innerHTML = '<p class="text-danger">' + esc(res.error || 'Failed') + '</p>'; return; }
+      body.innerHTML = renderDrillDl(res.data, [
+        {key:'control_id',label:'Control ID'},{key:'control_name',label:'Control Name'},
+        {key:'application',label:'Application'},{key:'framework',label:'Framework'},
+        {key:'domain',label:'Domain'},{key:'owner',label:'Owner'},{key:'status',label:'Status'},
+        {key:'evidence_count',label:'Evidence Count'},{key:'last_review',label:'Last Review'},
+        {key:'control_description',label:'Description'},{key:'implementation_notes',label:'Implementation Notes'},
+        {key:'observation_id',label:'Linked Observation'}
+      ]);
+    });
+  }
+
+  function openObservationDrill(tr) {
+    var p = rowParams(tr);
+    var body = document.getElementById('aisdlcDrillBody');
+    document.getElementById('aisdlcDrillTitle').textContent = 'Observation — ' + p.observation_id;
+    body.innerHTML = '<p class="text-muted small">Loading…</p>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('aisdlcDrillModal')).show();
+    var q = new URLSearchParams({
+      observation_id: p.observation_id, application: p.application,
+      framework: p.framework, control_id: p.control_id
+    });
+    fetch('/api/ai-sdlc/observation-drill?' + q.toString()).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { body.innerHTML = '<p class="text-danger">' + esc(res.error || 'Failed') + '</p>'; return; }
+      body.innerHTML = renderDrillDl(res.data, [
+        {key:'observation_id',label:'Observation ID'},{key:'application',label:'Application'},
+        {key:'framework',label:'Framework'},{key:'control_id',label:'Control'},
+        {key:'severity',label:'Severity'},{key:'status',label:'Status'},
+        {key:'audit_year',label:'Audit Year'},{key:'finding',label:'Finding'},
+        {key:'remediation_plan',label:'Remediation Plan'},{key:'owner',label:'Owner'},
+        {key:'target_date',label:'Target Date'}
+      ]);
+    });
+  }
+
+  function openEvidenceDrill(tr) {
+    var p = rowParams(tr);
+    var eid = p.evidence_id;
+    if (!eid) { openReview(tr); return; }
+    if (eid.indexOf('EVD-') === 0) {
+      window.location.href = '/mvp/ai-sdlc/evidence/view/' + encodeURIComponent(eid) + qs();
+      return;
+    }
+    openReview(tr);
+  }
 })();
 </script>

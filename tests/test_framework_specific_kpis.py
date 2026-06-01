@@ -7,14 +7,14 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.framework_dashboards import _catalog_stats, build_framework_dashboard
-from app.framework_kpi_drill_engine import (
+from modules.frameworks.engines.framework_dashboards import _catalog_stats, build_framework_dashboard
+from modules.frameworks.engines.framework_kpi_drill_engine import (
     FRAMEWORK_KPI_SPECS,
     build_framework_kpi_list,
     drill_framework_kpi,
     framework_kpi_labels,
 )
-from app.framework_catalog import get_framework_controls, resolve_framework_name
+from modules.frameworks.engines.framework_catalog import get_framework_controls, resolve_framework_name
 from app.main import app
 
 client = TestClient(app, raise_server_exceptions=False)

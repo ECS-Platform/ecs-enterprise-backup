@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.ai_sdlc_onboarding_engine import build_onboarding_run
+from modules.ai_sdlc.engines.ai_sdlc_onboarding_engine import build_onboarding_run
 from app.main import app
 
 client = TestClient(app, follow_redirects=False)

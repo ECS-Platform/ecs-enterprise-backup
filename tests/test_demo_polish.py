@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.ai_ops_summary_engine import build_summary_page
-from app.demo_kpi_drill_engine import drill_demo_kpi
-from app.ecs_reports_engine import build_report
+from modules.operations.engines.ai_ops_summary_engine import build_summary_page
+from modules.executive_overview.engines.demo_kpi_drill_engine import drill_demo_kpi
+from modules.executive_overview.engines.ecs_reports_engine import build_report
 from app.main import app
-from app.module_kpi_drill_engine import drill_module_kpi
+from modules.shared.drilldowns.module_kpi_drill_engine import drill_module_kpi
 
 client = TestClient(app, raise_server_exceptions=False)
 Q = "?role=cio&user=cio@bank.com"
@@ -86,7 +86,7 @@ def test_reports_generate_button():
 
 
 def test_grc_drill_padded_rows():
-    from app.grc_module_demo import drill_governance_analytics
+    from modules.enterprise_grc.engines.grc_module_demo import drill_governance_analytics
 
     body = drill_governance_analytics("open_findings", role="cio")
     assert len(body["rows"]) >= 25

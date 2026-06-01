@@ -147,6 +147,9 @@ def build_review_payload(item_id: str, item_type: str = "") -> dict[str, Any] | 
 def build_evidence_viewer(evidence_id: str) -> dict[str, Any] | None:
     item = get_evidence(evidence_id)
     if not item:
+        from modules.ai_sdlc.engines.ai_sdlc_controlled_documents import build_controlled_evidence_viewer
+        item = build_controlled_evidence_viewer(evidence_id)
+    if not item:
         return None
     return {
         **item,

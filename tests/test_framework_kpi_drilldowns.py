@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.framework_kpi_drill_engine import (
+from modules.frameworks.engines.framework_kpi_drill_engine import (
     FRAMEWORK_KPI_SPECS,
     METRIC_COLUMN_PROFILES,
     drill_framework_kpi,

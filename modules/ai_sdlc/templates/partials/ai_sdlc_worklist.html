@@ -10,15 +10,24 @@
 {% for col in wl.columns %}
 <th{% if col.wrap %} data-min-width="140"{% endif %}>{{ col.label }}</th>
 {% endfor %}
+{% if wl.document_column %}
+<th class="aisdlc-doc-col" data-min-width="160">{{ wl.document_column.label }}</th>
+{% endif %}
 <th>Actions</th>
+<th>Drilldowns</th>
 </tr></thead>
 <tbody>
 {% for row in wl.rows %}
 {% set item_id = row.activity_id|default(row.evidence_id) %}
-{% set item_type = 'evidence' if row.evidence_id else 'activity' %}
+{% set item_type = 'activity' if row.activity_id else 'evidence' %}
 <tr data-wf-id="{{ item_id }}" data-wf-type="{{ item_type }}"
     data-app="{{ row.application }}" data-fw="{{ row.framework }}" data-domain="{{ row.domain }}"
-    data-control-id="{{ row.control_id }}" data-stage="{{ row.stage }}"
+    data-control-id="{{ row.control_id }}" data-stage="{{ row.stage_key|default(row.stage) }}"
+    data-stage-key="{{ row.stage_key|default('') }}"
+    data-document-id="{{ row.document_id|default('') }}"
+    data-document-type="{{ row.document_type|default('') }}"
+    data-observation-id="{{ row.observation_id|default('') }}"
+    data-evidence-id="{{ row.evidence_id|default('') }}"
     data-artifact="{{ row.artifact_type|default(row.artifact_required|default('')) }}">
 {% for col in wl.columns %}
 <td{% if col.wrap %} class="ecs-gov-wrap ecs-gov-rich-cell"{% endif %}>
@@ -33,10 +42,22 @@
 {% endif %}
 </td>
 {% endfor %}
+{% if wl.document_column %}
+<td class="ecs-gov-rich-cell text-nowrap">
+<button type="button" class="btn btn-link btn-sm p-0 text-start" data-aisdlc-drill="document">{{ row.document_link_label|default(wl.document_column.link_label) }}</button>
+</td>
+{% endif %}
 <td class="text-nowrap">
 {% for act in row.row_actions|default(wl.row_actions|default(['Review'])) %}
 <button type="button" class="btn btn-link btn-sm p-0 me-1" data-wf-action="{{ act }}">{{ act }}</button>
 {% endfor %}
+</td>
+<td class="text-nowrap ecs-gov-rich-cell">
+<div class="d-flex flex-column gap-1 align-items-start">
+<button type="button" class="btn btn-link btn-sm p-0 text-start" data-aisdlc-drill="evidence">View Evidence</button>
+<button type="button" class="btn btn-link btn-sm p-0 text-start" data-aisdlc-drill="observation">View Observation</button>
+<button type="button" class="btn btn-link btn-sm p-0 text-start" data-aisdlc-drill="control">View Control</button>
+</div>
 </td>
 </tr>
 {% endfor %}

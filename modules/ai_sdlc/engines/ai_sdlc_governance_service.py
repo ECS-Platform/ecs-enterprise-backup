@@ -154,3 +154,34 @@ def sdlc_drill(
     page: int = 1, severity: str = "", search: str = "",
 ) -> dict:
     return drill_sdlc(metric, release_id, stage_key, item_id, page=page, severity=severity, search=search)
+
+
+def controlled_document_view(
+    stage_key: str,
+    application: str,
+    framework: str,
+    domain: str,
+    control_id: str,
+    control_name: str = "",
+) -> dict:
+    from modules.ai_sdlc.engines.ai_sdlc_controlled_documents import generate_controlled_document, render_document_html
+    doc = generate_controlled_document(stage_key, application, framework, domain, control_id, control_name)
+    if not doc.get("ok"):
+        return doc
+    doc["html"] = render_document_html(doc)
+    return doc
+
+
+def control_drill_view(application: str, framework: str, domain: str, control_id: str, control_name: str = "") -> dict:
+    from modules.ai_sdlc.engines.ai_sdlc_controlled_documents import build_control_drill
+    return build_control_drill(application, framework, domain, control_id, control_name)
+
+
+def observation_drill_view(observation_id: str, application: str = "", framework: str = "", control_id: str = "") -> dict:
+    from modules.ai_sdlc.engines.ai_sdlc_controlled_documents import build_observation_drill
+    return build_observation_drill(observation_id, application, framework, control_id)
+
+
+def controlled_document_counts() -> dict:
+    from modules.ai_sdlc.engines.ai_sdlc_controlled_documents import document_counts
+    return document_counts()

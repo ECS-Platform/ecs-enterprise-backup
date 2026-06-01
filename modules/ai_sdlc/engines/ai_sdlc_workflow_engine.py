@@ -113,6 +113,16 @@ def enrich_row_control(row: dict[str, Any], stage: str = "") -> dict[str, Any]:
     return out
 
 
+_DPSC_DOMAINS = [
+    ("Authentication", "AUTH"),
+    ("Encryption", "ENC"),
+    ("Transaction Monitoring", "TXN"),
+    ("Key Management", "KEY"),
+    ("Access Control", "ACC"),
+    ("Logging", "LOG"),
+]
+
+
 def _controls_for_framework(fw_name: str, count: int = 6) -> list[dict[str, str]]:
     if fw_name == "ITPP":
         controls = []
@@ -120,6 +130,15 @@ def _controls_for_framework(fw_name: str, count: int = 6) -> list[dict[str, str]
             controls.append({
                 "control_id": f"{dom['prefix']}-{i % 3 + 1:03d}",
                 "domain": dom["name"],
+                "framework": fw_name,
+            })
+        return controls
+    if fw_name == "DPSC":
+        controls = []
+        for i, (dom_name, dom_pfx) in enumerate(_DPSC_DOMAINS[:count]):
+            controls.append({
+                "control_id": f"DPSC-{dom_pfx}-{i % 3 + 1:02d}",
+                "domain": dom_name,
                 "framework": fw_name,
             })
         return controls
@@ -185,7 +204,8 @@ def _worklist_items(stage_key: str, count: int = 48) -> list[dict[str, Any]]:
             row["readiness_check"] = row["artifact_required"]
         else:
             row["artifact_required"] = pick(s >> 12, artifacts)
-        rows.append(row)
+        from modules.ai_sdlc.engines.ai_sdlc_controlled_documents import enrich_worklist_row
+        rows.append(enrich_worklist_row(row, stage_key))
     return rows
 
 
@@ -285,6 +305,7 @@ def _build_control_matrix(app: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def build_stage_worklist(stage_key: str) -> dict[str, Any]:
+    from modules.ai_sdlc.engines.ai_sdlc_controlled_documents import DOC_TYPES
     title_map = {
         "requirement": "My Requirement Activities",
         "design": "My Design Activities",
@@ -292,6 +313,7 @@ def build_stage_worklist(stage_key: str) -> dict[str, Any]:
         "testing": "My Testing Activities",
         "go-live": "My Go-Live Activities",
     }
+    meta = DOC_TYPES[stage_key]
     items = _worklist_items(stage_key)
     return {
         "stage_key": stage_key,
@@ -299,6 +321,10 @@ def build_stage_worklist(stage_key: str) -> dict[str, Any]:
         "items": items,
         "rows": items,
         "columns": _stage_columns(stage_key),
+        "document_column": {
+            "label": meta["column_label"],
+            "link_label": meta["link_label"],
+        },
         "row_actions": ["Upload", "Review", "Approve", "Reject", "Request Rework"] if stage_key != "go-live"
         else ["Approve", "Reject", "Escalate"],
     }

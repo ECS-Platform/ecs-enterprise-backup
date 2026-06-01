@@ -6,7 +6,7 @@ import re
 
 from fastapi.testclient import TestClient
 
-from app.ai_sdlc_workflow_store import get_item, item_audit_trail, reset_store_for_tests
+from modules.ai_sdlc.engines.ai_sdlc_workflow_store import get_item, item_audit_trail, reset_store_for_tests
 from app.main import app
 
 client = TestClient(app, follow_redirects=False)

@@ -30,22 +30,33 @@
 </div>
 
 <h6 class="small text-muted text-uppercase mb-1">My Applications</h6>
-{% from "partials/ecs_governance_table_macros.html" import gov_table_open, gov_table_close %}
-{{ gov_table_open('ai-sdlc-my-apps') }}
-<thead><tr><th>Application</th><th>Business Owner</th><th>App Owner</th><th>Criticality</th><th>Classification</th><th>Frameworks</th><th>Controls</th></tr></thead>
+<div class="ecs-no-gov-enhance">
+<div class="ecs-gov-table-scroll aisdlc-home-apps-wrap">
+<table class="aisdlc-table aisdlc-home-apps-table mb-0" data-export-name="ai-sdlc-my-apps">
+<colgroup>
+<col style="width:15%"><col style="width:10%"><col style="width:10%"><col style="width:8%"><col style="width:12%"><col style="width:35%"><col style="width:10%">
+</colgroup>
+<thead><tr>
+<th>Application</th><th>Business Owner</th><th>App Owner</th><th class="aisdlc-col-criticality">Criticality</th><th>Classification</th><th class="aisdlc-col-frameworks">Frameworks</th><th>Controls</th>
+</tr></thead>
 <tbody>
 {% for app in v.my_applications %}
+{% set fw_full = app.frameworks|join(', ') %}
 <tr>
 <td><a href="/mvp/ai-sdlc/onboarding{{ q }}">{{ app.application_name }}</a></td>
 <td>{{ app.business_owner }}</td><td>{{ app.application_owner }}</td>
-<td><span class="aisdlc-badge {{ app.criticality }}">{{ app.criticality }}</span></td>
+<td class="aisdlc-col-criticality"><span class="aisdlc-badge {{ app.criticality }}">{{ app.criticality }}</span></td>
 <td class="ecs-gov-wrap small">{{ app.regulatory_classification }}</td>
-<td class="ecs-gov-wrap small">{{ app.frameworks|join(', ') }}</td>
+<td class="aisdlc-fw-cell" title="{{ fw_full }}" data-full="{{ fw_full }}">
+<span class="aisdlc-fw-list">{{ app.frameworks|join(', ') }}</span>
+</td>
 <td>{{ app.control_count }}</td>
 </tr>
 {% endfor %}
 </tbody>
-{{ gov_table_close() }}
+</table>
+</div>
+</div>
 
 </div></div></div>
 {% include "partials/ecs_governance_table_framework.html" %}

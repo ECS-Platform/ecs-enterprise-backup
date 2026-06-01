@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.ecs_row_drill_engine import drill_framework_row
-from app.framework_kpi_drill_engine import FRAMEWORK_KPI_SPECS
-from app.framework_workflow_engine import ALL_FRAMEWORKS, build_framework_workflow_context, drill_framework_workflow
+from modules.frameworks.engines.ecs_row_drill_engine import drill_framework_row
+from modules.frameworks.engines.framework_kpi_drill_engine import FRAMEWORK_KPI_SPECS
+from modules.frameworks.engines.framework_workflow_engine import ALL_FRAMEWORKS, build_framework_workflow_context, drill_framework_workflow
 from app.main import app
 
 client = TestClient(app, raise_server_exceptions=False)

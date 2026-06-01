@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.ai_sdlc_control_tower_engine import TAB_IDS, build_run_scheduler
+from modules.ai_sdlc.engines.ai_sdlc_control_tower_engine import TAB_IDS, build_run_scheduler
 from app.main import app
 
 client = TestClient(app, follow_redirects=False)

@@ -469,8 +469,11 @@ tr.row-approved { background-color: #d1e7dd !important; }
 .ecs-trend-bar-track { height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; margin-top:2px; }
 .ecs-trend-bar-fill { height:100%; background:var(--ecs-chart-blue, #3b6ea5); border-radius:3px; }
 .ecs-evolution-chip { display:inline-block; font-size:0.68rem; padding:0.15rem 0.4rem; border:1px solid #e2e8f0; border-radius:4px; margin:0.1rem; }
-.ecs-kpi-clickable, [data-grc-drill], [data-ecs-demo-kpi], [data-ecs-kpi-link] { cursor: pointer; }
-.ecs-kpi-clickable:hover, [data-grc-drill]:hover { filter: brightness(0.97); }
+.ecs-kpi-clickable, [data-grc-drill], [data-ecs-demo-kpi], [data-ecs-kpi-link], [data-ecs-framework-kpi], [data-ecs-framework-wf-drill], [data-ecs-enterprise-wf-drill], [data-ecs-universal-kpi], [data-ecs-universal-chart], .ecs-drill-row-clickable, [data-ecs-framework-row-drill], [data-ecs-universal-row] { cursor: pointer; }
+.ecs-kpi-clickable:hover, [data-grc-drill]:hover, [data-ecs-framework-kpi]:hover, .ecs-drill-row-clickable:hover { filter: brightness(0.97); }
+.ecs-exec-kpi[data-ecs-framework-kpi]::after { content: '↗'; position: absolute; top: 3px; right: 6px; font-size: 0.58rem; opacity: 0.45; }
+.ecs-exec-kpi[data-ecs-framework-kpi] { position: relative; }
+.ecs-kpi-drill-search { max-width: 320px; }
 </style>
 
 <style>
@@ -775,7 +778,7 @@ tr.row-approved { background-color: #d1e7dd !important; }
 <p class="ecs-wf-toast-body" id="ecsWorkflowToastBody"></p>
 </div>
 
-<script type="application/json" id="ecsWorkflowSummaryData">{"approved": 83, "counters": [{"label": "Draft", "tone": "secondary", "value": 78}, {"label": "Submitted", "tone": "warning", "value": 79}, {"label": "Re-upload Req", "tone": "danger", "value": 0}], "draft": 78, "reupload_requested": 0, "role": "cio", "submitted": 79}</script>
+<script type="application/json" id="ecsWorkflowSummaryData">{"approved": 83, "counters": [{"label": "Draft", "metric": "draft", "tone": "secondary", "value": 78}, {"label": "Submitted", "metric": "submitted", "tone": "warning", "value": 79}, {"label": "Re-upload Req", "metric": "reupload", "tone": "danger", "value": 0}], "draft": 78, "reupload_requested": 0, "role": "cio", "submitted": 79}</script>
 
 <script>
 (function(){
@@ -1801,12 +1804,13 @@ body.bg-light {
     return h + '</tbody></table></div>';
   }
 
-  window.ecsOpenModuleKpiDrill = function(module, metric, label) {
+  window.ecsOpenModuleKpiDrill = function(module, metric, label, count) {
     titleEl.textContent = label || metric || 'KPI Detail';
     bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
     modal.show();
     var url = '/api/module-kpi/drill?module=' + encodeURIComponent(module || '') +
       '&metric=' + encodeURIComponent(metric || '') + '&role=' + encodeURIComponent(role);
+    if (count) url += '&count=' + encodeURIComponent(count);
     fetch(url).then(function(r){ return r.json(); }).then(function(j){
       if (!j.ok) { bodyEl.innerHTML = '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'; return; }
       titleEl.textContent = j.title || label;
@@ -1819,8 +1823,2400 @@ body.bg-light {
     var el = e.target.closest('[data-ecs-module-kpi]');
     if (!el) return;
     e.preventDefault();
-    ecsOpenModuleKpiDrill(el.getAttribute('data-ecs-module-kpi-module'), el.getAttribute('data-ecs-module-kpi-metric'), el.getAttribute('data-ecs-module-kpi-label') || el.querySelector('.ecs-exec-kpi-lbl')?.textContent);
+    ecsOpenModuleKpiDrill(el.getAttribute('data-ecs-module-kpi-module'), el.getAttribute('data-ecs-module-kpi-metric'), el.getAttribute('data-ecs-module-kpi-label') || el.querySelector('.ecs-exec-kpi-lbl')?.textContent, el.getAttribute('data-ecs-module-kpi-count'));
   });
+})();
+</script>
+
+<div class="modal fade" id="grcDemoDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="grcDemoDrillTitle">Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body small" id="grcDemoDrillBody"></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+<script>
+(function () {
+  if (window.__grcDemoDrillInit) return;
+  window.__grcDemoDrillInit = true;
+  var modalEl = document.getElementById('grcDemoDrillModal');
+  if (!modalEl || typeof bootstrap === 'undefined') return;
+  var modal = new bootstrap.Modal(modalEl);
+  var titleEl = document.getElementById('grcDemoDrillTitle');
+  var bodyEl = document.getElementById('grcDemoDrillBody');
+  var role = 'cio';
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function cols(rows, max) {
+    if (!rows || !rows.length) return [];
+    return Object.keys(rows[0]).slice(0, max || 7).map(function (k) {
+      return { key: k, label: k.replace(/_/g, ' ') };
+    });
+  }
+
+  function tableHtml(rows, maxCols) {
+    if (!rows || !rows.length) return '<p class="text-muted mb-0">No records.</p>';
+    var c = cols(rows, maxCols);
+    var h = '<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-paginated-table ecs-compact-table ecs-fit-table mb-0"><thead><tr>';
+    c.forEach(function (col) { h += '<th>' + esc(col.label) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr>';
+      c.forEach(function (col) {
+        var v = r[col.key];
+        if (v && typeof v === 'object') v = Array.isArray(v) ? v.length + ' items' : JSON.stringify(v);
+        h += '<td>' + esc(v) + '</td>';
+      });
+      h += '</tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  function renderPayload(p) {
+    if (!p) return '<p class="text-muted">No data.</p>';
+    if ((p.type === 'risk' || p.type === 'application' || p.type === 'framework') && p.data) {
+      var d = p.data;
+      var html = '<dl class="row mb-2">';
+      Object.keys(d).filter(function (k) { return typeof d[k] !== 'object'; }).slice(0, 12).forEach(function (k) {
+        html += '<dt class="col-sm-4">' + esc(k.replace(/_/g, ' ')) + '</dt><dd class="col-sm-8">' + esc(d[k]) + '</dd>';
+      });
+      html += '</dl>';
+      if (p.rows && p.rows.length) html += tableHtml(p.rows);
+      if (d.linked_observations) html += '<h6 class="mt-2">Linked Observations</h6>' + tableHtml(d.linked_observations, 4);
+      return html;
+    }
+    if (p.type === 'list' && p.rows) return tableHtml(p.rows);
+    if (p.data) return '<pre class="small bg-light p-2 rounded">' + esc(JSON.stringify(p.data, null, 2)) + '</pre>';
+    return '<p class="text-muted">' + esc(p.title || '') + '</p>';
+  }
+
+  window.grcOpenDrill = function (module, metric, id) {
+    var url = module === 'risk'
+      ? '/api/grc-demo/risk/drill?metric=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '') + '&role=' + encodeURIComponent(role)
+      : '/api/grc-demo/governance/drill?metric=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '') + '&role=' + encodeURIComponent(role);
+    titleEl.textContent = 'Loading…';
+    bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
+    modal.show();
+    fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+      var p = j.payload || {};
+      titleEl.textContent = p.title || 'Detail';
+      bodyEl.innerHTML = renderPayload(p);
+      if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+    }).catch(function () {
+      bodyEl.innerHTML = '<p class="text-danger">Failed to load drill-down.</p>';
+    });
+  };
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-grc-drill]');
+    if (!el) return;
+    e.preventDefault();
+    grcOpenDrill(el.getAttribute('data-grc-module') || 'governance', el.getAttribute('data-grc-metric') || '', el.getAttribute('data-grc-id') || '');
+  });
+})();
+</script>
+<div class="modal fade" id="aisdlcDrillModal" tabindex="-1" aria-labelledby="aisdlcDrillTitle" aria-hidden="true">
+<div class="modal-dialog modal-lg" id="aisdlcDrillDialog">
+<div class="modal-content" id="aisdlcDrillContent">
+<div class="modal-header py-2">
+<h5 class="modal-title fs-6" id="aisdlcDrillTitle">Detail</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body" id="aisdlcDrillBody"><div class="text-muted small">Loading…</div></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-sm btn-outline-secondary d-none" id="aisdlcDrillBack">Back</button>
+<button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+<a href="#" class="btn btn-sm btn-outline-primary d-none" id="aisdlcDrillStageLink">Open stage detail</a>
+<a href="#" class="btn btn-sm btn-primary d-none" id="aisdlcDrillLink">Open related module</a>
+</div>
+</div></div></div>
+
+<style>
+.ecs-gov-table-shell { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.5rem; }
+.ecs-gov-table-toolbar { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.ecs-gov-table-toolbar .ecs-gov-search { max-width: 14rem; }
+.ecs-gov-table-toolbar .ecs-gov-filter { max-width: 9rem; }
+.ecs-gov-table-scroll { overflow-x: auto; max-width: 100%; border: 1px solid #e2e8f0; border-radius: 0.35rem; background: #fff; }
+.ecs-gov-data-table { width: 100%; margin-bottom: 0; border-collapse: separate; border-spacing: 0; font-size: 0.72rem; table-layout: fixed; min-width: 640px; }
+.ecs-gov-data-table thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; border-bottom: 2px solid #e2e8f0; white-space: nowrap; user-select: none; padding: 0.35rem 0.5rem; vertical-align: middle; }
+.ecs-gov-data-table thead th.is-sortable { cursor: pointer; }
+.ecs-gov-data-table thead th.is-sortable:hover { background: #eef2ff; }
+.ecs-gov-data-table thead th .ecs-gov-sort-icon { opacity: 0.35; margin-left: 0.2rem; font-size: 0.6rem; }
+.ecs-gov-data-table thead th.is-sorted-asc .ecs-gov-sort-icon,
+.ecs-gov-data-table thead th.is-sorted-desc .ecs-gov-sort-icon { opacity: 1; color: #4338ca; }
+.ecs-gov-data-table tbody tr { height: auto; }
+.ecs-gov-data-table tbody td { padding: 0.32rem 0.5rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; line-height: 1.4; height: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ecs-gov-data-table tbody td.ecs-gov-cell-wrap,
+.ecs-gov-data-table tbody td.ecs-gov-wrap,
+.ecs-gov-data-table tbody td.ecs-gov-rich-cell {
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  text-overflow: unset;
+  overflow: visible;
+  max-width: none;
+  height: auto;
+}
+.ecs-gov-data-table th.ecs-gov-col-applications,
+.ecs-gov-data-table td.ecs-gov-col-applications { min-width: 350px; width: 38%; }
+.ecs-gov-data-table th.ecs-gov-col-prompts,
+.ecs-gov-data-table td.ecs-gov-col-prompts { min-width: 220px; width: 28%; }
+.ecs-gov-app-cell { word-break: normal; overflow-wrap: break-word; white-space: normal; }
+.ecs-gov-app-list { list-style: none; padding: 0; margin: 0; }
+.ecs-gov-app-list li { margin: 0 0 0.28rem; white-space: normal; word-break: normal; overflow-wrap: break-word; }
+.ecs-gov-app-list li:last-child { margin-bottom: 0; }
+.ecs-gov-tag {
+  display: inline-block;
+  padding: 0.14rem 0.45rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.3rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+.ecs-gov-tag-list { display: flex; flex-wrap: wrap; gap: 0.28rem; }
+.ecs-gov-data-table tbody tr.ecs-gov-row { cursor: pointer; }
+.ecs-gov-data-table tbody tr.ecs-gov-row:hover { background: #f8fafc; }
+.ecs-gov-data-table tbody tr.ecs-gov-row.is-expanded { background: #eef2ff; }
+.ecs-gov-data-table tbody tr.ecs-gov-detail-row td { background: #fafbff; padding: 0.5rem 0.75rem; white-space: normal; border-bottom: 1px solid #e2e8f0; }
+.ecs-gov-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.35rem 0.75rem; font-size: 0.68rem; }
+.ecs-gov-detail-grid dt { font-weight: 600; color: #64748b; margin: 0; }
+.ecs-gov-detail-grid dd { margin: 0 0 0.25rem; word-break: normal; overflow-wrap: break-word; }
+.ecs-gov-resize-handle { position: absolute; right: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; }
+.ecs-gov-data-table thead th { position: sticky; position: -webkit-sticky; }
+.ecs-gov-data-table thead th .ecs-gov-th-inner { position: relative; padding-right: 6px; display: block; overflow: hidden; text-overflow: ellipsis; }
+.ecs-gov-pagination-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; font-size: 0.68rem; color: #64748b; padding: 0.25rem 0; }
+.ecs-gov-pagination-controls { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.ecs-gov-tooltip { position: fixed; z-index: 1090; max-width: 420px; padding: 0.35rem 0.5rem; background: #1e293b; color: #f8fafc; font-size: 0.68rem; border-radius: 0.25rem; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.2); word-break: normal; overflow-wrap: break-word; display: none; }
+.ecs-gov-modal-full .modal-dialog { max-width: min(96vw, 1400px); width: 96vw; }
+.ecs-gov-modal-full .modal-body { max-height: calc(100vh - 140px); overflow-y: auto; }
+.ecs-gov-drawer .offcanvas-body { font-size: 0.78rem; }
+.ecs-gov-data-table .aisdlc-badge { white-space: nowrap; }
+</style>
+<div class="ecs-gov-tooltip" id="ecsGovTooltip" role="tooltip"></div>
+<div class="offcanvas offcanvas-end ecs-gov-drawer" tabindex="-1" id="ecsGovDetailDrawer" aria-labelledby="ecsGovDrawerTitle">
+<div class="offcanvas-header py-2"><h6 class="offcanvas-title" id="ecsGovDrawerTitle">Record Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div>
+<div class="offcanvas-body" id="ecsGovDrawerBody"></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var PAGE_SIZES = [10, 20, 50, 100];
+  var tooltipEl = document.getElementById('ecsGovTooltip');
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function cellText(v) {
+    if (v == null) return '';
+    if (typeof v === 'object') return Array.isArray(v) ? v.join(', ') : JSON.stringify(v);
+    return String(v);
+  }
+
+  function downloadBlob(filename, content, mime) {
+    var blob = new Blob([content], { type: mime || 'text/csv;charset=utf-8;' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 500);
+  }
+
+  function rowsToCsv(columns, rows) {
+    var header = columns.map(function (c) { return '"' + c.label.replace(/"/g, '""') + '"'; }).join(',');
+    var body = rows.map(function (r) {
+      return columns.map(function (c) {
+        var v = cellText(r[c.key]).replace(/"/g, '""');
+        return '"' + v + '"';
+      }).join(',');
+    }).join('\n');
+    return '\ufeff' + header + '\n' + body;
+  }
+
+  function rowsToTsv(columns, rows) {
+    var header = columns.map(function (c) { return c.label; }).join('\t');
+    var body = rows.map(function (r) {
+      return columns.map(function (c) { return cellText(r[c.key]).replace(/\t/g, ' '); }).join('\t');
+    }).join('\n');
+    return header + '\n' + body;
+  }
+
+  function inferColumnsFromTable(table) {
+    var ths = table.querySelectorAll('thead th');
+    if (!ths.length) return [];
+    return Array.from(ths).map(function (th, i) {
+      return { key: th.getAttribute('data-key') || ('col_' + i), label: th.textContent.trim(), sortable: true };
+    });
+  }
+
+  function rowsFromTable(table, columns) {
+    var trs = Array.from(table.querySelectorAll('tbody tr')).filter(function (tr) {
+      return !tr.classList.contains('ecs-gov-detail-row') && tr.querySelector('td');
+    });
+    return trs.map(function (tr, ri) {
+      var cells = tr.querySelectorAll('td');
+      var row = { __rowIndex: ri, __el: tr };
+      columns.forEach(function (c, ci) {
+        var cell = cells[ci];
+        if (!cell) {
+          row[c.key] = '';
+          return;
+        }
+        var rich = cell.classList.contains('ecs-gov-rich-cell') || cell.querySelector('.ecs-gov-app-cell, .ecs-gov-tag-list');
+        if (rich || cell.classList.contains('ecs-gov-wrap')) {
+          row[c.key + '__html'] = cell.innerHTML;
+          row[c.key] = cell.textContent.trim();
+        } else {
+          row[c.key] = cell.textContent.trim();
+        }
+      });
+      ['data-aisdlc-drill','data-metric','data-id','data-release','data-stage'].forEach(function (a) {
+        if (tr.hasAttribute(a)) row['__' + a.replace('data-','').replace(/-/g,'_')] = tr.getAttribute(a);
+      });
+      return row;
+    });
+  }
+
+  function GovernanceDataTable(host, options) {
+    this.host = host;
+    this.options = options || {};
+    this.pageSize = this.options.pageSize || 10;
+    this.page = 1;
+    this.sortKey = '';
+    this.sortDir = 'asc';
+    this.search = '';
+    this.filters = {};
+    this.columns = this.options.columns || [];
+    this.allRows = this.options.rows || [];
+    this.filteredRows = this.allRows.slice();
+    this.tableEl = null;
+    this._render();
+  }
+
+  GovernanceDataTable.prototype._render = function () {
+    var self = this;
+    var id = this.host.id || ('govtbl' + Math.random().toString(36).slice(2, 8));
+    this.host.id = id;
+    this.host.classList.add('ecs-gov-table-shell');
+    this.host.innerHTML =
+      '<div class="ecs-gov-table-toolbar">' +
+        '<input type="search" class="form-control form-control-sm ecs-gov-search" placeholder="Search records…">' +
+        '<select class="form-select form-select-sm ecs-gov-filter ecs-gov-filter-col" style="max-width:8rem"><option value="">All columns</option></select>' +
+        '<input type="search" class="form-control form-control-sm ecs-gov-filter ecs-gov-filter-val" placeholder="Column filter…" style="max-width:10rem">' +
+        '<div class="btn-group btn-group-sm ms-auto">' +
+          '<button type="button" class="btn btn-outline-secondary ecs-gov-export-csv">CSV</button>' +
+          '<button type="button" class="btn btn-outline-secondary ecs-gov-export-xlsx">Excel</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ecs-gov-table-scroll"><table class="ecs-gov-data-table table table-sm mb-0"><thead></thead><tbody></tbody></table></div>' +
+      '<div class="ecs-gov-pagination-bar"><div class="ecs-gov-summary"></div><div class="ecs-gov-pagination-controls"></div></div>';
+
+    this.tableEl = this.host.querySelector('.ecs-gov-data-table');
+    var colSel = this.host.querySelector('.ecs-gov-filter-col');
+    this.columns.forEach(function (c) {
+      colSel.innerHTML += '<option value="' + esc(c.key) + '">' + esc(c.label) + '</option>';
+    });
+
+    this.host.querySelector('.ecs-gov-search').addEventListener('input', function (e) {
+      self.search = e.target.value || '';
+      self.page = 1;
+      self._applyFilters();
+    });
+    this.host.querySelector('.ecs-gov-filter-val').addEventListener('input', function (e) {
+      var col = colSel.value;
+      if (col) self.filters[col] = e.target.value || '';
+      else self.filters = {};
+      self.page = 1;
+      self._applyFilters();
+    });
+    colSel.addEventListener('change', function () {
+      self.filters = {};
+      self.host.querySelector('.ecs-gov-filter-val').value = '';
+      self._applyFilters();
+    });
+    this.host.querySelector('.ecs-gov-export-csv').addEventListener('click', function () {
+      downloadBlob((self.options.exportName || 'governance-export') + '.csv', rowsToCsv(self.columns, self.filteredRows));
+    });
+    this.host.querySelector('.ecs-gov-export-xlsx').addEventListener('click', function () {
+      downloadBlob((self.options.exportName || 'governance-export') + '.xls', rowsToTsv(self.columns, self.filteredRows), 'application/vnd.ms-excel');
+    });
+
+    this._applyFilters();
+    this._initResize();
+  };
+
+  GovernanceDataTable.prototype._applyFilters = function () {
+    var self = this;
+    var q = (this.search || '').toLowerCase();
+    var fkeys = Object.keys(this.filters).filter(function (k) { return self.filters[k]; });
+    this.filteredRows = this.allRows.filter(function (row) {
+      var text = self.columns.map(function (c) { return cellText(row[c.key]); }).join(' ').toLowerCase();
+      if (q && text.indexOf(q) < 0) return false;
+      for (var i = 0; i < fkeys.length; i++) {
+        var fk = fkeys[i];
+        if (cellText(row[fk]).toLowerCase().indexOf(String(self.filters[fk]).toLowerCase()) < 0) return false;
+      }
+      return true;
+    });
+    if (this.sortKey) this._sortRows();
+    var pages = Math.max(1, Math.ceil(this.filteredRows.length / this.pageSize));
+    if (this.page > pages) this.page = pages;
+    this._renderTableBody();
+    this._renderPagination();
+  };
+
+  GovernanceDataTable.prototype._sortRows = function () {
+    var key = this.sortKey;
+    var dir = this.sortDir === 'desc' ? -1 : 1;
+    this.filteredRows.sort(function (a, b) {
+      var av = cellText(a[key]).toLowerCase();
+      var bv = cellText(b[key]).toLowerCase();
+      var an = parseFloat(av), bn = parseFloat(bv);
+      if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
+      return av < bv ? -dir : av > bv ? dir : 0;
+    });
+  };
+
+  GovernanceDataTable.prototype._renderTableHead = function () {
+    var self = this;
+    var thead = this.tableEl.querySelector('thead');
+    var tr = document.createElement('tr');
+    this.columns.forEach(function (c) {
+      var th = document.createElement('th');
+      var colWidth = c.width || c.minWidth || 120;
+      th.style.width = colWidth + 'px';
+      if (c.minWidth) th.style.minWidth = c.minWidth + 'px';
+      if (c.colClass) th.className = (th.className ? th.className + ' ' : '') + c.colClass;
+      th.setAttribute('data-key', c.key);
+      th.className = 'is-sortable' + (self.sortKey === c.key ? ' is-sorted-' + self.sortDir : '');
+      th.innerHTML = '<span class="ecs-gov-th-inner">' + esc(c.label) + '<span class="ecs-gov-sort-icon">' + (self.sortKey === c.key ? (self.sortDir === 'asc' ? '▲' : '▼') : '↕') + '</span><span class="ecs-gov-resize-handle"></span></span>';
+      th.addEventListener('click', function (e) {
+        if (e.target.classList.contains('ecs-gov-resize-handle')) return;
+        if (self.sortKey === c.key) self.sortDir = self.sortDir === 'asc' ? 'desc' : 'asc';
+        else { self.sortKey = c.key; self.sortDir = 'asc'; }
+        self._sortRows();
+        self._renderTableBody();
+        self._renderTableHead();
+      });
+      tr.appendChild(th);
+    });
+    thead.innerHTML = '';
+    thead.appendChild(tr);
+  };
+
+  GovernanceDataTable.prototype._renderTableBody = function () {
+    var self = this;
+    this._renderTableHead();
+    var tbody = this.tableEl.querySelector('tbody');
+    tbody.innerHTML = '';
+    var start = (this.page - 1) * this.pageSize;
+    var slice = this.filteredRows.slice(start, start + this.pageSize);
+    if (!slice.length) {
+      tbody.innerHTML = '<tr><td colspan="' + this.columns.length + '" class="text-muted text-center py-3">No matching records.</td></tr>';
+      return;
+    }
+    slice.forEach(function (row, idx) {
+      var tr = document.createElement('tr');
+      tr.className = 'ecs-gov-row';
+      if (row.__el) {
+        row.__drill = {};
+        ['data-aisdlc-drill','data-metric','data-id','data-release','data-stage'].forEach(function (a) {
+          var v = row.__el.getAttribute(a);
+          if (v != null) row.__drill[a] = v;
+        });
+      }
+      self.columns.forEach(function (c) {
+        var td = document.createElement('td');
+        var val = cellText(row[c.key]);
+        var html = row[c.key + '__html'];
+        if (html) {
+          td.innerHTML = html;
+          td.classList.add('ecs-gov-cell-wrap', 'ecs-gov-rich-cell');
+        } else {
+          td.textContent = val;
+          td.title = val;
+          td.setAttribute('data-full', val);
+          if (c.wrap) td.classList.add('ecs-gov-cell-wrap');
+        }
+        if (c.colClass) td.classList.add(c.colClass);
+        tr.appendChild(td);
+      });
+      tr.addEventListener('click', function (e) {
+        if (e.target.closest('a,button')) return;
+        self._toggleExpand(tr, row);
+      });
+      tr.addEventListener('dblclick', function () {
+        if (window.GovernanceDetailDrawer) GovernanceDetailDrawer.open(row, self.columns);
+      });
+      tbody.appendChild(tr);
+    });
+    this._bindTooltips(tbody);
+  };
+
+  GovernanceDataTable.prototype._toggleExpand = function (tr, row) {
+    var next = tr.nextElementSibling;
+    if (next && next.classList.contains('ecs-gov-detail-row')) {
+      next.remove();
+      tr.classList.remove('is-expanded');
+      return;
+    }
+    this.tableEl.querySelectorAll('.ecs-gov-detail-row').forEach(function (r) { r.remove(); });
+    this.tableEl.querySelectorAll('.ecs-gov-row.is-expanded').forEach(function (r) { r.classList.remove('is-expanded'); });
+    tr.classList.add('is-expanded');
+    var detail = document.createElement('tr');
+    detail.className = 'ecs-gov-detail-row';
+    var td = document.createElement('td');
+    td.colSpan = this.columns.length;
+    var dl = '<dl class="ecs-gov-detail-grid">';
+    this.columns.forEach(function (c) {
+      dl += '<dt>' + esc(c.label) + '</dt><dd>' + esc(cellText(row[c.key])) + '</dd>';
+    });
+    dl += '</dl>';
+    if (row.__drill && row.__drill['data-aisdlc-drill']) {
+      dl += '<button type="button" class="btn btn-sm btn-outline-primary mt-2 ecs-gov-drill-btn">Open governance drill-down →</button>';
+    }
+    td.innerHTML = dl;
+    detail.appendChild(td);
+    tr.after(detail);
+    var btn = td.querySelector('.ecs-gov-drill-btn');
+    if (btn && row.__drill) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var d = row.__drill;
+        if (typeof openDrill === 'function') {
+          openDrill(d['data-aisdlc-drill'], d['data-metric'], d['data-id'] || '', {
+            release: d['data-release'] || '', stage: d['data-stage'] || ''
+          });
+        } else {
+          var fake = document.createElement('span');
+          Object.keys(d).forEach(function (k) { fake.setAttribute(k, d[k]); });
+          fake.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        }
+      });
+    }
+  };
+
+  GovernanceDataTable.prototype._renderPagination = function () {
+    var self = this;
+    var total = this.filteredRows.length;
+    var pages = Math.max(1, Math.ceil(total / this.pageSize));
+    var from = total ? (this.page - 1) * this.pageSize + 1 : 0;
+    var to = Math.min(this.page * this.pageSize, total);
+    this.host.querySelector('.ecs-gov-summary').textContent =
+      total ? ('Showing ' + from + '–' + to + ' of ' + total + ' records') : 'No records';
+    var ctrl = this.host.querySelector('.ecs-gov-pagination-controls');
+    ctrl.innerHTML =
+      '<label class="small">Rows <select class="form-select form-select-sm d-inline-block ecs-gov-page-size" style="width:auto">' +
+      PAGE_SIZES.map(function (n) {
+        return '<option value="' + n + '"' + (n === self.pageSize ? ' selected' : '') + '>' + n + '</option>';
+      }).join('') + '</select></label>' +
+      '<div class="btn-group btn-group-sm">' +
+        '<button type="button" class="btn btn-outline-secondary ecs-gov-pg-first"' + (this.page <= 1 ? ' disabled' : '') + '>&laquo;</button>' +
+        '<button type="button" class="btn btn-outline-secondary ecs-gov-pg-prev"' + (this.page <= 1 ? ' disabled' : '') + '>&lsaquo;</button>' +
+        '<span class="btn btn-outline-secondary disabled">Page ' + this.page + ' / ' + pages + '</span>' +
+        '<button type="button" class="btn btn-outline-secondary ecs-gov-pg-next"' + (this.page >= pages ? ' disabled' : '') + '>&rsaquo;</button>' +
+        '<button type="button" class="btn btn-outline-secondary ecs-gov-pg-last"' + (this.page >= pages ? ' disabled' : '') + '>&raquo;</button>' +
+      '</div>';
+    ctrl.querySelector('.ecs-gov-page-size').addEventListener('change', function (e) {
+      self.pageSize = parseInt(e.target.value, 10) || 10;
+      self.page = 1;
+      self._applyFilters();
+    });
+    ctrl.querySelector('.ecs-gov-pg-first').addEventListener('click', function () { self.page = 1; self._applyFilters(); });
+    ctrl.querySelector('.ecs-gov-pg-prev').addEventListener('click', function () { self.page = Math.max(1, self.page - 1); self._applyFilters(); });
+    ctrl.querySelector('.ecs-gov-pg-next').addEventListener('click', function () { self.page = Math.min(pages, self.page + 1); self._applyFilters(); });
+    ctrl.querySelector('.ecs-gov-pg-last').addEventListener('click', function () { self.page = pages; self._applyFilters(); });
+  };
+
+  GovernanceDataTable.prototype._bindTooltips = function (root) {
+    root.querySelectorAll('td[data-full]').forEach(function (td) {
+      td.addEventListener('mouseenter', function () {
+        var full = td.getAttribute('data-full') || '';
+        if (!full || !tooltipEl) return;
+        if (td.scrollWidth <= td.clientWidth && full.length < 40) return;
+        tooltipEl.textContent = full;
+        tooltipEl.style.display = 'block';
+        var r = td.getBoundingClientRect();
+        tooltipEl.style.left = Math.min(r.left, window.innerWidth - 430) + 'px';
+        tooltipEl.style.top = (r.bottom + 6) + 'px';
+      });
+      td.addEventListener('mouseleave', function () { if (tooltipEl) tooltipEl.style.display = 'none'; });
+    });
+  };
+
+  GovernanceDataTable.prototype._initResize = function () {
+    var table = this.tableEl;
+    table.querySelectorAll('.ecs-gov-resize-handle').forEach(function (handle) {
+      handle.addEventListener('mousedown', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var th = handle.closest('th');
+        var startX = e.pageX;
+        var startW = th.offsetWidth;
+        function move(ev) {
+          th.style.width = Math.max(60, startW + (ev.pageX - startX)) + 'px';
+        }
+        function up() {
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', up);
+        }
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+      });
+    });
+  };
+
+  function enhanceLegacyTable(table) {
+    if (!table || table.dataset.govEnhanced) return null;
+    if (table.closest('.ecs-gov-table-shell')) return null;
+    table.dataset.govEnhanced = '1';
+    var host = document.createElement('div');
+    table.parentNode.insertBefore(host, table);
+    var columns = inferColumnsFromTable(table);
+    if (!columns.length) { table.remove(); return null; }
+    columns.forEach(function (c, i) {
+      var th = table.querySelectorAll('thead th')[i];
+      var td = table.querySelector('tbody tr td:nth-child(' + (i + 1) + ')');
+      if (th) {
+        th.setAttribute('data-key', c.key);
+        c.label = th.textContent.trim();
+        var minW = th.getAttribute('data-min-width');
+        var w = th.getAttribute('data-width');
+        if (minW) c.minWidth = parseInt(minW, 10);
+        if (w) c.width = parseInt(w, 10);
+        if (th.classList.contains('ecs-gov-col-applications')) {
+          c.colClass = 'ecs-gov-col-applications';
+          c.minWidth = c.minWidth || 350;
+          c.wrap = true;
+        }
+        if (th.classList.contains('ecs-gov-col-prompts')) {
+          c.colClass = 'ecs-gov-col-prompts';
+          c.minWidth = c.minWidth || 220;
+          c.wrap = true;
+        }
+      }
+      if (td && (td.classList.contains('ecs-gov-wrap') || td.classList.contains('ecs-gov-rich-cell') || td.querySelector('.ecs-gov-app-cell'))) {
+        c.wrap = true;
+      }
+    });
+    var rows = rowsFromTable(table, columns);
+    var exportName = table.id || table.getAttribute('data-export-name') || 'governance-table';
+    table.remove();
+    var inst = new GovernanceDataTable(host, {
+      columns: columns,
+      rows: rows,
+      exportName: exportName,
+      pageSize: 10
+    });
+    host._govInstance = inst;
+    return inst;
+  }
+
+  function enhance(root) {
+    root = root || document;
+    root.querySelectorAll('.ecs-gov-data-table:not([data-gov-enhanced]), .ecs-governance-shell .ecs-paginated-table:not([data-gov-enhanced]), #aisdlcDrillBody table.aisdlc-table:not([data-gov-enhanced])').forEach(function (table) {
+      if (table.closest('.ecs-no-gov-enhance')) return;
+      table.dataset.govEnhanced = '1';
+      enhanceLegacyTable(table);
+    });
+  }
+
+  function mount(host, options) {
+    return new GovernanceDataTable(host, options);
+  }
+
+  function fromRows(columns, rows, opts) {
+    var host = document.createElement('div');
+    host.className = 'ecs-gov-table-shell';
+    new GovernanceDataTable(host, Object.assign({ columns: columns, rows: rows }, opts || {}));
+    return host.outerHTML;
+  }
+
+  var GovernanceModal = {
+    setFullWidth: function (full) {
+      var dialog = document.getElementById('aisdlcDrillDialog');
+      if (dialog) dialog.classList.toggle('ecs-gov-modal-full', !!full);
+      if (dialog) dialog.classList.toggle('modal-xl', !!full);
+    },
+    open: function (title, html, opts) {
+      opts = opts || {};
+      var titleEl = document.getElementById('aisdlcDrillTitle');
+      var bodyEl = document.getElementById('aisdlcDrillBody');
+      var modalEl = document.getElementById('aisdlcDrillModal');
+      if (!modalEl || typeof bootstrap === 'undefined') return;
+      GovernanceModal.setFullWidth(opts.fullWidth !== false);
+      if (titleEl) titleEl.textContent = title || 'Detail';
+      if (bodyEl) bodyEl.innerHTML = html || '';
+      enhance(bodyEl);
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+  };
+
+  var GovernanceDetailDrawer = {
+    open: function (row, columns) {
+      var drawerEl = document.getElementById('ecsGovDetailDrawer');
+      if (!drawerEl || typeof bootstrap === 'undefined') return;
+      var title = document.getElementById('ecsGovDrawerTitle');
+      var body = document.getElementById('ecsGovDrawerBody');
+      if (title) title.textContent = cellText(row[columns[0] && columns[0].key] || 'Record');
+      var html = '<dl class="ecs-gov-detail-grid">';
+      columns.forEach(function (c) {
+        html += '<dt>' + esc(c.label) + '</dt><dd>' + esc(cellText(row[c.key])) + '</dd>';
+      });
+      html += '</dl>';
+      if (body) body.innerHTML = html;
+      bootstrap.Offcanvas.getOrCreateInstance(drawerEl).show();
+    }
+  };
+
+  window.GovernanceDataTable = { mount: mount, enhance: enhance, fromRows: fromRows };
+  window.GovernanceModal = GovernanceModal;
+  window.GovernanceDetailDrawer = GovernanceDetailDrawer;
+
+  function boot() { enhance(document); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+  if (typeof MutationObserver !== 'undefined') {
+    var obs = new MutationObserver(function () {
+      clearTimeout(window.__ecsGovEnhanceTimer);
+      window.__ecsGovEnhanceTimer = setTimeout(function () { enhance(document); }, 120);
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  window.ecsEnhanceGovTables = enhance;
+})();
+</script>
+<script>
+(function () {
+  var modalEl = document.getElementById('aisdlcDrillModal');
+  if (!modalEl || typeof bootstrap === 'undefined') return;
+  var modalContentEl = document.getElementById('aisdlcDrillContent');
+  var modal = new bootstrap.Modal(modalEl);
+  var titleEl = document.getElementById('aisdlcDrillTitle');
+  var bodyEl = document.getElementById('aisdlcDrillBody');
+  var linkEl = document.getElementById('aisdlcDrillLink');
+  var stageLinkEl = document.getElementById('aisdlcDrillStageLink');
+  var backBtn = document.getElementById('aisdlcDrillBack');
+  var q = '?role=cio&user=cio%40bank.com';
+  var lastDrill = { kind: 'sdlc', release: '', stage: '' };
+  var drillOrigin = null;
+
+  function getNavModule() {
+    return (document.body && document.body.dataset.navModule) || '';
+  }
+
+  function captureDrillOrigin() {
+    if (drillOrigin) return;
+    drillOrigin = { scrollY: window.scrollY || 0, url: window.location.href };
+    try { sessionStorage.setItem('ecsDrillOrigin', JSON.stringify(drillOrigin)); } catch (e) {}
+  }
+
+  function restoreDrillOrigin() {
+    var o = drillOrigin;
+    if (!o) {
+      try { o = JSON.parse(sessionStorage.getItem('ecsDrillOrigin') || 'null'); } catch (e) { o = null; }
+    }
+    drillOrigin = null;
+    try { sessionStorage.removeItem('ecsDrillOrigin'); } catch (e) {}
+    if (o && typeof o.scrollY === 'number') window.scrollTo(0, o.scrollY);
+  }
+
+  if (backBtn) {
+    backBtn.addEventListener('click', function () {
+      modal.hide();
+    });
+  }
+  modalEl.addEventListener('hidden.bs.modal', function () {
+    restoreDrillOrigin();
+    if (backBtn) backBtn.classList.add('d-none');
+  });
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderAppBanner(apps) {
+    if (!apps) return '';
+    var impacted = apps.applications_impacted || [];
+    return '<div class="alert alert-light border py-2 px-2 mb-2 small">' +
+      '<strong>Release:</strong> ' + esc(apps.release) + ' · ' +
+      '<strong>Primary:</strong> ' + esc(apps.primary_application) + '<br>' +
+      '<strong>Applications impacted:</strong> ' + esc(impacted.join(', ')) +
+      '</div>';
+  }
+
+  function renderDetailDl(data, keys) {
+    if (!data) return '';
+    var useKeys = keys || Object.keys(data).filter(function (k) {
+      return typeof data[k] !== 'object' && k.indexOf('_records') === -1 && k !== 'content_preview';
+    });
+    return '<dl class="row small mb-2">' +
+      useKeys.map(function (k) {
+        return '<dt class="col-sm-4">' + esc(k.replace(/_/g, ' ')) + '</dt><dd class="col-sm-8">' + esc(data[k]) + '</dd>';
+      }).join('') + '</dl>';
+  }
+
+  function renderHowCalculated(opts) {
+    opts = opts || {};
+    var h = '<div class="ecs-how-calculated alert alert-light border py-2 px-2 mb-2 small">';
+    h += '<div class="fw-semibold mb-1">How Calculated</div>';
+    if (opts.formula) h += '<p class="mb-1">' + esc(opts.formula) + '</p>';
+    if (opts.aggregate != null && opts.aggregate !== '') {
+      h += '<p class="mb-1"><strong>Current value:</strong> ' + esc(opts.aggregate) + esc(opts.unit || '%') + '</p>';
+    }
+    (opts.steps || []).forEach(function (s) {
+      h += '<p class="mb-0 text-muted">' + esc(s) + '</p>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function refreshModalPagination(root) {
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination(root || bodyEl);
+  }
+
+  function drillAttrs(kind, metric, id, extra) {
+    extra = extra || {};
+    var attrs = ' data-aisdlc-drill="' + esc(kind) + '" data-metric="' + esc(metric || '') + '"';
+    if (id) attrs += ' data-id="' + esc(id) + '"';
+    if (extra.release) attrs += ' data-release="' + esc(extra.release) + '"';
+    if (extra.stage) attrs += ' data-stage="' + esc(extra.stage) + '"';
+    attrs += ' tabindex="0" style="cursor:pointer"';
+    return attrs;
+  }
+
+  function formatCellValue(v) {
+    if (v == null || v === '') return '';
+    if (Array.isArray(v)) {
+      if (!v.length) return '—';
+      if (typeof v[0] === 'object') return v.length + ' linked';
+      return v.join(', ');
+    }
+    if (typeof v === 'object') return '—';
+    return v;
+  }
+
+  function renderDrillTable(rows, cols, drillCfg) {
+    if (!rows || !rows.length) return '<p class="text-muted small">No records.</p>';
+    drillCfg = drillCfg || {};
+    var h = '<div class="ecs-gov-table-scroll"><table class="table table-sm aisdlc-table ecs-gov-data-table mb-0"><thead><tr>';
+    cols.forEach(function (c) { h += '<th>' + esc(c.label) + '</th>'; });
+    if (drillCfg.actionLabel) h += '<th></th>';
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      var idField = drillCfg.idField || 'id';
+      var id = r.drill_id || r[drillCfg.idKey || idField] || r.control_id || r.evidence_id || r.gap_id || r.doc_id || r.req_id || r.test_id || r.defect_id || r.obs_id || r.exception_id || r.item_id || r.design_id || r.policy || r.prompt_id || r.model_id || r.application_id;
+      var trAttrs = drillCfg.metric ? drillAttrs(drillCfg.kind || 'sdlc', drillCfg.metric, id, { release: drillCfg.release, stage: drillCfg.stage }) : '';
+      h += '<tr' + trAttrs + '>';
+      cols.forEach(function (c) {
+        h += '<td>' + esc(formatCellValue(r[c.key])) + '</td>';
+      });
+      if (drillCfg.actionLabel) {
+        h += '<td><span class="aisdlc-drill-link small"' + drillAttrs(drillCfg.kind || 'posture', drillCfg.actionMetric || drillCfg.metric, id, {}) + '>' + esc(drillCfg.actionLabel) + '</span></td>';
+      }
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    return h;
+  }
+
+  function colsFromRows(rows, max, exclude) {
+    if (!rows || !rows.length) return [];
+    exclude = exclude || ['control_records', 'defect_records', 'gap_records', 'evidence_records', 'violation_records', 'content_preview', 'artifact', 'stage_key', 'prompts_using_model', 'applications_using_model', 'related_prompts', 'related_model', 'audit_history', 'evidence_rows'];
+    return Object.keys(rows[0]).filter(function (k) { return exclude.indexOf(k) === -1; }).slice(0, max || 8).map(function (k) {
+      return { key: k, label: k.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }) };
+    });
+  }
+
+  var CONTROL_COLS = [
+    {key:'control_id',label:'Control ID'},{key:'application',label:'Application'},{key:'framework',label:'Framework'},
+    {key:'control_description',label:'Description'},{key:'owner',label:'Owner'},{key:'status',label:'Status'},
+    {key:'evidence_count',label:'Evidence'},{key:'findings_count',label:'Findings'},{key:'exceptions_count',label:'Exceptions'}
+  ];
+
+  var FRAMEWORK_CONTROL_COLS = [
+    {key:'control_id',label:'Control ID'},{key:'control_name',label:'Control Name'},{key:'control_objective',label:'Objective'},
+    {key:'framework',label:'Framework'},{key:'requirement_source',label:'Requirement'},{key:'design_source',label:'Design'},
+    {key:'development_source',label:'Development'},{key:'testing_source',label:'Testing'},{key:'evidence_count',label:'Evidence'},
+    {key:'observations',label:'Observations'},{key:'exceptions',label:'Exceptions'},{key:'audit_findings',label:'Findings'},
+    {key:'reuse_count',label:'Reuse Count'}
+  ];
+
+  var EVIDENCE_COLS = [
+    {key:'evidence_id',label:'Evidence ID'},{key:'application',label:'Application'},{key:'framework',label:'Framework'},
+    {key:'control_id',label:'Control'},{key:'title',label:'Title'},{key:'type',label:'Type'},{key:'status',label:'Status'},
+    {key:'collected_date',label:'Collected'}
+  ];
+
+  var HISTORY_SECTIONS = [
+    { key: 'previous_observations', label: 'Previous Audit Observations', metric: 'history_observation', idKey: 'obs_id' },
+    { key: 'previously_approved_designs', label: 'Previously Approved Designs', metric: 'history_design', idKey: 'design_id' },
+    { key: 'previously_accepted_evidence', label: 'Previously Accepted Evidence', metric: 'history_evidence', idKey: 'evidence_id' },
+    { key: 'similar_controls', label: 'Similar Controls in Other Applications', metric: 'history_similar', idKey: 'control_id' },
+    { key: 'historical_closure_comments', label: 'Historical Closure Comments', metric: 'history_closure', idKey: 'comment_id' }
+  ];
+
+  function renderKnowledgeGraph(graph, drillExtra) {
+    if (!graph || !graph.nodes || !graph.nodes.length) return '';
+    var h = '<div class="aisdlc-knowledge-graph mb-2"><p class="small fw-semibold mb-1">Control Relationship Graph</p><div class="aisdlc-graph-flow">';
+    graph.nodes.forEach(function (n) {
+      var cls = 'aisdlc-graph-node type-' + esc(n.type || 'default');
+      var attrs = '';
+      if (n.drill_metric && n.drill_id) {
+        attrs = drillAttrs('sdlc', n.drill_metric, n.drill_id, drillExtra);
+      }
+      h += '<div class="' + cls + '"' + attrs + '><div class="gn-type">' + esc(n.type) + '</div><div class="gn-label">' + esc(n.label) + '</div></div>';
+      h += '<div class="aisdlc-graph-arrow">→</div>';
+    });
+    h = h.replace(/<div class="aisdlc-graph-arrow">→<\/div>$/, '');
+    h += '</div><p class="text-muted small mb-0">Click any node to drill into linked governance artifact.</p></div>';
+    return h;
+  }
+
+  function renderKbTabs(tabs, drillExtra) {
+    if (!tabs) return '';
+    var uid = 'kbt' + Math.random().toString(36).slice(2, 8);
+    var keys = Object.keys(tabs);
+    var h = '<ul class="nav nav-tabs nav-tabs-sm aisdlc-kb-tabs mb-2" role="tablist">';
+    keys.forEach(function (k, i) {
+      h += '<li class="nav-item"><button class="nav-link' + (i === 0 ? ' active' : '') + '" data-bs-toggle="tab" data-bs-target="#' + uid + '-' + k + '" type="button">' +
+        esc(tabs[k].label || k.replace(/_/g, ' ')) + '</button></li>';
+    });
+    h += '</ul><div class="tab-content aisdlc-kb-tab-panels">';
+    keys.forEach(function (k, i) {
+      var tab = tabs[k];
+      h += '<div class="tab-pane fade' + (i === 0 ? ' show active' : '') + '" id="' + uid + '-' + k + '">';
+      h += renderDrillTable(tab.rows || [], [
+        {key:'reference_id',label:'Reference'},{key:'application',label:'Application'},{key:'release',label:'Release'},
+        {key:'status',label:'Status'},{key:'owner',label:'Owner'},{key:'closure_date',label:'Closure'},{key:'summary',label:'Summary'}
+      ], { kind: 'sdlc', metric: 'control', idKey: 'reference_id', release: drillExtra.release, stage: drillExtra.stage });
+      h += '</div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function renderControlKnowledgeRepo(kb, drillExtra, controlId) {
+    if (!kb) return '';
+    var p = kb.profile || {};
+    var sm = kb.summary || {};
+    var h = '<div class="aisdlc-knowledge-repo mb-2">';
+    h += '<p class="small fw-semibold mb-1">Enterprise Control Knowledge Repository</p>';
+    h += '<dl class="row small mb-2">';
+    ['control_id','control_name','control_category','risk_rating','control_owner','control_objective','regulatory_mapping','framework_mapping'].forEach(function (k) {
+      if (p[k]) h += '<dt class="col-sm-4">' + esc(k.replace(/_/g, ' ')) + '</dt><dd class="col-sm-8">' + esc(p[k]) + '</dd>';
+    });
+    if (p.control_description) h += '<dt class="col-sm-4">control description</dt><dd class="col-sm-8">' + esc(p.control_description) + '</dd>';
+    h += '</dl>';
+    h += '<div class="aisdlc-kb-stats row g-1 mb-2 small">';
+    h += '<div class="col"><span class="badge bg-primary">Apps: ' + esc(sm.total_applications) + '</span></div>';
+    h += '<div class="col"><span class="badge bg-success">Closed Obs: ' + esc(sm.closed_observations) + '</span></div>';
+    h += '<div class="col"><span class="badge bg-warning text-dark">Open Obs: ' + esc(sm.open_observations) + '</span></div></div>';
+    h += '<p class="small mb-1"><strong>Used in:</strong> ' + esc((sm.apps_using || []).join(', ')) + '</p>';
+    h += '<p class="small mb-1"><strong>Implementing:</strong> ' + esc((sm.apps_implementing || []).join(', ')) + '</p>';
+    h += '<p class="small mb-1"><strong>Failed:</strong> ' + esc((sm.apps_failed || []).join(', ')) + '</p>';
+    h += '<p class="small mb-2"><strong>Closed observations:</strong> ' + esc((sm.apps_closed_observations || []).join(', ')) + '</p>';
+    h += renderKbTabs(kb.tabs, drillExtra);
+    h += '<button type="button" class="btn btn-sm btn-outline-primary mt-1"' +
+      drillAttrs('sdlc', 'control_graph', controlId, drillExtra) + '>View Control Relationship Graph</button>';
+    h += '</div>';
+    return h;
+  }
+
+  function renderAuditKnowledgeKb(audit, drillExtra) {
+    if (!audit) return '';
+    var h = '<div class="aisdlc-audit-kb mb-2"><p class="small fw-semibold mb-1">Audit Observation Knowledge Base</p>';
+    var blocks = [
+      ['Open Observations', audit.open_observations, 'history_observation', 'observation_id'],
+      ['Closed Observations', audit.closed_observations, 'history_observation', 'observation_id'],
+      ['Repeat Observations', audit.repeat_observations, 'history_observation', 'observation_id'],
+    ];
+    blocks.forEach(function (b) {
+      if (b[1] && b[1].length) {
+        h += '<p class="small fw-semibold mb-1 mt-1">' + esc(b[0]) + ' (' + b[1].length + ')</p>';
+        h += renderDrillTable(b[1], [
+          {key:'observation_id',label:'Observation ID'},{key:'application',label:'Application'},{key:'audit_year',label:'Audit Year'},
+          {key:'severity',label:'Severity'},{key:'closure_status',label:'Status'},{key:'summary',label:'Summary'}
+        ], { kind: 'sdlc', metric: b[2], idKey: b[3], release: drillExtra.release, stage: drillExtra.stage });
+      }
+    });
+    if (audit.root_causes && audit.root_causes.length) {
+      h += '<p class="small fw-semibold mb-1">Root Causes</p>' + renderDocTable([{key:'cause',label:'Cause'},{key:'frequency',label:'Frequency'}], audit.root_causes);
+    }
+    if (audit.compensating_controls && audit.compensating_controls.length) {
+      h += '<p class="small fw-semibold mb-1">Compensating Controls</p>' + renderDocTable([{key:'control',label:'Control'},{key:'application',label:'Application'}], audit.compensating_controls);
+    }
+    if (audit.closure_packages && audit.closure_packages.length) {
+      h += '<p class="small fw-semibold mb-1">Historical Closure Packages</p>';
+      h += renderDocTable([{key:'observation_id',label:'Observation'},{key:'evidence_used',label:'Evidence'},{key:'owner',label:'Owner'},{key:'approver',label:'Approver'},{key:'closure_comments',label:'Comments'}], audit.closure_packages);
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function renderLifecycleStepDetail(d) {
+    if (!d) return '';
+    var h = renderDetailDl(d, ['stage_label','application','owner','reviewer','status','submission_date','approval_date','evidence_count','comments']);
+    var sections = [
+      ['Documents', d.documents, [{key:'doc_id',label:'Doc ID'},{key:'title',label:'Title'},{key:'status',label:'Status'}]],
+      ['Evidence', d.evidence, [{key:'evidence_id',label:'Evidence ID'},{key:'title',label:'Title'},{key:'status',label:'Status'}]],
+      ['Approvals', d.approvals, [{key:'approver',label:'Approver'},{key:'date',label:'Date'},{key:'status',label:'Status'}]],
+      ['Observations', d.observations, [{key:'obs_id',label:'Obs ID'},{key:'severity',label:'Severity'},{key:'status',label:'Status'}]],
+      ['Exceptions', d.exceptions, [{key:'exception_id',label:'Exception'},{key:'summary',label:'Summary'},{key:'status',label:'Status'}]],
+    ];
+    sections.forEach(function (sec) {
+      if (sec[1] && sec[1].length) {
+        h += '<p class="small fw-semibold mb-1">' + sec[0] + ' (' + sec[1].length + ')</p>';
+        h += renderDocTable(sec[2], sec[1]);
+      }
+    });
+    return h;
+  }
+
+  function renderHeatmap(data, kind) {
+    if (!data || !data.rows) return '<p class="text-muted small">No heatmap data.</p>';
+    var dims = data.dimensions || [];
+    var h = '<div class="aisdlc-heat-grid mb-2"><div class="aisdlc-heat-row aisdlc-heat-header"><div class="aisdlc-heat-label">Application</div>';
+    dims.forEach(function (d) { h += '<div class="aisdlc-heat-cell">' + esc(d) + '</div>'; });
+    h += '</div>';
+    data.rows.forEach(function (row) {
+      h += '<div class="aisdlc-heat-row"><div class="aisdlc-heat-label">' + esc(row.application) + '</div>';
+      (row.cells || []).forEach(function (cell) {
+        var cellId = (row.application_id || row.application) + '::' + cell.dimension;
+        h += '<div class="aisdlc-heat-cell tone-' + esc(cell.tone || 'amber') + '"' +
+          drillAttrs(kind || 'posture', 'heatmap_cell', cellId) + '>' + esc(cell.score) + '</div>';
+      });
+      h += '</div>';
+    });
+    h += '</div><p class="text-muted small mb-0">Click any cell for application × dimension drill-down.</p>';
+    return h;
+  }
+
+  function renderStageCard(data) {
+    if (!data) return '';
+    var h = '<div class="aisdlc-stage-card-drill">';
+    h += renderDetailDl(data, ['stage_label','readiness_score','framework_coverage_pct','control_coverage_pct','evidence_coverage_pct','open_gaps','status','approval_status']);
+    if (data.related_applications && data.related_applications.length) {
+      h += '<p class="small mb-1"><strong>Related applications:</strong> ' + esc(data.related_applications.join(', ')) + '</p>';
+    }
+    if (data.historical_implementations) {
+      h += '<p class="small fw-semibold mb-1">Historical Implementations</p>' + renderDocTable(
+        [{key:'application',label:'Application'},{key:'release',label:'Release'},{key:'status',label:'Status'},{key:'closure_date',label:'Closure'}],
+        data.historical_implementations);
+    }
+    if (data.reuse_candidates) {
+      h += '<p class="small fw-semibold mb-1">Reuse Candidates</p>' + renderDocTable(
+        [{key:'control_id',label:'Control'},{key:'application',label:'Application'},{key:'reuse_score',label:'Reuse Score'}],
+        data.reuse_candidates);
+    }
+    if (data.reusable_patterns) {
+      h += '<p class="small fw-semibold mb-1">Reusable Design Patterns</p>' + renderDocTable(
+        [{key:'pattern',label:'Pattern'},{key:'used_in',label:'Used In'},{key:'approvals',label:'Approvals'}],
+        data.reusable_patterns.map(function (p) { return { pattern: p.pattern, used_in: (p.used_in || []).join(', '), approvals: p.approvals }; }));
+    }
+    if (data.code_patterns) {
+      h += '<p class="small fw-semibold mb-1">Reusable Code Patterns</p>' + renderDocTable(
+        [{key:'pattern',label:'Pattern'},{key:'repo',label:'Repository'},{key:'apps',label:'Apps'}], data.code_patterns);
+    }
+    if (data.static_scan_history) {
+      h += '<p class="small fw-semibold mb-1">Static Scan History</p>' + renderDocTable(
+        [{key:'date',label:'Date'},{key:'critical',label:'Critical'},{key:'high',label:'High'},{key:'status',label:'Status'}], data.static_scan_history);
+    }
+    if (data.test_plans && data.test_plans.length) {
+      h += '<p class="small fw-semibold mb-1">Test Plans (' + data.test_plans.length + ')</p>' + renderDrillTable(data.test_plans.slice(0, 8), colsFromRows(data.test_plans, 6), { kind: 'sdlc', metric: 'testing', idKey: 'test_id' });
+    }
+    if (data.reusable_packs) {
+      h += '<p class="small fw-semibold mb-1">Reusable Test Packs</p>' + renderDocTable(
+        [{key:'pack',label:'Pack'},{key:'pass_rate',label:'Pass Rate'},{key:'apps',label:'Apps'}], data.reusable_packs);
+    }
+    if (data.cab_approvals) {
+      h += '<p class="small fw-semibold mb-1">CAB Approvals</p>' + renderDocTable(
+        [{key:'id',label:'CAB ID'},{key:'date',label:'Date'},{key:'authority',label:'Authority'},{key:'status',label:'Status'}], data.cab_approvals);
+    }
+    if (data.historical_releases) {
+      h += '<p class="small fw-semibold mb-1">Historical Releases</p>' + renderDocTable(
+        [{key:'application',label:'Application'},{key:'release',label:'Release'},{key:'go_live_date',label:'Go-Live'},{key:'result',label:'Result'}], data.historical_releases);
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function renderReuseWizard(wizData) {
+    if (!wizData) return '';
+    var uid = 'rwiz' + Math.random().toString(36).slice(2, 8);
+    var steps = [
+      { n: 1, title: 'Select Applications', body: '<div class="d-flex flex-wrap gap-1">' + (wizData.available_applications || []).map(function (a) {
+        return '<span class="badge bg-primary">' + esc(a) + '</span>';
+      }).join('') + '</div>' },
+      { n: 2, title: 'Select Frameworks', body: '<div class="d-flex flex-wrap gap-1">' + (wizData.available_frameworks || []).slice(0, 5).map(function (f) {
+        return '<span class="badge bg-info text-dark">' + esc(f) + '</span>';
+      }).join('') + '</div>' },
+      { n: 3, title: 'Select Controls', body: renderDocTable([{key:'control',label:'Control ID'}], (wizData.suggested_controls || []).map(function (c) { return { control: c }; })) },
+      { n: 4, title: 'Preview Mappings', body: renderDocTable(
+        [{key:'application',label:'Application'},{key:'framework',label:'Framework'},{key:'control_id',label:'Control'},{key:'status',label:'Status'}],
+        wizData.preview_mappings || []) },
+      { n: 5, title: 'Generate Package', body: '<p class="small mb-1">Cloned requirement package ready:</p><p class="fw-semibold">' + esc(wizData.cloned_package_id) + '</p><p class="text-muted small">Mappings will be attached to target release governance workspace.</p>' }
+    ];
+    var h = '<div class="aisdlc-reuse-wizard" id="' + uid + '"><p class="small fw-semibold">Reuse Requirement Wizard — ' + esc(wizData.document_title || wizData.document_id) + '</p>';
+    steps.forEach(function (s, i) {
+      h += '<div class="aisdlc-wizard-step mb-2 p-2 border rounded' + (i === 0 ? ' border-primary' : '') + '">';
+      h += '<div class="small fw-semibold">Step ' + s.n + ': ' + esc(s.title) + '</div>' + s.body + '</div>';
+    });
+    h += '<button type="button" class="btn btn-sm btn-success">Generate Cloned Requirement Package</button></div>';
+    return h;
+  }
+
+  function renderDocumentTabs(viewerTabs, art, drillExtra) {
+    if (!viewerTabs) return '';
+    var uid = 'doct' + Math.random().toString(36).slice(2, 8);
+    var tabDefs = [
+      { key: 'overview', label: 'Overview' },
+      { key: 'control_mapping', label: 'Control Mapping' },
+      { key: 'control_lineage', label: 'Control Lineage' },
+      { key: 'historical_reuse', label: 'Historical Reuse' },
+      { key: 'related_applications', label: 'Related Applications' },
+      { key: 'related_observations', label: 'Related Observations' },
+      { key: 'related_evidence', label: 'Related Evidence' },
+      { key: 'closure_packages', label: 'Closure Packages' },
+      { key: 'lessons_learned', label: 'Lessons Learned' },
+      { key: 'design_patterns', label: 'Reusable Patterns' },
+      { key: 'architecture_lineage', label: 'Architecture Lineage' },
+      { key: 'design_reuse', label: 'Design Reuse' },
+      { key: 'code_patterns', label: 'Code Patterns' },
+      { key: 'shared_libraries', label: 'Shared Libraries' },
+      { key: 'security_findings', label: 'Security Findings' },
+      { key: 'remediation_history', label: 'Remediation History' },
+      { key: 'test_plans', label: 'Test Plans' },
+      { key: 'regression_packs', label: 'Regression Packs' },
+      { key: 'vapt_results', label: 'VAPT Results' },
+      { key: 'uat_results', label: 'UAT Results' },
+      { key: 'ai_validation', label: 'AI Validation' },
+      { key: 'reusable_packs', label: 'Reusable Packs' }
+    ];
+    var activeTabs = tabDefs.filter(function (t) { return viewerTabs[t.key]; });
+    var h = '<ul class="nav nav-tabs nav-tabs-sm aisdlc-doc-tabs mb-2">';
+    activeTabs.forEach(function (t, i) {
+      h += '<li class="nav-item"><button class="nav-link' + (i === 0 ? ' active' : '') + '" data-bs-toggle="tab" data-bs-target="#' + uid + t.key + '" type="button">' + esc(t.label) + '</button></li>';
+    });
+    h += '</ul><div class="tab-content">';
+    activeTabs.forEach(function (t, i) {
+      var panel = viewerTabs[t.key];
+      h += '<div class="tab-pane fade' + (i === 0 ? ' show active' : '') + '" id="' + uid + t.key + '">';
+      if (t.key === 'overview') {
+        if (panel.executive_summary) h += '<p class="small">' + esc(panel.executive_summary) + '</p>';
+        (panel.sections || []).forEach(function (sec) {
+          h += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">' + esc(sec.title) + '</h6>';
+          if (sec.type === 'table') h += renderDocTable(sec.columns || [], sec.rows || []);
+          else h += '<p class="small mb-0">' + esc(sec.content || '') + '</p>';
+          h += '</div>';
+        });
+        var sk = panel.stage_knowledge || {};
+        if (sk.reuse_action || art.reuse_action) {
+          var rid = (art.reuse_modal && art.reuse_modal.drill_id) || '';
+          h += '<button type="button" class="btn btn-sm btn-outline-success mb-2 aisdlc-reuse-btn" data-ecs-reuse data-reuse-id="' + esc(rid) + '" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">' + esc(sk.reuse_action || art.reuse_action) + '</button>';
+        }
+        if (viewerTabs.reuse_wizard && viewerTabs.reuse_wizard.data) {
+          h += '<div class="aisdlc-reuse-wizard-wrap d-none">' + renderReuseWizard(viewerTabs.reuse_wizard.data) + '</div>';
+        }
+        if (sk.recommended_language) h += '<p class="small"><strong>Recommended Language:</strong> ' + esc(sk.recommended_language) + '</p>';
+      } else if (t.key === 'lessons_learned') {
+        (panel.items || []).forEach(function (item) { h += '<p class="small mb-1">• ' + esc(item) + '</p>'; });
+      } else if (t.key === 'shared_libraries' || t.key === 'regression_packs' || t.key === 'vapt_results' || t.key === 'uat_results' || t.key === 'ai_validation') {
+        (panel.items || []).forEach(function (item) { h += '<p class="small mb-1">• ' + esc(typeof item === 'string' ? item : JSON.stringify(item)) + '</p>'; });
+      } else if (t.key === 'historical_reuse') {
+        h += renderDocTable(
+          [{key:'observation_id',label:'Observation ID'},{key:'audit_year',label:'Audit Year'},{key:'application',label:'Application'},
+           {key:'closure_date',label:'Closure Date'},{key:'control_owner',label:'Owner'},{key:'approval_authority',label:'Authority'}],
+          panel.rows || []
+        );
+      } else if (t.key === 'control_mapping') {
+        h += renderDocTable(
+          [{key:'control_id',label:'Control ID'},{key:'framework',label:'Framework'},{key:'description',label:'Description'},{key:'status',label:'Status'}],
+          panel.rows || []
+        );
+      } else if (t.key === 'control_lineage') {
+        h += renderDocTable(
+          [{key:'application',label:'Application'},{key:'first_implementation',label:'First Impl.'},{key:'latest_implementation',label:'Latest Impl.'},
+           {key:'observations',label:'Observations'},{key:'exceptions',label:'Exceptions'},{key:'reuse_recommendation',label:'Reuse Rec.'}],
+          panel.rows || []
+        );
+      } else if (t.key === 'design_patterns' || t.key === 'architecture_lineage' || t.key === 'design_reuse' || t.key === 'code_patterns' ||
+                 t.key === 'security_findings' || t.key === 'remediation_history' || t.key === 'test_plans' || t.key === 'reusable_packs') {
+        h += renderDocTable(colsFromRows(panel.rows || panel.items || [], 6), panel.rows || []);
+      } else {
+        h += renderDocTable(
+          t.key === 'related_evidence'
+            ? [{key:'evidence_id',label:'Evidence ID'},{key:'evidence_type',label:'Type'},{key:'title',label:'Title'},{key:'submitted_by',label:'Submitted By'},{key:'review_status',label:'Review'},{key:'approval_status',label:'Approval'}]
+            : t.key === 'related_observations'
+            ? [{key:'observation_id',label:'Observation ID'},{key:'application',label:'Application'},{key:'audit_year',label:'Audit Year'},{key:'severity',label:'Severity'},{key:'closure_status',label:'Status'}]
+            : t.key === 'closure_packages'
+            ? [{key:'observation_id',label:'Observation'},{key:'evidence_used',label:'Evidence'},{key:'owner',label:'Owner'},{key:'approver',label:'Approver'},{key:'comments',label:'Comments'}]
+            : t.key === 'related_applications'
+            ? [{key:'application',label:'Application'},{key:'tier',label:'Tier'},{key:'status',label:'Status'}]
+            : [{key:'control_id',label:'Control ID'},{key:'framework',label:'Framework'},{key:'description',label:'Description'},{key:'status',label:'Status'}],
+          panel.rows || []
+        );
+      }
+      h += '</div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function renderLifecycleTrace(trace, controlId, drillExtra) {
+    if (!trace || !trace.length) return '';
+    var h = '<p class="small fw-semibold mb-1">Control Lifecycle — Requirement → Design → Development → Testing → Go-Live → Audit → Closure</p><div class="aisdlc-lifecycle-strip aisdlc-workflow mb-2">';
+    trace.forEach(function (step, i) {
+      var cls = step.status === 'Complete' || step.status === 'Approved' ? 'is-done' : (step.status === 'In Progress' ? 'is-active' : '');
+      var stepId = controlId + '::' + step.stage;
+      h += '<div class="aisdlc-wf-step aisdlc-lc-step ' + cls + '"' +
+        drillAttrs('sdlc', 'lifecycle_step', stepId, drillExtra) + '>' +
+        '<div class="step-n">' + (i + 1) + '</div>' +
+        '<div class="lc-label">' + esc(step.stage_label || step.stage) + '</div>' +
+        '<div class="text-muted lc-meta">' + esc(step.status) + '</div>' +
+        '<div class="text-muted lc-meta">Ev: ' + esc(step.evidence_count) + '</div></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function renderHistoryAccordions(history, drillExtra) {
+    if (!history) return '';
+    var uid = 'hist' + Math.random().toString(36).slice(2, 8);
+    var h = '<p class="small fw-semibold mb-1 mt-2">Historical Knowledge Reuse</p><div class="accordion accordion-flush aisdlc-history-acc" id="' + uid + '">';
+    HISTORY_SECTIONS.forEach(function (sec, idx) {
+      var rows = history[sec.key] || [];
+      var cid = uid + '-c' + idx;
+      h += '<div class="accordion-item"><h2 class="accordion-header">' +
+        '<button class="accordion-button collapsed py-2 small" type="button" data-bs-toggle="collapse" data-bs-target="#' + cid + '">' +
+        esc(sec.label) + ' <span class="badge bg-secondary ms-1">' + rows.length + '</span></button></h2>' +
+        '<div id="' + cid + '" class="accordion-collapse collapse" data-bs-parent="#' + uid + '">' +
+        '<div class="accordion-body p-2">';
+      if (rows.length) {
+        h += renderDrillTable(rows, colsFromRows(rows, 6), {
+          kind: 'sdlc', metric: sec.metric, idKey: sec.idKey,
+          release: drillExtra.release, stage: drillExtra.stage
+        });
+      } else {
+        h += '<p class="text-muted small mb-0">No records.</p>';
+      }
+      h += '</div></div></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function bindModalWorkspace(root) {
+    if (!root) return;
+    root.querySelectorAll('.ecs-workspace-tab').forEach(function (btn) {
+      if (btn.dataset.modalTabBound) return;
+      btn.dataset.modalTabBound = '1';
+      btn.addEventListener('click', function () {
+        var tabId = btn.getAttribute('data-workspace-tab');
+        root.querySelectorAll('.ecs-workspace-tab').forEach(function (b) {
+          b.classList.toggle('is-active', b.getAttribute('data-workspace-tab') === tabId);
+        });
+        root.querySelectorAll('.ecs-workspace-pane').forEach(function (pane) {
+          pane.classList.toggle('is-active', pane.getAttribute('data-workspace-pane') === tabId);
+        });
+        refreshModalPagination(root);
+      });
+    });
+    bindGapsDrillControls(root);
+  }
+
+  function bindGapsDrillControls(root) {
+    root.querySelectorAll('.ecs-gaps-drill-toolbar').forEach(function (wrap) {
+      if (wrap.dataset.gapsBound) return;
+      wrap.dataset.gapsBound = '1';
+      var release = wrap.getAttribute('data-release') || '';
+      var stage = wrap.getAttribute('data-stage') || '';
+      var state = {
+        page: parseInt(wrap.getAttribute('data-page') || '1', 10) || 1,
+        severity: wrap.getAttribute('data-severity') || '',
+        search: wrap.getAttribute('data-search') || ''
+      };
+      function reload() {
+        openDrill('sdlc', 'gaps_drill', '', { release: release, stage: stage }, {
+          page: state.page, severity: state.severity, search: state.search
+        });
+      }
+      wrap.querySelectorAll('.ecs-gaps-sev-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          state.severity = btn.getAttribute('data-sev') || '';
+          state.page = 1;
+          reload();
+        });
+      });
+      var searchInput = wrap.querySelector('.ecs-gaps-search');
+      if (searchInput && !searchInput.dataset.gapsSearchBound) {
+        searchInput.dataset.gapsSearchBound = '1';
+        var searchTimer;
+        searchInput.addEventListener('input', function () {
+          clearTimeout(searchTimer);
+          searchTimer = setTimeout(function () {
+            state.search = searchInput.value || '';
+            state.page = 1;
+            reload();
+          }, 350);
+        });
+      }
+      wrap.querySelectorAll('[data-gaps-page]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var pg = parseInt(btn.getAttribute('data-gaps-page'), 10);
+          if (!pg || pg < 1) return;
+          state.page = pg;
+          reload();
+        });
+      });
+    });
+  }
+
+  function renderGapsDrillToolbar(gd, drillExtra) {
+    var sev = gd.severity_filter || '';
+    var search = gd.search || '';
+    var h = '<div class="ecs-gaps-drill-toolbar mb-2" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '" data-page="' + esc(gd.page || 1) + '" data-severity="' + esc(sev) + '" data-search="' + esc(search) + '">';
+    h += '<div class="d-flex flex-wrap gap-2 align-items-center">';
+    h += '<input type="search" class="form-control form-control-sm ecs-gaps-search" placeholder="Search gaps…" value="' + esc(search) + '" style="max-width:14rem">';
+    ['', 'Critical', 'High', 'Medium', 'Low'].forEach(function (s) {
+      var label = s || 'All';
+      var count = (gd.filters && gd.filters[label]) != null ? gd.filters[label] : (gd.filters && gd.filters.All);
+      var active = (sev === s) || (!sev && !s);
+      h += '<button type="button" class="btn btn-sm ecs-gaps-sev-btn ' + (active ? 'btn-primary' : 'btn-outline-secondary') + '" data-sev="' + esc(s) + '">' + esc(label) + ' (' + esc(count != null ? count : '') + ')</button>';
+    });
+    h += '</div></div>';
+    return h;
+  }
+
+  function renderServerPaginationBar(gd, drillExtra) {
+    var page = gd.page || 1;
+    var pages = gd.total_pages || 1;
+    var total = gd.total || 0;
+    var h = '<div class="ecs-pagination-bar ecs-gaps-drill-toolbar mt-2" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '" data-page="' + esc(page) + '" data-severity="' + esc(gd.severity_filter || '') + '" data-search="' + esc(gd.search || '') + '">';
+    h += '<div class="ecs-pagination-summary">Showing page ' + page + ' of ' + pages + ' · ' + total + ' matching gaps</div>';
+    h += '<div class="ecs-pagination-controls"><div class="btn-group btn-group-sm">';
+    h += '<button type="button" class="btn btn-outline-secondary" data-gaps-page="1"' + (page <= 1 ? ' disabled' : '') + '>&laquo;</button>';
+    h += '<button type="button" class="btn btn-outline-secondary" data-gaps-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + '>&lsaquo; Prev</button>';
+    h += '<button type="button" class="btn btn-outline-secondary" data-gaps-page="' + (page + 1) + '"' + (page >= pages ? ' disabled' : '') + '>Next &rsaquo;</button>';
+    h += '<button type="button" class="btn btn-outline-secondary" data-gaps-page="' + pages + '"' + (page >= pages ? ' disabled' : '') + '>&raquo;</button>';
+    h += '</div></div></div>';
+    return h;
+  }
+
+  function renderModalWorkspace(tabs, panes) {
+    var uid = 'mdl' + Math.random().toString(36).slice(2, 8);
+    var h = '<div class="ecs-modal-workspace"><nav class="ecs-workspace-tabs ecs-workspace-tabs-governance mb-2">';
+    tabs.forEach(function (t, i) {
+      h += '<button type="button" class="ecs-workspace-tab' + (i === 0 ? ' is-active' : '') + '" data-workspace-tab="' + uid + '-' + t.id + '">' + esc(t.label) + '</button>';
+    });
+    h += '</nav><div class="ecs-modal-workspace-panels">';
+    tabs.forEach(function (t, i) {
+      h += '<div class="ecs-workspace-pane ecs-gov-pane' + (i === 0 ? ' is-active' : '') + '" data-workspace-pane="' + uid + '-' + t.id + '">';
+      h += '<div class="ecs-modal-pane-scroll">' + (panes[t.id] || '') + '</div></div>';
+    });
+    h += '</div></div>';
+    return h;
+  }
+
+  function renderControl360(c360) {
+    if (!c360) return '';
+    var p = c360.profile || {};
+    var h = '<div class="aisdlc-control-360 mb-2"><p class="small fw-semibold">Control 360 View</p>';
+    h += renderDetailDl(p, ['control_id','control_name','control_objective','framework','application','owner','status','reuse_count']);
+    h += '<p class="small mb-1"><strong>Applications using:</strong> ' + esc((p.applications_using || c360.applications || []).join(', ')) + '</p>';
+    h += renderDetailDl(c360.lineage || {}, ['requirement','design','development','testing']);
+    if (c360.observation_history && c360.observation_history.length) {
+      h += '<p class="small fw-semibold mb-1">Observation History</p>' + renderDocTable(
+        [{key:'obs_id',label:'Observation'},{key:'application',label:'Application'},{key:'severity',label:'Severity'},{key:'status',label:'Status'},{key:'date',label:'Date'}],
+        c360.observation_history);
+    }
+    if (c360.approval_history && c360.approval_history.length) {
+      h += '<p class="small fw-semibold mb-1">Approval History</p>' + renderDocTable(
+        [{key:'authority',label:'Authority'},{key:'date',label:'Date'},{key:'status',label:'Status'}], c360.approval_history);
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function renderControlDrillWorkspace(p, drillExtra) {
+    var d = p.data || {};
+    var kb = p.knowledge_repository || {};
+    var sm = kb.summary || {};
+    var c360 = p.control_360 || {};
+    var panes = {
+      overview: renderDetailDl(d, ['control_id','control_description','application','framework','owner','status','evidence_count','findings_count','exceptions_count']) +
+        renderControl360(c360),
+      applications: '<p class="small mb-1"><strong>Total applications:</strong> ' + esc(sm.total_applications || '—') + '</p>' +
+        '<p class="small mb-1"><strong>Using control:</strong> ' + esc((sm.apps_using || []).join(', ')) + '</p>' +
+        '<p class="small mb-1"><strong>Implementing:</strong> ' + esc((sm.apps_implementing || []).join(', ')) + '</p>' +
+        '<p class="small mb-1"><strong>Failed:</strong> ' + esc((sm.apps_failed || []).join(', ')) + '</p>' +
+        '<p class="small mb-0"><strong>Closed observations:</strong> ' + esc((sm.apps_closed_observations || []).join(', ')) + '</p>',
+      evidence: (p.rows && p.rows.length)
+        ? renderDrillTable(p.rows, EVIDENCE_COLS, { kind: 'sdlc', metric: 'evidence', idKey: 'evidence_id', release: drillExtra.release, stage: drillExtra.stage })
+        : '<p class="text-muted small">No linked evidence.</p>',
+      observations: renderAuditKnowledgeKb(p.audit_knowledge, drillExtra) || '<p class="text-muted small">No observations.</p>',
+      exceptions: '<p class="small">Open exceptions on this control: <strong>' + esc(d.exceptions_count) + '</strong></p>' +
+        '<p class="text-muted small mb-0">View go-live exception register for waiver detail and expiry.</p>',
+      history: renderHistoryAccordions(p.history, drillExtra),
+      reuse: renderControlKnowledgeRepo(kb, drillExtra, d.control_id),
+      lifecycle: renderLifecycleTrace(p.lifecycle_trace, d.control_id, drillExtra) +
+        (p.knowledge_graph ? renderKnowledgeGraph(p.knowledge_graph, drillExtra) : '')
+    };
+    return renderModalWorkspace([
+      { id: 'overview', label: 'Control 360' }, { id: 'applications', label: 'Applications' }, { id: 'evidence', label: 'Evidence' },
+      { id: 'observations', label: 'Observations' }, { id: 'exceptions', label: 'Exceptions' }, { id: 'history', label: 'History' },
+      { id: 'reuse', label: 'Reuse Repository' }, { id: 'lifecycle', label: 'Lifecycle' }
+    ], panes);
+  }
+
+  function renderExecHeatmap(p, drillExtra) {
+    var rows = p.rows || [];
+    return renderDrillTable(rows, [
+      {key:'application',label:'Application'},{key:'stage_label',label:'Stage'},{key:'readiness_score',label:'Readiness %'},{key:'gaps',label:'Gaps'}
+    ], { kind: 'sdlc', metric: 'exec_readiness_heatmap', idKey: 'drill_id', release: drillExtra.release, stage: '' });
+  }
+
+  function renderDocTable(columns, rows) {
+    if (!rows || !rows.length) return '<p class="text-muted small mb-0">No records.</p>';
+    var h = '<div class="ecs-gov-table-scroll"><table class="table table-sm aisdlc-table ecs-gov-data-table mb-0"><thead><tr>';
+    columns.forEach(function (c) { h += '<th>' + esc(c.label) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr>';
+      columns.forEach(function (c) { h += '<td>' + esc(r[c.key]) + '</td>'; });
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    return h;
+  }
+
+  function renderDocumentViewer(p) {
+    var d = p.data || {};
+    var art = p.artifact || d.artifact || {};
+    var tabs = p.viewer_tabs || art.viewer_tabs;
+    var html = '<div class="aisdlc-doc-viewer">';
+    html += '<div class="aisdlc-doc-header mb-2 pb-2 border-bottom">';
+    html += '<div class="d-flex flex-wrap align-items-center gap-2 mb-1">';
+    html += '<span class="badge bg-secondary">' + esc(d.doc_type || 'Governance Document') + '</span>';
+    html += '<span class="aisdlc-badge ' + esc(d.status || '') + '">' + esc(d.status) + '</span>';
+    html += '<span class="small text-muted">v' + esc(d.version) + ' · ' + esc(d.pages) + ' pages · ' + esc(d.submitted) + '</span>';
+    if (art.reuse_action) html += '<button type="button" class="btn btn-sm btn-outline-success ms-auto aisdlc-reuse-btn" data-reuse-wizard="1">' + esc(art.reuse_action) + '</button>';
+    html += '</div>';
+    html += '<div class="small"><strong>Application:</strong> ' + esc(d.application) + ' · <strong>Owner:</strong> ' + esc(d.owner) + ' · <strong>Category:</strong> ' + esc(d.category) + '</div>';
+    html += '</div>';
+    if (tabs) {
+      html += renderDocumentTabs(tabs, art, { release: p.release_id, stage: p.stage_key || d.stage_key });
+    } else {
+    if (art.executive_summary) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Executive Summary</h6><p class="small mb-0">' + esc(art.executive_summary) + '</p></div>';
+    }
+    (art.sections || []).forEach(function (sec) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">' + esc(sec.title) + '</h6>';
+      if (sec.type === 'table') html += renderDocTable(sec.columns || [], sec.rows || []);
+      else html += '<p class="small mb-0">' + esc(sec.content || '') + '</p>';
+      html += '</div>';
+    });
+    if (art.required_evidence && art.required_evidence.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Required Evidence (' + art.required_evidence.length + ')</h6>';
+      html += renderDocTable(
+        [{key:'evidence_id',label:'Evidence ID'},{key:'evidence_type',label:'Type'},{key:'title',label:'Title'},{key:'submitted_by',label:'Submitted By'},{key:'review_status',label:'Review'},{key:'approval_status',label:'Approval'}],
+        art.required_evidence
+      );
+      html += '</div>';
+    }
+    var hist = art.historical_approved_references || art.historical_references || [];
+    if (hist.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Historical Approved References (' + hist.length + ')</h6>';
+      html += renderDocTable(
+        [{key:'observation_id',label:'Observation ID'},{key:'audit_year',label:'Audit Year'},{key:'application',label:'Application'},{key:'closure_date',label:'Closure Date'},{key:'control_owner',label:'Control Owner'},{key:'approval_authority',label:'Approval Authority'}],
+        hist
+      );
+      html += '</div>';
+    }
+    if (art.approval_comments && art.approval_comments.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Approval Comments</h6>';
+      html += renderDocTable(
+        [{key:'reviewer',label:'Reviewer'},{key:'date',label:'Date'},{key:'comment',label:'Comment'},{key:'status',label:'Status'}],
+        art.approval_comments
+      );
+      html += '</div>';
+    }
+    if (art.sample_approved_evidence && art.sample_approved_evidence.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Sample Approved Evidence</h6>';
+      html += renderDocTable(
+        [{key:'evidence_id',label:'Evidence ID'},{key:'evidence_type',label:'Type'},{key:'title',label:'Title'},{key:'approval_status',label:'Status'}],
+        art.sample_approved_evidence
+      );
+      html += '</div>';
+    }
+    if (art.exception_approvals && art.exception_approvals.length) {
+      html += '<div class="aisdlc-doc-section"><h6 class="aisdlc-doc-h">Exception Approvals</h6>';
+      html += renderDocTable(
+        [{key:'exception_id',label:'Exception ID'},{key:'summary',label:'Summary'},{key:'expiry',label:'Expiry'},{key:'status',label:'Status'}],
+        art.exception_approvals
+      );
+      html += '</div>';
+    }
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderPayload(p) {
+    if (!p) return '<p class="text-muted">No data.</p>';
+    var html = renderAppBanner(p.applications);
+    var drillExtra = { release: p.release_id || lastDrill.release, stage: p.stage_key || lastDrill.stage };
+
+    if (p.type === 'application' && p.data) {
+      html += renderDetailDl(p.data, ['name','application','owner','model','use_case','risk_tier','compliance_score','compliance','policy_compliance','model_status','hallucinations','unsafe_prompts','users_daily','tokens_mtd','last_review']);
+      if (p.related_model && p.related_model.model) {
+        html += '<p class="small fw-semibold mb-1">Linked Model</p>' + renderDetailDl(p.related_model, ['model','status','approved_by','expiry','risk_tier']);
+      }
+      if (p.evidence_rows && p.evidence_rows.length) {
+        html += '<p class="small fw-semibold mb-1">Evidence (' + p.evidence_rows.length + ')</p>';
+        html += renderDrillTable(p.evidence_rows, [{key:'evidence_id',label:'Evidence ID'},{key:'title',label:'Title'},{key:'status',label:'Status'},{key:'collected_date',label:'Collected'}], {});
+      }
+      if (p.related_prompts && p.related_prompts.length) {
+        html += '<p class="small fw-semibold mb-1">Related Prompts (' + p.related_prompts.length + ')</p>';
+        html += renderDrillTable(p.related_prompts, [{key:'prompt_id',label:'Prompt ID'},{key:'model',label:'Model'},{key:'risk_score',label:'Risk'},{key:'review_status',label:'Status'}], { kind: 'posture', metric: 'prompts', idKey: 'prompt_id' });
+      }
+      if (p.audit_history && p.audit_history.length) {
+        html += '<p class="small fw-semibold mb-1">Audit History (' + p.audit_history.length + ')</p>';
+        html += renderDrillTable(p.audit_history, [{key:'timestamp',label:'Timestamp'},{key:'action',label:'Action'},{key:'actor',label:'Actor'},{key:'detail',label:'Detail'}], { kind: 'posture', metric: 'audit' });
+      }
+      return html;
+    }
+
+    if (p.type === 'compliance_breakdown' && p.data) {
+      var cd = p.data;
+      html += renderHowCalculated({ formula: cd.formula, aggregate: cd.current_score, steps: cd.calculation_steps });
+      html += renderDetailDl(cd, ['current_score','target_score','gap','previous_score','score_change']);
+      if (cd.change_reasons && cd.change_reasons.length) {
+        html += '<p class="small fw-semibold mb-1">Why Score Changed</p><ul class="small">' + cd.change_reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>';
+      }
+      html += '<p class="small fw-semibold mb-1">Governance Dimensions</p>' + renderDocTable(
+        [{key:'dimension',label:'Dimension'},{key:'weight_pct',label:'Weight %'},{key:'score',label:'Score'},{key:'contribution',label:'Contribution'},{key:'rationale',label:'Why It Exists'}],
+        cd.breakdown || []);
+      html += '<p class="small fw-semibold mb-1">Compliance Trend</p>' + renderDocTable(
+        [{key:'month',label:'Month'},{key:'score',label:'Score %'}], cd.trend || []);
+      return html;
+    }
+
+    if (p.type === 'policy_compliance_drill' && p.data) {
+      var pd = p.data;
+      html += renderHowCalculated({ formula: pd.formula, aggregate: pd.aggregate_pct, steps: pd.calculation_steps });
+      html += renderDetailDl(pd, ['aggregate_pct','total_policies','total_violations']);
+      html += renderDrillTable(pd.rows || [], [
+        {key:'policy',label:'Policy'},{key:'compliance_pct',label:'Compliance %'},{key:'violations',label:'Violations'},{key:'owner',label:'Owner'}
+      ], { kind: 'posture', metric: 'policies', idKey: 'policy', actionLabel: 'View Violations', actionMetric: 'policies' });
+      return html;
+    }
+
+    if (p.type === 'control_violations' && p.data) {
+      html += renderDetailDl(p.data, ['framework','control_id','control_name','compliance_pct','violations','control_owner']);
+      html += '<p class="small fw-semibold mb-1">Violation Records (' + (p.rows || []).length + ')</p>';
+      html += renderDrillTable(p.rows || [], [
+        {key:'framework',label:'Framework'},{key:'control_id',label:'Control ID'},{key:'control_name',label:'Control Name'},
+        {key:'violation_description',label:'Violation Description'},{key:'affected_applications',label:'Affected Applications'},
+        {key:'evidence_references',label:'Evidence References'},{key:'remediation_status',label:'Remediation Status'}
+      ]);
+      return html;
+    }
+
+    if (p.type === 'control_compliance_drill' && p.data) {
+      html += renderDetailDl(p.data, ['total_controls']);
+      html += renderDrillTable(p.rows || [], [
+        {key:'framework',label:'Framework'},{key:'control_id',label:'Control ID'},{key:'control_name',label:'Control Name'},
+        {key:'compliance_pct',label:'Compliance %'},{key:'violations',label:'Violations'},
+        {key:'applications_affected',label:'Applications Affected'},{key:'control_owner',label:'Control Owner'}
+      ], { kind: 'posture', metric: 'controls', idKey: 'control_id', actionLabel: 'View Violations', actionMetric: 'controls' });
+      return html;
+    }
+
+    if (p.type === 'policy_violations' && p.data) {
+      html += renderDetailDl(p.data, ['policy','compliance_pct','violations','owner']);
+      html += '<p class="small fw-semibold mb-1">Violation Records (' + (p.rows || []).length + ')</p>';
+      html += renderDrillTable(p.rows || [], [
+        {key:'id',label:'Violation ID'},{key:'application',label:'Application'},{key:'detail',label:'Detail'},{key:'status',label:'Status'}
+      ], { kind: 'posture', metric: 'application', idKey: 'application_id' });
+      return html;
+    }
+
+    if (p.type === 'registry_model' && p.data) {
+      html += renderDetailDl(p.data, ['model_id','name','provider','version','owner','status','approved_by','expiry','risk_tier','applications_count','prompts_count']);
+      if (p.data.applications_using_model && p.data.applications_using_model.length) {
+        html += '<p class="small fw-semibold mb-1">Applications Using Model</p>';
+        html += renderDrillTable(
+          p.data.applications_using_model.map(function (n) { return { application: n, drill_id: n }; }),
+          [{key:'application',label:'Application'}],
+          { kind: 'posture', metric: 'application', idKey: 'application' }
+        );
+      }
+      if (p.related_prompts && p.related_prompts.length) {
+        html += '<p class="small fw-semibold mb-1">Prompts Using Model (' + p.related_prompts.length + ')</p>';
+        html += renderDrillTable(p.related_prompts, [
+          {key:'prompt_id',label:'Prompt ID'},{key:'name',label:'Name'},{key:'application',label:'Application'},{key:'risk_score',label:'Risk'},{key:'status',label:'Status'}
+        ], { kind: 'registry', metric: 'prompts', idKey: 'prompt_id' });
+      }
+      if (p.workflow && p.workflow.length) {
+        html += '<p class="small fw-semibold mb-1">Approval Workflow</p>';
+        html += renderDocTable([{key:'stage',label:'Stage'},{key:'actor',label:'Actor'},{key:'status',label:'Status'},{key:'date',label:'Date'}], p.workflow);
+      }
+      return html;
+    }
+
+    if (p.type === 'registry_prompt' && p.data) {
+      html += renderDetailDl(p.data, ['prompt_id','name','application','use_case','owner','model','model_id','version','risk_score','status','approved_by','last_updated']);
+      if (p.related_model && p.related_model.model_id) {
+        html += '<p class="small fw-semibold mb-1">Linked Model</p>' + renderDetailDl(p.related_model, ['model_id','name','provider','status','risk_tier','expiry']);
+        html += '<p class="small"><span class="aisdlc-drill-link"' + drillAttrs('registry', 'models', p.related_model.model_id) + '>Open model in registry →</span></p>';
+      }
+      html += '<p class="small"><span class="aisdlc-drill-link"' + drillAttrs('posture', 'application', p.data.application_id || p.data.application) + '>Open application in posture →</span></p>';
+      if (p.workflow && p.workflow.length) {
+        html += '<p class="small fw-semibold mb-1">Approval Workflow</p>';
+        html += renderDocTable([{key:'stage',label:'Stage'},{key:'actor',label:'Actor'},{key:'status',label:'Status'}], p.workflow);
+      }
+      return html;
+    }
+
+    if (p.type === 'heatmap_cell' && p.data) {
+      html += renderDetailDl(p.data, ['application','dimension','score','risk','controls_reviewed','open_findings','last_assessed']);
+      return html;
+    }
+
+    if (p.type === 'heatmap' && p.data) {
+      html += renderHeatmap(p.data, 'posture');
+      return html;
+    }
+
+    if (p.type === 'readiness_breakdown' && p.data) {
+      var d = p.data;
+      html += renderHowCalculated({ formula: d.formula, aggregate: d.current_score, steps: d.calculation_steps });
+      html += renderDetailDl(d, ['current_score','target_score','missing_score']);
+      html += '<p class="small fw-semibold mb-1">Score Breakdown</p>' + renderDocTable(
+        [{key:'dimension',label:'Dimension'},{key:'weight_pct',label:'Weight %'},{key:'score',label:'Score'},{key:'contribution',label:'Contribution'}],
+        d.breakdown || []);
+      html += '<p class="small fw-semibold mb-1">Readiness Trend</p>' + renderDocTable(
+        [{key:'month',label:'Month'},{key:'readiness',label:'Readiness %'}], d.trend || []);
+      html += '<p class="small fw-semibold mb-1">Improvement Actions</p>' + renderDocTable(
+        [{key:'action',label:'Action'},{key:'impact_pts',label:'Impact pts'},{key:'owner',label:'Owner'}],
+        d.improvement_actions || []);
+      return html;
+    }
+
+    if (p.type === 'framework_coverage_drill' && p.data) {
+      var fd = p.data;
+      html += renderHowCalculated({ formula: fd.formula, aggregate: fd.aggregate_pct, steps: fd.calculation_steps });
+      html += renderDrillTable(fd.rows || [], [
+        {key:'framework',label:'Framework'},{key:'total_controls',label:'Total'},{key:'covered_controls',label:'Covered'},
+        {key:'missing_controls',label:'Missing'},{key:'evidence_pct',label:'Evidence %'},{key:'owner',label:'Owner'},{key:'gaps',label:'Gaps'}
+      ], { kind: 'sdlc', metric: 'framework', idKey: 'framework', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'control_coverage_drill' && p.data) {
+      var cd = p.data;
+      html += renderHowCalculated({ formula: cd.formula, aggregate: cd.aggregate_pct, steps: cd.calculation_steps });
+      html += renderDrillTable(cd.rows || [], [
+        {key:'control_id',label:'Control ID'},{key:'control_name',label:'Name'},{key:'application',label:'Application'},
+        {key:'owner',label:'Owner'},{key:'status',label:'Status'},{key:'evidence_count',label:'Evidence'},{key:'framework',label:'Framework'}
+      ], { kind: 'sdlc', metric: 'control', idKey: 'control_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'evidence_coverage_drill' && p.data) {
+      var ed = p.data;
+      html += renderHowCalculated({ formula: ed.formula, aggregate: ed.aggregate_pct, steps: ed.calculation_steps });
+      html += renderDetailDl(ed.summary || {}, ['required','submitted','accepted','rejected','expired']);
+      html += renderDrillTable(ed.rows || [], [
+        {key:'evidence_id',label:'Evidence ID'},{key:'title',label:'Title'},{key:'status',label:'Status'},
+        {key:'source',label:'Source'},{key:'upload_date',label:'Upload'},{key:'owner',label:'Owner'},{key:'control_id',label:'Control'}
+      ], { kind: 'sdlc', metric: 'evidence', idKey: 'evidence_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'gaps_drill' && p.data) {
+      var gd = p.data;
+      html += renderGapsDrillToolbar(gd, drillExtra);
+      html += renderDrillTable(gd.rows || [], [
+        {key:'gap_id',label:'Gap ID'},{key:'framework',label:'Framework'},{key:'control',label:'Control'},
+        {key:'severity',label:'Severity'},{key:'application',label:'Application'},{key:'owner',label:'Owner'},{key:'due',label:'Due'}
+      ], { kind: 'sdlc', metric: 'gaps', idKey: 'gap_id', release: drillExtra.release, stage: drillExtra.stage });
+      html += renderServerPaginationBar(gd, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'status_timeline' && p.data) {
+      html += renderDocTable([{key:'stage',label:'Stage'},{key:'started',label:'Started'},{key:'completed',label:'Completed'},{key:'status',label:'Status'},{key:'state',label:'State'}], p.data.timeline || []);
+      html += '<p class="small fw-semibold mb-1">Blockers</p>' + renderDocTable([{key:'item',label:'Item'},{key:'stage',label:'Stage'},{key:'owner',label:'Owner'},{key:'severity',label:'Severity'}], p.data.blockers || []);
+      html += '<p class="small fw-semibold mb-1">Pending Actions</p>' + renderDocTable([{key:'action',label:'Action'},{key:'due',label:'Due'},{key:'owner',label:'Owner'}], p.data.pending_actions || []);
+      return html;
+    }
+
+    if (p.type === 'approvals_drill' && p.data) {
+      html += renderDocTable([{key:'approver',label:'Approver'},{key:'role',label:'Role'},{key:'status',label:'Status'},{key:'comments',label:'Comments'},{key:'decision_date',label:'Date'}], p.data.approval_chain || []);
+      html += '<p class="small fw-semibold mb-1">Escalations</p>' + renderDocTable([{key:'from',label:'From'},{key:'to',label:'To'},{key:'reason',label:'Reason'},{key:'date',label:'Date'}], p.data.escalations || []);
+      return html;
+    }
+
+    if (p.type === 'historical_lineage' && p.data) {
+      html += renderDocTable([{key:'artifact_type',label:'Type'},{key:'artifact_id',label:'ID'},{key:'application',label:'Application'},{key:'release',label:'Release'},{key:'owner',label:'Owner'},{key:'closure_date',label:'Closure'},{key:'result',label:'Result'}], p.data.implementations || []);
+      return html;
+    }
+
+    if (p.type === 'control_reuse_repo' && p.data) {
+      html += renderDrillTable(p.data.rows || [], [{key:'control_id',label:'Control'},{key:'control_name',label:'Name'},{key:'applications_used',label:'Apps'},{key:'reuse_score',label:'Reuse Score'},{key:'framework_mapping',label:'Framework'}],
+        { kind: 'sdlc', metric: 'control', idKey: 'control_id', release: drillExtra.release, stage: drillExtra.stage });
+      html += '<button type="button" class="btn btn-sm btn-outline-success mt-2" data-ecs-reuse data-reuse-id="control::reuse" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">Reuse Control Wizard</button>';
+      return html;
+    }
+
+    if (p.type === 'design_reuse_repo' && p.data) {
+      html += renderDrillTable(p.data.rows || [], [{key:'pattern_name',label:'Pattern'},{key:'architecture_type',label:'Architecture'},{key:'applications_used',label:'Apps'},{key:'approvals',label:'Approvals'},{key:'success_rate',label:'Success %'}],
+        { kind: 'sdlc', metric: 'design', idKey: 'pattern_name', release: drillExtra.release, stage: drillExtra.stage });
+      html += '<button type="button" class="btn btn-sm btn-outline-success mt-2" data-ecs-reuse data-reuse-id="design::reuse" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">Reuse Design Wizard</button>';
+      return html;
+    }
+
+    if (p.type === 'code_reuse_repo' && p.data) {
+      html += renderDrillTable(p.data.rows || [], [{key:'component',label:'Component'},{key:'category',label:'Category'},{key:'applications_used',label:'Apps'},{key:'language',label:'Language'},{key:'security_rating',label:'Security'}],
+        { kind: 'sdlc', metric: 'code', idKey: 'component', release: drillExtra.release, stage: drillExtra.stage });
+      html += '<button type="button" class="btn btn-sm btn-outline-success mt-2" data-ecs-reuse data-reuse-id="code::reuse" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">Reuse Component</button>';
+      return html;
+    }
+
+    if (p.type === 'test_pack_reuse_repo' && p.data) {
+      html += renderDrillTable(p.data.rows || [], [{key:'test_pack',label:'Test Pack'},{key:'coverage',label:'Coverage'},{key:'applications_used',label:'Apps'},{key:'pass_rate',label:'Pass Rate'}],
+        { kind: 'sdlc', metric: 'test_pack', idKey: 'test_pack', release: drillExtra.release, stage: drillExtra.stage });
+      html += '<button type="button" class="btn btn-sm btn-outline-success mt-2" data-ecs-reuse data-reuse-id="test_pack::reuse" data-release="' + esc(drillExtra.release || '') + '" data-stage="' + esc(drillExtra.stage || '') + '">Reuse Test Pack Wizard</button>';
+      return html;
+    }
+
+    if (p.type === 'reuse_modal' && p.data) {
+      html += (window.renderReuseModal ? window.renderReuseModal(p.data) : '<p class="text-muted">Reuse modal ready.</p>');
+      return html;
+    }
+
+    if (p.type === 'stage_card' && p.data) {
+      html += renderStageCard(p.data);
+      return html;
+    }
+
+    if (p.type === 'control' && p.data) {
+      html += renderControlDrillWorkspace(p, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'controls' && p.rows) {
+      html += '<p class="small text-muted mb-2">' + esc(p.title || '') + '</p>';
+      html += renderDrillTable(p.rows, CONTROL_COLS, { kind: 'sdlc', metric: 'control', idKey: 'control_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'evidence' && p.data) {
+      html += renderDetailDl(p.data, ['evidence_id','title','application','framework','control_id','type','status','collected_date','owner','file_format','size_kb','retention_years','auditor_visible','source_system','summary']);
+      return html;
+    }
+
+    if (p.type === 'evidence_list' && p.rows) {
+      html += '<p class="small text-muted mb-2">' + esc(p.title || '') + '</p>';
+      html += renderDrillTable(p.rows, EVIDENCE_COLS, { kind: 'sdlc', metric: 'evidence', idKey: 'evidence_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'document_viewer' && p.data) {
+      html += renderDocumentViewer(p);
+      return html;
+    }
+
+    if (p.type === 'document' && p.data) {
+      html += renderDocumentViewer({ data: p.data, artifact: p.data.artifact || {} });
+      return html;
+    }
+
+    if (p.type === 'documents' && p.rows) {
+      html += renderDrillTable(p.rows, colsFromRows(p.rows, 7), { kind: 'sdlc', metric: 'document', idKey: 'doc_id', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'framework' && p.data) {
+      var d = p.data;
+      if (p.framework_summary) {
+        html += '<p class="small fw-semibold mb-1">Framework Summary</p>';
+        html += renderDetailDl(p.framework_summary, ['framework','control_coverage_pct','evidence_coverage_pct','readiness_pct','open_gaps','owner']);
+        if (p.framework_summary.applications_covered && p.framework_summary.applications_covered.length) {
+          html += '<p class="small mb-1"><strong>Applications covered:</strong> ' + esc(p.framework_summary.applications_covered.join(', ')) + '</p>';
+        }
+      }
+      html += renderDetailDl(d, ['framework','controls_total','controls_covered','checklist_pct','gaps','evidence_status','evidence_collected','evidence_total','owner','due_date','risk']);
+      if (p.control_lineage && p.control_lineage.length) {
+        html += '<p class="small fw-semibold mb-1">Control Lineage (' + p.control_lineage.length + ')</p>';
+        html += renderDocTable([
+          {key:'control_id',label:'Control ID'},{key:'mapped_requirement',label:'Requirement'},{key:'mapped_design',label:'Design'},
+          {key:'mapped_development',label:'Development'},{key:'mapped_test',label:'Test'},{key:'mapped_evidence',label:'Evidence'},
+          {key:'observation_count',label:'Observations'},{key:'exception_count',label:'Exceptions'},{key:'reuse_score',label:'Reuse Score'}
+        ], p.control_lineage);
+      }
+      if (p.applications_impacted && p.applications_impacted.length) {
+        html += '<p class="small mb-1"><strong>Applications impacted:</strong> ' + esc(p.applications_impacted.join(', ')) + '</p>';
+      } else if (d.applications_impacted) {
+        html += '<p class="small mb-1"><strong>Applications impacted:</strong> ' + esc(d.applications_impacted.join(', ')) + '</p>';
+      }
+      if (p.rows && p.rows.length) {
+        html += '<p class="small fw-semibold mb-1">Controls (' + p.rows.length + ') — click row for Control 360</p>';
+        html += renderDrillTable(p.rows, FRAMEWORK_CONTROL_COLS, { kind: 'sdlc', metric: 'control', idKey: 'control_id', release: drillExtra.release, stage: drillExtra.stage });
+      }
+      if (p.gap_rows && p.gap_rows.length) {
+        html += '<p class="small fw-semibold mb-1">Open gaps (' + p.gap_rows.length + ')</p>';
+        html += renderDrillTable(p.gap_rows, colsFromRows(p.gap_rows, 7), { kind: 'sdlc', metric: 'gaps', idKey: 'gap_id', release: drillExtra.release, stage: drillExtra.stage });
+      }
+      if (p.evidence_rows && p.evidence_rows.length) {
+        html += '<p class="small fw-semibold mb-1">Evidence (' + p.evidence_rows.length + ')</p>';
+        html += renderDrillTable(p.evidence_rows, EVIDENCE_COLS, { kind: 'sdlc', metric: 'evidence', idKey: 'evidence_id', release: drillExtra.release, stage: drillExtra.stage });
+      }
+      html += renderHistoryAccordions(p.history, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'lifecycle_step' && p.data) {
+      html += renderLifecycleStepDetail(p.data);
+      return html;
+    }
+
+    if (p.type === 'knowledge_graph' && p.graph) {
+      html += renderKnowledgeGraph(p.graph, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'knowledge_reuse' && p.data) {
+      html += renderHowCalculated({
+        formula: p.data.formula,
+        aggregate: p.data.overall_pct,
+        steps: ['Reused assets: ' + (p.data.reused_count || 0) + ' / Required: ' + (p.data.required_count || 0)]
+      });
+      html += renderDetailDl(p.data, ['overall_pct','reused_count','required_count']);
+      var bd = p.data.breakdown || {};
+      html += '<p class="small fw-semibold mb-1">Reuse by Dimension</p>';
+      html += renderDrillTable(Object.keys(bd).map(function (k) {
+        return { dimension: k, pct: bd[k] + '%', drill_id: k };
+      }), [{key:'dimension',label:'Dimension'},{key:'pct',label:'Reuse %'}], {
+        kind: 'sdlc', metric: 'knowledge_reuse', idKey: 'drill_id', release: drillExtra.release
+      });
+      return html;
+    }
+
+    if (p.type === 'knowledge_reuse_dim' && p.data) {
+      html += renderHowCalculated({ formula: p.data.formula, aggregate: p.data.pct });
+      html += renderDetailDl(p.data, ['dimension','pct']);
+      return html;
+    }
+
+    if (p.type === 'exec_analytics' && p.rows) {
+      html += renderDrillTable(p.rows, p.columns || colsFromRows(p.rows, 6), {
+        kind: 'sdlc', metric: p.metric || 'exec_top_reused', idKey: p.columns && p.columns[0] ? p.columns[0].key : 'control_id',
+        release: drillExtra.release
+      });
+      return html;
+    }
+
+    if (p.type === 'exec_analytics_detail' && p.data) {
+      html += renderDetailDl(p.data);
+      return html;
+    }
+
+    if (p.type === 'history_observation' || p.type === 'history_design' || p.type === 'history_evidence' ||
+        p.type === 'history_similar' || p.type === 'history_closure') {
+      html += renderDetailDl(p.data);
+      return html;
+    }
+
+    if (p.type === 'exec_heatmap' || p.type === 'exec_heatmap_cell') {
+      if (p.type === 'exec_heatmap_cell') html += renderDetailDl(p.data, ['application','stage_label','readiness_score','gaps','tone']);
+      else html += renderExecHeatmap(p, drillExtra);
+      return html;
+    }
+
+    if (p.type === 'exec_ranking' && p.rows) {
+      html += renderDrillTable(p.rows, [
+        {key:'application',label:'Application'},{key:'total_gaps',label:'Total Gaps'},{key:'high_gaps',label:'High'},{key:'stages_affected',label:'Stages'},{key:'owner',label:'Owner'}
+      ], { kind: 'sdlc', metric: 'exec_gap_applications', idKey: 'application', release: drillExtra.release });
+      return html;
+    }
+
+    if (p.type === 'exec_matrix' && p.rows) {
+      html += renderDrillTable(p.rows, [
+        {key:'application',label:'Application'},{key:'framework',label:'Framework'},{key:'compliance_pct',label:'Compliance %'},{key:'controls_covered',label:'Covered'},{key:'controls_total',label:'Total'}
+      ], { kind: 'sdlc', metric: 'exec_framework_by_app', idKey: 'drill_id', release: drillExtra.release });
+      return html;
+    }
+
+    if (p.type === 'exec_dashboard' && p.rows) {
+      html += renderDrillTable(p.rows, [
+        {key:'label',label:'Stage'},{key:'completion_pct',label:'Completion %'},{key:'readiness_score',label:'Readiness'},{key:'open_gaps',label:'Gaps'},{key:'evidence_collected',label:'Evidence'}
+      ], { kind: 'sdlc', metric: 'exec_stage_completion', idKey: 'stage', release: drillExtra.release });
+      return html;
+    }
+
+    if (p.type === 'exec_exceptions' && p.rows) {
+      html += renderDrillTable(p.rows, colsFromRows(p.rows, 7), { kind: 'sdlc', metric: 'exec_exceptions', idKey: 'exception_id', release: drillExtra.release, stage: 'go-live' });
+      return html;
+    }
+
+    if (p.type === 'exec_gap_app' || p.type === 'exec_stage' || p.type === 'exec_fw_cell') {
+      html += renderDetailDl(p.data);
+      return html;
+    }
+
+    if ((p.type === 'prompt' || p.type === 'gap' || p.type === 'version' || p.type === 'requirement' ||
+         p.type === 'design' || p.type === 'development' || p.type === 'testing' || p.type === 'defect' ||
+         p.type === 'observation' || p.type === 'exception' || p.type === 'checklist_item' || p.type === 'release') && p.data) {
+      html += renderDetailDl(p.data);
+      if (p.rows && p.rows.length) {
+        var subMetric = 'evidence';
+        var subIdKey = 'evidence_id';
+        if (p.type === 'requirement') { subMetric = 'control'; subIdKey = 'control_id'; }
+        else if (p.type === 'testing') { subMetric = 'defects'; subIdKey = 'defect_id'; }
+        html += renderDrillTable(p.rows, colsFromRows(p.rows, 6), { kind: 'sdlc', metric: subMetric, idKey: subIdKey, release: drillExtra.release, stage: drillExtra.stage });
+      }
+      return html;
+    }
+
+    if (p.type === 'stage_summary' && p.data) {
+      html += renderDetailDl(p.data);
+      if (p.rows && p.rows.length) {
+        html += '<p class="small fw-semibold mb-1">Framework rows (' + p.rows.length + ')</p>';
+        html += renderDrillTable(p.rows, colsFromRows(p.rows, 8, ['control_records','evidence_records','gap_records']), { kind: 'sdlc', metric: 'framework', idKey: 'framework', release: drillExtra.release, stage: drillExtra.stage });
+      }
+      return html;
+    }
+
+    if (p.type === 'list' && p.rows) {
+      html += '<p class="small text-muted mb-2">' + esc(p.title || '') + '</p>';
+      var listKind = p.list_kind || '';
+      var listKindPosture = listKind.indexOf('posture_') === 0 || listKind === 'posture_inventory';
+      var listKindRegistry = listKind.indexOf('registry_') === 0;
+      var listKindName = listKindPosture ? 'posture' : (listKindRegistry ? 'registry' : 'sdlc');
+      var listMetric = 'gaps';
+      var listIdKey = 'gap_id';
+      if (listKind === 'posture_inventory' || (p.title && p.title.indexOf('Application Inventory') >= 0)) {
+        listMetric = 'application'; listIdKey = 'id';
+        html += renderDrillTable(p.rows, [
+          {key:'name',label:'Application'},{key:'owner',label:'Owner'},{key:'model',label:'Model'},{key:'use_case',label:'Use Case'},
+          {key:'risk_tier',label:'Risk Tier'},{key:'compliance_score',label:'Compliance'},{key:'policy_compliance',label:'Policy %'}
+        ], { kind: 'posture', metric: listMetric, idKey: listIdKey });
+        return html;
+      }
+      if (listKind === 'posture_models' || (p.title && p.title.indexOf('Model Approval') >= 0)) {
+        listMetric = 'models'; listIdKey = 'application_id';
+        html += renderDrillTable(p.rows, [
+          {key:'model',label:'Model'},{key:'application',label:'Application'},{key:'status',label:'Status'},{key:'risk_tier',label:'Risk'},{key:'expiry',label:'Expiry'}
+        ], { kind: 'posture', metric: listMetric, idKey: listIdKey });
+        return html;
+      }
+      if (listKind === 'posture_prompts' || listKind === 'posture_hallucinations' || listKind === 'posture_unsafe' || (p.title && p.title.indexOf('Prompt') >= 0 && p.title.indexOf('Version') < 0)) {
+        listMetric = 'prompts'; listIdKey = 'prompt_id';
+        html += renderDrillTable(p.rows, [
+          {key:'prompt_id',label:'Prompt ID'},{key:'application',label:'Application'},{key:'model',label:'Model'},{key:'risk_score',label:'Risk'},{key:'review_status',label:'Status'}
+        ], { kind: listKindName, metric: listMetric, idKey: listIdKey });
+        return html;
+      }
+      if (listKindRegistry && listKind.indexOf('models') >= 0) {
+        html += renderDrillTable(p.rows, [
+          {key:'model_id',label:'Model ID'},{key:'name',label:'Model'},{key:'applications_count',label:'Apps'},{key:'prompts_count',label:'Prompts'},
+          {key:'owner',label:'Owner'},{key:'status',label:'Status'},{key:'risk_tier',label:'Risk'},{key:'expiry',label:'Expiry'}
+        ], { kind: 'registry', metric: 'models', idKey: 'model_id' });
+        return html;
+      }
+      if (listKindRegistry && listKind.indexOf('prompts') >= 0) {
+        html += renderDrillTable(p.rows, [
+          {key:'prompt_id',label:'Prompt ID'},{key:'name',label:'Prompt'},{key:'application',label:'Application'},{key:'use_case',label:'Use Case'},
+          {key:'model',label:'Model'},{key:'owner',label:'Owner'},{key:'risk_score',label:'Risk'},{key:'status',label:'Status'}
+        ], { kind: 'registry', metric: 'prompts', idKey: 'prompt_id' });
+        return html;
+      }
+      if (p.title && p.title.indexOf('Requirement') >= 0) { listMetric = 'requirements'; listIdKey = 'req_id'; }
+      else if (p.title && p.title.indexOf('Design') >= 0) { listMetric = 'designs'; listIdKey = 'design_id'; }
+      else if (p.title && p.title.indexOf('Development') >= 0) { listMetric = 'development'; listIdKey = 'item_id'; }
+      else if (p.title && p.title.indexOf('Test') >= 0) { listMetric = 'testing'; listIdKey = 'test_id'; }
+      else if (p.title && p.title.indexOf('Observation') >= 0) { listMetric = 'observations'; listIdKey = 'obs_id'; }
+      else if (p.title && p.title.indexOf('Exception') >= 0) { listMetric = 'exceptions'; listIdKey = 'exception_id'; }
+      else if (p.title && p.title.indexOf('Checklist') >= 0) { listMetric = 'checklist'; listIdKey = 'item_id'; }
+      else if (p.title && p.title.indexOf('Framework') >= 0) { listMetric = 'framework'; listIdKey = 'framework'; }
+      else if (p.title && p.title.indexOf('Readiness') >= 0 || p.title && p.title.indexOf('Stage') >= 0) { listMetric = 'readiness'; listIdKey = 'key'; }
+      html += renderDrillTable(p.rows, colsFromRows(p.rows, 8, ['control_records','evidence_records','gap_records','violation_records']), { kind: listKindName, metric: listMetric, idKey: listIdKey, release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.type === 'tokens' && p.data) {
+      var t = p.data;
+      var analytics = t.analytics || {};
+      html += '<p class="small"><strong>By application (' + (t.by_application || []).length + ')</strong></p>' + renderDrillTable(t.by_application, [
+        {key:'application',label:'Application'},{key:'tokens',label:'Tokens'},{key:'cost_usd',label:'Cost USD'},{key:'prompt_volume',label:'Prompt Volume'}
+      ], { kind: 'posture', metric: 'tokens' });
+      if (analytics.monthly_trends && analytics.monthly_trends.length) {
+        html += '<p class="small mt-2 fw-semibold">Trend Analytics</p>' + renderDocTable([
+          {key:'month',label:'Month'},{key:'tokens',label:'Tokens'},{key:'cost_usd',label:'Cost USD'},
+          {key:'hallucinations',label:'Hallucinations'},{key:'policy_violations',label:'Policy Violations'},
+          {key:'exceptions',label:'Exceptions'},{key:'approvals',label:'Approvals'}
+        ], analytics.monthly_trends.slice(-12));
+      }
+      if (t.monthly_trend && t.monthly_trend.length) {
+        html += '<p class="small mt-2"><strong>12-month token trend</strong></p>' + renderDrillTable(t.monthly_trend, [
+          {key:'month',label:'Month'},{key:'tokens',label:'Tokens'}
+        ], { kind: 'posture', metric: 'tokens', idKey: 'month_key' });
+      }
+      return html;
+    }
+
+    if (p.type === 'summary' && p.data) {
+      html += renderDetailDl(p.data);
+      var rows = p.rows || [];
+      if (rows.length) html += renderDrillTable(rows, colsFromRows(rows, 8), { kind: 'sdlc', metric: 'readiness', idKey: 'key', release: drillExtra.release, stage: drillExtra.stage });
+      return html;
+    }
+
+    if (p.workflow && p.workflow.length) {
+      var wf = '<div class="aisdlc-workflow">';
+      p.workflow.forEach(function (s) {
+        var cls = s.status === 'Complete' ? 'is-done' : (s.status === 'In Progress' || s.status === 'Conditional' ? 'is-active' : '');
+        wf += '<div class="aisdlc-wf-step ' + cls + '"><div class="step-n">' + esc(s.step) + '</div><div>' + esc(s.stage) + '</div><div class="text-muted">' + esc(s.actor || '') + '</div></div>';
+      });
+      wf += '</div>';
+      html += p.data ? renderDetailDl(p.data) : '';
+      html += wf;
+      return html;
+    }
+
+    if (p.data && typeof p.data === 'object') {
+      html += renderDetailDl(p.data);
+      return html;
+    }
+    return html + '<p class="text-muted small">' + esc(p.title || 'Detail') + '</p>';
+  }
+
+  var STAGE_SLUGS = { requirement: 'requirements', design: 'design', development: 'development', testing: 'testing', 'go-live': 'golive' };
+
+  function stageWorkspaceHref(stageKey, releaseId, tab) {
+    var slug = STAGE_SLUGS[stageKey] || stageKey;
+    var url = '/sdlc/' + slug + '?release=' + encodeURIComponent(releaseId || '');
+    if (tab) url += '&tab=' + encodeURIComponent(tab);
+    return url;
+  }
+
+  function resolveFooterLink(kind, metric, id) {
+    var mod = getNavModule();
+    if (metric === 'models' || metric === 'models_approved') {
+      if (kind === 'posture' && mod === 'ai_governance') return { href: '/mvp/ai-registry', text: 'Open Model Registry' };
+      if (kind === 'registry' && mod === 'ai_registry') return id ? { href: '/mvp/ai-registry', text: 'View in Model Registry' } : null;
+      return { href: '/mvp/ai-registry', text: 'Open Model Registry' };
+    }
+    if ((metric === 'prompts' || metric === 'prompts_pending') && kind === 'posture' && mod === 'ai_governance') {
+      return { href: '/mvp/ai-registry', text: 'Open Prompt Registry' };
+    }
+    if (metric === 'inventory' && kind === 'posture') return { href: '/mvp/ai-registry', text: 'Open Model & Prompt Registry' };
+    if (metric === 'application' && kind === 'posture') return { href: '/mvp/ai-registry', text: 'Open Model & Prompt Registry' };
+    if (kind === 'registry' && mod !== 'ai_registry') return { href: '/mvp/ai-registry', text: 'Open Model & Prompt Registry' };
+    if (kind === 'posture' && mod !== 'ai_governance') return { href: '/mvp/ai-governance', text: 'Open AI Governance Posture' };
+    if (kind === 'sdlc' && mod !== 'sdlc_gates') return { href: '/mvp/sdlc-gates', text: 'Open SDLC Gates' };
+    return null;
+  }
+
+  function applyDrillLinks(p, kind, metric, id, extra, stageHref) {
+    var footer = p.footer_link || resolveFooterLink(kind, metric, id);
+    if (stageHref && window.ecsGovernanceSetStageLink) {
+      window.ecsGovernanceSetStageLink(stageLinkEl, stageHref, p.stage_key || extra.stage || '', p.navigation_context);
+      if (footer && footer.href) setLink(footer.href, footer.text);
+      else setLink(null);
+    } else if (stageHref) {
+      if (footer && footer.href) setLink(footer.href, footer.text, stageHref);
+      else setLink(null, null, stageHref);
+    } else if (footer && footer.href) {
+      setLink(footer.href, footer.text);
+    } else if (metric === 'application' || (metric === 'inventory' && id)) {
+      setLink('/mvp/ai-registry', 'Open Model & Prompt Registry');
+    } else if (kind === 'sdlc' && p.stage_key) {
+      setLink(null, null, stageWorkspaceHref(p.stage_key, p.release_id || ''));
+    } else if (kind === 'sdlc') {
+      setLink('/mvp/sdlc-gates', 'Open SDLC Gates');
+    } else {
+      setLink(null);
+    }
+  }
+
+  function setLink(href, text, stageHref) {
+    if (stageHref) {
+      stageLinkEl.href = stageHref + (stageHref.indexOf('?') >= 0 ? '&' : '?') + q.slice(1);
+      stageLinkEl.classList.remove('d-none');
+    } else {
+      stageLinkEl.classList.add('d-none');
+    }
+    if (href) {
+      linkEl.href = href + (href.indexOf('?') >= 0 ? '&' : '?') + q.slice(1);
+      linkEl.textContent = text || 'Open related module';
+      linkEl.classList.remove('d-none');
+    } else {
+      linkEl.classList.add('d-none');
+    }
+  }
+
+  function openDrill(kind, metric, id, extra, queryOpts) {
+    extra = extra || {};
+    queryOpts = queryOpts || {};
+    captureDrillOrigin();
+    if (backBtn) backBtn.classList.remove('d-none');
+    lastDrill = { kind: kind || 'sdlc', release: extra.release || '', stage: extra.stage || '' };
+    var originMod = getNavModule();
+    var url;
+    if (kind === 'registry') {
+      url = '/api/ai-sdlc/registry/drill?section=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '') +
+        '&origin_module=' + encodeURIComponent(originMod);
+    } else if (kind === 'sdlc') {
+      url = '/api/ai-sdlc/sdlc/drill?metric=' + encodeURIComponent(metric || '') +
+        '&release=' + encodeURIComponent(extra.release || '') +
+        '&stage=' + encodeURIComponent(extra.stage || '') +
+        '&item_id=' + encodeURIComponent(id || '') +
+        '&origin_module=' + encodeURIComponent(originMod);
+      if (queryOpts.page) url += '&page=' + encodeURIComponent(queryOpts.page);
+      if (queryOpts.severity != null && queryOpts.severity !== undefined) url += '&severity=' + encodeURIComponent(queryOpts.severity);
+      if (queryOpts.search) url += '&search=' + encodeURIComponent(queryOpts.search);
+    } else {
+      url = '/api/ai-sdlc/posture/drill?metric=' + encodeURIComponent(metric || '') + '&item_id=' + encodeURIComponent(id || '') +
+        '&origin_module=' + encodeURIComponent(originMod);
+    }
+    titleEl.textContent = 'Loading…';
+    bodyEl.innerHTML = '<div class="text-muted small">Loading…</div>';
+    setLink(null);
+    modal.show();
+    fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+      var p = j.payload || j.data || {};
+      titleEl.textContent = p.title || 'Detail';
+      var dialogEl = document.getElementById('aisdlcDrillDialog');
+      if (dialogEl) {
+        dialogEl.classList.toggle('modal-xl', p.type === 'knowledge_graph' || p.type === 'control' || p.type === 'document_viewer' || p.type === 'framework' || p.type === 'stage_card' || p.type === 'heatmap' || true);
+        dialogEl.classList.toggle('ecs-gov-modal-full', true);
+        dialogEl.classList.toggle('modal-dialog-scrollable', !(p.type === 'control' || p.type === 'document_viewer'));
+      }
+      if (modalContentEl) {
+        modalContentEl.classList.toggle('ecs-modal-workspace', p.type === 'control' || p.type === 'document_viewer');
+      }
+      bodyEl.innerHTML = renderPayload(p);
+      bindModalWorkspace(bodyEl);
+      if (window.ecsEnhanceGovTables) window.ecsEnhanceGovTables(bodyEl);
+      if (window.GovernanceModal) window.GovernanceModal.setFullWidth(true);
+      bodyEl.querySelectorAll('.aisdlc-reuse-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var wrap = bodyEl.querySelector('.aisdlc-reuse-wizard-wrap');
+          if (wrap) {
+            wrap.classList.toggle('d-none');
+            wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        });
+      });
+      if (window.ecsEnhanceGovTables) window.ecsEnhanceGovTables(bodyEl);
+      var stageHref = p.stage_link || '';
+      if (!stageHref && extra.stage) {
+        var tabMap = { framework: 'framework-coverage', framework_coverage_drill: 'framework-coverage', controls: 'control-coverage', control_coverage_drill: 'control-coverage', control: 'control-coverage', evidence: 'evidence-coverage', evidence_coverage_drill: 'evidence-coverage', gaps: 'open-gaps', gaps_drill: 'open-gaps', documents: 'knowledge-reuse', document: 'knowledge-reuse', audit: 'audit-trail', readiness_breakdown: 'readiness', status_timeline: 'status', approvals_drill: 'approvals', historical_lineage: 'knowledge-reuse', knowledge_reuse: 'knowledge-reuse', control_reuse_repo: 'knowledge-reuse' };
+        stageHref = stageWorkspaceHref(extra.stage, extra.release || p.release_id || '', tabMap[metric] || 'overview');
+      }
+      if (!stageHref && p.stage_key) {
+        stageHref = stageWorkspaceHref(p.stage_key, p.release_id || extra.release || '', 'overview');
+      }
+      applyDrillLinks(p, kind, metric, id, extra, stageHref);
+    }).catch(function () {
+      bodyEl.innerHTML = '<p class="text-danger small">Failed to load drill-down.</p>';
+    });
+  }
+
+  window.openDrill = openDrill;
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-aisdlc-drill]');
+    if (!el) return;
+    e.preventDefault();
+    openDrill(
+      el.getAttribute('data-aisdlc-drill'),
+      el.getAttribute('data-metric') || el.getAttribute('data-section'),
+      el.getAttribute('data-id') || '',
+      {
+        release: el.getAttribute('data-release') || '',
+        stage: el.getAttribute('data-stage') || ''
+      }
+    );
+  });
+
+  document.querySelectorAll('[data-aisdlc-drill]').forEach(function (el) {
+    if (el.tabIndex < 0 && !el.href) el.tabIndex = 0;
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+    });
+  });
+})();
+</script>
+
+<div class="modal fade" id="ecsUniversalDrillModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-xl modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="ecsUniversalDrillTitle">Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body small" id="ecsUniversalDrillBody"></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+<script>
+(function(){
+  if (window.__ecsUniversalDrillInit) return;
+
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function parseCount(text){
+    var m = String(text || '').replace(/,/g,'').match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); }
+  function pageScope(){
+    var p = (window.location.pathname || '').replace(/^\//,'').split('/')[0] || 'dashboard';
+    if (window.location.pathname.indexOf('/mvp/') === 0) {
+      return window.location.pathname.replace('/mvp/','').split('/')[0] || 'mvp';
+    }
+    if (window.location.pathname.indexOf('/framework/') === 0) return 'framework';
+    if (window.location.pathname.indexOf('/dashboard') === 0) return 'dashboard';
+    return p;
+  }
+
+  function tableHtml(rows, cols, wrapClass) {
+    if (!rows || !rows.length) return '<p class="text-muted mb-0">No supporting records.</p>';
+    var h = '<div class="ecs-kpi-drill-toolbar mb-2">' +
+      '<input type="search" class="form-control form-control-sm ecs-kpi-drill-search" placeholder="Search records…">' +
+      '<div class="text-muted small mt-1 ecs-kpi-drill-count">' + rows.length + ' records</div></div>';
+    h += '<div class="table-responsive ecs-paginated-wrap ecs-fit-view ecs-kpi-drill-table-wrap ' + (wrapClass||'') + '"><table class="table table-sm ecs-paginated-table ecs-compact-table ecs-force-paginate mb-0"><thead><tr>';
+    cols.forEach(function(c){ h += '<th>' + esc(c.replace(/_/g,' ')) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function(r){
+      h += '<tr>';
+      cols.forEach(function(c){ h += '<td>' + esc(r[c]) + '</td>'; });
+      h += '</tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  function detailHtml(detail) {
+    if (!detail) return '';
+    var h = '<div class="row g-2 mb-3">';
+    Object.keys(detail).forEach(function(k){
+      if (typeof detail[k] === 'object') return;
+      h += '<div class="col-md-3"><div class="text-muted small">' + esc(k.replace(/_/g,' ')) + '</div><strong>' + esc(detail[k]) + '</strong></div>';
+    });
+    return h + '</div>';
+  }
+
+  function sectionsHtml(sections) {
+    if (!sections) return '';
+    var h = '';
+    Object.keys(sections).forEach(function(name){
+      var rows = sections[name];
+      if (!rows || !rows.length) return;
+      var cols = Object.keys(rows[0]);
+      h += '<h6 class="text-muted small text-uppercase mt-3 mb-1">' + esc(name.replace(/_/g,' ')) + '</h6>';
+      h += tableHtml(rows, cols);
+    });
+    return h;
+  }
+
+  function attachSearch(bodyEl) {
+    var input = bodyEl.querySelector('.ecs-kpi-drill-search');
+    var table = bodyEl.querySelector('.ecs-kpi-drill-table-wrap table');
+    var countEl = bodyEl.querySelector('.ecs-kpi-drill-count');
+    if (!input || !table || !table.tBodies.length) return;
+    input.addEventListener('input', function(){
+      var q = input.value.trim().toLowerCase();
+      var visible = 0;
+      Array.from(table.tBodies[0].rows).forEach(function(tr){
+        var match = !q || tr.textContent.toLowerCase().indexOf(q) >= 0;
+        tr.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      if (countEl) countEl.textContent = q ? (visible + ' matching records') : (table.tBodies[0].rows.length + ' records');
+      if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+    });
+  }
+
+  function showModal(title, html) {
+    var modalEl = document.getElementById('ecsUniversalDrillModal');
+    var titleEl = document.getElementById('ecsUniversalDrillTitle');
+    var bodyEl = document.getElementById('ecsUniversalDrillBody');
+    if (!modalEl || !bodyEl || typeof bootstrap === 'undefined') return;
+    titleEl.textContent = title || 'Detail';
+    bodyEl.innerHTML = html;
+    attachSearch(bodyEl);
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  function renderResponse(j, title) {
+    if (!j.ok) { showModal(title, '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'); return; }
+    var meta = '';
+    if (j.trace_count) meta += '<span class="badge bg-info text-dark me-1">Trace: ' + j.trace_count + ' displayed</span>';
+    if (j.row_count) meta += '<span class="badge bg-secondary">' + j.row_count + ' supporting records</span>';
+    var html = detailHtml(j.detail);
+    if (meta) html += '<p class="mb-2">' + meta + '</p>';
+    html += tableHtml(j.rows, j.columns || ['application','framework','control','owner','status','evidence']);
+    html += sectionsHtml(j.sections);
+    showModal(j.title || title, html);
+  }
+
+  function fetchJson(url, title) {
+    var bodyEl = document.getElementById('ecsUniversalDrillBody');
+    if (bodyEl) bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
+    var modalEl = document.getElementById('ecsUniversalDrillModal');
+    if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    fetch(url).then(function(r){ return r.json(); }).then(function(j){ renderResponse(j, title); })
+      .catch(function(){ showModal(title, '<p class="text-danger">Request failed.</p>'); });
+  }
+
+  window.ecsOpenUniversalKpiDrill = function(page, metric, label, count, framework) {
+    var url = '/api/ecs/universal-drill?scope=kpi&page=' + encodeURIComponent(page||'') +
+      '&metric=' + encodeURIComponent(metric||'') + '&count=' + encodeURIComponent(count||0) +
+      '&framework=' + encodeURIComponent(framework||'') + '&label=' + encodeURIComponent(label||'');
+    fetchJson(url, label || metric);
+  };
+
+  window.ecsOpenUniversalRowDrill = function(page, rowType, rowId, framework) {
+    fetchJson('/api/ecs/universal-drill?scope=row&page=' + encodeURIComponent(page||'') +
+      '&type=' + encodeURIComponent(rowType||'') + '&id=' + encodeURIComponent(rowId||'') +
+      '&framework=' + encodeURIComponent(framework||''), rowType + ': ' + rowId);
+  };
+
+  window.ecsOpenUniversalChartDrill = function(page, chart, element, count) {
+    fetchJson('/api/ecs/universal-drill?scope=chart&page=' + encodeURIComponent(page||'') +
+      '&chart=' + encodeURIComponent(chart||'') + '&element=' + encodeURIComponent(element||'') +
+      '&count=' + encodeURIComponent(count||0), chart + ' — ' + element);
+  };
+
+  window.ecsOpenEnterpriseWorkflowDrill = function(metric, label, count) {
+    fetchJson('/api/ecs/workflow-drill?metric=' + encodeURIComponent(metric||'') +
+      '&count=' + encodeURIComponent(count||0) + '&role=' + encodeURIComponent('cio'),
+      label || metric);
+  };
+
+  function bindExplicit() {
+    document.addEventListener('click', function(e){
+      if (e.target.closest('[data-ecs-framework-kpi],[data-ecs-framework-wf-drill],[data-ecs-framework-row-drill],[data-ecs-module-kpi],[data-grc-drill],[data-ecs-demo-kpi],[data-aisdlc-drill],[data-ct-drill]')) return;
+      var uk = e.target.closest('[data-ecs-universal-kpi]');
+      if (uk) {
+        e.preventDefault();
+        ecsOpenUniversalKpiDrill(uk.getAttribute('data-ecs-universal-page'), uk.getAttribute('data-ecs-universal-metric'),
+          uk.getAttribute('data-ecs-universal-label'), uk.getAttribute('data-ecs-universal-count'), uk.getAttribute('data-ecs-universal-framework'));
+        return;
+      }
+      var ew = e.target.closest('[data-ecs-enterprise-wf-drill]');
+      if (ew) {
+        e.preventDefault();
+        ecsOpenEnterpriseWorkflowDrill(ew.getAttribute('data-ecs-enterprise-wf-metric'), ew.getAttribute('data-ecs-enterprise-wf-label'), ew.getAttribute('data-ecs-enterprise-wf-count'));
+        return;
+      }
+      var ur = e.target.closest('[data-ecs-universal-row]');
+      if (ur) {
+        if (e.target.closest('a, button, .dropdown-menu, .ecs-sticky-actions, .btn')) return;
+        e.preventDefault();
+        ecsOpenUniversalRowDrill(ur.getAttribute('data-ecs-universal-page'), ur.getAttribute('data-ecs-universal-type'), ur.getAttribute('data-ecs-universal-id'), ur.getAttribute('data-ecs-universal-framework'));
+        return;
+      }
+      var ch = e.target.closest('[data-ecs-universal-chart]');
+      if (ch) {
+        e.preventDefault();
+        ecsOpenUniversalChartDrill(
+          ch.getAttribute('data-ecs-universal-page'),
+          ch.getAttribute('data-ecs-universal-chart-id') || ch.getAttribute('data-ecs-universal-chart'),
+          ch.getAttribute('data-ecs-universal-element'),
+          ch.getAttribute('data-ecs-universal-count'));
+      }
+    });
+  }
+
+  function autoWireKpis() {
+    var page = pageScope();
+    document.querySelectorAll('.ecs-kpi-modern, .ecs-wf-counter, .ecs-wf-analytic-card, .ecs-wf-queue-pill').forEach(function(el){
+      if (el.hasAttribute('data-ecs-universal-kpi') || el.hasAttribute('data-ecs-module-kpi') || el.hasAttribute('data-grc-drill') ||
+          el.hasAttribute('data-ecs-framework-kpi') || el.hasAttribute('data-ecs-framework-wf-drill') || el.hasAttribute('data-ecs-enterprise-wf-drill') ||
+          el.hasAttribute('data-ecs-demo-kpi') || el.hasAttribute('data-aisdlc-drill')) return;
+      var valEl = el.querySelector('.ecs-kpi-value, .ecs-wf-counter-val, .ecs-wf-analytic-val, .ecs-exec-kpi-val') || el;
+      var lblEl = el.querySelector('.ecs-kpi-label, .ecs-wf-counter-lbl, .ecs-wf-analytic-lbl, .ecs-exec-kpi-lbl');
+      var count = parseCount(valEl.textContent);
+      if (!count && !lblEl) return;
+      el.classList.add('ecs-kpi-clickable');
+      el.setAttribute('data-ecs-universal-kpi', '');
+      el.setAttribute('data-ecs-universal-page', page);
+      el.setAttribute('data-ecs-universal-metric', slug(lblEl ? lblEl.textContent : valEl.textContent));
+      el.setAttribute('data-ecs-universal-label', lblEl ? lblEl.textContent.trim() : 'Detail');
+      el.setAttribute('data-ecs-universal-count', String(count || 25));
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('title', 'Click for supporting records');
+    });
+  }
+
+  function autoWireTables() {
+    var page = pageScope();
+    document.querySelectorAll('.ecs-paginated-table tbody tr, .ecs-table-modern tbody tr, .ecs-compact-table tbody tr').forEach(function(tr, idx){
+      if (tr.hasAttribute('data-ecs-universal-row') || tr.hasAttribute('data-ecs-framework-row-drill') || tr.querySelector('th')) return;
+      if (tr.cells.length < 2) return;
+      var idCell = tr.cells[0];
+      var rowId = (idCell.textContent || '').trim().split('\n')[0].slice(0, 80) || ('row-' + idx);
+      tr.classList.add('ecs-drill-row-clickable');
+      tr.setAttribute('data-ecs-universal-row', '');
+      tr.setAttribute('data-ecs-universal-page', page);
+      tr.setAttribute('data-ecs-universal-type', 'record');
+      tr.setAttribute('data-ecs-universal-id', rowId);
+      tr.setAttribute('title', 'Click for full detail');
+    });
+  }
+
+  function autoWireCharts() {
+    var page = pageScope();
+    document.querySelectorAll('.ecs-trend-bar-fill, .demo-heat-cell, .ecs-insight-bar, .ecs-chart-bar, [data-ecs-chart-point]').forEach(function(el, idx){
+      if (el.hasAttribute('data-ecs-universal-chart')) return;
+      el.setAttribute('data-ecs-universal-chart', '');
+      el.setAttribute('data-ecs-universal-page', page);
+      el.setAttribute('data-ecs-universal-chart-id', el.closest('[data-chart-id]')?.getAttribute('data-chart-id') || 'chart');
+      el.setAttribute('data-ecs-universal-element', el.getAttribute('title') || el.textContent.trim() || ('point-' + idx));
+      el.setAttribute('data-ecs-universal-count', String(parseCount(el.textContent) || 25));
+      el.style.cursor = 'pointer';
+      el.setAttribute('title', (el.getAttribute('title') || 'Chart point') + ' — click for records');
+    });
+  }
+
+  function init() {
+    if (typeof bootstrap === 'undefined') { setTimeout(init, 40); return; }
+    window.__ecsUniversalDrillInit = true;
+    bindExplicit();
+    autoWireKpis();
+    autoWireTables();
+    autoWireCharts();
+    document.addEventListener('ecsDrillTabSwitch', function(){ setTimeout(function(){ autoWireTables(); autoWireCharts(); }, 60); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 </script>
 
@@ -2992,21 +5388,21 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div id="nav-exec" class="collapse show">
 <div class="ecs-nav-group-items">
 
-<a href="/dashboard/cio?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard">Evidence Analytics 
+<a href="/dashboard/cio?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard">Evidence Analytics 
 <span class="ecs-nav-badge" title="10 pending workflow actions — executive / leadership queue">10</span>
 </a>
 
-<a href="/mvp/demo-overview?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent is-active">Demo Overview ●</a>
-<a href="/mvp/enterprise?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Enterprise 
+<a href="/mvp/demo-overview?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent is-active">Demo Overview ●</a>
+<a href="/mvp/enterprise?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Enterprise 
 <span class="ecs-nav-badge" title="15 pending workflow actions — escalated or high-risk items">15</span>
 </a>
-<a href="/mvp/pan-india?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Pan India 
+<a href="/mvp/pan-india?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Pan India 
 <span class="ecs-nav-badge" title="5 pending workflow actions — regional open observations">5</span>
 </a>
-<a href="/mvp/reports?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Reports 
+<a href="/mvp/reports?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Reports 
 <span class="ecs-nav-badge" title="30 pending workflow actions — reports pending generation">30</span>
 </a>
-<a href="/mvp/trends?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Trends 
+<a href="/mvp/trends?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Trends 
 <span class="ecs-nav-badge" title="5 pending workflow actions — open trend-tracked observations">5</span>
 </a>
 </div>
@@ -3021,60 +5417,60 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div id="nav-fw" class="collapse">
 <div class="ecs-nav-group-items ecs-nav-group-items-nested">
 
-<a href="/framework/PCI DSS?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in PCI DSS">PCI DSS </a>
+<a href="/framework/PCI DSS?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in PCI DSS">PCI DSS </a>
 
-<a href="/framework/DPSC?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in DPSC">DPSC 
+<a href="/framework/DPSC?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in DPSC">DPSC 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in DPSC">1</span>
 </a>
 
-<a href="/framework/OS Baselining?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in OS Baselining">OS Baselining </a>
+<a href="/framework/OS Baselining?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in OS Baselining">OS Baselining </a>
 
-<a href="/framework/DB Baselining?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in DB Baselining">DB Baselining 
+<a href="/framework/DB Baselining?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in DB Baselining">DB Baselining 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in DB Baselining">1</span>
 </a>
 
-<a href="/framework/Nginx Baselining?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in Nginx Baselining">Nginx Baselining 
+<a href="/framework/Nginx Baselining?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in Nginx Baselining">Nginx Baselining 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in Nginx Baselining">1</span>
 </a>
 
-<a href="/framework/AppSec?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in AppSec">AppSec 
+<a href="/framework/AppSec?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in AppSec">AppSec 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in AppSec">1</span>
 </a>
 
-<a href="/framework/VAPT?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in VAPT">VAPT 
+<a href="/framework/VAPT?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in VAPT">VAPT 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in VAPT">1</span>
 </a>
 
-<a href="/framework/CSITE?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in CSITE">CSITE 
+<a href="/framework/CSITE?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in CSITE">CSITE 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in CSITE">1</span>
 </a>
 
-<a href="/framework/ITPP?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in ITPP">ITPP 
+<a href="/framework/ITPP?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in ITPP">ITPP 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in ITPP">1</span>
 </a>
 
-<a href="/framework/ITDRM?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ITDRM">ITDRM </a>
+<a href="/framework/ITDRM?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ITDRM">ITDRM </a>
 
-<a href="/framework/SOC2?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in SOC2">SOC2 
+<a href="/framework/SOC2?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in SOC2">SOC2 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in SOC2">1</span>
 </a>
 
-<a href="/framework/ISO27001?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in ISO27001">ISO27001 
+<a href="/framework/ISO27001?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in ISO27001">ISO27001 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in ISO27001">1</span>
 </a>
 
-<a href="/framework/RBI Cyber Security?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in RBI Cyber Security">RBI Cyber Security 
+<a href="/framework/RBI Cyber Security?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in RBI Cyber Security">RBI Cyber Security 
 <span class="ecs-nav-badge" title="1 pending workflow action — executive items in RBI Cyber Security">1</span>
 </a>
 
-<a href="/framework/ISG?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ISG">ISG </a>
+<a href="/framework/ISG?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ISG">ISG </a>
 
-<a href="/framework/ASST?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ASST">ASST </a>
+<a href="/framework/ASST?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ASST">ASST </a>
 
-<a href="/mvp/framework-loader?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent">Framework Loader</a>
+<a href="/mvp/framework-loader?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent">Framework Loader</a>
 
-<a href="/mvp/framework-admin?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-admin">Framework Administration</a>
-<a href="/mvp/framework-admin?role=cio&amp;user=cio@bank.com&wizard=1" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent">+ Add New Framework</a>
+<a href="/mvp/framework-admin?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-admin">Framework Administration</a>
+<a href="/mvp/framework-admin?role=cio&user=cio@bank.com&wizard=1" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent">+ Add New Framework</a>
 
 </div>
 </div>
@@ -3087,17 +5483,17 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </button>
 <div id="nav-ops" class="collapse">
 <div class="ecs-nav-group-items">
-<a href="/mvp/scheduler?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Scheduler 
+<a href="/mvp/scheduler?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Scheduler 
 <span class="ecs-nav-badge" title="20 pending workflow actions — scheduler / aging evidence pulls">20</span>
 </a>
-<a href="/mvp/ai-ops-assistant?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent">AI Ops Assistant 
+<a href="/mvp/ai-ops-assistant?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent">AI Ops Assistant 
 <span class="ecs-nav-badge" title="25 pending workflow actions — active incident scenarios for copilot">25</span>
 </a>
 
-<a href="/mvp/integrations?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Integrations 
+<a href="/mvp/integrations?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Integrations 
 <span class="ecs-nav-badge" title="12 pending workflow actions — integration sync gaps">12</span>
 </a>
-<a href="/mvp/onboarding?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Onboarding 
+<a href="/mvp/onboarding?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Onboarding 
 <span class="ecs-nav-badge" title="80 pending workflow actions — applications onboarding in progress">80</span>
 </a>
 </div>
@@ -3111,28 +5507,28 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </button>
 <div id="nav-gov" class="collapse">
 <div class="ecs-nav-group-items">
-<a href="/mvp/audit-prep?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Audit Prep 
+<a href="/mvp/audit-prep?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Audit Prep 
 <span class="ecs-nav-badge" title="20 pending workflow actions — audit preparation gaps">20</span>
 </a>
-<a href="/mvp/evidence-health?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Evidence Health 
+<a href="/mvp/evidence-health?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Health 
 <span class="ecs-nav-badge" title="140 pending workflow actions — expired or due-for-refresh evidences">140</span>
 </a>
-<a href="/mvp/reuse?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Evidence Reuse 
+<a href="/mvp/reuse?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Reuse 
 <span class="ecs-nav-badge" title="120 pending workflow actions — reuse-mapped open controls">120</span>
 </a>
-<a href="/mvp/lifecycle?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Lifecycle 
+<a href="/mvp/lifecycle?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Lifecycle 
 <span class="ecs-nav-badge" title="135 pending workflow actions — open lifecycle transitions">135</span>
 </a>
-<a href="/mvp/completeness?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Completeness 
+<a href="/mvp/completeness?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Completeness 
 <span class="ecs-nav-badge" title="406 pending workflow actions — incomplete or missing controls">406</span>
 </a>
-<a href="/mvp/comparison?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">App Comparison 
+<a href="/mvp/comparison?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">App Comparison 
 <span class="ecs-nav-badge" title="595 pending workflow actions — elevated-risk applications">595</span>
 </a>
-<a href="/mvp/search?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Search 
+<a href="/mvp/search?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Search 
 <span class="ecs-nav-badge" title="706 pending workflow actions — evidences pending audit review">706</span>
 </a>
-<a href="/mvp/evidence-approval?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Evidence Approval Analytics 
+<a href="/mvp/evidence-approval?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Approval Analytics 
 <span class="ecs-nav-badge" title="54 pending workflow actions — evidence pending validation or stale">54</span>
 </a>
 </div>
@@ -3146,29 +5542,29 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </button>
 <div id="nav-grc" class="collapse">
 <div class="ecs-nav-group-items">
-<a href="/mvp/risk-register?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Risk Register 
+<a href="/mvp/risk-register?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Risk Register 
 <span class="ecs-nav-badge" title="28 pending workflow actions — open high/critical enterprise risks">28</span>
 </a>
-<a href="/mvp/exceptions?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Exceptions / TD 
+<a href="/mvp/exceptions?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Exceptions / TD 
 <span class="ecs-nav-badge" title="7 pending workflow actions — TD expired or high-risk exceptions">7</span>
 </a>
-<a href="/mvp/exception-governance?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Exception Governance 
+<a href="/mvp/exception-governance?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Exception Governance 
 <span class="ecs-nav-badge" title="7 pending workflow actions — exceptions pending CAB or expiring TD">7</span>
 </a>
-<a href="/mvp/cmdb?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">CMDB / Assets 
+<a href="/mvp/cmdb?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">CMDB / Assets 
 <span class="ecs-nav-badge" title="9 pending workflow actions — non-compliant or unmonitored assets">9</span>
 </a>
-<a href="/mvp/regulatory?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Regulatory Mapping 
+<a href="/mvp/regulatory?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Regulatory Mapping 
 <span class="ecs-nav-badge" title="8 pending workflow actions — regulatory coverage gaps">8</span>
 </a>
-<a href="/mvp/heatmaps?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Executive Heatmaps </a>
-<a href="/mvp/integrations-hub?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Integrations Hub 
+<a href="/mvp/heatmaps?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Executive Heatmaps </a>
+<a href="/mvp/integrations-hub?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Integrations Hub 
 <span class="ecs-nav-badge" title="12 pending workflow actions — integration sync failures">12</span>
 </a>
-<a href="/mvp/correlation?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Cross-Tool Correlation 
+<a href="/mvp/correlation?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Cross-Tool Correlation 
 <span class="ecs-nav-badge" title="4 pending workflow actions — open cross-tool correlation chains">4</span>
 </a>
-<a href="/mvp/governance-analytics?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Governance Analytics </a>
+<a href="/mvp/governance-analytics?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Governance Analytics </a>
 </div>
 </div>
 </div>
@@ -3183,17 +5579,17 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </button>
 <div id="nav-ai-sdlc" class="collapse">
 <div class="ecs-nav-group-items">
-<a href="/mvp/ai-sdlc?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent">Home</a>
-<a href="/mvp/ai-sdlc/control-tower?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">AI SDLC Control Tower</a>
-<a href="/mvp/ai-sdlc/onboarding?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Application Onboarding</a>
-<a href="/mvp/ai-sdlc/requirements?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Requirements</a>
-<a href="/mvp/ai-sdlc/design?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Design</a>
-<a href="/mvp/ai-sdlc/development?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Development</a>
-<a href="/mvp/ai-sdlc/testing?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Testing</a>
-<a href="/mvp/ai-sdlc/golive?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Go-Live</a>
-<a href="/mvp/ai-sdlc/evidence?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Evidence Collection</a>
-<a href="/mvp/ai-sdlc/findings?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Findings &amp; Remediation</a>
-<a href="/mvp/ai-sdlc/reports?role=cio&amp;user=cio@bank.com" class="ecs-sidebar-btn">Reports</a>
+<a href="/mvp/ai-sdlc?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent">Home</a>
+<a href="/mvp/ai-sdlc/control-tower?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">AI SDLC Control Tower</a>
+<a href="/mvp/ai-sdlc/onboarding?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Application Onboarding</a>
+<a href="/mvp/ai-sdlc/requirements?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Requirements</a>
+<a href="/mvp/ai-sdlc/design?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Design</a>
+<a href="/mvp/ai-sdlc/development?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Development</a>
+<a href="/mvp/ai-sdlc/testing?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Testing</a>
+<a href="/mvp/ai-sdlc/golive?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Go-Live</a>
+<a href="/mvp/ai-sdlc/evidence?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Collection</a>
+<a href="/mvp/ai-sdlc/findings?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Findings &amp; Remediation</a>
+<a href="/mvp/ai-sdlc/reports?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Reports</a>
 </div>
 </div>
 </div>
@@ -3355,7 +5751,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td class="col-app"><strong>Customer Onboarding Platform</strong></td>
 <td class="col-risk"><span class="badge badge-Critical">89</span></td>
 <td class="col-readiness">45%</td>
-<td class="col-owner">M. D&#39;Souza</td>
+<td class="col-owner">M. D'Souza</td>
 </tr>
 
 <tr class="ecs-demo-drill" data-ecs-demo-app="Mobile Banking Edge">
@@ -3376,7 +5772,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td class="col-app"><strong>Digital Lending Platform</strong></td>
 <td class="col-risk"><span class="badge badge-Critical">85</span></td>
 <td class="col-readiness">58%</td>
-<td class="col-owner">M. D&#39;Souza</td>
+<td class="col-owner">M. D'Souza</td>
 </tr>
 
 <tr class="ecs-demo-drill" data-ecs-demo-app="Core Banking Platform">
@@ -3679,7 +6075,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 
 <div class="demo-app-card crit-High" data-ecs-demo-app="Digital Lending">
 <div class="name">Digital Lending</div>
-<div class="meta">Lending · M. D&#39;Souza · High</div>
+<div class="meta">Lending · M. D'Souza · High</div>
 <div class="meta">Risk <strong>50</strong> · Readiness <strong>58%</strong> · Maturity L3</div>
 <div class="stats">
 <span title="Frameworks applicable">5 FW</span>
@@ -3690,7 +6086,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 
 <div class="demo-app-card crit-High" data-ecs-demo-app="Customer Onboarding">
 <div class="name">Customer Onboarding</div>
-<div class="meta">Retail Digital · M. D&#39;Souza · High</div>
+<div class="meta">Retail Digital · M. D'Souza · High</div>
 <div class="meta">Risk <strong>89</strong> · Readiness <strong>45%</strong> · Maturity L4</div>
 <div class="stats">
 <span title="Frameworks applicable">5 FW</span>
@@ -3701,7 +6097,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 
 <div class="demo-app-card crit-Critical" data-ecs-demo-app="AML Engine">
 <div class="name">AML Engine</div>
-<div class="meta">Risk &amp; Compliance · P. Nair · Critical</div>
+<div class="meta">Risk & Compliance · P. Nair · Critical</div>
 <div class="meta">Risk <strong>65</strong> · Readiness <strong>45%</strong> · Maturity L2</div>
 <div class="stats">
 <span title="Frameworks applicable">7 FW</span>
@@ -3712,7 +6108,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 
 <div class="demo-app-card crit-Critical" data-ecs-demo-app="Fraud Monitoring">
 <div class="name">Fraud Monitoring</div>
-<div class="meta">Risk &amp; Compliance · P. Nair · Critical</div>
+<div class="meta">Risk & Compliance · P. Nair · Critical</div>
 <div class="meta">Risk <strong>39</strong> · Readiness <strong>64%</strong> · Maturity L4</div>
 <div class="stats">
 <span title="Frameworks applicable">3 FW</span>
@@ -4293,7 +6689,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </div>
 
 <div class="demo-heat-row">
-<div class="demo-heat-label" title="M. D&#39;Souza · Risk 50">Digital Lending</div>
+<div class="demo-heat-label" title="M. D'Souza · Risk 50">Digital Lending</div>
 
 <div class="demo-heat-cell tone-dark-red" data-ecs-demo-heat data-app="Digital Lending" data-fw="PCI DSS" title="Digital Lending · PCI DSS · 43%">43</div>
 
@@ -4328,7 +6724,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </div>
 
 <div class="demo-heat-row">
-<div class="demo-heat-label" title="M. D&#39;Souza · Risk 89">Customer Onboarding</div>
+<div class="demo-heat-label" title="M. D'Souza · Risk 89">Customer Onboarding</div>
 
 <div class="demo-heat-cell tone-empty" data-ecs-demo-heat data-app="Customer Onboarding" data-fw="PCI DSS" title="Customer Onboarding · PCI DSS · 40%">—</div>
 
@@ -4476,7 +6872,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td>ITDRM</td>
 <td>Review</td>
 <td><span class="badge badge-Low">P4</span></td>
-<td>M. D&#39;Souza</td>
+<td>M. D'Souza</td>
 </tr>
 
 <tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG940804">
@@ -4487,7 +6883,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td>ITDRM</td>
 <td>Scheduled</td>
 <td><span class="badge badge-Low">P4</span></td>
-<td>M. D&#39;Souza</td>
+<td>M. D'Souza</td>
 </tr>
 
 <tr class="ecs-demo-drill" data-ecs-demo-ticket="INC560483">
@@ -4553,7 +6949,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td>Nginx Baselining</td>
 <td>Closed Complete</td>
 <td><span class="badge badge-High">P2</span></td>
-<td>M. D&#39;Souza</td>
+<td>M. D'Souza</td>
 </tr>
 
 <tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG872374">
@@ -4586,7 +6982,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td>ASST</td>
 <td>Closed Complete</td>
 <td><span class="badge badge-Low">P4</span></td>
-<td>M. D&#39;Souza</td>
+<td>M. D'Souza</td>
 </tr>
 
 <tr class="ecs-demo-drill" data-ecs-demo-ticket="PRB520453">
@@ -4619,7 +7015,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td>ASST</td>
 <td>Open</td>
 <td><span class="badge badge-High">P2</span></td>
-<td>M. D&#39;Souza</td>
+<td>M. D'Souza</td>
 </tr>
 
 <tr class="ecs-demo-drill" data-ecs-demo-ticket="INC857272">
@@ -4685,7 +7081,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td>ITDRM</td>
 <td>Resolved</td>
 <td><span class="badge badge-Low">P4</span></td>
-<td>M. D&#39;Souza</td>
+<td>M. D'Souza</td>
 </tr>
 
 <tr class="ecs-demo-drill" data-ecs-demo-ticket="INC781297">
@@ -4826,9 +7222,9 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 
 <li><code>HALU-63644</code> · risk.user@bank.com · Referenced a non-existent ServiceNow ticket pattern.</li>
 
-<li><code>HALU-01674</code> · risk.user@bank.com · Predicted SLA breach with abnormal confidence &lt; 50%.</li>
+<li><code>HALU-01674</code> · risk.user@bank.com · Predicted SLA breach with abnormal confidence < 50%.</li>
 
-<li><code>HALU-72605</code> · risk.user@bank.com · Predicted SLA breach with abnormal confidence &lt; 50%.</li>
+<li><code>HALU-72605</code> · risk.user@bank.com · Predicted SLA breach with abnormal confidence < 50%.</li>
 
 <li><code>HALU-77761</code> · risk.user@bank.com · Cited PCI requirement number that does not exist (</li>
 
@@ -4986,7 +7382,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </div>
 
 <div class="lineage-card">
-<div class="ev-name">Certificate inventory &amp; expiry tracker</div>
+<div class="ev-name">Certificate inventory & expiry tracker</div>
 <div class="text-muted small">PCI DSS · Payments · Unassigned</div>
 <div class="mt-1">
 <span class="chip">PCI DSS</span>
@@ -5318,8 +7714,60 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div class="ecs-chat-answer-panel">
 <div class="ecs-chat-history" id="ecsChatHistory">
 
+
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">06:52 UTC · You</small><div>@outage-mode:net_banking:executive</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Executive View] — Net Banking
+See detailed response in copilot panel.</div></div>
+
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">06:52 UTC · You</small><div>@outage-mode:net_banking:audit</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Audit View] — Net Banking
+See detailed response in copilot panel.</div></div>
+
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">06:52 UTC · You</small><div>@outage-mode:net_banking:compliance</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Compliance View] — Net Banking
+See detailed response in copilot panel.</div></div>
+
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">06:52 UTC · You</small><div>@outage-mode:net_banking:evidence</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Evidence View] — Net Banking
+See detailed response in copilot panel.</div></div>
+
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">06:52 UTC · You</small><div>@outage-mode:net_banking:incident</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Incident View] — Net Banking
+See detailed response in copilot panel.</div></div>
+
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">06:52 UTC · You</small><div>@outage-mode:net_banking:root_cause</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Root_Cause View] — Net Banking
+See detailed response in copilot panel.</div></div>
+
+
 </div>
 <div class="ecs-chat-answer-main" id="ecsChatAnswerMain">
+
+<div class="ecs-chat-response ecs-chat-response-html" id="ecsChatLatest">
+<div class="ecs-ops-intel-card border rounded p-2 mb-1">
+<div class="d-flex justify-content-between align-items-start mb-2">
+<div><span class="badge bg-warning ecs-ops-severity">HIGH</span>
+<span class="badge bg-secondary ms-1">DEGRADED</span></div>
+<small class="text-muted">Operations Intelligence</small></div>
+<h6 class="mb-1">Net Banking</h6>
+<p class="small mb-2"><strong>Customer Impact:</strong> Login failures and transaction delays observed across retail internet banking channels.</p>
+<div class="small mb-2"><strong>Data compromise:</strong> <span class="text-success">NOT DETECTED</span>
+· <strong>ETA:</strong> <span class="badge bg-info text-dark">45–60 minutes</span></div>
+<div class="mb-2"><small class="text-muted d-block">Correlated governance signals:</small><ul class="mb-0 ps-3 ecs-paginated-list"><li class="small">ServiceNow P1 INC0041287 — login degradation</li><li class="small">DB cluster failover instability — CBS_ORACLE_CLUSTER</li><li class="small">Tripwire sudo policy drift — NETBANKING_PROD</li><li class="small">Prisma IAM finding — exposed Redis cache tier</li></ul></div>
+<div class="ecs-ops-mode-select mb-2 p-2 bg-light rounded"><small class="text-muted d-block mb-1">Select response mode (expand for detail):</small><button type="button" class="btn btn-sm btn-outline-primary ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:business">Business Summary</button><button type="button" class="btn btn-sm btn-outline-dark ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:technical">Technical Summary</button><button type="button" class="btn btn-sm btn-outline-info ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:executive">Executive Summary</button><button type="button" class="btn btn-sm btn-outline-warning ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:audit">Audit Summary</button><button type="button" class="btn btn-sm btn-outline-danger ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:compliance">Compliance Summary</button><button type="button" class="btn btn-sm btn-outline-success ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:evidence">Evidence Summary</button><button type="button" class="btn btn-sm btn-outline-secondary ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:incident">Incident Summary</button><button type="button" class="btn btn-sm btn-outline-dark ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:root_cause">Root Cause Analysis</button></div>
+<details class="ecs-ops-timeline small mb-2"><summary>Operations timeline</summary><div class="ecs-ops-timeline-item"><small class="text-muted">2026-05-24 08:12 UTC</small><br>SOC alert — elevated login failure rate</div><div class="ecs-ops-timeline-item"><small class="text-muted">2026-05-24 08:18 UTC</small><br>ServiceNow P1 INC0041287 opened</div><div class="ecs-ops-timeline-item"><small class="text-muted">2026-05-24 08:25 UTC</small><br>DB failover initiated — partial instability</div><div class="ecs-ops-timeline-item"><small class="text-muted">2026-05-24 08:40 UTC</small><br>Governance correlation — Tripwire drift linked</div></details>
+<div class="ecs-ops-followups"><small class="text-muted d-block">Suggested follow-ups:</small><button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" data-action="show_impacted_applications" data-scenario="net_banking">Show impacted applications</button><button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" data-action="show_related_incidents" data-scenario="net_banking">Show related incidents</button><button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" data-action="show_open_high_risk_observations" data-scenario="net_banking">Show open high-risk observations</button><button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" data-action="show_active_td_exceptions" data-scenario="net_banking">Show active TD exceptions</button></div>
+</div>
+<details open class="ecs-ops-detail-wrap mb-2"><summary class="fw-semibold text-dark">Root Cause Analysis</summary>
+<div class="ecs-ops-detail border-start border-4 border-dark ps-2 mt-2">
+<p>5-Whys style RCA for <strong>Net Banking</strong>:</p>
+<ol class="ecs-paginated-list"><li><strong>Level 1:</strong> DB cluster failover instability during peak login window</li><li><strong>Level 2:</strong> Unresolved Tripwire baseline drift on authentication middleware</li><li><strong>Level 3:</strong> Delayed backup synchronization affecting recovery validation</li><li><strong>Level 4:</strong> Elevated Prisma cloud IAM vulnerabilities on cache tier</li></ol>
+<p><strong>Contributing governance gaps:</strong></p>
+<ul class="ecs-paginated-list"><li>DB Baselining — Transparent Data Encryption review pending</li><li>ITPP — DR Drill Conducted overdue</li><li>ServiceNow P1 incident unresolved (42m)</li></ul>
+<p><strong>Corrective actions:</strong></p>
+<ul class="ecs-paginated-list"><li>Validate DB replication and failover consistency</li><li>Review open P1 ServiceNow incidents</li><li>Trigger ITPP DR readiness verification</li><li>Review unresolved Prisma IAM findings</li></ul>
+<p class="mb-0"><em>Permanent fix requires DB failover hardening + Tripwire drift closure + ITPP DR validation.</em></p>
+</div></details><div class="ecs-ops-drilldowns mt-2 pt-2 border-top"><small class="text-muted d-block mb-1">Drilldowns:</small><a href="/mvp/correlation?role=cio&user=cio%40bank.com&application=Net%20Banking" class="btn btn-outline-dark btn-sm me-1 mb-1">Correlation Chain</a> <a href="/mvp/correlation?role=cio&user=cio%40bank.com&application=Net%20Banking" class="btn btn-outline-primary btn-sm me-1 mb-1">Cross-Tool Correlation</a> <a href="/mvp/audit-prep?role=cio&user=cio%40bank.com&application=Net%20Banking&tab=gaps" class="btn btn-outline-warning btn-sm me-1 mb-1">Audit Prep Gaps</a> <a href="/mvp/evidence-health?role=cio&user=cio%40bank.com&application=Net%20Banking" class="btn btn-outline-success btn-sm me-1 mb-1">Evidence Health</a> <a href="/mvp/risk-register?role=cio&user=cio%40bank.com" class="btn btn-outline-danger btn-sm me-1 mb-1">Risk Register</a></div><div class="mt-2"><button type="button" class="btn btn-sm btn-link ecs-outage-mode-btn p-0" data-q="Why is Net Banking down?">← Back to incident overview</button></div></div>
 
 </div>
 </div>
@@ -5365,8 +7813,8 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
   var user = "cio@bank.com";
   var role = "cio";
   var storageKey = 'ecs_copilot_ui_' + String(user).replace(/\s/g,'_') + '_' + role;
-  var hasNewResponse = false;
-  var hasOutageAlert = false;
+  var hasNewResponse = true;
+  var hasOutageAlert = true;
 
   var copilot = document.getElementById('ecsChatCopilot');
   var panel = document.getElementById('ecsChatPanel');
