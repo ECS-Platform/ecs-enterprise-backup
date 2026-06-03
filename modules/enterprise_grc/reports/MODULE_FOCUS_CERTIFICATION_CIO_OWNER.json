@@ -1,0 +1,255 @@
+{
+  "certification": "FAIL",
+  "certification_type": "MODULE_FOCUS_CIO_OWNER",
+  "roles": [
+    "CIO",
+    "Application Owner"
+  ],
+  "modules_validated": [
+    "Executive Overview",
+    "Evidence Analytics",
+    "Trends",
+    "Reports",
+    "Frameworks",
+    "Operations",
+    "Governance",
+    "AI SDLC Governance"
+  ],
+  "checks_pass": 284,
+  "checks_fail": 16,
+  "issues_fixed": [],
+  "failures": [
+    {
+      "role": "CIO",
+      "module": "Executive Overview",
+      "check": "KPI cards demo_overview",
+      "issue": "No KPIs defined"
+    },
+    {
+      "role": "CIO",
+      "module": "Frameworks",
+      "check": "KPI cards framework_loader",
+      "issue": "No KPIs defined"
+    },
+    {
+      "role": "CIO",
+      "module": "Frameworks",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "CIO",
+      "module": "Frameworks",
+      "check": "KPI cards framework_loader",
+      "issue": "No KPIs defined"
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "Application Owner",
+      "module": "Executive Overview",
+      "check": "KPI cards demo_overview",
+      "issue": "No KPIs defined"
+    },
+    {
+      "role": "Application Owner",
+      "module": "Frameworks",
+      "check": "KPI cards framework_loader",
+      "issue": "No KPIs defined"
+    },
+    {
+      "role": "Application Owner",
+      "module": "Frameworks",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "Application Owner",
+      "module": "Frameworks",
+      "check": "KPI cards framework_loader",
+      "issue": "No KPIs defined"
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "check": "Evidence link markup",
+      "issue": "No evidence review triggers on page"
+    }
+  ],
+  "by_role_module": [
+    {
+      "role": "CIO",
+      "module": "Executive Overview",
+      "pass": 22,
+      "fail": 1,
+      "issues": [
+        "KPI cards demo_overview: No KPIs defined"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Evidence Analytics",
+      "pass": 3,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "CIO",
+      "module": "Trends",
+      "pass": 6,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "CIO",
+      "module": "Reports",
+      "pass": 7,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "CIO",
+      "module": "Frameworks",
+      "pass": 4,
+      "fail": 3,
+      "issues": [
+        "KPI cards framework_loader: No KPIs defined",
+        "Evidence link markup: No evidence review triggers on page",
+        "KPI cards framework_loader: No KPIs defined"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Operations",
+      "pass": 38,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "CIO",
+      "module": "Governance",
+      "pass": 50,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "pass": 12,
+      "fail": 4,
+      "issues": [
+        "Evidence link markup: No evidence review triggers on page",
+        "Evidence link markup: No evidence review triggers on page",
+        "Evidence link markup: No evidence review triggers on page",
+        "Evidence link markup: No evidence review triggers on page"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Executive Overview",
+      "pass": 22,
+      "fail": 1,
+      "issues": [
+        "KPI cards demo_overview: No KPIs defined"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Evidence Analytics",
+      "pass": 3,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "Application Owner",
+      "module": "Trends",
+      "pass": 6,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "Application Owner",
+      "module": "Reports",
+      "pass": 7,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "Application Owner",
+      "module": "Frameworks",
+      "pass": 4,
+      "fail": 3,
+      "issues": [
+        "KPI cards framework_loader: No KPIs defined",
+        "Evidence link markup: No evidence review triggers on page",
+        "KPI cards framework_loader: No KPIs defined"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Operations",
+      "pass": 38,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "Application Owner",
+      "module": "Governance",
+      "pass": 50,
+      "fail": 0,
+      "issues": []
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "pass": 12,
+      "fail": 4,
+      "issues": [
+        "Evidence link markup: No evidence review triggers on page",
+        "Evidence link markup: No evidence review triggers on page",
+        "Evidence link markup: No evidence review triggers on page",
+        "Evidence link markup: No evidence review triggers on page"
+      ]
+    }
+  ]
+}

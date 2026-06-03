@@ -3,13 +3,120 @@
   var role = {{ role|tojson }};
   var user = {{ user|tojson }};
 
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function timestampUtc() {
+    return new Date().toISOString().slice(11, 16) + ' UTC';
+  }
+
+  function renderInvestigationThread(query, html) {
+    var thread = document.getElementById('ecsChatThread');
+    if (!thread) return;
+    thread.innerHTML =
+      '<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">' + esc(timestampUtc()) +
+      ' · You</small><div>' + esc(query) + '</div></div>' +
+      '<div class="ecs-chat-msg"><small class="text-muted">Copilot</small>' +
+      '<div id="ecsChatLatest" class="ecs-chat-response ecs-chat-response-html">' + html + '</div></div>';
+  }
+
+  function startFreshInvestigation(question) {
+    var q = (question || '').trim();
+    if (!q) return;
+    var thread = document.getElementById('ecsChatThread');
+    if (!thread) return;
+    thread.innerHTML = '<div class="ecs-chat-investigation-loading text-muted small py-3 fst-italic">Loading investigation...</div>';
+    var input = document.getElementById('ecsChatInput');
+    if (input) input.value = '';
+    var fd = new FormData();
+    fd.append('query', q);
+    fd.append('role', role);
+    fd.append('user', user);
+    var started = Date.now();
+    fetch('/mvp/api/chat-investigation', { method: 'POST', body: fd })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var wait = Math.max(0, 650 - (Date.now() - started));
+        setTimeout(function(){
+          if (!data || !data.ok) {
+            thread.innerHTML = '<p class="text-danger small mb-0">Unable to load investigation.</p>';
+            return;
+          }
+          renderInvestigationThread(data.query, data.html);
+          splitCopilotPanels();
+          bindQuickActions(document.getElementById('ecsChatLatest'));
+          bindSuggestButtons(document.getElementById('ecsChatLatest'));
+          bindSuggestButtons(document.getElementById('ecsOpsInvestigation'));
+          if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+          thread.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, wait);
+      })
+      .catch(function(){
+        thread.innerHTML = '<p class="text-danger small mb-0">Unable to load investigation.</p>';
+      });
+  }
+
+  window.startFreshInvestigation = startFreshInvestigation;
+
+  function switchResponseMode(scenarioKey, mode) {
+    var panel = document.getElementById('ecsChatModePanel');
+    if (!panel || !scenarioKey || !mode) return;
+    panel.innerHTML = '<div class="text-muted small py-2 fst-italic">Loading perspective...</div>';
+    document.querySelectorAll('.ecs-outage-mode-btn[data-mode-id]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-mode-id') === mode);
+    });
+    var fd = new FormData();
+    fd.append('scenario_key', scenarioKey);
+    fd.append('mode', mode);
+    fd.append('role', role);
+    fd.append('user', user);
+    fetch('/mvp/api/chat-response-mode', { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.ok) {
+          panel.innerHTML = '<p class="text-danger small mb-0">Unable to load response mode.</p>';
+          return;
+        }
+        panel.innerHTML = data.html;
+        panel.setAttribute('data-active-mode', mode);
+        bindSuggestButtons(document.getElementById('ecsOpsInvestigation') || panel);
+        bindQuickActions(panel);
+        if (window.ecsRefreshPagination) window.ecsRefreshPagination(panel);
+      })
+      .catch(function () {
+        panel.innerHTML = '<p class="text-danger small mb-0">Unable to load response mode.</p>';
+      });
+  }
+
+  window.switchResponseMode = switchResponseMode;
+
   function bindSuggestButtons(root) {
-    (root || document).querySelectorAll('.ecs-suggest-btn, .ecs-outage-mode-btn').forEach(function(btn){
+    (root || document).querySelectorAll('.ecs-suggest-btn, .ecs-outage-mode-btn, .ecs-outage-mode-reset').forEach(function(btn){
       if (btn._ecsBound) return;
       btn._ecsBound = true;
-      btn.addEventListener('click', function(){
-        var input = document.getElementById('ecsChatInput');
-        if (input) { input.value = btn.getAttribute('data-q'); document.getElementById('ecsChatForm').submit(); }
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var q = btn.getAttribute('data-q') || '';
+        var scenarioKey = btn.getAttribute('data-scenario-key');
+        var modeId = btn.getAttribute('data-mode-id');
+        if (scenarioKey && modeId) {
+          switchResponseMode(scenarioKey, modeId);
+          return;
+        }
+        if (q.indexOf('@outage-mode:') === 0) {
+          var parts = q.split(':');
+          if (parts.length >= 3) switchResponseMode(parts[1], parts[2]);
+          return;
+        }
+        if (btn.classList.contains('ecs-outage-mode-reset')) {
+          var inv = document.getElementById('ecsOpsInvestigation');
+          switchResponseMode(scenarioKey || (inv && inv.getAttribute('data-scenario-key')) || 'net_banking', 'business');
+          return;
+        }
+        if (!q) return;
+        startFreshInvestigation(q);
       });
     });
   }
@@ -63,6 +170,15 @@
       refBody.innerHTML = '<div class="ecs-chat-ref-cards d-flex flex-wrap gap-1 ecs-paginated-blocks">' + refHtml.join('') + '</div>';
       if (window.ecsRefreshPagination) window.ecsRefreshPagination(refBody);
     }
+  }
+
+  var chatForm = document.getElementById('ecsChatForm');
+  if (chatForm) {
+    chatForm.addEventListener('submit', function(ev) {
+      ev.preventDefault();
+      var input = document.getElementById('ecsChatInput');
+      startFreshInvestigation(input ? input.value : '');
+    });
   }
 
   bindSuggestButtons(document);

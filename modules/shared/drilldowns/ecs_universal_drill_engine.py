@@ -196,6 +196,28 @@ def _delegate_kpi(page: str, metric: str, role: str, framework: str, count: int)
             "columns": block.get("columns") or UNIVERSAL_COLUMNS,
         }
 
+    if page_l in ("trends", "trend", "analytics"):
+        from modules.governance.engines.trends_drill_engine import drill_trends_kpi
+        from modules.governance.engines.governance_intelligence import parse_analytics_filters
+
+        filters = parse_analytics_filters(framework=framework or "Enterprise-wide")
+        body = drill_trends_kpi(metric_l or metric, role, filters, count)
+        body.setdefault("columns", UNIVERSAL_COLUMNS)
+        _normalize_columns(body.get("rows", []))
+        body["trace_count"] = parse_display_count(count)
+        body["row_count"] = len(body.get("rows", []))
+        return body
+
+    if page_l in ("reports", "report"):
+        from modules.executive_overview.engines.reports_drill_engine import drill_reports_kpi
+
+        body = drill_reports_kpi(metric_l or metric, role, count)
+        body.setdefault("columns", UNIVERSAL_COLUMNS)
+        _normalize_columns(body.get("rows", []))
+        body["trace_count"] = parse_display_count(count)
+        body["row_count"] = len(body.get("rows", []))
+        return body
+
     if page_l and page_l not in ("dashboard", "enterprise", ""):
         from modules.shared.drilldowns.module_kpi_drill_engine import drill_module_kpi
         body = drill_module_kpi(page_l.replace("mvp_", ""), metric_l or metric, role)
@@ -292,6 +314,26 @@ def drill_universal_chart(
     count: int = 0,
     role: str = "cio",
 ) -> dict[str, Any]:
+    page_l = (page or "").lower()
+    if page_l in ("reports", "report"):
+        from modules.executive_overview.engines.reports_drill_engine import drill_reports_chart
+
+        body = drill_reports_chart(chart, element, role=role, count=count)
+        body.setdefault("columns", UNIVERSAL_COLUMNS)
+        _normalize_columns(body.get("rows", []))
+        body["trace_count"] = parse_display_count(count)
+        body["row_count"] = len(body.get("rows", []))
+        return body
+    if page_l in ("trends", "trend", "analytics"):
+        from modules.governance.engines.governance_intelligence import parse_analytics_filters
+        from modules.governance.engines.trends_drill_engine import drill_trends_chart
+
+        body = drill_trends_chart(chart, element, role=role, filters=parse_analytics_filters(), count=count)
+        body.setdefault("columns", UNIVERSAL_COLUMNS)
+        _normalize_columns(body.get("rows", []))
+        body["trace_count"] = parse_display_count(count)
+        body["row_count"] = len(body.get("rows", []))
+        return body
     metric = f"{chart}_{element}".lower().replace(" ", "_").replace("-", "_")
     return drill_universal_kpi(page, metric, count=count, role=role, label=f"{chart} — {element}")
 

@@ -58,13 +58,59 @@ def test_outage_query_returns_structured_html():
 
 
 def test_all_summary_modes_generate_html():
-    from modules.operations.engines.ai_ops_assistant_engine import build_summary_mode_html
+    from modules.operations.engines.ai_ops_response_modes import render_all_mode_fingerprints
+    from modules.operations.engines.operations_intelligence import OUTAGE_SCENARIOS
 
     scenario = OUTAGE_SCENARIOS["net_banking"]
-    for mode_id, label, _btn in SUMMARY_MODES:
-        html = build_summary_mode_html(scenario, mode_id, "net_banking", "cio", "cio@bank.com")
-        assert label.split()[0] in html or mode_id.replace("_", " ").title() in html
-        assert "Drilldown" in html or "href=" in html
+    fingerprints = render_all_mode_fingerprints(scenario, "net_banking", "cio", "cio@bank.com")
+    assert len(fingerprints) == 8
+    bodies = list(fingerprints.values())
+    for i, html in enumerate(bodies):
+        assert html, list(fingerprints.keys())[i]
+    assert bodies[0] != bodies[1]
+    assert "Customers Affected" in bodies[0] or "1.2M" in bodies[0]
+    assert "API Latency" in bodies[1] or "Error Rate" in bodies[1]
+    assert "Executive Attention" in bodies[2]
+    assert "Controls Impacted" in bodies[3] or "Failed controls" in bodies[3].lower()
+    assert "PCI DSS" in bodies[4]
+    assert "Available" in bodies[5] and "Missing" in bodies[5]
+    assert "Chronological timeline" in bodies[6] or "Primary Ticket" in bodies[6]
+    assert "root cause" in bodies[7].lower()
+
+
+def test_response_modes_are_distinct():
+    from modules.operations.engines.ai_ops_response_modes import render_all_mode_fingerprints
+    from modules.operations.engines.operations_intelligence import OUTAGE_SCENARIOS
+
+    fps = render_all_mode_fingerprints(OUTAGE_SCENARIOS["net_banking"], "net_banking", "cio", "cio@bank.com")
+    unique = set(fps.values())
+    assert len(unique) == 8, "Each response mode must render unique HTML"
+
+
+def test_chat_response_mode_api():
+    resp = client.post(
+        "/mvp/api/chat-response-mode",
+        data={"scenario_key": "net_banking", "mode": "technical", "role": "cio", "user": "cio@bank.com"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["mode"] == "technical"
+    assert "API Latency" in body["html"] or "Error Rate" in body["html"]
+    assert "ecsOpsInvestigation" in body["shell_html"]
+
+
+def test_outage_investigation_includes_mode_panel():
+    from modules.shared.services.chatbot_engine import clear_chat_history, clear_chat_structured, get_chat_structured
+
+    clear_chat_history("cio@bank.com", "cio")
+    clear_chat_structured("cio@bank.com", "cio")
+    try_operations_answer("Why is Net Banking down?", role="cio", user="cio@bank.com")
+    html = get_chat_structured("cio@bank.com", "cio")
+    assert "ecsChatModePanel" in html
+    assert "ecsOpsInvestigation" in html
+    assert "data-scenario-key=\"net_banking\"" in html
+    assert "Business Summary" in html
 
 
 def test_summary_mode_commands_via_engine():
@@ -123,3 +169,57 @@ def test_chat_action_api_drilldown():
     body = resp.json()
     assert body.get("ok") is True
     assert body.get("html")
+
+
+def test_chat_investigation_clears_history():
+    from modules.shared.services.chatbot_engine import clear_chat_history, clear_chat_structured, get_chat_history
+
+    clear_chat_history("cio@bank.com", "cio")
+    clear_chat_structured("cio@bank.com", "cio")
+    r1 = client.post(
+        "/mvp/api/chat-investigation",
+        data={"query": "What is PCI DSS?", "role": "cio", "user": "cio@bank.com"},
+    )
+    assert r1.status_code == 200
+    b1 = r1.json()
+    assert b1["ok"] is True
+    assert b1["query"] == "What is PCI DSS?"
+    assert b1.get("html") or b1.get("plain")
+    assert len(get_chat_history("cio@bank.com", "cio")) == 1
+
+    r2 = client.post(
+        "/mvp/api/chat-investigation",
+        data={"query": "Show high-risk controls", "role": "cio", "user": "cio@bank.com"},
+    )
+    assert r2.status_code == 200
+    history = get_chat_history("cio@bank.com", "cio")
+    assert len(history) == 1
+    assert history[0]["query"] == "Show high-risk controls"
+
+
+def test_manual_chat_preserves_history():
+    from modules.shared.services.chatbot_engine import clear_chat_history, clear_chat_structured, get_chat_history
+
+    clear_chat_history("cio@bank.com", "cio")
+    clear_chat_structured("cio@bank.com", "cio")
+    for q in ("What is PCI DSS?", "Show high-risk controls"):
+        resp = client.post(
+            "/mvp/chat",
+            data={
+                "query": q,
+                "role": "cio",
+                "user": "cio@bank.com",
+                "return_url": "/mvp/ai-ops-assistant?role=cio&user=cio@bank.com",
+            },
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+    assert len(get_chat_history("cio@bank.com", "cio")) == 2
+
+
+def test_investigation_ui_wiring():
+    html = client.get(f"/mvp/ai-ops-assistant{Q}").text
+    assert "Current Investigation" in html
+    assert "startFreshInvestigation" in html
+    assert "Loading investigation" in html
+    assert 'id="ecsChatThread"' in html

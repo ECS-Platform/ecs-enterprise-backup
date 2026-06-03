@@ -1,0 +1,881 @@
+Role,Module,Route,Screen,Issue Found,Issue Fixed,Pass/Fail,HTTP,Status
+CIO,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+CIO,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+CIO,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+CIO,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+CIO,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+CIO,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+CIO,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+CIO,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+CIO,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+CIO,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+CIO,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+CIO,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+CIO,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+CIO,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+CIO,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+CIO,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+CIO,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+CIO,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+CIO,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+CIO,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (141 rows),,FAIL,200,TESTED
+CIO,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+CIO,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+CIO,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+CIO,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+CIO,Governance,/mvp/search,Search,,,PASS,200,TESTED
+CIO,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+CIO,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+CIO,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+CIO,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,Large unpaginated table (64 rows),,FAIL,200,TESTED
+CIO,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+CIO,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+CIO,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+CIO,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+CIO,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+CIO,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+CIO,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+CIO,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+CIO,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+CIO,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+CIO,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+CIO,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+CIO,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+CIO,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+CIO,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+CIO,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+CIO,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+CIO,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+CIO,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+CIO,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+CIO,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+CIO,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+CIO,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+CIO,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+CIO,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+CIO,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+CIO,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+CIO,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+Vertical Head,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+Vertical Head,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+Vertical Head,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Vertical Head,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+Vertical Head,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Vertical Head,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+Vertical Head,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+Vertical Head,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+Vertical Head,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+Vertical Head,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+Vertical Head,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+Vertical Head,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+Vertical Head,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Vertical Head,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (129 rows),,FAIL,200,TESTED
+Vertical Head,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Vertical Head,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+Vertical Head,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+Vertical Head,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+Vertical Head,Governance,/mvp/search,Search,,,PASS,200,TESTED
+Vertical Head,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+Vertical Head,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+Vertical Head,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+Vertical Head,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Vertical Head,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+Vertical Head,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+Vertical Head,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+Vertical Head,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+Vertical Head,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+Vertical Head,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+Vertical Head,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+Vertical Head,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+Vertical Head,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+Vertical Head,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+Vertical Head,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+Vertical Head,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+Vertical Head,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+Vertical Head,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+Application Owner,Executive Overview,/dashboard,Main Dashboard,Large unpaginated table (81 rows),,FAIL,200,TESTED
+Application Owner,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+Application Owner,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Application Owner,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+Application Owner,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Application Owner,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+Application Owner,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+Application Owner,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+Application Owner,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+Application Owner,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+Application Owner,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+Application Owner,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Application Owner,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (87 rows),,FAIL,200,TESTED
+Application Owner,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Application Owner,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/search,Search,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,,,PASS,200,TESTED
+Application Owner,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+Application Owner,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+Application Owner,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+Application Owner,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+Application Owner,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+Application Owner,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+Application Owner,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+Application Owner,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+Application Owner,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+Application Owner,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+Application Owner,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+Application Owner,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+Application Owner,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+Application Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+Auditor,Executive Overview,/dashboard,Main Dashboard,Large unpaginated table (80 rows),,FAIL,200,TESTED
+Auditor,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+Auditor,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Auditor,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+Auditor,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Auditor,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+Auditor,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+Auditor,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+Auditor,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+Auditor,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+Auditor,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+Auditor,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+Auditor,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+Auditor,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+Auditor,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+Auditor,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+Auditor,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+Auditor,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+Auditor,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Auditor,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (141 rows),,FAIL,200,TESTED
+Auditor,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Auditor,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+Auditor,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+Auditor,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+Auditor,Governance,/mvp/search,Search,,,PASS,200,TESTED
+Auditor,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+Auditor,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+Auditor,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+Auditor,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Auditor,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+Auditor,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+Auditor,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+Auditor,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+Auditor,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+Auditor,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+Auditor,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+Auditor,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+Auditor,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+Auditor,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+Auditor,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+Auditor,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+Auditor,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+Auditor,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+Auditor,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+Compliance Officer,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+Compliance Officer,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+Compliance Officer,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Compliance Officer,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+Compliance Officer,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Compliance Officer,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+Compliance Officer,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+Compliance Officer,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+Compliance Officer,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+Compliance Officer,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+Compliance Officer,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Compliance Officer,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (141 rows),,FAIL,200,TESTED
+Compliance Officer,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Compliance Officer,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+Compliance Officer,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+Compliance Officer,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+Compliance Officer,Governance,/mvp/search,Search,,,PASS,200,TESTED
+Compliance Officer,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+Compliance Officer,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+Compliance Officer,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+Compliance Officer,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Compliance Officer,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+Compliance Officer,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+Compliance Officer,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+Compliance Officer,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+Compliance Officer,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+Compliance Officer,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+Compliance Officer,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+Compliance Officer,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+Compliance Officer,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+Compliance Officer,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+Compliance Officer,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+Compliance Officer,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+Compliance Officer,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+Compliance Officer,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+Security Officer,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+Security Officer,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+Security Officer,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Security Officer,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+Security Officer,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Security Officer,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+Security Officer,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+Security Officer,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+Security Officer,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+Security Officer,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+Security Officer,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+Security Officer,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+Security Officer,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Security Officer,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (141 rows),,FAIL,200,TESTED
+Security Officer,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Security Officer,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+Security Officer,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+Security Officer,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+Security Officer,Governance,/mvp/search,Search,,,PASS,200,TESTED
+Security Officer,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+Security Officer,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+Security Officer,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+Security Officer,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Security Officer,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+Security Officer,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+Security Officer,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+Security Officer,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+Security Officer,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+Security Officer,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+Security Officer,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+Security Officer,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+Security Officer,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+Security Officer,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+Security Officer,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+Security Officer,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+Security Officer,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+Security Officer,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+Functional Head,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+Functional Head,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+Functional Head,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Functional Head,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+Functional Head,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Functional Head,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+Functional Head,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+Functional Head,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+Functional Head,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+Functional Head,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+Functional Head,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+Functional Head,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+Functional Head,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Functional Head,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (60 rows),,FAIL,200,TESTED
+Functional Head,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Functional Head,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+Functional Head,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+Functional Head,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+Functional Head,Governance,/mvp/search,Search,,,PASS,200,TESTED
+Functional Head,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+Functional Head,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+Functional Head,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+Functional Head,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Functional Head,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+Functional Head,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+Functional Head,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+Functional Head,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+Functional Head,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+Functional Head,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+Functional Head,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+Functional Head,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+Functional Head,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+Functional Head,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+Functional Head,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+Functional Head,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+Functional Head,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+Functional Head,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+Operations Owner,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+Operations Owner,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+Operations Owner,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Operations Owner,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+Operations Owner,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Operations Owner,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+Operations Owner,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+Operations Owner,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+Operations Owner,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+Operations Owner,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+Operations Owner,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+Operations Owner,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/upload,Bulk Upload,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Operations Owner,Operations,/mvp/bulk-upload,Bulk Upload Hub,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Operations Owner,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Operations Owner,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (141 rows),,FAIL,200,TESTED
+Operations Owner,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Operations Owner,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/search,Search,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,,,PASS,200,TESTED
+Operations Owner,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+Operations Owner,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+Operations Owner,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+Operations Owner,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+Operations Owner,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+Operations Owner,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+Operations Owner,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+Operations Owner,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+Operations Owner,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+Operations Owner,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+Operations Owner,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+Operations Owner,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+Operations Owner,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+Operations Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+Framework Owner,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+Framework Owner,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+Framework Owner,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Framework Owner,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+Framework Owner,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+Framework Owner,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+Framework Owner,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+Framework Owner,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+Framework Owner,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+Framework Owner,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+Framework Owner,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+Framework Owner,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+Framework Owner,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Framework Owner,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (141 rows),,FAIL,200,TESTED
+Framework Owner,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+Framework Owner,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+Framework Owner,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+Framework Owner,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+Framework Owner,Governance,/mvp/search,Search,,,PASS,200,TESTED
+Framework Owner,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+Framework Owner,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+Framework Owner,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+Framework Owner,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,Large unpaginated table (64 rows),,FAIL,200,TESTED
+Framework Owner,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+Framework Owner,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+Framework Owner,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+Framework Owner,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+Framework Owner,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+Framework Owner,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+Framework Owner,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+Framework Owner,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+Framework Owner,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+Framework Owner,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+Framework Owner,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+Framework Owner,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+Framework Owner,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+Framework Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+AI Governance Owner,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+AI Governance Owner,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+AI Governance Owner,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+AI Governance Owner,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+AI Governance Owner,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+AI Governance Owner,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+AI Governance Owner,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+AI Governance Owner,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+AI Governance Owner,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+AI Governance Owner,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/upload,Bulk Upload,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/bulk-upload,Bulk Upload Hub,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+AI Governance Owner,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+AI Governance Owner,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (141 rows),,FAIL,200,TESTED
+AI Governance Owner,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+AI Governance Owner,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+AI Governance Owner,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+AI Governance Owner,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+AI Governance Owner,Governance,/mvp/search,Search,,,PASS,200,TESTED
+AI Governance Owner,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+AI Governance Owner,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+AI Governance Owner,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+AI Governance Owner,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,Large unpaginated table (64 rows),,FAIL,200,TESTED
+AI Governance Owner,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+AI Governance Owner,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+AI Governance Owner,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+AI Governance Owner,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+AI Governance Owner,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+AI Governance Owner,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+AI Governance Owner,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+AI Governance Owner,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+AI Governance Owner,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+AI Governance Owner,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+AI Governance Owner,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+AI Governance Owner,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+AI Governance Owner,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+AI Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/dashboard,Main Dashboard,,,PASS,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/dashboard/cio,CIO Evidence Analytics,Large unpaginated table (1413 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/dashboard/vertical-head,Vertical Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/dashboard/compliance-head,Compliance Dashboard,,,PASS,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/dashboard/functional-head,Functional Head Dashboard,Large unpaginated table (41 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/mvp/demo-overview,Demo Overview,,,PASS,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/mvp/enterprise,Enterprise,,,PASS,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/mvp/pan-india,Pan India,,,PASS,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/mvp/reports,Reports,,,PASS,200,TESTED
+AI SDLC Governance Owner,Executive Overview,/mvp/trends,Trends,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/mvp/framework-loader,Framework Loader,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/mvp/framework-admin,Framework Administration,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/scheduler,Scheduler,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant,AI Ops Assistant,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/upload,Bulk Upload,Large unpaginated table (121 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/bulk-upload,Bulk Upload Hub,Large unpaginated table (121 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/integrations,Integrations,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/onboarding,Onboarding,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/integrations-hub,Integrations Hub,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/audit-prep,Audit Prep,Large unpaginated table (64 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/evidence-health,Evidence Health,Large unpaginated table (141 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/reuse,Evidence Reuse,Large unpaginated table (121 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/lifecycle,Lifecycle,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/completeness,Completeness,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/comparison,App Comparison,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/search,Search,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/evidence-approval,Evidence Approval Analytics,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/workflow/close-gap,Close Gap Workflow,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/workflow/assign-owner,Assign Owner Workflow,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/workflow/upload-missing,Upload Missing Workflow,,,PASS,200,TESTED
+AI SDLC Governance Owner,Governance,/mvp/workflow/mock-audit,Mock Audit,,,PASS,200,TESTED
+AI SDLC Governance Owner,Enterprise GRC,/mvp/risk-register,Risk Register,Large unpaginated table (43 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,Enterprise GRC,/mvp/exceptions,Exceptions / TD,,,PASS,200,TESTED
+AI SDLC Governance Owner,Enterprise GRC,/mvp/exception-governance,Exception Governance,,,PASS,200,TESTED
+AI SDLC Governance Owner,Enterprise GRC,/mvp/cmdb,CMDB / Assets,,,PASS,200,TESTED
+AI SDLC Governance Owner,Enterprise GRC,/mvp/regulatory,Regulatory Mapping,,,PASS,200,TESTED
+AI SDLC Governance Owner,Enterprise GRC,/mvp/heatmaps,Executive Heatmaps,,,PASS,200,TESTED
+AI SDLC Governance Owner,Enterprise GRC,/mvp/correlation,Cross-Tool Correlation,,,PASS,200,TESTED
+AI SDLC Governance Owner,Enterprise GRC,/mvp/governance-analytics,Governance Analytics,,,PASS,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc,AI SDLC Home,,,PASS,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/control-tower,AI SDLC Control Tower,,,PASS,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/onboarding,Application Onboarding,,,PASS,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/requirements,Requirements,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/design,Design,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/development,Development,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/testing,Testing,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/golive,Go-Live,Large unpaginated table (49 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence,Evidence Collection,Large unpaginated table (61 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/findings,Findings & Remediation,Large unpaginated table (46 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/reports,AI SDLC Reports,,,PASS,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-governance,AI Governance,Large unpaginated table (145 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-registry,AI Registry,Large unpaginated table (55 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/sdlc-gates,SDLC Gates,,,PASS,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/governance-quality,Governance Quality,,,PASS,200,TESTED
+AI SDLC Governance Owner,Evidence,/evidence/review,Evidence Review,HTTP 422,,FAIL,422,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/ASST,Framework — ASST,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/AppSec,Framework — AppSec,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/CSITE,Framework — CSITE,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/DB%20Baselining,Framework — DB Baselining,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/DPSC,Framework — DPSC,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/ISG,Framework — ISG,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/ISO27001,Framework — ISO27001,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/ITDRM,Framework — ITDRM,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/ITPP,Framework — ITPP,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/Nginx%20Baselining,Framework — Nginx Baselining,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/OS%20Baselining,Framework — OS Baselining,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/PCI%20DSS,Framework — PCI DSS,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/RBI%20Cyber%20Security,Framework — RBI Cyber Security,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/SOC2,Framework — SOC2,,,PASS,200,TESTED
+AI SDLC Governance Owner,Frameworks,/framework/VAPT,Framework — VAPT,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant/summary/business,AI Ops Summary — Business,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant/summary/technical,AI Ops Summary — Technical,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant/summary/executive,AI Ops Summary — Executive,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant/summary/audit,AI Ops Summary — Audit,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant/summary/compliance,AI Ops Summary — Compliance,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant/summary/evidence,AI Ops Summary — Evidence,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant/summary/incident,AI Ops Summary — Incident,,,PASS,200,TESTED
+AI SDLC Governance Owner,Operations,/mvp/ai-ops-assistant/summary/root_cause,AI Ops Summary — Root_Cause,,,PASS,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/reports/app-compliance,AI SDLC Report Detail,Large unpaginated table (73 rows),,FAIL,200,TESTED
+AI SDLC Governance Owner,AI SDLC Governance,/mvp/ai-sdlc/evidence/view/EVD-REQ-0001,AI SDLC Evidence Viewer,,,PASS,200,TESTED

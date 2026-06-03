@@ -16,11 +16,10 @@
 </head>
 <body class="bg-light">
 <div class="container-fluid"><div class="row">
-{% set sidebar_brand = "ECS" %}
 {% set show_back_dashboard = true %}
 {% include "partials/ecs_sidebar.html" %}
 <div class="col-md-10 p-4">
-{% from "partials/ecs_ux_macros.html" import role_label %}
+{% from "partials/ecs_ux_macros.html" import persona_profile %}
 {% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_timeline, workflow_status_chip, workflow_observation_meta %}
 {% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary) }}{% endif %}
 <div class="d-flex justify-content-between align-items-start page-header mb-3">
@@ -30,7 +29,10 @@
 {% if review.workflow_visual is defined %}{{ workflow_observation_meta(review.workflow_visual, review.metadata.application_name, role) }}{% endif %}
 {% if review.workflow_visual is defined %}{{ workflow_timeline(review.workflow_visual.timeline) }}{% endif %}
 </div>
+<div class="d-flex flex-column align-items-end gap-2">
+{{ persona_profile(persona) }}
 <a href="/framework/{{ framework_name }}?role={{ role }}&user={{ user }}" class="btn btn-outline-secondary btn-sm">← Back to Framework</a>
+</div>
 </div>
 {% if review.workflow_visual is defined %}<div class="mb-2">{{ workflow_status_chip(review.workflow_visual, role) }}</div>{% endif %}
 {% if notice %}<div class="alert alert-info">{{ notice }}</div>{% endif %}
@@ -47,8 +49,7 @@
 </div>
 {% endif %}
 <div class="row g-3 mb-3">
-<div class="col-md-4"><span class="badge bg-secondary">{{ review.workflow.label }}</span>
-<span class="badge bg-light text-dark border ms-1">{{ role_label(role) }}</span></div>
+<div class="col-md-4"><span class="badge bg-secondary">{{ review.workflow.label }}</span></div>
 </div>
 <div class="row g-4">
 <div class="col-lg-5">

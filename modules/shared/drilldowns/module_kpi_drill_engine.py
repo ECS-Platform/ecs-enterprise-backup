@@ -6,18 +6,26 @@ from modules.shared.utils.demo_data_standards import DRILL_COLUMNS, ensure_drill
 from modules.shared.services.module_capabilities import get_module_capability
 
 
-def _normalize_row(row: dict, module: str) -> dict:
-    out = dict(row)
-    out.setdefault("application", row.get("application") or row.get("app") or row.get("name") or "—")
-    out.setdefault("framework", row.get("framework") or row.get("framework_name") or "Enterprise-wide")
-    out.setdefault("domain", row.get("domain") or "Governance")
-    out.setdefault("control", row.get("control") or row.get("control_id") or row.get("control_name") or "—")
-    out.setdefault("evidence", row.get("evidence") or row.get("evidence_name") or row.get("filename") or "—")
-    out.setdefault("finding", row.get("finding") or row.get("finding_id") or row.get("summary") or "—")
-    out.setdefault("owner", row.get("owner") or row.get("uploaded_by") or row.get("assigned_to") or "—")
-    out.setdefault("status", row.get("status") or row.get("evidence_status") or row.get("job_status") or "Open")
-    out.setdefault("risk", row.get("risk") or row.get("risk_rating") or row.get("severity") or "Medium")
-    out.setdefault("date", row.get("date") or row.get("last_updated") or row.get("uploaded_at") or "2026-05-24")
+def _normalize_row(row: dict | str | list, module: str) -> dict:
+    if isinstance(row, str):
+        out = {"application": row, "framework": "Enterprise-wide", "control": "—", "status": "Active"}
+        src: dict = out
+    elif isinstance(row, dict):
+        out = dict(row)
+        src = out
+    else:
+        out = {"application": str(row), "framework": "Enterprise-wide", "control": "—", "status": "Open"}
+        src = out
+    out.setdefault("application", src.get("application") or src.get("app") or src.get("name") or "—")
+    out.setdefault("framework", src.get("framework") or src.get("framework_name") or "Enterprise-wide")
+    out.setdefault("domain", src.get("domain") or "Governance")
+    out.setdefault("control", src.get("control") or src.get("control_id") or src.get("control_name") or "—")
+    out.setdefault("evidence", src.get("evidence") or src.get("evidence_name") or src.get("filename") or "—")
+    out.setdefault("finding", src.get("finding") or src.get("finding_id") or src.get("summary") or "—")
+    out.setdefault("owner", src.get("owner") or src.get("uploaded_by") or src.get("assigned_to") or "—")
+    out.setdefault("status", src.get("status") or src.get("evidence_status") or src.get("job_status") or "Open")
+    out.setdefault("risk", src.get("risk") or src.get("risk_rating") or src.get("severity") or "Medium")
+    out.setdefault("date", src.get("date") or src.get("last_updated") or src.get("uploaded_at") or "2026-05-24")
     out["module"] = module
     return out
 
@@ -67,6 +75,22 @@ def _pick_rows(view: dict, metric: str) -> list[dict]:
 
 
 def drill_module_kpi(module: str, metric: str, role: str = "cio") -> dict:
+    if module == "trends":
+        from modules.governance.engines.trends_drill_engine import drill_trends_kpi
+        from modules.shared.drilldowns.ecs_universal_drill_engine import parse_display_count
+
+        body = drill_trends_kpi(metric or "implementation_coverage", role, count=25)
+        body["columns"] = body.get("columns") or DRILL_COLUMNS
+        body["trace_count"] = parse_display_count(body.get("detail", {}).get("coverage_pct", 25))
+        return body
+
+    if module == "reports":
+        from modules.executive_overview.engines.reports_drill_engine import drill_reports_kpi
+
+        body = drill_reports_kpi(metric or "available_reports", role, count=25)
+        body["columns"] = body.get("columns") or DRILL_COLUMNS
+        return body
+
     view = get_module_capability(module, role)
     raw = _pick_rows(view, metric or "summary")
     normalized = [_normalize_row(r, module) for r in raw]

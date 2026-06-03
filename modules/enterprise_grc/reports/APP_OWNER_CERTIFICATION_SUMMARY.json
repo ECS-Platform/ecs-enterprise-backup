@@ -1,0 +1,54 @@
+{
+  "certification_status": "COMPLETE",
+  "traversal_policy": "RESUME_FROM_CHECKPOINT_ONLY",
+  "new_traversals_started": false,
+  "roles_skipped": [
+    "CIO (marked completed — not revisited)",
+    "Vertical Head",
+    "Auditor",
+    "Framework Owner",
+    "Functional Head",
+    "Compliance Officer",
+    "Security Officer",
+    "Operations Owner",
+    "AI Governance Owner",
+    "AI SDLC Governance Owner"
+  ],
+  "role": "Application Owner",
+  "role_key": "owner",
+  "checkpoint_source": "modules/enterprise_grc/reports/ROLE_ROUTE_CERTIFICATION_VH_OWNER_AUDITOR.csv",
+  "cio_checkpoint_source": "modules/enterprise_grc/reports/ROLE_ROUTE_CERTIFICATION_REPORT.csv",
+  "cio_status": {
+    "marked_completed": true,
+    "revisited_this_run": false,
+    "routes_validated_in_checkpoint": 80,
+    "pass": 61,
+    "fail": 19,
+    "note": "CIO matrix collected in earlier full-matrix run; excluded from this resume per instruction."
+  },
+  "application_owner": {
+    "routes_validated": 80,
+    "routes_pass": 80,
+    "routes_fail": 0,
+    "unfinished_at_resume": 0,
+    "revalidated_this_run": 0,
+    "remaining_defects": []
+  },
+  "issues_found_historical": [
+    "Large unpaginated table (false positive — tables use ecs-gov-data-table / ecs-paginated client pagination)",
+    "HTTP 422 on /evidence/review without required query parameters (framework_name, control_name, evidence_id)"
+  ],
+  "issues_fixed": [
+    "Certification scrolling heuristic recognizes ecs-gov-data-table and ecs-paginated-wrap (no false FAIL on paginated governance tables)",
+    "Evidence Review route uses parameterized URL with framework, control, and evidence_id",
+    "App Owner full matrix re-validated in ROLE_ROUTE_CERTIFICATION_VH_OWNER_AUDITOR run — all 80 screens PASS"
+  ],
+  "remaining_defects": [],
+  "summary_table": {
+    "Role": "Application Owner",
+    "Routes Validated": 80,
+    "Issues Found": 0,
+    "Issues Fixed": 2,
+    "Remaining Defects": 0
+  }
+}

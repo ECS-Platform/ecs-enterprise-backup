@@ -380,6 +380,12 @@ def build_controlled_evidence_viewer(evidence_id: str) -> dict[str, Any] | None:
         "comments": [{"author": pick(s >> 16, BANKING_OWNERS), "text": "Evidence validated against control objective.", "at": _now_str()}],
         "approval_history": _approval_history(s, doc_code, 3),
         "audit_trail": [],
+        "approved_by": "Security Reviewer",
+        "approval_date": "15-May-2026",
+        "finding_status": "Remediated",
+        "remediation_date": "22-May-2026",
+        "controls_covered": 4,
+        "evidence_package": "Complete",
     }
 
 

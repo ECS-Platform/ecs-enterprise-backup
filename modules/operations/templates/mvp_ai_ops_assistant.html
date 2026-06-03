@@ -28,8 +28,12 @@
 <body class="bg-light ecs-cap-ai-ops ecs-aiops-page"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
-<h1 class="ecs-workspace-title h5">ECS AI Ops Assistant</h1>
-<p class="ecs-exec-desc-muted mb-2">Banking governance copilot — ask about incidents, audit, compliance, frameworks, and evidence.</p>
+{% from "partials/ecs_ux_macros.html" import persona_profile %}
+<div class="ecs-page-header mb-2">
+<div class="ecs-page-header-main"><h1 class="ecs-workspace-title h5 mb-0">ECS AI Ops Assistant</h1>
+<p class="ecs-exec-desc-muted mb-0 small">Banking governance copilot — incidents, audit, compliance, frameworks, and evidence.</p></div>
+{{ persona_profile(persona) }}
+</div>
 
 <div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
 {% for k in module_view.kpis %}
@@ -58,6 +62,8 @@
 {% if response %}<span class="badge bg-success">Response ready</span>{% endif %}
 </div>
 <div class="ecs-copilot-chat-body" id="ecsAiOpsChatBody">
+<div class="small fw-semibold text-secondary mb-2 border-bottom pb-1">Current Investigation</div>
+<div id="ecsChatThread">
 {% if chat_history is defined and chat_history %}
 {% for h in chat_history %}
 <div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">{{ h.timestamp }} · You</small><div>{{ h.query }}</div></div>
@@ -68,6 +74,7 @@
 {% if chat_response_html is defined and chat_response_html %}{{ chat_response_html|safe }}{% elif response %}<pre class="mb-0 small" style="white-space:pre-wrap;">{{ response }}</pre>{% else %}
 <p class="text-muted small mb-0">Ask about Net Banking outages, PCI DSS audit gaps, or UPI compliance. Summary links on the right open full drilldown pages.</p>
 {% endif %}
+</div>
 </div>
 </div>
 </section>
@@ -101,7 +108,7 @@
 </aside>
 
 <div class="ecs-copilot-footer">
-<form method="post" action="/mvp/chat" id="ecsChatForm" class="mb-0">
+<form method="post" action="/mvp/chat" id="ecsChatForm" class="mb-0" data-ecs-aiops-form="1">
 <input type="hidden" name="role" value="{{ role }}">
 <input type="hidden" name="user" value="{{ user }}">
 <input type="hidden" name="return_url" value="/mvp/ai-ops-assistant?role={{ role }}&user={{ user|urlencode }}">

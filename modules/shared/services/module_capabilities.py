@@ -32,7 +32,7 @@ from modules.governance.engines.search_module import build_search_discovery
 from modules.governance.engines.workflow_module import aging_days_from
 
 MODULE_PURPOSES = {
-    "scheduler": "Automated evidence collection scheduling across SharePoint, ServiceNow, SIEM, and CMDB source systems.",
+    "scheduler": "Evidence Collection Engine — collects and refreshes evidence from integrated enterprise platforms (ServiceNow, GitHub, Jenkins, SonarQube, and more).",
     "upload": "Mass onboarding and batch import of evidence artefacts with validation, deduplication, and framework auto-mapping.",
     "evidence_health": "Risk and quality scoring — stale, expired, incomplete, and low-confidence evidence governance.",
     "search": "Enterprise evidence discovery with semantic filters, reuse mapping, and cross-framework search.",
@@ -112,7 +112,8 @@ def get_module_capability(module: str, role: str = "owner", analytics_filters: d
 def _scheduler_view(role: str) -> dict:
     from modules.operations.engines.operations_mock_data import build_operations_dataset
     from modules.operations.engines.scheduler_intelligence import build_scheduler_intelligence
-    from modules.operations.engines.scheduler_module import is_scheduler_paused
+    from modules.operations.engines.scheduler_module import get_scheduler_dashboard, is_scheduler_paused
+    from modules.shared.services.execution_engine_registry import evidence_collection_engine
 
     ops = build_operations_dataset("scheduler", role)
     dash = get_scheduler_dashboard()
@@ -154,6 +155,7 @@ def _scheduler_view(role: str) -> dict:
         "compliance_impact": intel["compliance_impact"],
         "integration_health": intel["integration_health"],
         "paused": intel["paused"],
+        "execution_engine": evidence_collection_engine(paused=intel["paused"], dashboard=dash),
         "actions": _actions_for(role, scheduler=True),
     }
 
@@ -445,20 +447,19 @@ def _pan_india_view(role: str) -> dict:
 
 def _reports_view(role: str) -> dict:
     from modules.executive_overview.engines.ecs_reports_engine import report_type_for_catalog_id
+    from modules.executive_overview.engines.reports_analytics_engine import build_reports_overview
     from modules.shared.utils.standard_filter_engine import build_standard_dataset
-    from modules.executive_overview.engines.reporting_module import list_report_history
 
-    reports = list_reports()
-    history = list_report_history()
+    overview = build_reports_overview(role)
     std = build_standard_dataset("reports", role)
     rows = []
-    for r in reports:
+    for r in overview["catalog"]:
         rows.append({
             **r,
             "view_type": report_type_for_catalog_id(r["id"]),
             "generated_at": r.get("generated_at", "2026-05-20 14:00 UTC"),
             "format": r.get("format", "PDF"),
-            "schedule": r.get("schedule", "On-demand"),
+            "schedule": r.get("schedule", "On Demand"),
             "framework": r.get("framework", "Enterprise-wide"),
             "application": r.get("application", "All Applications"),
             "owner": r.get("owner", OWNERS[0]),
@@ -466,15 +467,15 @@ def _reports_view(role: str) -> dict:
             "status": r.get("status", "Generated"),
         })
     return {
-        "kpis": [
-            {"label": "Available Reports", "value": len(rows), "tone": "primary"},
-            {"label": "Generated", "value": len([r for r in rows if r.get("status") == "Generated"]), "tone": "success"},
-            {"label": "Scheduled", "value": len([r for r in rows if r.get("schedule") != "On-demand"]), "tone": "info"},
-            {"label": "Pending", "value": len([r for r in rows if r.get("status") != "Generated"]), "tone": "warning"},
-        ],
+        "kpis": overview["kpis"],
         "rows": rows,
-        "history_rows": history,
-        "observation_rows": std.get("records", {}).get("observations", []),
+        "history_rows": overview["history_rows"],
+        "observation_rows": overview["observation_rows"],
+        "generated_records": overview["generated_records"],
+        "scheduled_records": overview["scheduled_records"],
+        "pending_records": overview["pending_records"],
+        "failed_records": overview["failed_records"],
+        "reports_overview": overview,
         "standard_dataset": std,
         "actions": _actions_for(role, reports=True),
     }

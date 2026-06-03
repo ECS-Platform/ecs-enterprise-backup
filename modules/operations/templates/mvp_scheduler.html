@@ -1,23 +1,26 @@
-<!DOCTYPE html><html><head><title>Scheduler</title>{% include "partials/mvp_styles.html" %}{% include "partials/scheduler_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>Evidence Collection</title>{% include "partials/mvp_styles.html" %}{% include "partials/scheduler_styles.html" %}</head>
 <body class="bg-light ecs-cap-scheduler"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
-<h1 class="ecs-workspace-title h5">Evidence Collection Scheduler</h1>
+<h1 class="ecs-workspace-title h5">Evidence Collection Engine</h1>
 {% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
 {% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
+{% from "partials/execution_engine_panel.html" import execution_engine_panel %}
 {% set ys = module_view.yesterday_summary %}
 {% set ci = module_view.compliance_impact %}
 {{ workspace_exec_strip(module_view) }}
 {{ workspace_filters(workspace, role, user) }}
 <p class="small text-muted mb-2" id="ecsOpsFilterSummary">Loading filtered operations data…</p>
 
+{{ execution_engine_panel(module_view.execution_engine) }}
+
 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
 <span class="ecs-sched-live {% if module_view.paused %}is-paused{% else %}is-running{% endif %}">{{ module_view.scheduler_health.live_status|default('Running') }}</span>
 <span class="small text-muted">Uptime {{ module_view.scheduler_health.uptime_pct }}% · {{ module_view.scheduler_health.healthy_jobs }}/{{ module_view.scheduler_health.total_jobs }} jobs healthy</span>
 <div class="ecs-module-actions ms-auto">
-<button type="button" class="btn btn-primary btn-sm" data-sched-run>Run Now</button>
+<button type="button" class="btn btn-primary btn-sm" data-sched-run title="Collect and refresh evidence from integrated enterprise platforms">Run Evidence Collection</button>
 {% if module_view.paused %}
 <button type="button" class="btn btn-success btn-sm" data-sched-resume>Resume</button>
 {% else %}
@@ -112,7 +115,7 @@
 <td><span class="badge {% if c.health=='Success' %}bg-success{% elif c.health=='Partial' %}bg-warning text-dark{% elif c.health=='Running' %}bg-primary{% else %}bg-danger{% endif %}">{{ c.health }}</span></td>
 <td class="small text-danger">{{ c.failure_reason|default('—')|truncate(40) }}</td>
 <td class="text-nowrap"><button type="button" class="btn btn-sm btn-outline-warning" data-sched-retry>Retry</button>
-<button type="button" class="btn btn-sm btn-outline-primary" data-sched-run>Run Now</button></td></tr>
+<button type="button" class="btn btn-sm btn-outline-primary" data-sched-run title="Run evidence collection for this job">Run Evidence Collection</button></td></tr>
 <tr class="d-none ecs-ws-detail-row" id="cron-detail-{{ loop.index0 }}"><td colspan="11">
 <strong class="small">Execution Details — {{ c.run_id }}</strong>
 <ul class="small mb-0">{% for d in c.details|default([]) %}<li>{{ d }}</li>{% endfor %}</ul>

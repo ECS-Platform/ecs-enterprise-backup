@@ -1,4 +1,4 @@
-{# Control Tower Phase 2 — scheduler run, drill modals, work item detail #}
+{# Control Tower — governance assessment run, drill modals, work item detail #}
 <div class="modal fade" id="ctDrillModal" tabindex="-1" aria-hidden="true">
 <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
 <div class="modal-header py-2"><h6 class="modal-title" id="ctDrillModalTitle">Detail</h6>
@@ -108,10 +108,35 @@
       '" data-stage-key="' + esc(stageKey) + '">' + pct + '%</button>';
   }
 
+  function renderEnginePanel(engine) {
+    if (!engine) return '';
+    var dash = engine.dashboard || {};
+    return '<div class="ecs-engine-panel border rounded bg-white p-2 mb-2">' +
+      '<div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-1">' +
+      '<div><h6 class="mb-0">' + esc(engine.title) + '</h6>' +
+      '<p class="small text-muted mb-0">' + esc(engine.description) + '</p></div>' +
+      '<span class="badge bg-success">' + esc(engine.run_status) + '</span></div>' +
+      '<div class="row g-1 small mb-1">' +
+      '<div class="col-6 col-md-2"><span class="text-muted d-block">Last Run</span><strong>' + esc(engine.last_run) + '</strong></div>' +
+      '<div class="col-6 col-md-2"><span class="text-muted d-block">Run Status</span><strong>' + esc(engine.run_status) + '</strong></div>' +
+      '<div class="col-6 col-md-2"><span class="text-muted d-block">Records Processed</span><strong>' + esc(engine.records_processed) + '</strong></div>' +
+      '<div class="col-6 col-md-2"><span class="text-muted d-block">Execution Duration</span><strong>' + esc(engine.execution_duration_sec) + 's</strong></div>' +
+      '</div>' +
+      '<div class="ecs-sched-summary mt-1">' +
+      '<div class="ecs-sched-card"><strong>' + esc(dash.successful_runs) + '</strong><span>Successful Runs</span></div>' +
+      '<div class="ecs-sched-card"><strong>' + esc(dash.failed_runs) + '</strong><span>Failed Runs</span></div>' +
+      '<div class="ecs-sched-card"><strong>' + esc(dash.avg_runtime_sec) + 's</strong><span>Avg Runtime</span></div>' +
+      '<div class="ecs-sched-card"><strong>' + esc(dash.records_processed) + '</strong><span>Records Processed</span></div>' +
+      '<div class="ecs-sched-card"><strong>' + esc(dash.applications_affected) + '</strong><span>Applications Affected</span></div>' +
+      '<div class="ecs-sched-card"><strong>' + esc(dash.frameworks_affected) + '</strong><span>Frameworks Affected</span></div>' +
+      '</div></div>';
+  }
+
   function renderRunSchedulerIdle(d) {
     return '<div class="ecs-ct-control-room">' +
-      '<p class="ecs-ct-room-intro">Initiate an ECS AI SDLC scheduler run to assess applications, frameworks, controls, and evidence across all onboarded banking applications.</p>' +
-      '<button type="button" class="btn btn-primary ecs-ct-run-btn" id="ctRunSchedulerBtn">Run Scheduler</button>' +
+      renderEnginePanel(d.engine) +
+      '<p class="ecs-ct-room-intro">Run a governance assessment to evaluate SDLC maturity, phase completion, controlled documents, evidence completeness, and control effectiveness across onboarded banking applications.</p>' +
+      '<button type="button" class="btn btn-primary ecs-ct-run-btn" id="ctRunSchedulerBtn" title="Evaluate AI SDLC governance posture and readiness">Run Governance Assessment</button>' +
       '<div id="ctSchedulerExec" class="ecs-ct-exec-panel d-none"></div>' +
       '<div id="ctSchedulerResult" class="d-none"></div></div>';
   }

@@ -1,0 +1,301 @@
+Role,Module,Check,Issue Found,Issue Fixed,Status
+CIO,Executive Overview,KPI cards demo_overview,No KPIs defined,,FAIL
+CIO,Executive Overview,Charts,,,PASS
+CIO,Executive Overview,Popups/modals,,,PASS
+CIO,Executive Overview,KPI drill enterprise/enterprise_compliance,,,PASS
+CIO,Executive Overview,KPI drill enterprise/national_score,,,PASS
+CIO,Executive Overview,KPI drill enterprise/open_observations,,,PASS
+CIO,Executive Overview,KPI drill enterprise/frameworks_at_risk,,,PASS
+CIO,Executive Overview,Charts,,,PASS
+CIO,Executive Overview,Page KPI drill enterprise/enterprise_compliance,,,PASS
+CIO,Executive Overview,Page KPI drill enterprise/national_score,,,PASS
+CIO,Executive Overview,Page KPI drill enterprise/open_observations,,,PASS
+CIO,Executive Overview,Page KPI drill enterprise/frameworks_at_risk,,,PASS
+CIO,Executive Overview,Popups/modals,,,PASS
+CIO,Executive Overview,KPI drill pan_india/regions,,,PASS
+CIO,Executive Overview,KPI drill pan_india/branches,,,PASS
+CIO,Executive Overview,KPI drill pan_india/open_observations,,,PASS
+CIO,Executive Overview,KPI drill pan_india/sla_breaches,,,PASS
+CIO,Executive Overview,Charts,,,PASS
+CIO,Executive Overview,Page KPI drill pan_india/regions,,,PASS
+CIO,Executive Overview,Page KPI drill pan_india/branches,,,PASS
+CIO,Executive Overview,Page KPI drill pan_india/open_observations,,,PASS
+CIO,Executive Overview,Page KPI drill pan_india/sla_breaches,,,PASS
+CIO,Executive Overview,Popups/modals,,,PASS
+CIO,Evidence Analytics,Evidence Analytics KPIs,,,PASS
+CIO,Evidence Analytics,Charts,,,PASS
+CIO,Evidence Analytics,Popups/modals,,,PASS
+CIO,Trends,KPI drill trends/implementation_coverage,,,PASS
+CIO,Trends,KPI drill trends/observations_net,,,PASS
+CIO,Trends,KPI drill trends/auditor_rejection_rate,,,PASS
+CIO,Trends,KPI drill trends/remediation_sla_compliance,,,PASS
+CIO,Trends,Charts,,,PASS
+CIO,Trends,Popups/modals,,,PASS
+CIO,Reports,KPI drill reports/available_reports,,,PASS
+CIO,Reports,KPI drill reports/generated_reports,,,PASS
+CIO,Reports,KPI drill reports/scheduled_reports,,,PASS
+CIO,Reports,KPI drill reports/pending_reports,,,PASS
+CIO,Reports,KPI drill reports/failed_reports,,,PASS
+CIO,Reports,KPI drill reports/success_rate,,,PASS
+CIO,Reports,Popups/modals,,,PASS
+CIO,Frameworks,KPI cards framework_loader,No KPIs defined,,FAIL
+CIO,Frameworks,Popups/modals,,,PASS
+CIO,Frameworks,Evidence review link,,,PASS
+CIO,Frameworks,Evidence link markup,No evidence review triggers on page,,FAIL
+CIO,Frameworks,KPI cards framework_loader,No KPIs defined,,FAIL
+CIO,Frameworks,Popups/modals,,,PASS
+CIO,Frameworks,Evidence review link,,,PASS
+CIO,Operations,KPI drill scheduler/apps_scanned,,,PASS
+CIO,Operations,KPI drill scheduler/evidence_collected,,,PASS
+CIO,Operations,KPI drill scheduler/auto-validated,,,PASS
+CIO,Operations,KPI drill scheduler/failed_collections,,,PASS
+CIO,Operations,Page KPI drill scheduler/apps_scanned,,,PASS
+CIO,Operations,Page KPI drill scheduler/evidence_collected,,,PASS
+CIO,Operations,Page KPI drill scheduler/auto-validated,,,PASS
+CIO,Operations,Page KPI drill scheduler/failed_collections,,,PASS
+CIO,Operations,Popups/modals,,,PASS
+CIO,Operations,Copilot investigation,,,PASS
+CIO,Operations,Copilot summary mode,,,PASS
+CIO,Operations,Copilot summary modes,,,PASS
+CIO,Operations,KPI drill ai_ops_assistant/active_incidents,,,PASS
+CIO,Operations,KPI drill ai_ops_assistant/open_findings,,,PASS
+CIO,Operations,KPI drill ai_ops_assistant/frameworks_linked,,,PASS
+CIO,Operations,KPI drill ai_ops_assistant/evidence_gaps,,,PASS
+CIO,Operations,Page KPI drill ai_ops_assistant/active_incidents,,,PASS
+CIO,Operations,Page KPI drill ai_ops_assistant/open_findings,,,PASS
+CIO,Operations,Page KPI drill ai_ops_assistant/frameworks_linked,,,PASS
+CIO,Operations,Page KPI drill ai_ops_assistant/evidence_gaps,,,PASS
+CIO,Operations,Popups/modals,,,PASS
+CIO,Operations,Copilot investigation,,,PASS
+CIO,Operations,Copilot summary mode,,,PASS
+CIO,Operations,Copilot summary modes,,,PASS
+CIO,Operations,KPI drill onboarding/applications,,,PASS
+CIO,Operations,KPI drill onboarding/accepting_evidence,,,PASS
+CIO,Operations,KPI drill onboarding/observation_closures,,,PASS
+CIO,Operations,KPI drill onboarding/avg_compliance_adherence,,,PASS
+CIO,Operations,KPI drill onboarding/failed_/_stalled,,,PASS
+CIO,Operations,Page KPI drill onboarding/applications,,,PASS
+CIO,Operations,Page KPI drill onboarding/accepting_evidence,,,PASS
+CIO,Operations,Page KPI drill onboarding/observation_closures,,,PASS
+CIO,Operations,Page KPI drill onboarding/avg_compliance_adherence,,,PASS
+CIO,Operations,Page KPI drill onboarding/failed___stalled,,,PASS
+CIO,Operations,Popups/modals,,,PASS
+CIO,Operations,Copilot investigation,,,PASS
+CIO,Operations,Copilot summary mode,,,PASS
+CIO,Operations,Copilot summary modes,,,PASS
+CIO,Governance,KPI drill audit_prep/audit_readiness,,,PASS
+CIO,Governance,KPI drill audit_prep/unresolved_control_gaps,,,PASS
+CIO,Governance,KPI drill audit_prep/upcoming_audits,,,PASS
+CIO,Governance,KPI drill audit_prep/auditor_requests,,,PASS
+CIO,Governance,KPI drill audit_prep/stale_evidence,,,PASS
+CIO,Governance,KPI drill audit_prep/below_threshold,,,PASS
+CIO,Governance,Page KPI drill audit_prep/audit_readiness,,,PASS
+CIO,Governance,Page KPI drill audit_prep/unresolved_control_gaps,,,PASS
+CIO,Governance,Page KPI drill audit_prep/upcoming_audits,,,PASS
+CIO,Governance,Page KPI drill audit_prep/auditor_requests,,,PASS
+CIO,Governance,Page KPI drill audit_prep/stale_evidence,,,PASS
+CIO,Governance,Page KPI drill audit_prep/below_threshold,,,PASS
+CIO,Governance,Popups/modals,,,PASS
+CIO,Governance,KPI drill evidence_health/health_score,,,PASS
+CIO,Governance,KPI drill evidence_health/controls_missing_evidence,,,PASS
+CIO,Governance,KPI drill evidence_health/evidence_w/_open_observations,,,PASS
+CIO,Governance,KPI drill evidence_health/high-risk_failures,,,PASS
+CIO,Governance,KPI drill evidence_health/expiring_evidence,,,PASS
+CIO,Governance,KPI drill evidence_health/rejected_evidence,,,PASS
+CIO,Governance,KPI drill evidence_health/revalidated_evidence,,,PASS
+CIO,Governance,KPI drill evidence_health/stale_evidence,,,PASS
+CIO,Governance,Page KPI drill evidence_health/health_score,,,PASS
+CIO,Governance,Page KPI drill evidence_health/controls_missing_evidence,,,PASS
+CIO,Governance,Page KPI drill evidence_health/evidence_w__open_observations,,,PASS
+CIO,Governance,Page KPI drill evidence_health/high-risk_failures,,,PASS
+CIO,Governance,Page KPI drill evidence_health/expiring_evidence,,,PASS
+CIO,Governance,Page KPI drill evidence_health/rejected_evidence,,,PASS
+CIO,Governance,Page KPI drill evidence_health/revalidated_evidence,,,PASS
+CIO,Governance,Page KPI drill evidence_health/stale_evidence,,,PASS
+CIO,Governance,Popups/modals,,,PASS
+CIO,Governance,KPI drill search/indexed_artefacts,,,PASS
+CIO,Governance,KPI drill search/frameworks_mapped,,,PASS
+CIO,Governance,KPI drill search/reuse_suggestions,,,PASS
+CIO,Governance,KPI drill search/search_results,,,PASS
+CIO,Governance,Page KPI drill search/indexed_artefacts,,,PASS
+CIO,Governance,Page KPI drill search/frameworks_mapped,,,PASS
+CIO,Governance,Page KPI drill search/reuse_suggestions,,,PASS
+CIO,Governance,Page KPI drill search/search_results,,,PASS
+CIO,Governance,Popups/modals,,,PASS
+CIO,Governance,KPI drill completeness/framework_scope,,,PASS
+CIO,Governance,KPI drill completeness/overall_control_maturity,,,PASS
+CIO,Governance,KPI drill completeness/audit_readiness,,,PASS
+CIO,Governance,KPI drill completeness/missing_controls,,,PASS
+CIO,Governance,KPI drill completeness/incomplete_applications,,,PASS
+CIO,Governance,Page KPI drill completeness/framework_scope,,,PASS
+CIO,Governance,Page KPI drill completeness/overall_control_maturity,,,PASS
+CIO,Governance,Page KPI drill completeness/audit_readiness,,,PASS
+CIO,Governance,Page KPI drill completeness/missing_controls,,,PASS
+CIO,Governance,Page KPI drill completeness/incomplete_applications,,,PASS
+CIO,Governance,Popups/modals,,,PASS
+CIO,AI SDLC Governance,Popups/modals,,,PASS
+CIO,AI SDLC Governance,Evidence review link,,,PASS
+CIO,AI SDLC Governance,Evidence link markup,No evidence review triggers on page,,FAIL
+CIO,AI SDLC Governance,Observation links,,,PASS
+CIO,AI SDLC Governance,Popups/modals,,,PASS
+CIO,AI SDLC Governance,Evidence review link,,,PASS
+CIO,AI SDLC Governance,Evidence link markup,No evidence review triggers on page,,FAIL
+CIO,AI SDLC Governance,Observation links,,,PASS
+CIO,AI SDLC Governance,Popups/modals,,,PASS
+CIO,AI SDLC Governance,Evidence review link,,,PASS
+CIO,AI SDLC Governance,Evidence link markup,No evidence review triggers on page,,FAIL
+CIO,AI SDLC Governance,Observation links,,,PASS
+CIO,AI SDLC Governance,Popups/modals,,,PASS
+CIO,AI SDLC Governance,Evidence review link,,,PASS
+CIO,AI SDLC Governance,Evidence link markup,No evidence review triggers on page,,FAIL
+CIO,AI SDLC Governance,Observation links,,,PASS
+Application Owner,Executive Overview,KPI cards demo_overview,No KPIs defined,,FAIL
+Application Owner,Executive Overview,Charts,,,PASS
+Application Owner,Executive Overview,Popups/modals,,,PASS
+Application Owner,Executive Overview,KPI drill enterprise/enterprise_compliance,,,PASS
+Application Owner,Executive Overview,KPI drill enterprise/national_score,,,PASS
+Application Owner,Executive Overview,KPI drill enterprise/open_observations,,,PASS
+Application Owner,Executive Overview,KPI drill enterprise/frameworks_at_risk,,,PASS
+Application Owner,Executive Overview,Charts,,,PASS
+Application Owner,Executive Overview,Page KPI drill enterprise/enterprise_compliance,,,PASS
+Application Owner,Executive Overview,Page KPI drill enterprise/national_score,,,PASS
+Application Owner,Executive Overview,Page KPI drill enterprise/open_observations,,,PASS
+Application Owner,Executive Overview,Page KPI drill enterprise/frameworks_at_risk,,,PASS
+Application Owner,Executive Overview,Popups/modals,,,PASS
+Application Owner,Executive Overview,KPI drill pan_india/regions,,,PASS
+Application Owner,Executive Overview,KPI drill pan_india/branches,,,PASS
+Application Owner,Executive Overview,KPI drill pan_india/open_observations,,,PASS
+Application Owner,Executive Overview,KPI drill pan_india/sla_breaches,,,PASS
+Application Owner,Executive Overview,Charts,,,PASS
+Application Owner,Executive Overview,Page KPI drill pan_india/regions,,,PASS
+Application Owner,Executive Overview,Page KPI drill pan_india/branches,,,PASS
+Application Owner,Executive Overview,Page KPI drill pan_india/open_observations,,,PASS
+Application Owner,Executive Overview,Page KPI drill pan_india/sla_breaches,,,PASS
+Application Owner,Executive Overview,Popups/modals,,,PASS
+Application Owner,Evidence Analytics,Evidence Analytics KPIs,,,PASS
+Application Owner,Evidence Analytics,Charts,,,PASS
+Application Owner,Evidence Analytics,Popups/modals,,,PASS
+Application Owner,Trends,KPI drill trends/implementation_coverage,,,PASS
+Application Owner,Trends,KPI drill trends/observations_net,,,PASS
+Application Owner,Trends,KPI drill trends/auditor_rejection_rate,,,PASS
+Application Owner,Trends,KPI drill trends/remediation_sla_compliance,,,PASS
+Application Owner,Trends,Charts,,,PASS
+Application Owner,Trends,Popups/modals,,,PASS
+Application Owner,Reports,KPI drill reports/available_reports,,,PASS
+Application Owner,Reports,KPI drill reports/generated_reports,,,PASS
+Application Owner,Reports,KPI drill reports/scheduled_reports,,,PASS
+Application Owner,Reports,KPI drill reports/pending_reports,,,PASS
+Application Owner,Reports,KPI drill reports/failed_reports,,,PASS
+Application Owner,Reports,KPI drill reports/success_rate,,,PASS
+Application Owner,Reports,Popups/modals,,,PASS
+Application Owner,Frameworks,KPI cards framework_loader,No KPIs defined,,FAIL
+Application Owner,Frameworks,Popups/modals,,,PASS
+Application Owner,Frameworks,Evidence review link,,,PASS
+Application Owner,Frameworks,Evidence link markup,No evidence review triggers on page,,FAIL
+Application Owner,Frameworks,KPI cards framework_loader,No KPIs defined,,FAIL
+Application Owner,Frameworks,Popups/modals,,,PASS
+Application Owner,Frameworks,Evidence review link,,,PASS
+Application Owner,Operations,KPI drill scheduler/apps_scanned,,,PASS
+Application Owner,Operations,KPI drill scheduler/evidence_collected,,,PASS
+Application Owner,Operations,KPI drill scheduler/auto-validated,,,PASS
+Application Owner,Operations,KPI drill scheduler/failed_collections,,,PASS
+Application Owner,Operations,Page KPI drill scheduler/apps_scanned,,,PASS
+Application Owner,Operations,Page KPI drill scheduler/evidence_collected,,,PASS
+Application Owner,Operations,Page KPI drill scheduler/auto-validated,,,PASS
+Application Owner,Operations,Page KPI drill scheduler/failed_collections,,,PASS
+Application Owner,Operations,Popups/modals,,,PASS
+Application Owner,Operations,Copilot investigation,,,PASS
+Application Owner,Operations,Copilot summary mode,,,PASS
+Application Owner,Operations,Copilot summary modes,,,PASS
+Application Owner,Operations,KPI drill ai_ops_assistant/active_incidents,,,PASS
+Application Owner,Operations,KPI drill ai_ops_assistant/open_findings,,,PASS
+Application Owner,Operations,KPI drill ai_ops_assistant/frameworks_linked,,,PASS
+Application Owner,Operations,KPI drill ai_ops_assistant/evidence_gaps,,,PASS
+Application Owner,Operations,Page KPI drill ai_ops_assistant/active_incidents,,,PASS
+Application Owner,Operations,Page KPI drill ai_ops_assistant/open_findings,,,PASS
+Application Owner,Operations,Page KPI drill ai_ops_assistant/frameworks_linked,,,PASS
+Application Owner,Operations,Page KPI drill ai_ops_assistant/evidence_gaps,,,PASS
+Application Owner,Operations,Popups/modals,,,PASS
+Application Owner,Operations,Copilot investigation,,,PASS
+Application Owner,Operations,Copilot summary mode,,,PASS
+Application Owner,Operations,Copilot summary modes,,,PASS
+Application Owner,Operations,KPI drill onboarding/applications,,,PASS
+Application Owner,Operations,KPI drill onboarding/accepting_evidence,,,PASS
+Application Owner,Operations,KPI drill onboarding/observation_closures,,,PASS
+Application Owner,Operations,KPI drill onboarding/avg_compliance_adherence,,,PASS
+Application Owner,Operations,KPI drill onboarding/failed_/_stalled,,,PASS
+Application Owner,Operations,Page KPI drill onboarding/applications,,,PASS
+Application Owner,Operations,Page KPI drill onboarding/accepting_evidence,,,PASS
+Application Owner,Operations,Page KPI drill onboarding/observation_closures,,,PASS
+Application Owner,Operations,Page KPI drill onboarding/avg_compliance_adherence,,,PASS
+Application Owner,Operations,Page KPI drill onboarding/failed___stalled,,,PASS
+Application Owner,Operations,Popups/modals,,,PASS
+Application Owner,Operations,Copilot investigation,,,PASS
+Application Owner,Operations,Copilot summary mode,,,PASS
+Application Owner,Operations,Copilot summary modes,,,PASS
+Application Owner,Governance,KPI drill audit_prep/audit_readiness,,,PASS
+Application Owner,Governance,KPI drill audit_prep/unresolved_control_gaps,,,PASS
+Application Owner,Governance,KPI drill audit_prep/upcoming_audits,,,PASS
+Application Owner,Governance,KPI drill audit_prep/auditor_requests,,,PASS
+Application Owner,Governance,KPI drill audit_prep/stale_evidence,,,PASS
+Application Owner,Governance,KPI drill audit_prep/below_threshold,,,PASS
+Application Owner,Governance,Page KPI drill audit_prep/audit_readiness,,,PASS
+Application Owner,Governance,Page KPI drill audit_prep/unresolved_control_gaps,,,PASS
+Application Owner,Governance,Page KPI drill audit_prep/upcoming_audits,,,PASS
+Application Owner,Governance,Page KPI drill audit_prep/auditor_requests,,,PASS
+Application Owner,Governance,Page KPI drill audit_prep/stale_evidence,,,PASS
+Application Owner,Governance,Page KPI drill audit_prep/below_threshold,,,PASS
+Application Owner,Governance,Popups/modals,,,PASS
+Application Owner,Governance,KPI drill evidence_health/health_score,,,PASS
+Application Owner,Governance,KPI drill evidence_health/controls_missing_evidence,,,PASS
+Application Owner,Governance,KPI drill evidence_health/evidence_w/_open_observations,,,PASS
+Application Owner,Governance,KPI drill evidence_health/high-risk_failures,,,PASS
+Application Owner,Governance,KPI drill evidence_health/expiring_evidence,,,PASS
+Application Owner,Governance,KPI drill evidence_health/rejected_evidence,,,PASS
+Application Owner,Governance,KPI drill evidence_health/revalidated_evidence,,,PASS
+Application Owner,Governance,KPI drill evidence_health/stale_evidence,,,PASS
+Application Owner,Governance,Page KPI drill evidence_health/health_score,,,PASS
+Application Owner,Governance,Page KPI drill evidence_health/controls_missing_evidence,,,PASS
+Application Owner,Governance,Page KPI drill evidence_health/evidence_w__open_observations,,,PASS
+Application Owner,Governance,Page KPI drill evidence_health/high-risk_failures,,,PASS
+Application Owner,Governance,Page KPI drill evidence_health/expiring_evidence,,,PASS
+Application Owner,Governance,Page KPI drill evidence_health/rejected_evidence,,,PASS
+Application Owner,Governance,Page KPI drill evidence_health/revalidated_evidence,,,PASS
+Application Owner,Governance,Page KPI drill evidence_health/stale_evidence,,,PASS
+Application Owner,Governance,Popups/modals,,,PASS
+Application Owner,Governance,KPI drill search/indexed_artefacts,,,PASS
+Application Owner,Governance,KPI drill search/frameworks_mapped,,,PASS
+Application Owner,Governance,KPI drill search/reuse_suggestions,,,PASS
+Application Owner,Governance,KPI drill search/search_results,,,PASS
+Application Owner,Governance,Page KPI drill search/indexed_artefacts,,,PASS
+Application Owner,Governance,Page KPI drill search/frameworks_mapped,,,PASS
+Application Owner,Governance,Page KPI drill search/reuse_suggestions,,,PASS
+Application Owner,Governance,Page KPI drill search/search_results,,,PASS
+Application Owner,Governance,Popups/modals,,,PASS
+Application Owner,Governance,KPI drill completeness/framework_scope,,,PASS
+Application Owner,Governance,KPI drill completeness/overall_control_maturity,,,PASS
+Application Owner,Governance,KPI drill completeness/audit_readiness,,,PASS
+Application Owner,Governance,KPI drill completeness/missing_controls,,,PASS
+Application Owner,Governance,KPI drill completeness/incomplete_applications,,,PASS
+Application Owner,Governance,Page KPI drill completeness/framework_scope,,,PASS
+Application Owner,Governance,Page KPI drill completeness/overall_control_maturity,,,PASS
+Application Owner,Governance,Page KPI drill completeness/audit_readiness,,,PASS
+Application Owner,Governance,Page KPI drill completeness/missing_controls,,,PASS
+Application Owner,Governance,Page KPI drill completeness/incomplete_applications,,,PASS
+Application Owner,Governance,Popups/modals,,,PASS
+Application Owner,AI SDLC Governance,Popups/modals,,,PASS
+Application Owner,AI SDLC Governance,Evidence review link,,,PASS
+Application Owner,AI SDLC Governance,Evidence link markup,No evidence review triggers on page,,FAIL
+Application Owner,AI SDLC Governance,Observation links,,,PASS
+Application Owner,AI SDLC Governance,Popups/modals,,,PASS
+Application Owner,AI SDLC Governance,Evidence review link,,,PASS
+Application Owner,AI SDLC Governance,Evidence link markup,No evidence review triggers on page,,FAIL
+Application Owner,AI SDLC Governance,Observation links,,,PASS
+Application Owner,AI SDLC Governance,Popups/modals,,,PASS
+Application Owner,AI SDLC Governance,Evidence review link,,,PASS
+Application Owner,AI SDLC Governance,Evidence link markup,No evidence review triggers on page,,FAIL
+Application Owner,AI SDLC Governance,Observation links,,,PASS
+Application Owner,AI SDLC Governance,Popups/modals,,,PASS
+Application Owner,AI SDLC Governance,Evidence review link,,,PASS
+Application Owner,AI SDLC Governance,Evidence link markup,No evidence review triggers on page,,FAIL
+Application Owner,AI SDLC Governance,Observation links,,,PASS

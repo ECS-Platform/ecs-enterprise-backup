@@ -312,6 +312,91 @@
   color: var(--ecs-chart-slate);
   margin-top: 0.2rem;
 }
+
+/* Evidence Aging tab — expanded executive trend bars */
+.ecs-evidence-aging-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.ecs-aging-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+}
+
+.ecs-aging-chart-card .chart-card-title {
+  flex: 0 0 auto;
+}
+
+.chart-container-aging {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100% !important;
+  min-height: 168px;
+  max-height: none !important;
+  overflow: visible;
+  padding: 1.15rem 0.35rem 0.55rem;
+}
+
+.ecs-evidence-aging-grid .ecs-bar-chart.ecs-aging-bar-chart {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 120px;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 0.15rem 0.1rem 0;
+  scrollbar-width: thin;
+}
+
+.ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-col {
+  min-width: 26px;
+  max-width: 52px;
+  width: auto;
+  flex: 1 1 26px;
+}
+
+.ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-val {
+  font-size: 0.62rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+.ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-lbl {
+  font-size: 0.58rem;
+  max-width: 56px;
+  line-height: 1.15;
+  margin-top: 4px;
+}
+
+.ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-lbl.is-skipped {
+  visibility: hidden;
+  height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1440px) {
+  .ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-lbl:not(.is-skipped) {
+    font-size: 0.54rem;
+    transform: rotate(-42deg);
+    transform-origin: top center;
+    margin-top: 8px;
+    max-width: 48px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 991px) {
+  .ecs-evidence-aging-grid { grid-template-columns: 1fr; }
+  .ecs-aging-chart-card { min-height: 200px; }
+}
 </style>
 <script>
 (function(){
@@ -327,6 +412,22 @@
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   }
+
+  /** Executive trend bar presets — Evidence Aging tab and similar panels. */
+  window.ecsExecutiveTrendBarOpts = function(chartId, page, overrides) {
+    var base = {
+      maxHeight: 96,
+      barWidth: 16,
+      extraClass: 'ecs-aging-bar-chart',
+      labelEvery: 'auto',
+      drill: { page: page || 'trends', chartId: chartId || 'trend' }
+    };
+    if (!overrides) return base;
+    var out = {};
+    Object.keys(base).forEach(function(k) { out[k] = base[k]; });
+    Object.keys(overrides).forEach(function(k) { out[k] = overrides[k]; });
+    return out;
+  };
 
   /**
    * Compact vertical bar chart — platform standard.
@@ -344,6 +445,13 @@
     var valKey = opts.valKey || 'value';
     var toneKey = opts.toneKey || 'tone';
     var emptyMsg = opts.emptyMessage || 'No data for selected scope.';
+    var drill = opts.drill;
+    var labelEvery = opts.labelEvery;
+    if (labelEvery === 'auto') {
+      labelEvery = items.length > 12 ? 3 : (items.length > 8 ? 2 : 1);
+    } else {
+      labelEvery = labelEvery || 1;
+    }
 
     if (!items.length) {
       el.innerHTML = '<span class="small text-muted" style="font-size:0.62rem">' + esc(emptyMsg) + '</span>';
@@ -355,15 +463,24 @@
     var max = Math.max.apply(null, vals.concat([1]));
 
     el.className = (opts.className || 'mini-bar-chart ecs-bar-chart') + (opts.extraClass ? ' ' + opts.extraClass : '');
-    el.innerHTML = items.map(function(i) {
+    el.innerHTML = items.map(function(i, idx) {
       var v = Number(i[valKey]) || 0;
       var h = Math.max(3, Math.round((v / max) * maxH));
       var tone = i[toneKey] || opts.defaultTone || 'blue';
       var tip = i.tooltip || (i[labelKey] + ': ' + v + suffix);
-      return '<div class="ecs-bar-col" style="width:' + barW + 'px;max-width:' + barW + 'px" title="' + esc(tip) + '">' +
+      var showLabel = (idx % labelEvery === 0 || idx === items.length - 1);
+      var lblClass = showLabel ? '' : ' is-skipped';
+      var drillAttrs = drill ? (
+        ' data-ecs-universal-chart data-ecs-universal-page="' + esc(drill.page || 'trends') + '"' +
+        ' data-ecs-universal-chart-id="' + esc(drill.chartId || 'trend') + '"' +
+        ' data-ecs-universal-element="' + esc(i[labelKey]) + '"' +
+        ' data-ecs-universal-count="' + esc(String(v)) + '" role="button" tabindex="0"'
+      ) : '';
+      var colClass = 'ecs-bar-col' + (drill ? ' ecs-kpi-clickable' : '');
+      return '<div class="' + colClass + '"' + drillAttrs + ' style="width:' + barW + 'px;max-width:' + barW + 'px" title="' + esc(tip) + '">' +
         '<span class="ecs-bar-val">' + esc(String(v) + suffix) + '</span>' +
         '<div class="ecs-bar-fill tone-' + esc(tone) + '" data-tone="' + esc(tone) + '" style="height:' + h + 'px;width:' + barW + 'px;max-width:' + barW + 'px"></div>' +
-        '<span class="ecs-bar-lbl">' + esc(i[labelKey]) + '</span></div>';
+        '<span class="ecs-bar-lbl' + lblClass + '">' + esc(showLabel ? i[labelKey] : '') + '</span></div>';
     }).join('');
   };
 

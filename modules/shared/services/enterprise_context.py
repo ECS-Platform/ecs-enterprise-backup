@@ -24,11 +24,16 @@ from modules.shared.services.chatbot_engine import get_chat_history, get_chat_st
 from modules.frameworks.engines.control_validation_engine import build_governance_analytics, build_control_validations, validation_summary
 from modules.governance.engines.governance_intelligence import build_contextual_trends, enrich_governance_analytics
 from modules.frameworks.engines.itpp_module import build_itpp_operational_view
-from modules.governance.engines.workflow_module import build_leadership_queue, work_queue_summary
+from modules.governance.engines.workflow_module import (
+    build_leadership_queue,
+    build_pending_approvals_queue,
+    work_queue_summary,
+)
 from modules.shared.services.module_capabilities import get_module_capability, module_counter_rows
 from modules.shared.services.module_workspace import build_module_workspace
 from modules.shared.services.role_permissions import permission_ctx
 from modules.shared.services.evidence_workflow_engine import build_workflow_context
+from modules.shared.services.persona_display import resolve_persona_context
 
 
 def enterprise_widgets_context(role: str = "", page_module: str = "", framework: str = "", user: str = "", analytics_filters: dict | None = None):
@@ -68,7 +73,7 @@ def enterprise_widgets_context(role: str = "", page_module: str = "", framework:
             ctx["itpp_operational"] = build_itpp_operational_view(role)
         # Workflow queue only inside dedicated drill-down tabs — not on framework landing
         ctx["show_framework_workflow"] = False
-    if role in ("cio", "vertical_head", "compliance_head", "functional_head"):
+    if role in ("cio", "vertical_head", "compliance_head", "compliance_officer", "functional_head", "security_officer"):
         ctx["leadership_queue"] = build_leadership_queue(role, limit=20)
         titles = {
             "cio": "CIO Executive Escalations & Approvals",
@@ -77,11 +82,25 @@ def enterprise_widgets_context(role: str = "", page_module: str = "", framework:
             "functional_head": "Functional Head — Unresolved Observations",
         }
         ctx["leadership_title"] = titles.get(role, "Executive Workflow Queue")
+    if role in ("cio", "vertical_head", "compliance_head", "compliance_officer", "auditor", "security_officer"):
+        ctx["pending_approvals_queue"] = build_pending_approvals_queue(role, limit=25)
+        pending_titles = {
+            "cio": "CIO Pending Approvals",
+            "vertical_head": "Vertical Head — Approval Queue",
+            "compliance_head": "Compliance — Pending Sign-offs",
+            "compliance_officer": "Compliance — Pending Sign-offs",
+            "security_officer": "Security — Pending Sign-offs",
+            "auditor": "Auditor — Evidence Pending Approval",
+        }
+        ctx["pending_approvals_title"] = pending_titles.get(role, "Pending Approvals")
     if role:
         ctx.update(permission_ctx(role))
+        ctx["persona"] = resolve_persona_context(role, user)
         if framework:
             from modules.frameworks.engines.framework_workflow_engine import build_framework_workflow_context
             ctx["evidence_workflow"] = build_framework_workflow_context(framework, role)
         else:
             ctx["evidence_workflow"] = build_workflow_context(role)
+    elif user:
+        ctx["persona"] = resolve_persona_context("", user)
     return ctx

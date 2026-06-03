@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import date, timedelta
 
 from app import ecs_state
 from modules.executive_overview.engines.demo_metrics import BUSINESS_UNITS, ENTERPRISE_MONTHLY_TRENDS
@@ -17,6 +18,35 @@ FRAMEWORKS = list(FRAMEWORK_CATALOG.keys())
 
 def _h(key: str, lo: int, hi: int) -> int:
     return _seed(key, lo, hi)
+
+
+# Demo timeline anchor — last day of daily trend window (aligned with Q2 2026 demo)
+_TREND_TIMELINE_END = date(2026, 6, 1)
+
+
+def timeline_labels_daily(count: int = 14) -> list[str]:
+    """Business-friendly daily X-axis labels, e.g. 19-May … 01-Jun."""
+    start = _TREND_TIMELINE_END - timedelta(days=count - 1)
+    return [(start + timedelta(days=i)).strftime("%d-%b") for i in range(count)]
+
+
+def timeline_labels_weekly(count: int = 8) -> list[str]:
+    return [f"Week {i}" for i in range(1, count + 1)]
+
+
+def timeline_labels_monthly_from_tab(tab: dict) -> list[str]:
+    """Month abbreviations from coverage series or demo calendar."""
+    series = tab.get("coverage_series") or []
+    if series:
+        return [r.get("label") or (r.get("month", "") or "").split()[0][:3] for r in series]
+    return ["Jan", "Feb", "Mar", "Apr", "May", "Jun"][:6]
+
+
+def timeline_labels_quarterly_from_tab(tab: dict) -> list[str]:
+    rows = tab.get("quarterly_coverage") or []
+    if rows:
+        return [str(r.get("quarter", "")).split()[0] or f"Q{i}" for i, r in enumerate(rows, 1)]
+    return ["Q1", "Q2", "Q3", "Q4"]
 
 
 def build_banking_bu_analytics(role: str = "owner") -> list[dict]:
@@ -81,50 +111,59 @@ def enhance_pan_india_regions(regions: list[dict], framework_matrix: list[dict])
 
 def build_granularity_trends(filters: dict | None = None) -> dict:
     """Daily / weekly / monthly / quarterly trend bundles."""
+    from modules.governance.engines.trends_analytics_engine import build_trends_tab_payload
+
     f = parse_analytics_filters()
     if filters:
         f.update({k: v for k, v in filters.items() if v})
     mult = 1.0
     fw = f.get("framework", "Enterprise-wide")
-    ext = build_extended_trends(f)
+    tab = build_trends_tab_payload(f)
+    ext = build_extended_trends(f, tab)
 
-    daily_labels = [f"D{i}" for i in range(1, 15)]
-    weekly_labels = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
-    monthly_labels = [row["month"].split()[0][:3] for row in ENTERPRISE_MONTHLY_TRENDS]
-    quarterly_labels = ["Q1", "Q2", "Q3", "Q4"]
+    daily_labels = timeline_labels_daily(14)
+    weekly_labels = timeline_labels_weekly(8)
+    monthly_labels = timeline_labels_monthly_from_tab(tab)
+    quarterly_labels = timeline_labels_quarterly_from_tab(tab)
 
     def series(labels, prefix, lo, hi, suffix="", tone="blue"):
         return [{"label": lb, "value": max(1, int(_h(f"{fw}-{prefix}-{lb}", lo, hi) * mult)), "tone": tone, "suffix": suffix} for lb in labels]
 
+    cov_monthly = [{"label": r["label"], "value": r["coverage_pct"], "tone": "green", "suffix": "%"} for r in tab["coverage_series"]]
+    obs_monthly = [{"label": r["label"], "value": r["net"], "tone": "blue"} for r in tab["observations_series"]]
+    obs_monthly_grouped = tab["observations_series"]
+    rej_monthly = [{"label": r["label"], "value": r["rate_pct"], "tone": "orange", "suffix": "%"} for r in tab["rejections_series"]]
+
     return {
         "daily": {
             "observations": series(daily_labels, "d-obs", 1, 8, "", "blue"),
-            "compliance": [{"label": lb, "value": min(99, round(72 + _h(f"{fw}-{lb}-c", 0, 12) * mult, 1)), "tone": "green", "suffix": "%"} for lb in daily_labels],
-            "failed_evidence": series(daily_labels, "d-fail", 0, 5, "", "red"),
+            "compliance": [{"label": lb, "value": min(99, round(tab["control_totals"]["coverage_pct"] + _h(f"{fw}-{lb}-c", -3, 3) * mult, 1)), "tone": "green", "suffix": "%"} for lb in daily_labels],
+            "evidence_rejections": series(daily_labels, "d-rej", 0, 5, "", "orange"),
             "risk_escalation": series(daily_labels, "d-esc", 0, 3, "", "orange"),
             "evidence_aging": series(daily_labels, "d-age", 2, 12, "", "slate"),
             "remediation": series(daily_labels, "d-rem", 1, 6, "", "teal"),
         },
         "weekly": {
             "observations": ext["weekly_control_growth"],
-            "compliance": [{"label": w["label"], "value": min(99, round(74 + _h(fw + w["label"], 0, 10), 1)), "tone": "green", "suffix": "%"} for w in ext["weekly_control_growth"]],
-            "failed_evidence": ext["failed_controls_trend"][: len(weekly_labels)] or series(weekly_labels, "w-fail", 1, 8, "", "red"),
+            "compliance": [{"label": w["label"], "value": min(99, round(tab["control_totals"]["coverage_pct"] + _h(fw + w["label"], -2, 4), 1)), "tone": "green", "suffix": "%"} for w in ext["weekly_control_growth"]],
+            "evidence_rejections": ext["evidence_rejection_trend"][: len(weekly_labels)] or series(weekly_labels, "w-rej", 1, 8, "", "orange"),
             "risk_escalation": series(weekly_labels, "w-esc", 0, 4, "", "orange"),
             "evidence_aging": ext["stale_evidence_trend"][: len(weekly_labels)] or series(weekly_labels, "w-age", 3, 15, "", "slate"),
             "remediation": ext["remediation_closure_velocity"][: len(weekly_labels)] or series(weekly_labels, "w-rem", 2, 10, "", "teal"),
         },
         "monthly": {
-            "observations": [{"label": row["month"].split()[0][:3], "value": row["opened"], "tone": "blue"} for row in ENTERPRISE_MONTHLY_TRENDS],
-            "compliance": [{"label": row["month"].split()[0][:3], "value": row["compliance"], "tone": "green", "suffix": "%"} for row in ENTERPRISE_MONTHLY_TRENDS],
-            "failed_evidence": ext["failed_controls_trend"],
-            "risk_escalation": [{"label": m["label"], "value": max(0, _h(fw + m["label"] + "esc", 0, 5)), "tone": "orange"} for m in ext["failed_controls_trend"]],
+            "observations": obs_monthly,
+            "observations_grouped": obs_monthly_grouped,
+            "compliance": cov_monthly,
+            "evidence_rejections": [{"label": r["label"], "value": r["rejected"], "tone": "orange"} for r in tab["rejections_series"]],
+            "risk_escalation": [{"label": m["label"], "value": max(0, m["opened"] // 4), "tone": "orange"} for m in tab["observations_series"]],
             "evidence_aging": ext["stale_evidence_trend"],
             "remediation": ext["remediation_closure_velocity"],
         },
         "quarterly": {
             "observations": [{"label": q, "value": _h(fw + q + "obs", 12, 48), "tone": "blue"} for q in quarterly_labels],
             "compliance": ext["quarterly_audit_readiness"],
-            "failed_evidence": [{"label": q, "value": _h(fw + q + "fail", 2, 12), "tone": "red"} for q in quarterly_labels],
+            "evidence_rejections": [{"label": q, "value": _h(fw + q + "rej", 2, 12), "tone": "orange"} for q in quarterly_labels],
             "risk_escalation": [{"label": q, "value": _h(fw + q + "esc", 1, 6), "tone": "orange"} for q in quarterly_labels],
             "evidence_aging": [{"label": q, "value": _h(fw + q + "stale", 8, 28), "tone": "slate"} for q in quarterly_labels],
             "remediation": [{"label": q, "value": _h(fw + q + "rem", 10, 35), "tone": "teal"} for q in quarterly_labels],

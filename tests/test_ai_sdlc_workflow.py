@@ -74,6 +74,19 @@ def test_review_workflow_api_opens_evidence_viewer_payload():
     assert "approval_history" in data
     assert "files" in data
     assert "comments" in data
+    assert "evidence_status" in data or "governance_summary" in data
+
+
+def test_review_payload_includes_governance_summary():
+    reset_store_for_tests()
+    resp = client.get("/api/ai-sdlc/workflow/review?item_id=EV-AISDLC-0001&item_type=evidence")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data.get("evidence_status") == "Approved" or data.get("status") == "Approved"
+    assert data.get("approved_by") == "Security Reviewer"
+    assert data.get("finding_status") == "Remediated"
+    assert data.get("controls_covered") == 4
+    assert data.get("evidence_package") == "Complete"
 
 
 def test_upload_workflow_changes_status_and_audits():
@@ -178,6 +191,12 @@ def test_evidence_viewer_page_not_raw_json():
     assert resp.status_code == 200
     html = resp.text
     assert "Evidence Viewer" in html
+    assert "Evidence Status" in html
+    assert "Approved By" in html
+    assert "Finding Status" in html
+    assert "Controls Covered" in html
+    assert "Evidence Package" in html
+    assert "Security Reviewer" in html
     assert "Document Name" in html
     assert "Uploaded By" in html
     assert "Upload Date" in html

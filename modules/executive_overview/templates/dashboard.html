@@ -12,7 +12,6 @@
 <div class="container-fluid">
 <div class="row">
 
-{% set sidebar_brand = "ECS" %}
 {% include "partials/ecs_sidebar.html" %}
 
 <div class="col-md-10 ecs-main-content">
@@ -21,15 +20,19 @@
 <div class="row g-2 mb-3 ecs-skeleton"><div class="col"><div class="ecs-skeleton ecs-skeleton-kpi"></div></div><div class="col"><div class="ecs-skeleton ecs-skeleton-kpi"></div></div><div class="col"><div class="ecs-skeleton ecs-skeleton-kpi"></div></div></div>
 
 <div class="ecs-page-content">
-{% from "partials/ecs_ux_macros.html" import page_header, kpi_card, accordion_section, priority_card, zone_open, zone_close %}
-
-{{ page_header(role.upper() ~ ' Dashboard', 'Governance posture and prioritized actions', user, role) }}
+{% from "partials/ecs_ux_macros.html" import page_header, kpi_card, accordion_section, zone_open, zone_close, persona_tab_nav %}
 {% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
+
+{% set dash_title = 'Application Owner Dashboard' if role == 'owner' else ('Auditor Dashboard' if role == 'auditor' else role|replace('_',' ')|title ~ ' Dashboard') %}
+{{ page_header(dash_title, 'Governance posture and prioritized actions', user, role, persona) }}
+
+{% if role in ['owner', 'auditor'] and persona is defined and persona.tabs %}
+{{ persona_tab_nav(persona.tabs, 'tab-overview') }}
+<div class="tab-content ecs-persona-tab-content">
+
+<div class="tab-pane fade show active ecs-persona-tab-pane" id="tab-overview" role="tabpanel">
 {% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary, enterprise_drill=true) }}{% endif %}
 {% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics, enterprise_drill=true) }}{% endif %}
-{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues, enterprise_drill=true) }}{% endif %}
-
-{# ── TOP: KPI summary ── #}
 {{ zone_open('top') }}
 <div class="row g-3">
 {% if role == 'owner' %}
@@ -47,18 +50,37 @@
 {{ kpi_card('Pending Approvals', queue_n, 'Awaiting decision', 'primary') }}
 {{ kpi_card('High-Risk Reviews', high_n.n, 'Prioritize first', 'danger') }}
 {{ kpi_card('SLA Attention', high_n.n, 'Escalations flagged', 'warning') }}
-{% else %}
-{{ kpi_card('Scheduler Jobs', scheduler_data|length, 'Collection status', 'primary') }}
-{% if rejected_controls %}{{ kpi_card('Rejections', rejected_controls|length, 'Active gaps', 'danger') }}{% endif %}
 {% endif %}
 </div>
 {{ zone_close() }}
+{% if evidence_workflow is defined %}{{ workflow_queue_pills(evidence_workflow.queues, enterprise_drill=true) }}{% endif %}
+</div>
 
-{# ── MIDDLE: insights & priority cards ── #}
+{% if role == 'owner' %}
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-controls" role="tabpanel">
+{% include "partials/owner_work_queue.html" %}
+</div>
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-evidence" role="tabpanel">
+{% call accordion_section('Evidence Rejections', 'dash-rejections', rejected_controls|length|string if rejected_controls else '0', false) %}
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
+<thead><tr><th class="col-fw">Framework</th><th class="col-control">Control</th><th class="col-app">Reason</th><th class="col-status">Rejected By</th></tr></thead>
+<tbody>
+{% for ckey, info in rejected_controls.items() if rejected_controls %}
+<tr><td>{{ ckey.split('::')[0] }}</td><td>{{ ckey.split('::')[1] }}</td><td>{{ info.reason }}</td><td>{{ info.rejected_by }}</td></tr>
+{% else %}
+<tr><td colspan="4" class="text-muted small">No rejected evidence</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endcall %}
+</div>
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-findings" role="tabpanel">
 {{ zone_open('middle', 'Prioritized Actions') }}
-{% if role == 'owner' and owner_work_queue %}
+{% if owner_work_queue %}
 <div class="ecs-priority-grid mb-3">
-{% for item in owner_work_queue[:6] %}
+{% for item in owner_work_queue[:8] %}
 <div class="ecs-priority-card">
 <div class="ecs-priority-card-head">
 <div>
@@ -69,16 +91,58 @@
 </div>
 <div class="ecs-priority-actions">
 <a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-primary btn-sm">Review</a>
-{% if item.workflow_code == 'rejected' %}
-<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-warning btn-sm">Resubmit</a>
-{% endif %}
 </div>
 </div>
 {% endfor %}
 </div>
-{% elif role == 'auditor' and auditor_review_queue %}
+{% endif %}
+{{ zone_close() }}
+</div>
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-remediation" role="tabpanel">
+{% if owner_work_queue %}
+{% for item in owner_work_queue if item.workflow_code == 'rejected' %}
+<div class="ecs-priority-card mb-2">
+<strong>{{ item.framework }} · {{ item.control_id }}</strong>
+<div class="ecs-priority-meta">{{ item.application }} — resubmission required</div>
+<a href="{{ review_url(item.framework, item.control, item.evidence_id, role, user) }}" class="btn btn-warning btn-sm mt-2">Resubmit Evidence</a>
+</div>
+{% else %}
+<p class="text-muted small">No active remediation items.</p>
+{% endfor %}
+{% endif %}
+</div>
+
+{% elif role == 'auditor' %}
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-observations" role="tabpanel">
+{% if closed_observations_queue %}
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
+<thead><tr><th>Observation ID</th><th class="col-app">Application</th><th class="col-fw">Framework</th><th class="col-control">Control</th><th class="col-status">Closed</th></tr></thead>
+<tbody>
+{% for row in closed_observations_queue[:20] %}
+<tr>
+<td><code class="small">{{ row.observation_id }}</code></td>
+<td>{{ row.application }}</td>
+<td>{{ row.framework }}</td>
+<td class="small">{{ row.control_id or row.control[:30] }}</td>
+<td class="small">{{ row.closed_at }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<p class="text-muted small">No closed observations on record.</p>
+{% endif %}
+</div>
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-evidence" role="tabpanel">
+{% include "partials/auditor_review_queue.html" %}
+</div>
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-pending" role="tabpanel">
+{% include "partials/pending_approvals_panel.html" %}
+{% if auditor_review_queue %}
 <div class="ecs-priority-grid mb-3">
-{% for item in auditor_review_queue[:6] %}
+{% for item in auditor_review_queue[:8] %}
 <div class="ecs-priority-card">
 <div class="ecs-priority-card-head">
 <div>
@@ -95,70 +159,26 @@
 {% endfor %}
 </div>
 {% endif %}
-{% if role == 'auditor' and closed_observations_queue %}
-{% call accordion_section('Closed Observations (Historical)', 'dash-closed-obs', closed_observations_queue|length|string, false) %}
-<p class="small text-muted mb-2">Auditor-approved closures — evidence and audit trail retained for regulatory review.</p>
-<div class="table-responsive">
-<table class="table table-sm table-bordered bg-white mb-0 ecs-executive-table">
-<thead><tr><th>Observation ID</th><th>Application</th><th>Framework</th><th>Control</th><th>Closed</th><th>Approved By</th><th>Evidence</th><th></th></tr></thead>
-<tbody>
-{% for row in closed_observations_queue[:15] %}
-<tr>
-<td><code class="small">{{ row.observation_id }}</code></td>
-<td>{{ row.application }}</td>
-<td>{{ row.framework }}</td>
-<td class="small">{{ row.control_id or row.control[:30] }}</td>
-<td class="small">{{ row.closed_at }}</td>
-<td class="small">{{ row.closed_by }}</td>
-<td><code class="small">{{ row.evidence_id or '—' }}</code></td>
-<td><a href="{{ review_url(row.framework, row.control, row.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm py-0">View Evidence</a></td>
-</tr>
-{% endfor %}
-</tbody></table></div>
-{% endcall %}
-{% endif %}
-
-{% call accordion_section('Notifications & Activity Feed', 'dash-notifications', '', true) %}
+</div>
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-reports" role="tabpanel">
+<p class="text-muted small mb-2">Audit-ready exports and regulatory reports.</p>
+<a href="/mvp/reports?role={{ role }}&user={{ user }}" class="btn btn-outline-primary btn-sm">Open Reports Module</a>
+{% call accordion_section('Notifications & Activity', 'dash-notifications', '', false) %}
 {% include "partials/enterprise_widgets.html" %}
 {% endcall %}
-{{ zone_close() }}
-
-{# ── BOTTOM: detailed tables ── #}
-{{ zone_open('bottom', 'Detailed Records') }}
-{% if role == "owner" %}
-{% include "partials/owner_work_queue.html" %}
-{% elif role == "auditor" %}
-{% include "partials/auditor_review_queue.html" %}
+</div>
 {% endif %}
 
-{% call accordion_section('Scheduler Dashboard', 'dash-scheduler', scheduler_data|length|string, true) %}
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0">
-<thead><tr><th>Application</th><th>Framework</th><th>Status</th><th class="ecs-col-optional">Owner</th><th class="ecs-col-optional">Last Pull</th></tr></thead>
-<tbody>
-{% for row in scheduler_data %}
-<tr><td>{{row[0]}}</td><td>{{row[1]}}</td><td>{{row[2]}}</td><td class="ecs-col-optional">{{row[3] if row|length > 3 else '—'}}</td><td class="ecs-col-optional"><small>{{row[4] if row|length > 4 else '—'}}</small></td></tr>
-{% endfor %}
-</tbody>
-</table>
 </div>
-{% endcall %}
-
-{% if rejected_controls and role != "auditor" %}
-{% call accordion_section('Evidence Rejections', 'dash-rejections', rejected_controls|length|string, true) %}
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0">
-<thead><tr><th>Framework</th><th>Control</th><th>Reason</th><th>Rejected By</th></tr></thead>
-<tbody>
-{% for ckey, info in rejected_controls.items() %}
-<tr><td>{{ ckey.split('::')[0] }}</td><td>{{ ckey.split('::')[1] }}</td><td>{{ info.reason }}</td><td>{{ info.rejected_by }}</td></tr>
-{% endfor %}
-</tbody>
-</table>
+{% else %}
+{# Fallback for roles without tab config #}
+{% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary, enterprise_drill=true) }}{% endif %}
+{{ zone_open('top') }}
+<div class="row g-3">
+{{ kpi_card('Scheduler Jobs', scheduler_data|length, 'Collection status', 'primary') }}
 </div>
-{% endcall %}
-{% endif %}
 {{ zone_close() }}
+{% endif %}
 
 </div>{# ecs-page-content #}
 </div>{# ecs-page #}
@@ -168,7 +188,6 @@
 </div>
 
 {% include "partials/chatbot_global.html" %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% include "partials/evidence_upload_modal.html" %}
 </body>
 </html>

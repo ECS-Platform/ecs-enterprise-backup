@@ -15,24 +15,28 @@
 <div class="container-fluid">
 <div class="row">
 
-{% set sidebar_brand = "ECS CIO" %}
 {% set nav_active = "role_dashboard" %}
 {% include "partials/ecs_sidebar.html" %}
 
 <div class="col-md-10 ecs-main-content">
 
 <div class="ecs-page ecs-page-loaded ecs-page-content">
-{% from "partials/ecs_ux_macros.html" import kpi_card, accordion_section, zone_open, zone_close, role_label %}
+{% from "partials/ecs_ux_macros.html" import kpi_card, accordion_section, zone_open, zone_close, persona_profile, persona_tab_nav, risk_controls_table, risk_applications_table %}
 
 <div class="ecs-page-header mb-3">
 <div class="ecs-page-header-main"><h1 class="ecs-page-title mb-0">CIO Evidence Analytics</h1></div>
-<div class="ecs-page-header-meta">
-<span class="ecs-user-chip">{{ user }}</span>
-<span class="ecs-role-chip">{{ role_label(role) }}</span>
-</div>
+{{ persona_profile(persona) }}
 </div>
 
-{{ zone_open('top', 'Executive Summary') }}
+{% set tabs = persona.tabs if persona is defined and persona.tabs else [] %}
+{{ persona_tab_nav(tabs, 'tab-overview') }}
+
+<div class="tab-content ecs-persona-tab-content">
+
+{# ── OVERVIEW: KPIs → Escalations → Framework → Top Risks ── #}
+<div class="tab-pane fade show active ecs-persona-tab-pane" id="tab-overview" role="tabpanel" aria-labelledby="tab-overview-btn">
+
+{{ zone_open('top', 'Executive KPI Cards') }}
 <div class="row g-2 g-md-3 mb-2">
 {{ kpi_card('Compliance', analytics.overall_compliance_pct ~ '%', 'Approved controls / total in scope', 'success') }}
 {{ kpi_card('Approved', analytics.totals.approved, 'Controls with auditor-approved evidence', 'primary') }}
@@ -45,29 +49,58 @@
 </div>
 {{ zone_close() }}
 
-{{ zone_open('middle', 'Governance & Queue') }}
-{% set show_governance = true %}
-{% include "partials/governance_analytics_panel.html" %}
+{% include "partials/executive_escalation_strip.html" %}
+{% include "partials/framework_compliance_overview.html" %}
+
+{% if governance_analytics is defined and governance_analytics %}
+{% set ga = governance_analytics %}
+<div class="row g-3 mb-3">
+<div class="col-lg-6">
+<div class="ecs-section-card h-100">
+<div class="ecs-section-card-header"><h2 class="ecs-section-card-title h6 mb-0">Top Risk Applications</h2></div>
+<div class="card-body pt-2 pb-2 px-3">
+{{ risk_applications_table(ga.top_risk_applications[:8] if ga.top_risk_applications is defined else [], 'cio-risk-apps') }}
+</div>
+</div>
+</div>
+<div class="col-lg-6">
+<div class="ecs-section-card h-100">
+<div class="ecs-section-card-header"><h2 class="ecs-section-card-title h6 mb-0">Top Risk Controls</h2></div>
+<div class="card-body pt-2 pb-2 px-3">
+{{ risk_controls_table(ga.top_risky_controls[:8] if ga.top_risky_controls is defined else [], 'cio-risk-controls') }}
+</div>
+</div>
+</div>
+</div>
+{% endif %}
+
+</div>
+
+{# ── APPROVALS ── #}
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-approvals" role="tabpanel" aria-labelledby="tab-approvals-btn">
+{% include "partials/pending_approvals_panel.html" %}
+{% set leadership_title = 'CIO Escalations & SLA Actions' %}
 {% include "partials/leadership_work_queue.html" %}
-{{ zone_close() }}
+</div>
 
-{{ zone_open('bottom', 'Drill-Down') }}
+{# ── ESCALATIONS ── #}
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-escalations" role="tabpanel" aria-labelledby="tab-escalations-btn">
+{% include "partials/executive_escalation_strip.html" %}
+{% set leadership_title = 'CIO Executive Escalations' %}
+{% include "partials/leadership_work_queue.html" %}
+</div>
 
-{% call accordion_section('Framework Compliance Overview', 'cio-fw', analytics.framework_stats|length|string, false) %}
-<div class="row g-2 mb-3">
-{% for fw in analytics.framework_stats %}
-<div class="col-md-6 col-lg-4">
-<div class="ecs-insight-bar">
-<div class="ecs-insight-bar-label"><span>{{ fw.name }}</span><strong>{{ fw.maturity_pct|default(fw.compliance_pct) }}%</strong></div>
-<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill bg-{% if fw.maturity_pct|default(fw.compliance_pct) >= 85 %}success{% elif fw.maturity_pct|default(fw.compliance_pct) >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ fw.maturity_pct|default(fw.compliance_pct) }}%"></div></div>
-<small class="text-muted">{{ fw.approved }}/{{ fw.total }} approved · <a href="/framework/{{fw.name}}?role={{role}}&user={{user}}">Drill down</a></small>
-</div>
-</div>
-{% endfor %}
-</div>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0">
-<thead><tr><th>Framework</th><th>Controls</th><th>Approved</th><th>Pending</th><th>Compliance</th></tr></thead>
+{# ── ANALYTICS: governance panel + detail tables ── #}
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-analytics" role="tabpanel" aria-labelledby="tab-analytics-btn">
+
+{% set show_governance = true %}
+{% set hide_risk_tables = true %}
+{% include "partials/governance_analytics_panel.html" %}
+
+{% call accordion_section('Framework Detail Table', 'cio-fw-table', analytics.framework_stats|length|string, true) %}
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
+<thead><tr><th class="col-fw">Framework</th><th class="col-status">Controls</th><th class="col-status">Approved</th><th class="col-status">Pending</th><th class="col-risk">Compliance</th><th class="col-expand"></th></tr></thead>
 <tbody>
 {% for fw in analytics.framework_stats %}
 <tr>
@@ -76,7 +109,9 @@
 <td><span class="badge bg-success">{{fw.approved}}</span></td>
 <td><span class="badge bg-secondary">{{fw.pending}}</span></td>
 <td>{{ fw.maturity_pct|default(fw.compliance_pct) }}%</td>
+<td><button type="button" class="ecs-risk-expand-btn" aria-expanded="false">+</button></td>
 </tr>
+<tr class="ecs-risk-detail-row" hidden><td colspan="6">{{ fw.approved }} approved of {{ fw.total }} controls · <a href="/framework/{{fw.name}}?role={{role}}&user={{user}}">Drill down</a></td></tr>
 {% endfor %}
 </tbody>
 </table>
@@ -84,27 +119,33 @@
 {% endcall %}
 
 {% call accordion_section('Application Scheduler', 'cio-scheduler', scheduler_data|length|string, true) %}
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0">
-<thead><tr><th>Application</th><th>Framework</th><th>Status</th></tr></thead>
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
+<thead><tr><th class="col-app">Application</th><th class="col-fw">Framework</th><th class="col-status">Status</th><th class="col-expand"></th></tr></thead>
 <tbody>
-{% for row in scheduler_data %}<tr><td>{{row[0]}}</td><td>{{row[1]}}</td><td>{{row[2]}}</td></tr>{% endfor %}
+{% for row in scheduler_data %}
+<tr><td>{{row[0]}}</td><td>{{row[1]}}</td><td>{{row[2]}}</td><td><button type="button" class="ecs-risk-expand-btn" aria-expanded="false">+</button></td></tr>
+<tr class="ecs-risk-detail-row" hidden><td colspan="4">Scheduled collection for {{ row[0] }} under {{ row[1] }}</td></tr>
+{% endfor %}
 </tbody>
 </table>
 </div>
 {% endcall %}
 
 {% call accordion_section('Evidence Inventory', 'cio-inventory', analytics.evidence_rows|length|string, true) %}
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0">
-<thead><tr><th>Framework</th><th>Control</th><th>Evidence</th><th>Status</th><th class="ecs-col-optional">Reject Reason</th></tr></thead>
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
+<thead><tr><th class="col-fw">Framework</th><th class="col-control">Control</th><th class="col-app">Evidence</th><th class="col-status">Status</th><th class="col-expand"></th></tr></thead>
 <tbody>
 {% for row in analytics.evidence_rows %}
 <tr>
-<td>{{row.framework}}</td><td>{{row.control}}</td><td>{{row.evidence}}</td>
+<td>{{row.framework}}</td>
+<td><span class="ecs-cell-tip" title="{{ row.control }}">{{ row.control }}</span></td>
+<td><span class="ecs-cell-tip" title="{{ row.evidence }}">{{ row.evidence }}</span></td>
 <td>{% if row.status == 'approved' %}<span class="badge bg-success">Approved</span>{% elif row.status == 'rejected' %}<span class="badge bg-danger">Rejected</span>{% elif row.status == 'submitted' %}<span class="badge bg-warning text-dark">Submitted</span>{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}</td>
-<td class="ecs-col-optional">{% if row.reject_reason %}<small class="text-danger">{{row.reject_reason}}</small>{% else %}—{% endif %}</td>
+<td><button type="button" class="ecs-risk-expand-btn" aria-expanded="false">+</button></td>
 </tr>
+<tr class="ecs-risk-detail-row" hidden><td colspan="5">{% if row.reject_reason %}Reject reason: {{ row.reject_reason }}{% else %}No additional details{% endif %}</td></tr>
 {% endfor %}
 </tbody>
 </table>
@@ -113,9 +154,9 @@
 
 {% if rejected_controls %}
 {% call accordion_section('Active Rejections', 'cio-rejections', rejected_controls|length|string, true) %}
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0">
-<thead><tr><th>Framework</th><th>Control</th><th>Reason</th><th>Rejected By</th></tr></thead>
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
+<thead><tr><th class="col-fw">Framework</th><th class="col-control">Control</th><th class="col-app">Reason</th><th class="col-status">Rejected By</th></tr></thead>
 <tbody>
 {% for ckey, info in rejected_controls.items() %}
 <tr><td>{{ ckey.split('::')[0] }}</td><td>{{ ckey.split('::')[1] }}</td><td>{{ info.reason }}</td><td>{{ info.rejected_by }}</td></tr>
@@ -126,7 +167,9 @@
 {% endcall %}
 {% endif %}
 
-{{ zone_close() }}
+</div>
+
+</div>{# tab-content #}
 </div>
 
 </div>
@@ -135,6 +178,6 @@
 </div>
 
 {% include "partials/chatbot_global.html" %}
-
+<script>if (window.ecsBindRiskTables) window.ecsBindRiskTables(document);</script>
 </body>
 </html>

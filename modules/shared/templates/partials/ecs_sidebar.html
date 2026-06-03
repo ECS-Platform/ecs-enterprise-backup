@@ -1,9 +1,17 @@
-{# Unified enterprise sidebar — grouped navigation, role context, logout #}
+{# Unified enterprise sidebar — ECS Platform branding, role context, navigation #}
 <div class="col-md-2 col-lg-2 ecs-sidebar text-white">
 <div class="ecs-sidebar-inner">
 
-<div class="ecs-sidebar-brand">{{ sidebar_brand|default('ECS') }}</div>
-<p class="ecs-sidebar-tagline">ECS</p>
+{% set p = persona if persona is defined else none %}
+<div class="ecs-sidebar-brand">{{ p.sidebar_brand if p else 'ECS Platform' }}</div>
+<p class="ecs-sidebar-tagline ecs-sidebar-role-line">{{ p.sidebar_role_line if p else ('Role: ' ~ (role|replace('_',' ')|title if role else 'User')) }}</p>
+
+{% if p %}
+<div class="ecs-sidebar-profile mb-2">
+<div class="ecs-sidebar-profile-name">{{ p.display_name }}</div>
+<div class="ecs-sidebar-profile-title">{{ p.role_title }}</div>
+</div>
+{% endif %}
 
 {% if show_back_dashboard|default(false) %}
 <div class="ecs-sidebar-back mb-2">

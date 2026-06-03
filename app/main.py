@@ -4,6 +4,7 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app import ecs_state
@@ -99,6 +100,7 @@ async def ecs_lifespan(application: FastAPI):
 
 
 app = FastAPI(title="ECS Consolidated Demo V13", lifespan=ecs_lifespan)
+app.mount("/static/ecs", StaticFiles(directory="modules/shared/static"), name="ecs_static")
 
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
@@ -213,6 +215,36 @@ def login(role: str = Form(...)):
         log_login("functional_head", "FunctionalHead", "Functional Head dashboard")
         return RedirectResponse(
             url="/dashboard/functional-head?role=functional_head&user=FunctionalHead",
+            status_code=303,
+        )
+    if role == "security_officer":
+        log_login("security_officer", "SecurityOfficer", "Security Officer dashboard")
+        return RedirectResponse(
+            url="/dashboard/compliance-head?role=security_officer&user=SecurityOfficer",
+            status_code=303,
+        )
+    if role == "operations_owner":
+        log_login("operations_owner", "OpsOwner", "Operations onboarding")
+        return RedirectResponse(
+            url="/mvp/onboarding?role=operations_owner&user=OpsOwner",
+            status_code=303,
+        )
+    if role == "ai_governance_owner":
+        log_login("ai_governance_owner", "AIGovOwner", "AI governance posture")
+        return RedirectResponse(
+            url="/mvp/ai-governance?role=ai_governance_owner&user=AIGovOwner",
+            status_code=303,
+        )
+    if role == "ai_sdlc_owner":
+        log_login("ai_sdlc_owner", "SDLCOwner", "AI SDLC home")
+        return RedirectResponse(
+            url="/mvp/ai-sdlc?role=ai_sdlc_owner&user=SDLCOwner",
+            status_code=303,
+        )
+    if role == "framework_owner":
+        log_login("framework_owner", "FrameworkOwner", "Framework administration")
+        return RedirectResponse(
+            url="/mvp/framework-admin?role=framework_owner&user=FrameworkOwner",
             status_code=303,
         )
 

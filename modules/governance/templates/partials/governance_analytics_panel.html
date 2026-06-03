@@ -1,12 +1,13 @@
 {% if governance_analytics is defined and governance_analytics and (role in ['cio','vertical_head','compliance_head','functional_head'] or show_governance|default(false)) %}
 {% set ga = governance_analytics %}
 {% set tips = ga.kpi_tooltips if ga.kpi_tooltips is defined else {} %}
+{% from "partials/ecs_ux_macros.html" import risk_controls_table, risk_applications_table %}
 <div class="ecs-governance-panel ecs-section-card mb-4">
 <div class="ecs-section-card-header">
 <h2 class="ecs-section-card-title">Enterprise Governance Analytics</h2>
 <span class="badge bg-secondary">Live · {{ ga.framework_coverage_label|default('Framework Implementation Coverage') }}</span>
 </div>
-<div class="card-body pt-0 px-0 pb-0">
+<div class="card-body pt-0 px-3 pb-3">
 <div class="ecs-exec-strip mb-3"><div class="ecs-exec-strip-scroll">
 <div class="ecs-exec-kpi ecs-exec-kpi-primary ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="audit_readiness" title="{{ tips.audit_readiness|default('Click for framework effectiveness') }}">
 <span class="ecs-exec-kpi-val">{{ ga.audit_readiness_pct }}%</span><span class="ecs-exec-kpi-lbl">Audit Readiness</span></div>
@@ -24,45 +25,34 @@
 <div class="ecs-exec-kpi ecs-exec-kpi-danger ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="open_findings" title="Click for open findings">
 <span class="ecs-exec-kpi-val">{{ ga.open_findings }}</span><span class="ecs-exec-kpi-lbl">Open Findings</span></div>
 {% endif %}
-{% if ga.operational_maturity.itpp_effectiveness is defined %}
-<div class="ecs-exec-kpi ecs-exec-kpi-primary ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="audit_readiness" title="ITPP effectiveness drilldown">
-<span class="ecs-exec-kpi-val">{{ ga.operational_maturity.itpp_effectiveness }}%</span><span class="ecs-exec-kpi-lbl">ITPP Effectiveness</span></div>
-<div class="ecs-exec-kpi ecs-exec-kpi-success ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="evidence_freshness" title="DR readiness drilldown">
-<span class="ecs-exec-kpi-val">{{ ga.operational_maturity.dr_readiness }}%</span><span class="ecs-exec-kpi-lbl">DR Readiness</span></div>
-{% endif %}
 </div></div>
-<div class="row g-3">
-<div class="col-lg-4">
-<h6 class="text-muted small">Top Risky Controls</h6>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table mb-0"><thead><tr><th>Framework</th><th>Control</th><th>Risk</th><th>Age</th></tr></thead><tbody>
-{% for r in ga.top_risky_controls[:8] %}
-<tr data-grc-drill data-grc-module="governance" data-grc-metric="high_risk_controls" data-grc-id="{{ r.control[:30] }}">
-<td>{{ r.framework }}</td><td class="small">{{ r.control[:36] }}</td><td><span class="badge bg-danger">{{ r.risk }}</span></td><td>{{ r.aging_days }}d</td></tr>
+
+{% if not hide_risk_tables|default(false) %}
+<div class="row g-3 mb-2">
+<div class="col-lg-6">
+<h6 class="text-muted small mb-2">Top Risk Applications</h6>
+{{ risk_applications_table(ga.top_risk_applications[:8] if ga.top_risk_applications is defined else [], 'ga-risk-apps') }}
+</div>
+<div class="col-lg-6">
+<h6 class="text-muted small mb-2">Top Risk Controls</h6>
+{{ risk_controls_table(ga.top_risky_controls[:8] if ga.top_risky_controls is defined else [], 'ga-risk-controls') }}
+</div>
+</div>
+{% endif %}
+
+{% if ga.control_effectiveness is defined and not hide_framework_bars|default(false) %}
+<div class="mt-2"><h6 class="text-muted small mb-2">Control Effectiveness by Framework</h6>
+<div class="ecs-framework-grid">
+{% for fw, pct in ga.control_effectiveness.items() %}
+<div class="ecs-framework-tile ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="framework" data-grc-id="{{ fw }}" role="button">
+<div class="ecs-insight-bar-label d-flex justify-content-between mb-1"><span>{{ fw }}</span><strong>{{ pct }}%</strong></div>
+<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-{% if pct >= 85 %}success{% elif pct >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ pct }}%"></div></div>
+</div>
 {% endfor %}
-</tbody></table></div>
-</div>
-<div class="col-lg-4">
-<h6 class="text-muted small">Control Effectiveness by Framework</h6>
-<div class="compact-chart-grid">{% for fw, pct in ga.control_effectiveness.items() %}
-<div class="ecs-insight-bar ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="framework" data-grc-id="{{ fw }}" role="button"><div class="ecs-insight-bar-label"><span>{{ fw }}</span><strong>{{ pct }}%</strong></div>
-<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-{% if pct >= 85 %}success{% elif pct >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ pct }}%"></div></div></div>
-{% endfor %}</div>
-</div>
-<div class="col-lg-4">
-<h6 class="text-muted small">Top Risk Applications</h6>
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table mb-0"><thead><tr><th>Application</th><th>Compliance</th><th>Obs</th><th>SLA</th><th>Risk</th></tr></thead><tbody>
-{% for a in ga.top_risk_applications[:8] if ga.top_risk_applications is defined %}
-<tr data-grc-drill data-grc-module="governance" data-grc-metric="application" data-grc-id="{{ a.application }}">
-<td><strong>{{ a.application }}</strong></td><td>{{ a.compliance_pct }}%</td><td>{{ a.open_observations }}</td><td>{{ a.sla_breaches|default(0) }}</td>
-<td><span class="badge {% if a.risk|default('') in ['Critical','High'] %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ a.risk|default('Elevated') }}</span></td></tr>
-{% else %}
-<tr><td colspan="5" class="text-muted small">No applications in scope</td></tr>
-{% endfor %}
-</tbody></table></div>
 </div>
 </div>
+{% endif %}
+
 {% if ga.most_reused_evidence %}
 <div class="mt-3"><h6 class="text-muted small">Most Reused Evidence (cross-framework)</h6>
 {% for r in ga.most_reused_evidence[:4] %}

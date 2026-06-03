@@ -3,26 +3,29 @@
 <head>
 <title>Vertical Head Dashboard</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% include "partials/enterprise_theme.html" %}
 </head>
 <body class="bg-light ecs-enterprise-body">
 <div class="container-fluid"><div class="row">
-{% set sidebar_brand = "ECS" %}
 {% set nav_active = "role_dashboard" %}
 {% include "partials/ecs_sidebar.html" %}
 <div class="col-md-10 ecs-main-content">
 
 <div class="ecs-page ecs-page-loaded ecs-page-content">
-{% from "partials/ecs_ux_macros.html" import kpi_card, accordion_section, zone_open, zone_close, role_label %}
+{% from "partials/ecs_ux_macros.html" import kpi_card, accordion_section, zone_open, zone_close, persona_profile, persona_tab_nav, risk_applications_table %}
 
 <div class="ecs-page-header mb-3">
 <div class="ecs-page-header-main"><h1 class="ecs-page-title mb-0">Vertical Head Dashboard</h1></div>
-<div class="ecs-page-header-meta">
-<span class="ecs-user-chip">{{ user }}</span>
-<span class="ecs-role-chip">{{ role_label(role) }}</span>
-</div>
+{{ persona_profile(persona) }}
 </div>
 
+{% set tabs = persona.tabs if persona is defined and persona.tabs else [] %}
+{{ persona_tab_nav(tabs, 'tab-overview') }}
+
+<div class="tab-content ecs-persona-tab-content">
+
+<div class="tab-pane fade show active ecs-persona-tab-pane" id="tab-overview" role="tabpanel">
 {{ zone_open('top', 'Executive Summary') }}
 <div class="row g-3 mb-2">
 {{ kpi_card('Compliance', analytics.overall_compliance_pct ~ '%', 'Enterprise control implementation coverage', 'success') }}
@@ -35,47 +38,48 @@
 {{ kpi_card('Frameworks', analytics.framework_stats|length, '', 'primary') }}
 </div>
 {{ zone_close() }}
+{% include "partials/executive_escalation_strip.html" %}
+{% include "partials/framework_compliance_overview.html" %}
+</div>
 
-{{ zone_open('middle', 'Governance & Leadership') }}
-{% set show_governance = true %}
-{% include "partials/governance_analytics_panel.html" %}
-{% include "partials/leadership_work_queue.html" %}
-{{ zone_close() }}
-
-{{ zone_open('bottom', 'Drill-Down') }}
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-applications" role="tabpanel">
 {% call accordion_section('Application Audit Health', 'vh-apps', comparison|length|string, false) %}
-<div class="table-responsive ecs-paginated-wrap ecs-table-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0">
-<thead><tr><th>Application</th><th>Compliance</th><th>Risk</th></tr></thead>
+{{ risk_applications_table(comparison, 'vh-apps-table') }}
+{% endcall %}
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-evidence" role="tabpanel">
+{% call accordion_section('Evidence Status Summary', 'vh-evidence', analytics.evidence_rows|length|string, false) %}
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
+<thead><tr><th class="col-fw">Framework</th><th class="col-control">Control</th><th class="col-status">Status</th></tr></thead>
 <tbody>
-{% for a in comparison %}
-<tr>
-<td><strong>{{ a.application }}</strong></td>
-<td>{{ a.compliance_pct }}%</td>
-<td><span class="ecs-severity-pill ecs-severity-{% if a.risk == 'High' %}high{% elif a.risk == 'Critical' %}critical{% else %}medium{% endif %}">{{ a.risk }}</span></td>
-</tr>
+{% for row in analytics.evidence_rows[:20] %}
+<tr><td>{{ row.framework }}</td><td><span class="ecs-cell-tip" title="{{ row.control }}">{{ row.control }}</span></td>
+<td>{% if row.status == 'approved' %}<span class="badge bg-success">Approved</span>{% elif row.status == 'rejected' %}<span class="badge bg-danger">Rejected</span>{% else %}<span class="badge bg-secondary">{{ row.status|title }}</span>{% endif %}</td></tr>
 {% endfor %}
 </tbody>
 </table>
 </div>
 {% endcall %}
+</div>
 
-{% call accordion_section('Framework Metrics', 'vh-fw', analytics.framework_stats|length|string, true) %}
-<div class="row g-2 mb-3">
-{% for f in analytics.framework_stats %}
-<div class="col-md-6 col-lg-4">
-<div class="ecs-insight-bar">
-<div class="ecs-insight-bar-label"><span><a href="/framework/{{f.name}}?role={{role}}&user={{user}}">{{ f.name }}</a></span><strong>{{ f.compliance_pct }}%</strong></div>
-<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill bg-{% if f.compliance_pct >= 85 %}success{% elif f.compliance_pct >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ f.compliance_pct }}%"></div></div>
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-frameworks" role="tabpanel">
+{% include "partials/framework_compliance_overview.html" %}
+{% set show_governance = true %}
+{% set hide_risk_tables = true %}
+{% include "partials/governance_analytics_panel.html" %}
 </div>
-</div>
-{% endfor %}
-</div>
-{% endcall %}
-{{ zone_close() }}
 
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-approvals" role="tabpanel">
+{% include "partials/pending_approvals_panel.html" %}
+{% set leadership_title = 'Vertical Head — Escalations & SLA' %}
+{% include "partials/leadership_work_queue.html" %}
+</div>
+
+</div>
 </div>
 </div></div></div>
 {% include "partials/chatbot_global.html" %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>if (window.ecsBindRiskTables) window.ecsBindRiskTables(document);</script>
 </body></html>

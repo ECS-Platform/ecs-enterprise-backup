@@ -1,0 +1,274 @@
+{# Trends analytics client — multi-series charts, KPI drilldowns, live filter refresh #}
+<script>
+(function(){
+  if (window.__ecsTrendsAnalyticsInit) return;
+  window.__ecsTrendsAnalyticsInit = true;
+
+  var PAGE = 'trends';
+  var role = '{{ role|default("cio")|e }}';
+  var OBS_CLOSURE_LABEL = 'Closed vs Newly Opened Rate';
+  var OBS_CLOSURE_TOOLTIP = 'Percentage of observations closed relative to newly opened observations during the selected period. Values above 100% indicate backlog reduction.';
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function drillKpi(metric, label, count) {
+    if (window.ecsOpenUniversalKpiDrill) {
+      ecsOpenUniversalKpiDrill(PAGE, metric, label, count || 0, '');
+    }
+  }
+
+  function drillChart(chart, element, count) {
+    if (window.ecsOpenUniversalChartDrill) {
+      ecsOpenUniversalChartDrill(PAGE, chart, element, count || 0);
+    }
+  }
+
+  function renderGroupedBars(containerId, series, metrics, chartId, opts) {
+    opts = opts || {};
+    var el = document.getElementById(containerId);
+    if (!el || !series || !series.length) return;
+    var html = '<div class="ecs-trend-grouped-chart">';
+    series.forEach(function(row) {
+      var period = row.label || row.month || '';
+      html += '<div class="ecs-trend-period-col">';
+      html += '<div class="ecs-trend-period-label">' + esc(period) + '</div>';
+      html += '<div class="ecs-trend-period-bars">';
+      metrics.forEach(function(m) {
+        var v = row[m.key] || 0;
+        var pct = row[m.pctKey] != null ? row[m.pctKey] : null;
+        var display = pct != null ? pct + '%' : (m.suffix === '%' ? v + '%' : v);
+        var drillElement = opts.periodDrill ? (period + '|' + m.key) : m.key;
+        var maxH = m.max || Math.max.apply(null, series.map(function(r){ return r[m.key] || 0; }).concat([1]));
+        html += '<div class="ecs-bar-col ecs-kpi-clickable" role="button" tabindex="0" ' +
+          'data-ecs-universal-chart data-ecs-universal-page="' + PAGE + '" ' +
+          'data-ecs-universal-chart-id="' + esc(chartId) + '" ' +
+          'data-ecs-universal-element="' + esc(drillElement) + '" ' +
+          'data-ecs-universal-count="' + esc(v) + '" ' +
+          'title="' + esc(m.label + ': ' + display) + '">' +
+          '<span class="ecs-bar-val">' + esc(String(display)) + '</span>' +
+          '<div class="ecs-bar-fill tone-' + esc(m.tone) + '" style="height:' + Math.max(8, Math.min(56, (pct != null ? pct : v) / maxH * 56)) + 'px"></div>' +
+          '<span class="ecs-bar-lbl">' + esc(m.short || m.label.substring(0, 4)) + '</span></div>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  window.ecsRenderObservationsGroupedChart = function(containerId, series, chartId) {
+    var legendId = (containerId || 'ecsTrendObsChart') + 'Legend';
+    var leg = document.getElementById(legendId);
+    if (leg) {
+      leg.innerHTML = '<span class="ecs-obs-legend-item"><span class="ecs-obs-swatch tone-blue"></span> Opened Observations</span>' +
+        '<span class="ecs-obs-legend-item"><span class="ecs-obs-swatch tone-green"></span> Closed Observations</span>';
+    }
+    renderGroupedBars(containerId || 'ecsTrendObsChart', series || [], [
+      { key: 'opened', label: 'Opened Observations', short: 'Open', tone: 'blue' },
+      { key: 'closed', label: 'Closed Observations', short: 'Clsd', tone: 'green' }
+    ], chartId || 'observations', { periodDrill: true });
+  };
+
+  function renderHorizontalMetrics(containerId, items, chartId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = (items || []).map(function(it) {
+      return '<div class="ecs-insight-bar mb-1 ecs-kpi-clickable" role="button" tabindex="0" ' +
+        'data-ecs-universal-chart data-ecs-universal-page="' + PAGE + '" ' +
+        'data-ecs-universal-chart-id="' + esc(chartId) + '" ' +
+        'data-ecs-universal-element="' + esc(it.key || it.label) + '" ' +
+        'data-ecs-universal-count="' + esc(it.value) + '">' +
+        '<div class="ecs-insight-bar-label"><span>' + esc(it.label) + '</span><span>' + esc(it.value) + (it.suffix || '') + '</span></div>' +
+        '<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-' + esc(it.tone || 'blue') + '" style="width:' + Math.min(100, it.barPct || it.value) + '%"></div></div></div>';
+    }).join('');
+  }
+
+  function renderReasons(containerId, reasons) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = (reasons || []).map(function(r) {
+      return '<div class="ecs-reason-row ecs-kpi-clickable" role="button" tabindex="0" ' +
+        'data-ecs-universal-chart data-ecs-universal-page="' + PAGE + '" ' +
+        'data-ecs-universal-chart-id="rejections" data-ecs-universal-element="' + esc(r.reason) + '" ' +
+        'data-ecs-universal-count="' + esc(r.pct) + '">' +
+        '<strong>' + esc(r.reason) + '</strong> — ' + esc(r.pct) + '% <span class="text-muted">' + esc(r.tooltip || '') + '</span></div>';
+    }).join('');
+  }
+
+  function renderFrameworkContrib(containerId, rows) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = '<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-compact-table mb-0"><thead><tr>' +
+      '<th>Framework</th><th>Implemented</th><th>Total</th><th>Coverage</th></tr></thead><tbody>' +
+      (rows || []).map(function(r) {
+        return '<tr class="ecs-kpi-clickable" role="button" tabindex="0" data-ecs-universal-kpi data-ecs-universal-page="' + PAGE + '" ' +
+          'data-ecs-universal-metric="implementation_coverage" data-ecs-universal-label="' + esc(r.framework) + '" ' +
+          'data-ecs-universal-count="' + esc(r.coverage_pct) + '">' +
+          '<td>' + esc(r.framework) + '</td><td>' + esc(r.implemented_controls.toLocaleString()) + '</td>' +
+          '<td>' + esc(r.total_controls.toLocaleString()) + '</td><td>' + esc(r.coverage_pct) + '%</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function renderQuarterly(containerId, rows) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    if (window.ecsRenderCompactBarChart) {
+      ecsRenderCompactBarChart(el, (rows || []).map(function(r) {
+        return { label: r.quarter.split(' ')[0], value: r.coverage_pct, suffix: '%', tone: 'green' };
+      }), { maxHeight: 56 });
+      el.querySelectorAll('.ecs-bar-col').forEach(function(bar) {
+        bar.setAttribute('data-ecs-universal-chart', '');
+        bar.setAttribute('data-ecs-universal-page', PAGE);
+        bar.setAttribute('data-ecs-universal-chart-id', 'quarterly_coverage');
+        bar.setAttribute('data-ecs-universal-element', bar.querySelector('.ecs-bar-lbl')?.textContent || '');
+      });
+    }
+  }
+
+  function updateObsClosure(tab, intel) {
+    var obsClosure = document.getElementById('ecsTrendObsClosure');
+    if (!obsClosure) return;
+    var pct = tab.closure_rate_pct != null ? tab.closure_rate_pct : (intel.observations && intel.observations.closure_rate_pct);
+    var label = tab.closure_rate_label || (intel.observations && intel.observations.closure_rate_label) || OBS_CLOSURE_LABEL;
+    var tip = tab.closure_rate_tooltip || (intel.observations && intel.observations.closure_rate_tooltip) || OBS_CLOSURE_TOOLTIP;
+    obsClosure.textContent = label + ' ' + (pct != null ? pct : '—') + '%';
+    obsClosure.setAttribute('title', tip);
+  }
+
+  function renderIntel(data) {
+    var intel = data.intel || data;
+    var tab = intel.trends_payload || {};
+    var totals = tab.control_totals || intel.implementation_coverage || {};
+    var kpis = data.kpis || intel.executive_kpis || [];
+
+    var kpiRow = document.getElementById('ecsTrendKpiRow');
+    if (kpiRow && kpis.length) {
+      kpiRow.innerHTML = kpis.map(function(k) {
+        var count = String(k.value).replace(/[^0-9.]/g, '') || '0';
+        return '<div class="ecs-exec-kpi ecs-exec-kpi-' + esc(k.tone || 'primary') + ' ecs-kpi-clickable" role="button" tabindex="0" ' +
+          'data-ecs-universal-kpi data-ecs-universal-page="' + PAGE + '" ' +
+          'data-ecs-universal-metric="' + esc(k.drill || k.label.toLowerCase().replace(/[^a-z0-9]+/g, '_')) + '" ' +
+          'data-ecs-universal-label="' + esc(k.label) + '" data-ecs-universal-count="' + esc(count) + '" ' +
+          'title="' + esc(k.tooltip || '') + '">' +
+          '<span class="ecs-exec-kpi-val">' + esc(k.value) + '</span>' +
+          '<span class="ecs-exec-kpi-lbl">' + esc(k.label) + '</span></div>';
+      }).join('');
+    }
+
+    var covSummary = document.getElementById('ecsTrendCoverageSummary');
+    if (covSummary && totals.implemented_controls) {
+      covSummary.innerHTML = '<span><strong>Implemented Controls:</strong> ' + totals.implemented_controls.toLocaleString() + '</span> ' +
+        '<span><strong>Total Controls:</strong> ' + totals.total_controls.toLocaleString() + '</span> ' +
+        '<span><strong>Coverage:</strong> ' + totals.coverage_pct + '%</span>';
+    }
+
+    renderGroupedBars('ecsTrendCoverageChart', tab.coverage_series || [], [
+      { key: 'implemented', pctKey: 'pct_implemented', label: 'Implemented Controls', short: 'Impl', tone: 'green', max: 100 },
+      { key: 'missing', pctKey: 'pct_missing', label: 'Missing Controls', short: 'Miss', tone: 'red', max: 100 },
+      { key: 'pending', pctKey: 'pct_pending', label: 'Pending Controls', short: 'Pend', tone: 'orange', max: 100 }
+    ], 'coverage');
+
+    ecsRenderObservationsGroupedChart('ecsTrendObsChart', tab.observations_series || [], 'observations');
+    updateObsClosure(tab, intel);
+
+    renderGroupedBars('ecsTrendRejChart', tab.rejections_series || [], [
+      { key: 'submitted', label: 'Evidence Submitted', short: 'Sub', tone: 'blue', max: 200 },
+      { key: 'rejected', label: 'Evidence Rejected', short: 'Rej', tone: 'red', max: 30 },
+      { key: 'rate_pct', label: 'Rejection %', short: '%', tone: 'orange', max: 15, suffix: '%' }
+    ], 'rejections');
+
+    renderReasons('ecsTrendRejReasons', tab.rejection_reasons || intel.rejection_rate?.top_reasons);
+
+    renderGroupedBars('ecsTrendSlaChart', tab.sla_series || [], [
+      { key: 'within_sla_pct', label: 'Within SLA', short: 'SLA', tone: 'green', max: 100, suffix: '%' },
+      { key: 'near_breach', label: 'Near Breach', short: 'Near', tone: 'orange', max: 20 },
+      { key: 'breached', label: 'Breached', short: 'Brch', tone: 'red', max: 20 }
+    ], 'sla');
+
+    renderHorizontalMetrics('ecsTrendSlaViolators', (tab.sla_violators || []).map(function(a) {
+      return { label: a.application, value: a.breaches, suffix: ' breaches', tone: 'red', barPct: Math.min(100, a.breaches * 12), key: a.application };
+    }), 'sla');
+
+    renderFrameworkContrib('ecsTrendFwContrib', tab.framework_contributions);
+    renderQuarterly('ecsTrendQuarterly', tab.quarterly_coverage);
+
+    var ext = intel.extended_trends || {};
+    if (window.ecsRenderCompactBarChart) {
+      [
+        ['ecsTrendWeeklyCtrl', ext.weekly_control_growth, 'weekly_control_growth'],
+        ['ecsTrendStale', ext.stale_evidence_trend, 'stale_evidence']
+      ].forEach(function(pair) {
+        var cid = pair[0], series = pair[1] || [], chartId = pair[2];
+        var el = document.getElementById(cid);
+        if (!el || !series.length) return;
+        var opts = el.classList.contains('ecs-aging-bar-chart') && window.ecsExecutiveTrendBarOpts
+          ? window.ecsExecutiveTrendBarOpts(chartId, PAGE)
+          : { maxHeight: 56 };
+        ecsRenderCompactBarChart(cid, series.map(function(s) {
+          return { label: s.label, value: s.value, tone: s.tone || (chartId === 'stale_evidence' ? 'slate' : 'teal') };
+        }), opts);
+      });
+    }
+
+    var tb = document.getElementById('ecsTrendRiskAppsBody');
+    if (tb && intel.top_risk_applications) {
+      tb.innerHTML = intel.top_risk_applications.map(function(a) {
+        return '<tr data-ecs-universal-row data-ecs-universal-page="' + PAGE + '" data-ecs-universal-type="application" data-ecs-universal-id="' + esc(a.application) + '">' +
+          '<td>' + esc(a.application) + '</td><td>' + a.compliance_pct + '%</td><td>' + esc(a.risk || 'Elevated') + '</td>' +
+          '<td>' + a.open_observations + '</td><td>' + (a.high_risk_gaps || 0) + '</td></tr>';
+      }).join('') || '<tr><td colspan="5" class="text-muted small">No applications in scope.</td></tr>';
+      if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+    }
+
+    var sum = document.getElementById('ecsAnalyticsFilterSummary');
+    if (sum) sum.textContent = 'Scope: ' + (data.scope_summary || intel.scope_summary || 'Enterprise-wide');
+  }
+
+  function filterParams() {
+    var form = document.querySelector('.ecs-analytics-filter-bar');
+    if (!form) return '';
+    var fd = new FormData(form);
+    var p = new URLSearchParams();
+    fd.forEach(function(v, k) { if (v) p.set(k, v); });
+    return p.toString();
+  }
+
+  function refreshIntel() {
+    var qs = filterParams();
+    if (!qs) return;
+    fetch('/mvp/api/analytics-intel?' + qs).then(function(r){ return r.json(); }).then(renderIntel).catch(function(){});
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, '', window.location.pathname + '?' + qs);
+    }
+  }
+
+  window.ecsRefreshAnalyticsIntel = refreshIntel;
+  window.ecsRenderTrendsIntel = renderIntel;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('.ecs-analytics-filter-bar');
+    if (form) {
+      form.dataset.ecsLiveAnalytics = '1';
+      form.querySelectorAll('select').forEach(function(sel) {
+        sel.addEventListener('change', function(e) { e.preventDefault(); refreshIntel(); });
+      });
+    }
+    var init = document.getElementById('ecsAnalyticsIntelDataset');
+    if (init) {
+      try { renderIntel(JSON.parse(init.textContent || '{}')); } catch (e) {}
+    }
+  });
+})();
+</script>
+<style>
+.ecs-trend-grouped-chart { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; }
+.ecs-trend-period-col { min-width: 72px; text-align: center; }
+.ecs-trend-period-label { font-size: 0.58rem; font-weight: 700; color: #64748b; margin-bottom: 0.2rem; }
+.ecs-trend-period-bars { display: flex; gap: 3px; justify-content: center; align-items: flex-end; min-height: 72px; }
+.ecs-trend-period-bars .ecs-bar-col { cursor: pointer; }
+.ecs-obs-legend { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; font-size: 0.68rem; color: #475569; margin-bottom: 0.35rem; }
+.ecs-obs-legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.ecs-obs-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.ecs-obs-swatch.tone-blue { background: #3b82f6; }
+.ecs-obs-swatch.tone-green { background: #22c55e; }
+.chart-kpi-inline[title] { cursor: help; text-decoration: underline dotted; text-underline-offset: 2px; }
+</style>

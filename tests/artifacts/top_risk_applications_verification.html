@@ -3971,6 +3971,7 @@ body.bg-light {
 })();
 </script>
 
+
 <div class="modal fade" id="ecsUniversalDrillModal" tabindex="-1" aria-hidden="true">
 <div class="modal-dialog modal-xl modal-dialog-scrollable">
 <div class="modal-content">
@@ -3983,242 +3984,7 @@ body.bg-light {
 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
 </div>
 </div></div></div>
-<script>
-(function(){
-  if (window.__ecsUniversalDrillInit) return;
-
-  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
-  function parseCount(text){
-    var m = String(text || '').replace(/,/g,'').match(/(\d+)/);
-    return m ? parseInt(m[1], 10) : 0;
-  }
-  function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); }
-  function pageScope(){
-    var p = (window.location.pathname || '').replace(/^\//,'').split('/')[0] || 'dashboard';
-    if (window.location.pathname.indexOf('/mvp/') === 0) {
-      return window.location.pathname.replace('/mvp/','').split('/')[0] || 'mvp';
-    }
-    if (window.location.pathname.indexOf('/framework/') === 0) return 'framework';
-    if (window.location.pathname.indexOf('/dashboard') === 0) return 'dashboard';
-    return p;
-  }
-
-  function tableHtml(rows, cols, wrapClass) {
-    if (!rows || !rows.length) return '<p class="text-muted mb-0">No supporting records.</p>';
-    var h = '<div class="ecs-kpi-drill-toolbar mb-2">' +
-      '<input type="search" class="form-control form-control-sm ecs-kpi-drill-search" placeholder="Search records…">' +
-      '<div class="text-muted small mt-1 ecs-kpi-drill-count">' + rows.length + ' records</div></div>';
-    h += '<div class="table-responsive ecs-paginated-wrap ecs-fit-view ecs-kpi-drill-table-wrap ' + (wrapClass||'') + '"><table class="table table-sm ecs-paginated-table ecs-compact-table ecs-force-paginate mb-0"><thead><tr>';
-    cols.forEach(function(c){ h += '<th>' + esc(c.replace(/_/g,' ')) + '</th>'; });
-    h += '</tr></thead><tbody>';
-    rows.forEach(function(r){
-      h += '<tr>';
-      cols.forEach(function(c){ h += '<td>' + esc(r[c]) + '</td>'; });
-      h += '</tr>';
-    });
-    return h + '</tbody></table></div>';
-  }
-
-  function detailHtml(detail) {
-    if (!detail) return '';
-    var h = '<div class="row g-2 mb-3">';
-    Object.keys(detail).forEach(function(k){
-      if (typeof detail[k] === 'object') return;
-      h += '<div class="col-md-3"><div class="text-muted small">' + esc(k.replace(/_/g,' ')) + '</div><strong>' + esc(detail[k]) + '</strong></div>';
-    });
-    return h + '</div>';
-  }
-
-  function sectionsHtml(sections) {
-    if (!sections) return '';
-    var h = '';
-    Object.keys(sections).forEach(function(name){
-      var rows = sections[name];
-      if (!rows || !rows.length) return;
-      var cols = Object.keys(rows[0]);
-      h += '<h6 class="text-muted small text-uppercase mt-3 mb-1">' + esc(name.replace(/_/g,' ')) + '</h6>';
-      h += tableHtml(rows, cols);
-    });
-    return h;
-  }
-
-  function attachSearch(bodyEl) {
-    var input = bodyEl.querySelector('.ecs-kpi-drill-search');
-    var table = bodyEl.querySelector('.ecs-kpi-drill-table-wrap table');
-    var countEl = bodyEl.querySelector('.ecs-kpi-drill-count');
-    if (!input || !table || !table.tBodies.length) return;
-    input.addEventListener('input', function(){
-      var q = input.value.trim().toLowerCase();
-      var visible = 0;
-      Array.from(table.tBodies[0].rows).forEach(function(tr){
-        var match = !q || tr.textContent.toLowerCase().indexOf(q) >= 0;
-        tr.style.display = match ? '' : 'none';
-        if (match) visible++;
-      });
-      if (countEl) countEl.textContent = q ? (visible + ' matching records') : (table.tBodies[0].rows.length + ' records');
-      if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
-    });
-  }
-
-  function showModal(title, html) {
-    var modalEl = document.getElementById('ecsUniversalDrillModal');
-    var titleEl = document.getElementById('ecsUniversalDrillTitle');
-    var bodyEl = document.getElementById('ecsUniversalDrillBody');
-    if (!modalEl || !bodyEl || typeof bootstrap === 'undefined') return;
-    titleEl.textContent = title || 'Detail';
-    bodyEl.innerHTML = html;
-    attachSearch(bodyEl);
-    if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
-    bootstrap.Modal.getOrCreateInstance(modalEl).show();
-  }
-
-  function renderResponse(j, title) {
-    if (!j.ok) { showModal(title, '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'); return; }
-    var meta = '';
-    if (j.trace_count) meta += '<span class="badge bg-info text-dark me-1">Trace: ' + j.trace_count + ' displayed</span>';
-    if (j.row_count) meta += '<span class="badge bg-secondary">' + j.row_count + ' supporting records</span>';
-    var html = detailHtml(j.detail);
-    if (meta) html += '<p class="mb-2">' + meta + '</p>';
-    html += tableHtml(j.rows, j.columns || ['application','framework','control','owner','status','evidence']);
-    html += sectionsHtml(j.sections);
-    showModal(j.title || title, html);
-  }
-
-  function fetchJson(url, title) {
-    var bodyEl = document.getElementById('ecsUniversalDrillBody');
-    if (bodyEl) bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
-    var modalEl = document.getElementById('ecsUniversalDrillModal');
-    if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    fetch(url).then(function(r){ return r.json(); }).then(function(j){ renderResponse(j, title); })
-      .catch(function(){ showModal(title, '<p class="text-danger">Request failed.</p>'); });
-  }
-
-  window.ecsOpenUniversalKpiDrill = function(page, metric, label, count, framework) {
-    var url = '/api/ecs/universal-drill?scope=kpi&page=' + encodeURIComponent(page||'') +
-      '&metric=' + encodeURIComponent(metric||'') + '&count=' + encodeURIComponent(count||0) +
-      '&framework=' + encodeURIComponent(framework||'') + '&label=' + encodeURIComponent(label||'');
-    fetchJson(url, label || metric);
-  };
-
-  window.ecsOpenUniversalRowDrill = function(page, rowType, rowId, framework) {
-    fetchJson('/api/ecs/universal-drill?scope=row&page=' + encodeURIComponent(page||'') +
-      '&type=' + encodeURIComponent(rowType||'') + '&id=' + encodeURIComponent(rowId||'') +
-      '&framework=' + encodeURIComponent(framework||''), rowType + ': ' + rowId);
-  };
-
-  window.ecsOpenUniversalChartDrill = function(page, chart, element, count) {
-    fetchJson('/api/ecs/universal-drill?scope=chart&page=' + encodeURIComponent(page||'') +
-      '&chart=' + encodeURIComponent(chart||'') + '&element=' + encodeURIComponent(element||'') +
-      '&count=' + encodeURIComponent(count||0), chart + ' — ' + element);
-  };
-
-  window.ecsOpenEnterpriseWorkflowDrill = function(metric, label, count) {
-    fetchJson('/api/ecs/workflow-drill?metric=' + encodeURIComponent(metric||'') +
-      '&count=' + encodeURIComponent(count||0) + '&role=' + encodeURIComponent('cio'),
-      label || metric);
-  };
-
-  function bindExplicit() {
-    document.addEventListener('click', function(e){
-      if (e.target.closest('[data-ecs-framework-kpi],[data-ecs-framework-wf-drill],[data-ecs-framework-row-drill],[data-ecs-module-kpi],[data-grc-drill],[data-ecs-demo-kpi],[data-aisdlc-drill],[data-ct-drill]')) return;
-      var uk = e.target.closest('[data-ecs-universal-kpi]');
-      if (uk) {
-        e.preventDefault();
-        ecsOpenUniversalKpiDrill(uk.getAttribute('data-ecs-universal-page'), uk.getAttribute('data-ecs-universal-metric'),
-          uk.getAttribute('data-ecs-universal-label'), uk.getAttribute('data-ecs-universal-count'), uk.getAttribute('data-ecs-universal-framework'));
-        return;
-      }
-      var ew = e.target.closest('[data-ecs-enterprise-wf-drill]');
-      if (ew) {
-        e.preventDefault();
-        ecsOpenEnterpriseWorkflowDrill(ew.getAttribute('data-ecs-enterprise-wf-metric'), ew.getAttribute('data-ecs-enterprise-wf-label'), ew.getAttribute('data-ecs-enterprise-wf-count'));
-        return;
-      }
-      var ur = e.target.closest('[data-ecs-universal-row]');
-      if (ur) {
-        if (e.target.closest('a, button, .dropdown-menu, .ecs-sticky-actions, .btn')) return;
-        e.preventDefault();
-        ecsOpenUniversalRowDrill(ur.getAttribute('data-ecs-universal-page'), ur.getAttribute('data-ecs-universal-type'), ur.getAttribute('data-ecs-universal-id'), ur.getAttribute('data-ecs-universal-framework'));
-        return;
-      }
-      var ch = e.target.closest('[data-ecs-universal-chart]');
-      if (ch) {
-        e.preventDefault();
-        ecsOpenUniversalChartDrill(
-          ch.getAttribute('data-ecs-universal-page'),
-          ch.getAttribute('data-ecs-universal-chart-id') || ch.getAttribute('data-ecs-universal-chart'),
-          ch.getAttribute('data-ecs-universal-element'),
-          ch.getAttribute('data-ecs-universal-count'));
-      }
-    });
-  }
-
-  function autoWireKpis() {
-    var page = pageScope();
-    document.querySelectorAll('.ecs-kpi-modern, .ecs-wf-counter, .ecs-wf-analytic-card, .ecs-wf-queue-pill').forEach(function(el){
-      if (el.hasAttribute('data-ecs-universal-kpi') || el.hasAttribute('data-ecs-module-kpi') || el.hasAttribute('data-grc-drill') ||
-          el.hasAttribute('data-ecs-framework-kpi') || el.hasAttribute('data-ecs-framework-wf-drill') || el.hasAttribute('data-ecs-enterprise-wf-drill') ||
-          el.hasAttribute('data-ecs-demo-kpi') || el.hasAttribute('data-aisdlc-drill')) return;
-      var valEl = el.querySelector('.ecs-kpi-value, .ecs-wf-counter-val, .ecs-wf-analytic-val, .ecs-exec-kpi-val') || el;
-      var lblEl = el.querySelector('.ecs-kpi-label, .ecs-wf-counter-lbl, .ecs-wf-analytic-lbl, .ecs-exec-kpi-lbl');
-      var count = parseCount(valEl.textContent);
-      if (!count && !lblEl) return;
-      el.classList.add('ecs-kpi-clickable');
-      el.setAttribute('data-ecs-universal-kpi', '');
-      el.setAttribute('data-ecs-universal-page', page);
-      el.setAttribute('data-ecs-universal-metric', slug(lblEl ? lblEl.textContent : valEl.textContent));
-      el.setAttribute('data-ecs-universal-label', lblEl ? lblEl.textContent.trim() : 'Detail');
-      el.setAttribute('data-ecs-universal-count', String(count || 25));
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      el.setAttribute('title', 'Click for supporting records');
-    });
-  }
-
-  function autoWireTables() {
-    var page = pageScope();
-    document.querySelectorAll('.ecs-paginated-table tbody tr, .ecs-table-modern tbody tr, .ecs-compact-table tbody tr').forEach(function(tr, idx){
-      if (tr.hasAttribute('data-ecs-universal-row') || tr.hasAttribute('data-ecs-framework-row-drill') || tr.querySelector('th')) return;
-      if (tr.cells.length < 2) return;
-      var idCell = tr.cells[0];
-      var rowId = (idCell.textContent || '').trim().split('\n')[0].slice(0, 80) || ('row-' + idx);
-      tr.classList.add('ecs-drill-row-clickable');
-      tr.setAttribute('data-ecs-universal-row', '');
-      tr.setAttribute('data-ecs-universal-page', page);
-      tr.setAttribute('data-ecs-universal-type', 'record');
-      tr.setAttribute('data-ecs-universal-id', rowId);
-      tr.setAttribute('title', 'Click for full detail');
-    });
-  }
-
-  function autoWireCharts() {
-    var page = pageScope();
-    document.querySelectorAll('.ecs-trend-bar-fill, .demo-heat-cell, .ecs-insight-bar, .ecs-chart-bar, [data-ecs-chart-point]').forEach(function(el, idx){
-      if (el.hasAttribute('data-ecs-universal-chart')) return;
-      el.setAttribute('data-ecs-universal-chart', '');
-      el.setAttribute('data-ecs-universal-page', page);
-      el.setAttribute('data-ecs-universal-chart-id', el.closest('[data-chart-id]')?.getAttribute('data-chart-id') || 'chart');
-      el.setAttribute('data-ecs-universal-element', el.getAttribute('title') || el.textContent.trim() || ('point-' + idx));
-      el.setAttribute('data-ecs-universal-count', String(parseCount(el.textContent) || 25));
-      el.style.cursor = 'pointer';
-      el.setAttribute('title', (el.getAttribute('title') || 'Chart point') + ' — click for records');
-    });
-  }
-
-  function init() {
-    if (typeof bootstrap === 'undefined') { setTimeout(init, 40); return; }
-    window.__ecsUniversalDrillInit = true;
-    bindExplicit();
-    autoWireKpis();
-    autoWireTables();
-    autoWireCharts();
-    document.addEventListener('ecsDrillTabSwitch', function(){ setTimeout(function(){ autoWireTables(); autoWireCharts(); }, 60); });
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-})();
-</script>
+<script src="/static/ecs/js/drilldown_engine.js"></script>
 
 <script>
 (function(){
@@ -7715,27 +7481,27 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div class="ecs-chat-history" id="ecsChatHistory">
 
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">09:30 UTC · You</small><div>@outage-mode:net_banking:executive</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:executive</div></div>
 <div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Executive View] — Net Banking
 See detailed response in copilot panel.</div></div>
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">09:30 UTC · You</small><div>@outage-mode:net_banking:audit</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:audit</div></div>
 <div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Audit View] — Net Banking
 See detailed response in copilot panel.</div></div>
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">09:30 UTC · You</small><div>@outage-mode:net_banking:compliance</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:compliance</div></div>
 <div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Compliance View] — Net Banking
 See detailed response in copilot panel.</div></div>
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">09:30 UTC · You</small><div>@outage-mode:net_banking:evidence</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:evidence</div></div>
 <div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Evidence View] — Net Banking
 See detailed response in copilot panel.</div></div>
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">09:30 UTC · You</small><div>@outage-mode:net_banking:incident</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:incident</div></div>
 <div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Incident View] — Net Banking
 See detailed response in copilot panel.</div></div>
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">09:30 UTC · You</small><div>@outage-mode:net_banking:root_cause</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:root_cause</div></div>
 <div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Root_Cause View] — Net Banking
 See detailed response in copilot panel.</div></div>
 

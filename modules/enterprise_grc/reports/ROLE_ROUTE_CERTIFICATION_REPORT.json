@@ -1,0 +1,2218 @@
+{
+  "certification": "FAIL",
+  "certification_type": "FULL_ROLE_ROUTE_MATRIX",
+  "summary": {
+    "total_cells": 880,
+    "tested": 880,
+    "not_tested": 0,
+    "pass": 668,
+    "fail": 212,
+    "roles": 11,
+    "routes": 80
+  },
+  "issues_fixed_this_run": [],
+  "failures": [
+    {
+      "role": "CIO",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (141 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Governance",
+      "route": "/mvp/workflow/upload-missing",
+      "screen": "Upload Missing Workflow",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "CIO",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (129 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Governance",
+      "route": "/mvp/workflow/upload-missing",
+      "screen": "Upload Missing Workflow",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "Vertical Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard",
+      "screen": "Main Dashboard",
+      "issues": [
+        "Large unpaginated table (81 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (87 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "Application Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Executive Overview",
+      "route": "/dashboard",
+      "screen": "Main Dashboard",
+      "issues": [
+        "Large unpaginated table (80 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (141 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Governance",
+      "route": "/mvp/workflow/upload-missing",
+      "screen": "Upload Missing Workflow",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "Auditor",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (141 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Governance",
+      "route": "/mvp/workflow/upload-missing",
+      "screen": "Upload Missing Workflow",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "Compliance Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (141 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Governance",
+      "route": "/mvp/workflow/upload-missing",
+      "screen": "Upload Missing Workflow",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "Security Officer",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (60 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Governance",
+      "route": "/mvp/workflow/upload-missing",
+      "screen": "Upload Missing Workflow",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "Functional Head",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Operations",
+      "route": "/mvp/upload",
+      "screen": "Bulk Upload",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Operations",
+      "route": "/mvp/bulk-upload",
+      "screen": "Bulk Upload Hub",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (141 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "Operations Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (141 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Governance",
+      "route": "/mvp/workflow/upload-missing",
+      "screen": "Upload Missing Workflow",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "Framework Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (141 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Governance",
+      "route": "/mvp/workflow/upload-missing",
+      "screen": "Upload Missing Workflow",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Enterprise GRC",
+      "route": "/mvp/risk-register",
+      "screen": "Risk Register",
+      "issues": [
+        "Large unpaginated table (43 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/requirements",
+      "screen": "Requirements",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/design",
+      "screen": "Design",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/development",
+      "screen": "Development",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/testing",
+      "screen": "Testing",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/golive",
+      "screen": "Go-Live",
+      "issues": [
+        "Large unpaginated table (49 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/evidence",
+      "screen": "Evidence Collection",
+      "issues": [
+        "Large unpaginated table (61 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/findings",
+      "screen": "Findings & Remediation",
+      "issues": [
+        "Large unpaginated table (46 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-governance",
+      "screen": "AI Governance",
+      "issues": [
+        "Large unpaginated table (145 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-registry",
+      "screen": "AI Registry",
+      "issues": [
+        "Large unpaginated table (55 rows)"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "Evidence",
+      "route": "/evidence/review",
+      "screen": "Evidence Review",
+      "issues": [
+        "HTTP 422"
+      ]
+    },
+    {
+      "role": "AI Governance Owner",
+      "module": "AI SDLC Governance",
+      "route": "/mvp/ai-sdlc/reports/app-compliance",
+      "screen": "AI SDLC Report Detail",
+      "issues": [
+        "Large unpaginated table (73 rows)"
+      ]
+    },
+    {
+      "role": "AI SDLC Governance Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/cio",
+      "screen": "CIO Evidence Analytics",
+      "issues": [
+        "Large unpaginated table (1413 rows)"
+      ]
+    },
+    {
+      "role": "AI SDLC Governance Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/vertical-head",
+      "screen": "Vertical Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "AI SDLC Governance Owner",
+      "module": "Executive Overview",
+      "route": "/dashboard/functional-head",
+      "screen": "Functional Head Dashboard",
+      "issues": [
+        "Large unpaginated table (41 rows)"
+      ]
+    },
+    {
+      "role": "AI SDLC Governance Owner",
+      "module": "Operations",
+      "route": "/mvp/upload",
+      "screen": "Bulk Upload",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "AI SDLC Governance Owner",
+      "module": "Operations",
+      "route": "/mvp/bulk-upload",
+      "screen": "Bulk Upload Hub",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    },
+    {
+      "role": "AI SDLC Governance Owner",
+      "module": "Governance",
+      "route": "/mvp/audit-prep",
+      "screen": "Audit Prep",
+      "issues": [
+        "Large unpaginated table (64 rows)"
+      ]
+    },
+    {
+      "role": "AI SDLC Governance Owner",
+      "module": "Governance",
+      "route": "/mvp/evidence-health",
+      "screen": "Evidence Health",
+      "issues": [
+        "Large unpaginated table (141 rows)"
+      ]
+    },
+    {
+      "role": "AI SDLC Governance Owner",
+      "module": "Governance",
+      "route": "/mvp/reuse",
+      "screen": "Evidence Reuse",
+      "issues": [
+        "Large unpaginated table (121 rows)"
+      ]
+    }
+  ],
+  "matrix_sample": [
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/dashboard",
+      "Screen": "Main Dashboard",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/dashboard/cio",
+      "Screen": "CIO Evidence Analytics",
+      "Issue Found": "Large unpaginated table (1413 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/dashboard/vertical-head",
+      "Screen": "Vertical Head Dashboard",
+      "Issue Found": "Large unpaginated table (41 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/dashboard/compliance-head",
+      "Screen": "Compliance Dashboard",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/dashboard/functional-head",
+      "Screen": "Functional Head Dashboard",
+      "Issue Found": "Large unpaginated table (41 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/mvp/demo-overview",
+      "Screen": "Demo Overview",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/mvp/enterprise",
+      "Screen": "Enterprise",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/mvp/pan-india",
+      "Screen": "Pan India",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/mvp/reports",
+      "Screen": "Reports",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Executive Overview",
+      "Route": "/mvp/trends",
+      "Screen": "Trends",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Frameworks",
+      "Route": "/mvp/framework-loader",
+      "Screen": "Framework Loader",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Frameworks",
+      "Route": "/mvp/framework-admin",
+      "Screen": "Framework Administration",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Operations",
+      "Route": "/mvp/scheduler",
+      "Screen": "Scheduler",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Operations",
+      "Route": "/mvp/ai-ops-assistant",
+      "Screen": "AI Ops Assistant",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Operations",
+      "Route": "/mvp/upload",
+      "Screen": "Bulk Upload",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Operations",
+      "Route": "/mvp/bulk-upload",
+      "Screen": "Bulk Upload Hub",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Operations",
+      "Route": "/mvp/integrations",
+      "Screen": "Integrations",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Operations",
+      "Route": "/mvp/onboarding",
+      "Screen": "Onboarding",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Operations",
+      "Route": "/mvp/integrations-hub",
+      "Screen": "Integrations Hub",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/audit-prep",
+      "Screen": "Audit Prep",
+      "Issue Found": "Large unpaginated table (64 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/evidence-health",
+      "Screen": "Evidence Health",
+      "Issue Found": "Large unpaginated table (141 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/reuse",
+      "Screen": "Evidence Reuse",
+      "Issue Found": "Large unpaginated table (121 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/lifecycle",
+      "Screen": "Lifecycle",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/completeness",
+      "Screen": "Completeness",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/comparison",
+      "Screen": "App Comparison",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/search",
+      "Screen": "Search",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/evidence-approval",
+      "Screen": "Evidence Approval Analytics",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/workflow/close-gap",
+      "Screen": "Close Gap Workflow",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/workflow/assign-owner",
+      "Screen": "Assign Owner Workflow",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/workflow/upload-missing",
+      "Screen": "Upload Missing Workflow",
+      "Issue Found": "Large unpaginated table (64 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Governance",
+      "Route": "/mvp/workflow/mock-audit",
+      "Screen": "Mock Audit",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/risk-register",
+      "Screen": "Risk Register",
+      "Issue Found": "Large unpaginated table (43 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/exceptions",
+      "Screen": "Exceptions / TD",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/exception-governance",
+      "Screen": "Exception Governance",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/cmdb",
+      "Screen": "CMDB / Assets",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/regulatory",
+      "Screen": "Regulatory Mapping",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/heatmaps",
+      "Screen": "Executive Heatmaps",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/correlation",
+      "Screen": "Cross-Tool Correlation",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/governance-analytics",
+      "Screen": "Governance Analytics",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc",
+      "Screen": "AI SDLC Home",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/control-tower",
+      "Screen": "AI SDLC Control Tower",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/onboarding",
+      "Screen": "Application Onboarding",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/requirements",
+      "Screen": "Requirements",
+      "Issue Found": "Large unpaginated table (49 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/design",
+      "Screen": "Design",
+      "Issue Found": "Large unpaginated table (49 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/development",
+      "Screen": "Development",
+      "Issue Found": "Large unpaginated table (49 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/testing",
+      "Screen": "Testing",
+      "Issue Found": "Large unpaginated table (49 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/golive",
+      "Screen": "Go-Live",
+      "Issue Found": "Large unpaginated table (49 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/evidence",
+      "Screen": "Evidence Collection",
+      "Issue Found": "Large unpaginated table (61 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/findings",
+      "Screen": "Findings & Remediation",
+      "Issue Found": "Large unpaginated table (46 rows)",
+      "Pass/Fail": "FAIL"
+    },
+    {
+      "Role": "CIO",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/reports",
+      "Screen": "AI SDLC Reports",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    }
+  ]
+}

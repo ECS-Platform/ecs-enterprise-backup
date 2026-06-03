@@ -54,12 +54,15 @@ _FRAMEWORK_READINESS = [
 
 
 def build_onboarding_shell() -> dict[str, Any]:
+    from modules.shared.services.execution_engine_registry import application_onboarding_engine
+
     return {
         "title": "Application Onboarding",
         "subtitle": (
-            "Discover applications, determine applicable frameworks, assign controls "
-            "and generate AI SDLC work packages."
+            "Register applications, map frameworks, assign controls, and generate "
+            "AI SDLC phases, controlled documents, and evidence placeholders."
         ),
+        "engine": application_onboarding_engine(),
     }
 
 

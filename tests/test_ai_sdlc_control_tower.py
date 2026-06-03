@@ -33,10 +33,10 @@ def test_control_tower_route_and_nav():
 def test_tab_buttons_phase2():
     html = client.get(f"/mvp/ai-sdlc/control-tower{Q}").text
     for tab_id, label in [
-        ("run-scheduler", "Run Scheduler"),
+        ("run-scheduler", "Run Governance Assessment"),
         ("framework-readiness", "Framework Readiness"),
         ("action-queue", "Action Queue"),
-        ("scheduler-log", "Scheduler Log"),
+        ("scheduler-log", "Assessment Log"),
         ("ai-recommendations", "AI Recommendations"),
     ]:
         assert f'data-workspace-tab="{tab_id}"' in html
@@ -115,7 +115,7 @@ def test_scheduler_log_realistic_values():
     assert "4,872 Controls Assessed" in messages
     assert "18,341 Evidence Records Scanned" in messages
     assert "127 Open Findings Detected" in messages
-    assert "Scheduler Run Completed" in messages
+    assert "Governance Assessment Completed" in messages
     assert all(":" in t for t in times)
     assert times[0] == "13:45:01"
 

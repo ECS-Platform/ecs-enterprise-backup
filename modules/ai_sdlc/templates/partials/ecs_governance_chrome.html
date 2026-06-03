@@ -1,4 +1,4 @@
-{# ECS shell chrome — breadcrumbs, role context, release context #}
+{# ECS shell chrome — breadcrumbs, persona profile, release context #}
 {% set q = '?role=' ~ role ~ '&user=' ~ user %}
 <header class="ecs-shell-header flex-shrink-0 mb-2">
 {% if breadcrumb_trail is defined and breadcrumb_trail %}
@@ -13,15 +13,15 @@
 {% endfor %}
 </nav>
 {% endif %}
-<div class="ecs-shell-context-bar d-flex flex-wrap align-items-center gap-2 small">
-<span class="ecs-role-chip"><strong>Role:</strong> {{ role|replace('_', ' ')|title }}</span>
-<span class="ecs-user-chip text-muted">{{ user }}</span>
+<div class="ecs-shell-context-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+{% from "partials/ecs_ux_macros.html" import persona_profile %}
+{{ persona_profile(persona) }}
 {% if release_id is defined and release_id %}
-<span class="ms-auto ecs-release-chip"><strong>Release:</strong> {{ release_id }}</span>
+<span class="ecs-release-chip small"><strong>Release:</strong> {{ release_id }}</span>
 {% elif sdlc_view is defined %}
-<span class="ms-auto ecs-release-chip"><strong>Release:</strong> {{ sdlc_view.release.name }}</span>
+<span class="ecs-release-chip small"><strong>Release:</strong> {{ sdlc_view.release.name }}</span>
 {% elif stage_view is defined %}
-<span class="ms-auto ecs-release-chip"><strong>Release:</strong> {{ stage_view.release.name }}</span>
+<span class="ecs-release-chip small"><strong>Release:</strong> {{ stage_view.release.name }}</span>
 {% endif %}
 </div>
 </header>

@@ -1,0 +1,19 @@
+{% if analytics is defined and analytics.framework_stats %}
+<div class="ecs-section-card mb-4">
+<div class="ecs-section-card-header">
+<h2 class="ecs-section-card-title">{{ overview_title|default('Framework Compliance Overview') }}</h2>
+<p class="text-muted small mb-0">PCI DSS, VAPT, AppSec, CSITE, ITPP, ITDRM effectiveness.</p>
+</div>
+<div class="card-body pt-2 pb-3 px-3">
+<div class="ecs-framework-grid mb-3">
+{% for fw in analytics.framework_stats %}
+<div class="ecs-framework-tile ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="framework" data-grc-id="{{ fw.name }}" role="button">
+<div class="ecs-insight-bar-label d-flex justify-content-between mb-1"><span>{{ fw.name }}</span><strong>{{ fw.maturity_pct|default(fw.compliance_pct) }}%</strong></div>
+<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill bg-{% if fw.maturity_pct|default(fw.compliance_pct) >= 85 %}success{% elif fw.maturity_pct|default(fw.compliance_pct) >= 70 %}warning{% else %}danger{% endif %}" style="width:{{ fw.maturity_pct|default(fw.compliance_pct) }}%"></div></div>
+<small class="text-muted">{{ fw.approved }}/{{ fw.total }} approved</small>
+</div>
+{% endfor %}
+</div>
+</div>
+</div>
+{% endif %}

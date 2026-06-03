@@ -1,0 +1,29 @@
+{% if governance_analytics is defined and governance_analytics %}
+{% set ga = governance_analytics %}
+<div class="ecs-section-card mb-4">
+<div class="ecs-section-card-header">
+<h2 class="ecs-section-card-title">{{ strip_title|default('Executive Escalations & Approvals') }}</h2>
+<p class="text-muted small mb-0">Leadership queue, SLA breaches, and approval backlog.</p>
+</div>
+<div class="card-body pt-2 pb-3 px-3">
+<div class="ecs-escalation-strip">
+<div class="ecs-escalation-kpi danger ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="escalated" title="View escalations">
+<span class="ecs-escalation-kpi-val">{{ ga.escalated|default(0) }}</span>
+<span class="ecs-escalation-kpi-lbl">Escalations</span>
+</div>
+<div class="ecs-escalation-kpi danger ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="high_risk_controls" title="High-risk controls">
+<span class="ecs-escalation-kpi-val">{{ ga.top_risky_controls|length if ga.top_risky_controls is defined else 0 }}</span>
+<span class="ecs-escalation-kpi-lbl">High Risk Controls</span>
+</div>
+<div class="ecs-escalation-kpi warning ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="evidence_freshness" title="Pending approvals">
+<span class="ecs-escalation-kpi-val">{{ analytics.totals.submitted|default(leadership_queue|length if leadership_queue is defined else 0) }}</span>
+<span class="ecs-escalation-kpi-lbl">Approvals Pending</span>
+</div>
+<div class="ecs-escalation-kpi primary ecs-kpi-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="sla_breaches" title="SLA breaches">
+<span class="ecs-escalation-kpi-val">{{ ga.sla_breaches|default(0) }}</span>
+<span class="ecs-escalation-kpi-lbl">SLA Breaches</span>
+</div>
+</div>
+</div>
+</div>
+{% endif %}

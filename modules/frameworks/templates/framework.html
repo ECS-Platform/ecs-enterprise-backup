@@ -18,13 +18,12 @@
 </head>
 <body class="bg-light ecs-enterprise-body">
 <div class="container-fluid"><div class="row">
-{% set sidebar_brand = "ECS" %}
 {% set show_back_dashboard = true %}
 {% include "partials/ecs_sidebar.html" %}
 <div class="col-md-10 ecs-main-content">
 
 <div class="ecs-page ecs-page-loading ecs-page-content ecs-fw-page {{ fw_dashboard.theme.css_class if fw_dashboard is defined else '' }}">
-{% from "partials/ecs_ux_macros.html" import role_label %}
+{% from "partials/ecs_ux_macros.html" import persona_profile %}
 
 <div class="ecs-page-header mb-2">
 <div class="ecs-page-header-main">
@@ -33,10 +32,7 @@
 <h1 class="ecs-page-title mb-0 h4">{{ framework_name }}{% if framework_name == 'ITPP' %} Command Center{% endif %}{% if fw_app %} · {{ fw_app }}{% endif %}</h1>
 </div>
 </div>
-<div class="ecs-page-header-meta">
-<span class="ecs-user-chip">{{ user }}</span>
-<span class="ecs-role-chip">{{ role_label(role) }}</span>
-</div>
+{{ persona_profile(persona) }}
 </div>
 
 {% if notice %}<div class="alert alert-warning py-2 mb-2">{{ notice }}</div>{% endif %}

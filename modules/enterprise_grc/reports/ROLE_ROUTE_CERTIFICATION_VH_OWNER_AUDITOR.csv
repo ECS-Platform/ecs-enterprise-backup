@@ -1,0 +1,241 @@
+Role,Module,Screen,Issue Found,Issue Fixed,Status,Route,Pass/Fail,HTTP
+Vertical Head,Executive Overview,Main Dashboard,,,PASS,/dashboard,PASS,200
+Vertical Head,Executive Overview,Vertical Head Dashboard,,,PASS,/dashboard/vertical-head,PASS,200
+Vertical Head,Executive Overview,Compliance Dashboard,,,PASS,/dashboard/compliance-head,PASS,200
+Vertical Head,Executive Overview,Functional Head Dashboard,,,PASS,/dashboard/functional-head,PASS,200
+Vertical Head,Executive Overview,Demo Overview,,,PASS,/mvp/demo-overview,PASS,200
+Vertical Head,Executive Overview,Enterprise,,,PASS,/mvp/enterprise,PASS,200
+Vertical Head,Executive Overview,Pan India,,,PASS,/mvp/pan-india,PASS,200
+Vertical Head,Executive Overview,Reports,,,PASS,/mvp/reports,PASS,200
+Vertical Head,Executive Overview,Trends,,,PASS,/mvp/trends,PASS,200
+Vertical Head,Frameworks,Framework Loader,,,PASS,/mvp/framework-loader,PASS,200
+Vertical Head,Frameworks,Framework Administration,,,PASS,/mvp/framework-admin,PASS,200
+Vertical Head,Operations,Scheduler,,,PASS,/mvp/scheduler,PASS,200
+Vertical Head,Operations,AI Ops Assistant,,,PASS,/mvp/ai-ops-assistant,PASS,200
+Vertical Head,Operations,Bulk Upload,,,PASS,/mvp/upload,PASS,200
+Vertical Head,Operations,Bulk Upload Hub,,,PASS,/mvp/bulk-upload,PASS,200
+Vertical Head,Operations,Integrations,,,PASS,/mvp/integrations,PASS,200
+Vertical Head,Operations,Onboarding,,,PASS,/mvp/onboarding,PASS,200
+Vertical Head,Operations,Integrations Hub,,,PASS,/mvp/integrations-hub,PASS,200
+Vertical Head,Governance,Audit Prep,,,PASS,/mvp/audit-prep,PASS,200
+Vertical Head,Governance,Evidence Health,,,PASS,/mvp/evidence-health,PASS,200
+Vertical Head,Governance,Evidence Reuse,,,PASS,/mvp/reuse,PASS,200
+Vertical Head,Governance,Lifecycle,,,PASS,/mvp/lifecycle,PASS,200
+Vertical Head,Governance,Completeness,,,PASS,/mvp/completeness,PASS,200
+Vertical Head,Governance,App Comparison,,,PASS,/mvp/comparison,PASS,200
+Vertical Head,Governance,Search,,,PASS,/mvp/search,PASS,200
+Vertical Head,Governance,Evidence Approval Analytics,,,PASS,/mvp/evidence-approval,PASS,200
+Vertical Head,Governance,Close Gap Workflow,,,PASS,/mvp/workflow/close-gap,PASS,200
+Vertical Head,Governance,Assign Owner Workflow,,,PASS,/mvp/workflow/assign-owner,PASS,200
+Vertical Head,Governance,Upload Missing Workflow,,,PASS,/mvp/workflow/upload-missing,PASS,200
+Vertical Head,Governance,Mock Audit,,,PASS,/mvp/workflow/mock-audit,PASS,200
+Vertical Head,Enterprise GRC,Risk Register,,,PASS,/mvp/risk-register,PASS,200
+Vertical Head,Enterprise GRC,Exceptions / TD,,,PASS,/mvp/exceptions,PASS,200
+Vertical Head,Enterprise GRC,Exception Governance,,,PASS,/mvp/exception-governance,PASS,200
+Vertical Head,Enterprise GRC,CMDB / Assets,,,PASS,/mvp/cmdb,PASS,200
+Vertical Head,Enterprise GRC,Regulatory Mapping,,,PASS,/mvp/regulatory,PASS,200
+Vertical Head,Enterprise GRC,Executive Heatmaps,,,PASS,/mvp/heatmaps,PASS,200
+Vertical Head,Enterprise GRC,Cross-Tool Correlation,,,PASS,/mvp/correlation,PASS,200
+Vertical Head,Enterprise GRC,Governance Analytics,,,PASS,/mvp/governance-analytics,PASS,200
+Vertical Head,AI SDLC Governance,AI SDLC Home,,,PASS,/mvp/ai-sdlc,PASS,200
+Vertical Head,AI SDLC Governance,AI SDLC Control Tower,,,PASS,/mvp/ai-sdlc/control-tower,PASS,200
+Vertical Head,AI SDLC Governance,Application Onboarding,,,PASS,/mvp/ai-sdlc/onboarding,PASS,200
+Vertical Head,AI SDLC Governance,Requirements,,,PASS,/mvp/ai-sdlc/requirements,PASS,200
+Vertical Head,AI SDLC Governance,Design,,,PASS,/mvp/ai-sdlc/design,PASS,200
+Vertical Head,AI SDLC Governance,Development,,,PASS,/mvp/ai-sdlc/development,PASS,200
+Vertical Head,AI SDLC Governance,Testing,,,PASS,/mvp/ai-sdlc/testing,PASS,200
+Vertical Head,AI SDLC Governance,Go-Live,,,PASS,/mvp/ai-sdlc/golive,PASS,200
+Vertical Head,AI SDLC Governance,Evidence Collection,,,PASS,/mvp/ai-sdlc/evidence,PASS,200
+Vertical Head,AI SDLC Governance,Findings & Remediation,,,PASS,/mvp/ai-sdlc/findings,PASS,200
+Vertical Head,AI SDLC Governance,AI SDLC Reports,,,PASS,/mvp/ai-sdlc/reports,PASS,200
+Vertical Head,AI SDLC Governance,AI Governance,,,PASS,/mvp/ai-governance,PASS,200
+Vertical Head,AI SDLC Governance,AI Registry,,,PASS,/mvp/ai-registry,PASS,200
+Vertical Head,AI SDLC Governance,SDLC Gates,,,PASS,/mvp/sdlc-gates,PASS,200
+Vertical Head,AI SDLC Governance,Governance Quality,,,PASS,/mvp/governance-quality,PASS,200
+Vertical Head,Executive Overview,Compliance Dashboard,,,PASS,/dashboard/compliance-head,PASS,200
+Vertical Head,Frameworks,Framework — ASST,,,PASS,/framework/ASST,PASS,200
+Vertical Head,Frameworks,Framework — AppSec,,,PASS,/framework/AppSec,PASS,200
+Vertical Head,Frameworks,Framework — CSITE,,,PASS,/framework/CSITE,PASS,200
+Vertical Head,Frameworks,Framework — DB Baselining,,,PASS,/framework/DB%20Baselining,PASS,200
+Vertical Head,Frameworks,Framework — DPSC,,,PASS,/framework/DPSC,PASS,200
+Vertical Head,Frameworks,Framework — ISG,,,PASS,/framework/ISG,PASS,200
+Vertical Head,Frameworks,Framework — ISO27001,,,PASS,/framework/ISO27001,PASS,200
+Vertical Head,Frameworks,Framework — ITDRM,,,PASS,/framework/ITDRM,PASS,200
+Vertical Head,Frameworks,Framework — ITPP,,,PASS,/framework/ITPP,PASS,200
+Vertical Head,Frameworks,Framework — Nginx Baselining,,,PASS,/framework/Nginx%20Baselining,PASS,200
+Vertical Head,Frameworks,Framework — OS Baselining,,,PASS,/framework/OS%20Baselining,PASS,200
+Vertical Head,Frameworks,Framework — PCI DSS,,,PASS,/framework/PCI%20DSS,PASS,200
+Vertical Head,Frameworks,Framework — RBI Cyber Security,,,PASS,/framework/RBI%20Cyber%20Security,PASS,200
+Vertical Head,Frameworks,Framework — SOC2,,,PASS,/framework/SOC2,PASS,200
+Vertical Head,Frameworks,Framework — VAPT,,,PASS,/framework/VAPT,PASS,200
+Vertical Head,Operations,AI Ops Summary — Business,,,PASS,/mvp/ai-ops-assistant/summary/business,PASS,200
+Vertical Head,Operations,AI Ops Summary — Technical,,,PASS,/mvp/ai-ops-assistant/summary/technical,PASS,200
+Vertical Head,Operations,AI Ops Summary — Executive,,,PASS,/mvp/ai-ops-assistant/summary/executive,PASS,200
+Vertical Head,Operations,AI Ops Summary — Audit,,,PASS,/mvp/ai-ops-assistant/summary/audit,PASS,200
+Vertical Head,Operations,AI Ops Summary — Compliance,,,PASS,/mvp/ai-ops-assistant/summary/compliance,PASS,200
+Vertical Head,Operations,AI Ops Summary — Evidence,,,PASS,/mvp/ai-ops-assistant/summary/evidence,PASS,200
+Vertical Head,Operations,AI Ops Summary — Incident,,,PASS,/mvp/ai-ops-assistant/summary/incident,PASS,200
+Vertical Head,Operations,AI Ops Summary — Root_Cause,,,PASS,/mvp/ai-ops-assistant/summary/root_cause,PASS,200
+Vertical Head,AI SDLC Governance,AI SDLC Report Detail,,,PASS,/mvp/ai-sdlc/reports/app-compliance,PASS,200
+Vertical Head,AI SDLC Governance,AI SDLC Evidence Viewer,,,PASS,/mvp/ai-sdlc/evidence/view/EV-AISDLC-0001,PASS,200
+Vertical Head,Evidence,Evidence Review — ASST,,,PASS,/evidence/review?framework_name=ASST&control_name=ASST-01%20%E2%80%94%20Application%20Security%20Posture&evidence_id=EVD-ASS-011,PASS,200
+Application Owner,Executive Overview,Main Dashboard,,,PASS,/dashboard,PASS,200
+Application Owner,Executive Overview,Vertical Head Dashboard,,,PASS,/dashboard/vertical-head,PASS,200
+Application Owner,Executive Overview,Compliance Dashboard,,,PASS,/dashboard/compliance-head,PASS,200
+Application Owner,Executive Overview,Functional Head Dashboard,,,PASS,/dashboard/functional-head,PASS,200
+Application Owner,Executive Overview,Demo Overview,,,PASS,/mvp/demo-overview,PASS,200
+Application Owner,Executive Overview,Enterprise,,,PASS,/mvp/enterprise,PASS,200
+Application Owner,Executive Overview,Pan India,,,PASS,/mvp/pan-india,PASS,200
+Application Owner,Executive Overview,Reports,,,PASS,/mvp/reports,PASS,200
+Application Owner,Executive Overview,Trends,,,PASS,/mvp/trends,PASS,200
+Application Owner,Frameworks,Framework Loader,,,PASS,/mvp/framework-loader,PASS,200
+Application Owner,Frameworks,Framework Administration,,,PASS,/mvp/framework-admin,PASS,200
+Application Owner,Operations,Scheduler,,,PASS,/mvp/scheduler,PASS,200
+Application Owner,Operations,AI Ops Assistant,,,PASS,/mvp/ai-ops-assistant,PASS,200
+Application Owner,Operations,Bulk Upload,,,PASS,/mvp/upload,PASS,200
+Application Owner,Operations,Bulk Upload Hub,,,PASS,/mvp/bulk-upload,PASS,200
+Application Owner,Operations,Integrations,,,PASS,/mvp/integrations,PASS,200
+Application Owner,Operations,Onboarding,,,PASS,/mvp/onboarding,PASS,200
+Application Owner,Operations,Integrations Hub,,,PASS,/mvp/integrations-hub,PASS,200
+Application Owner,Governance,Audit Prep,,,PASS,/mvp/audit-prep,PASS,200
+Application Owner,Governance,Evidence Health,,,PASS,/mvp/evidence-health,PASS,200
+Application Owner,Governance,Evidence Reuse,,,PASS,/mvp/reuse,PASS,200
+Application Owner,Governance,Lifecycle,,,PASS,/mvp/lifecycle,PASS,200
+Application Owner,Governance,Completeness,,,PASS,/mvp/completeness,PASS,200
+Application Owner,Governance,App Comparison,,,PASS,/mvp/comparison,PASS,200
+Application Owner,Governance,Search,,,PASS,/mvp/search,PASS,200
+Application Owner,Governance,Evidence Approval Analytics,,,PASS,/mvp/evidence-approval,PASS,200
+Application Owner,Governance,Close Gap Workflow,,,PASS,/mvp/workflow/close-gap,PASS,200
+Application Owner,Governance,Assign Owner Workflow,,,PASS,/mvp/workflow/assign-owner,PASS,200
+Application Owner,Governance,Upload Missing Workflow,,,PASS,/mvp/workflow/upload-missing,PASS,200
+Application Owner,Governance,Mock Audit,,,PASS,/mvp/workflow/mock-audit,PASS,200
+Application Owner,Enterprise GRC,Risk Register,,,PASS,/mvp/risk-register,PASS,200
+Application Owner,Enterprise GRC,Exceptions / TD,,,PASS,/mvp/exceptions,PASS,200
+Application Owner,Enterprise GRC,Exception Governance,,,PASS,/mvp/exception-governance,PASS,200
+Application Owner,Enterprise GRC,CMDB / Assets,,,PASS,/mvp/cmdb,PASS,200
+Application Owner,Enterprise GRC,Regulatory Mapping,,,PASS,/mvp/regulatory,PASS,200
+Application Owner,Enterprise GRC,Executive Heatmaps,,,PASS,/mvp/heatmaps,PASS,200
+Application Owner,Enterprise GRC,Cross-Tool Correlation,,,PASS,/mvp/correlation,PASS,200
+Application Owner,Enterprise GRC,Governance Analytics,,,PASS,/mvp/governance-analytics,PASS,200
+Application Owner,AI SDLC Governance,AI SDLC Home,,,PASS,/mvp/ai-sdlc,PASS,200
+Application Owner,AI SDLC Governance,AI SDLC Control Tower,,,PASS,/mvp/ai-sdlc/control-tower,PASS,200
+Application Owner,AI SDLC Governance,Application Onboarding,,,PASS,/mvp/ai-sdlc/onboarding,PASS,200
+Application Owner,AI SDLC Governance,Requirements,,,PASS,/mvp/ai-sdlc/requirements,PASS,200
+Application Owner,AI SDLC Governance,Design,,,PASS,/mvp/ai-sdlc/design,PASS,200
+Application Owner,AI SDLC Governance,Development,,,PASS,/mvp/ai-sdlc/development,PASS,200
+Application Owner,AI SDLC Governance,Testing,,,PASS,/mvp/ai-sdlc/testing,PASS,200
+Application Owner,AI SDLC Governance,Go-Live,,,PASS,/mvp/ai-sdlc/golive,PASS,200
+Application Owner,AI SDLC Governance,Evidence Collection,,,PASS,/mvp/ai-sdlc/evidence,PASS,200
+Application Owner,AI SDLC Governance,Findings & Remediation,,,PASS,/mvp/ai-sdlc/findings,PASS,200
+Application Owner,AI SDLC Governance,AI SDLC Reports,,,PASS,/mvp/ai-sdlc/reports,PASS,200
+Application Owner,AI SDLC Governance,AI Governance,,,PASS,/mvp/ai-governance,PASS,200
+Application Owner,AI SDLC Governance,AI Registry,,,PASS,/mvp/ai-registry,PASS,200
+Application Owner,AI SDLC Governance,SDLC Gates,,,PASS,/mvp/sdlc-gates,PASS,200
+Application Owner,AI SDLC Governance,Governance Quality,,,PASS,/mvp/governance-quality,PASS,200
+Application Owner,Executive Overview,Compliance Dashboard,,,PASS,/dashboard/compliance-head,PASS,200
+Application Owner,Frameworks,Framework — ASST,,,PASS,/framework/ASST,PASS,200
+Application Owner,Frameworks,Framework — AppSec,,,PASS,/framework/AppSec,PASS,200
+Application Owner,Frameworks,Framework — CSITE,,,PASS,/framework/CSITE,PASS,200
+Application Owner,Frameworks,Framework — DB Baselining,,,PASS,/framework/DB%20Baselining,PASS,200
+Application Owner,Frameworks,Framework — DPSC,,,PASS,/framework/DPSC,PASS,200
+Application Owner,Frameworks,Framework — ISG,,,PASS,/framework/ISG,PASS,200
+Application Owner,Frameworks,Framework — ISO27001,,,PASS,/framework/ISO27001,PASS,200
+Application Owner,Frameworks,Framework — ITDRM,,,PASS,/framework/ITDRM,PASS,200
+Application Owner,Frameworks,Framework — ITPP,,,PASS,/framework/ITPP,PASS,200
+Application Owner,Frameworks,Framework — Nginx Baselining,,,PASS,/framework/Nginx%20Baselining,PASS,200
+Application Owner,Frameworks,Framework — OS Baselining,,,PASS,/framework/OS%20Baselining,PASS,200
+Application Owner,Frameworks,Framework — PCI DSS,,,PASS,/framework/PCI%20DSS,PASS,200
+Application Owner,Frameworks,Framework — RBI Cyber Security,,,PASS,/framework/RBI%20Cyber%20Security,PASS,200
+Application Owner,Frameworks,Framework — SOC2,,,PASS,/framework/SOC2,PASS,200
+Application Owner,Frameworks,Framework — VAPT,,,PASS,/framework/VAPT,PASS,200
+Application Owner,Operations,AI Ops Summary — Business,,,PASS,/mvp/ai-ops-assistant/summary/business,PASS,200
+Application Owner,Operations,AI Ops Summary — Technical,,,PASS,/mvp/ai-ops-assistant/summary/technical,PASS,200
+Application Owner,Operations,AI Ops Summary — Executive,,,PASS,/mvp/ai-ops-assistant/summary/executive,PASS,200
+Application Owner,Operations,AI Ops Summary — Audit,,,PASS,/mvp/ai-ops-assistant/summary/audit,PASS,200
+Application Owner,Operations,AI Ops Summary — Compliance,,,PASS,/mvp/ai-ops-assistant/summary/compliance,PASS,200
+Application Owner,Operations,AI Ops Summary — Evidence,,,PASS,/mvp/ai-ops-assistant/summary/evidence,PASS,200
+Application Owner,Operations,AI Ops Summary — Incident,,,PASS,/mvp/ai-ops-assistant/summary/incident,PASS,200
+Application Owner,Operations,AI Ops Summary — Root_Cause,,,PASS,/mvp/ai-ops-assistant/summary/root_cause,PASS,200
+Application Owner,AI SDLC Governance,AI SDLC Report Detail,,,PASS,/mvp/ai-sdlc/reports/app-compliance,PASS,200
+Application Owner,AI SDLC Governance,AI SDLC Evidence Viewer,,,PASS,/mvp/ai-sdlc/evidence/view/EV-AISDLC-0001,PASS,200
+Application Owner,Evidence,Evidence Review — ASST,,,PASS,/evidence/review?framework_name=ASST&control_name=ASST-01%20%E2%80%94%20Application%20Security%20Posture&evidence_id=EVD-ASS-011,PASS,200
+Auditor,Executive Overview,Main Dashboard,,,PASS,/dashboard,PASS,200
+Auditor,Executive Overview,Vertical Head Dashboard,,,PASS,/dashboard/vertical-head,PASS,200
+Auditor,Executive Overview,Compliance Dashboard,,,PASS,/dashboard/compliance-head,PASS,200
+Auditor,Executive Overview,Functional Head Dashboard,,,PASS,/dashboard/functional-head,PASS,200
+Auditor,Executive Overview,Demo Overview,,,PASS,/mvp/demo-overview,PASS,200
+Auditor,Executive Overview,Enterprise,,,PASS,/mvp/enterprise,PASS,200
+Auditor,Executive Overview,Pan India,,,PASS,/mvp/pan-india,PASS,200
+Auditor,Executive Overview,Reports,,,PASS,/mvp/reports,PASS,200
+Auditor,Executive Overview,Trends,,,PASS,/mvp/trends,PASS,200
+Auditor,Frameworks,Framework Loader,,,PASS,/mvp/framework-loader,PASS,200
+Auditor,Frameworks,Framework Administration,,,PASS,/mvp/framework-admin,PASS,200
+Auditor,Operations,Scheduler,,,PASS,/mvp/scheduler,PASS,200
+Auditor,Operations,AI Ops Assistant,,,PASS,/mvp/ai-ops-assistant,PASS,200
+Auditor,Operations,Bulk Upload,,,PASS,/mvp/upload,PASS,200
+Auditor,Operations,Bulk Upload Hub,,,PASS,/mvp/bulk-upload,PASS,200
+Auditor,Operations,Integrations,,,PASS,/mvp/integrations,PASS,200
+Auditor,Operations,Onboarding,,,PASS,/mvp/onboarding,PASS,200
+Auditor,Operations,Integrations Hub,,,PASS,/mvp/integrations-hub,PASS,200
+Auditor,Governance,Audit Prep,,,PASS,/mvp/audit-prep,PASS,200
+Auditor,Governance,Evidence Health,,,PASS,/mvp/evidence-health,PASS,200
+Auditor,Governance,Evidence Reuse,,,PASS,/mvp/reuse,PASS,200
+Auditor,Governance,Lifecycle,,,PASS,/mvp/lifecycle,PASS,200
+Auditor,Governance,Completeness,,,PASS,/mvp/completeness,PASS,200
+Auditor,Governance,App Comparison,,,PASS,/mvp/comparison,PASS,200
+Auditor,Governance,Search,,,PASS,/mvp/search,PASS,200
+Auditor,Governance,Evidence Approval Analytics,,,PASS,/mvp/evidence-approval,PASS,200
+Auditor,Governance,Close Gap Workflow,,,PASS,/mvp/workflow/close-gap,PASS,200
+Auditor,Governance,Assign Owner Workflow,,,PASS,/mvp/workflow/assign-owner,PASS,200
+Auditor,Governance,Upload Missing Workflow,,,PASS,/mvp/workflow/upload-missing,PASS,200
+Auditor,Governance,Mock Audit,,,PASS,/mvp/workflow/mock-audit,PASS,200
+Auditor,Enterprise GRC,Risk Register,,,PASS,/mvp/risk-register,PASS,200
+Auditor,Enterprise GRC,Exceptions / TD,,,PASS,/mvp/exceptions,PASS,200
+Auditor,Enterprise GRC,Exception Governance,,,PASS,/mvp/exception-governance,PASS,200
+Auditor,Enterprise GRC,CMDB / Assets,,,PASS,/mvp/cmdb,PASS,200
+Auditor,Enterprise GRC,Regulatory Mapping,,,PASS,/mvp/regulatory,PASS,200
+Auditor,Enterprise GRC,Executive Heatmaps,,,PASS,/mvp/heatmaps,PASS,200
+Auditor,Enterprise GRC,Cross-Tool Correlation,,,PASS,/mvp/correlation,PASS,200
+Auditor,Enterprise GRC,Governance Analytics,,,PASS,/mvp/governance-analytics,PASS,200
+Auditor,AI SDLC Governance,AI SDLC Home,,,PASS,/mvp/ai-sdlc,PASS,200
+Auditor,AI SDLC Governance,AI SDLC Control Tower,,,PASS,/mvp/ai-sdlc/control-tower,PASS,200
+Auditor,AI SDLC Governance,Application Onboarding,,,PASS,/mvp/ai-sdlc/onboarding,PASS,200
+Auditor,AI SDLC Governance,Requirements,,,PASS,/mvp/ai-sdlc/requirements,PASS,200
+Auditor,AI SDLC Governance,Design,,,PASS,/mvp/ai-sdlc/design,PASS,200
+Auditor,AI SDLC Governance,Development,,,PASS,/mvp/ai-sdlc/development,PASS,200
+Auditor,AI SDLC Governance,Testing,,,PASS,/mvp/ai-sdlc/testing,PASS,200
+Auditor,AI SDLC Governance,Go-Live,,,PASS,/mvp/ai-sdlc/golive,PASS,200
+Auditor,AI SDLC Governance,Evidence Collection,,,PASS,/mvp/ai-sdlc/evidence,PASS,200
+Auditor,AI SDLC Governance,Findings & Remediation,,,PASS,/mvp/ai-sdlc/findings,PASS,200
+Auditor,AI SDLC Governance,AI SDLC Reports,,,PASS,/mvp/ai-sdlc/reports,PASS,200
+Auditor,AI SDLC Governance,AI Governance,,,PASS,/mvp/ai-governance,PASS,200
+Auditor,AI SDLC Governance,AI Registry,,,PASS,/mvp/ai-registry,PASS,200
+Auditor,AI SDLC Governance,SDLC Gates,,,PASS,/mvp/sdlc-gates,PASS,200
+Auditor,AI SDLC Governance,Governance Quality,,,PASS,/mvp/governance-quality,PASS,200
+Auditor,Executive Overview,Compliance Dashboard,,,PASS,/dashboard/compliance-head,PASS,200
+Auditor,Frameworks,Framework — ASST,,,PASS,/framework/ASST,PASS,200
+Auditor,Frameworks,Framework — AppSec,,,PASS,/framework/AppSec,PASS,200
+Auditor,Frameworks,Framework — CSITE,,,PASS,/framework/CSITE,PASS,200
+Auditor,Frameworks,Framework — DB Baselining,,,PASS,/framework/DB%20Baselining,PASS,200
+Auditor,Frameworks,Framework — DPSC,,,PASS,/framework/DPSC,PASS,200
+Auditor,Frameworks,Framework — ISG,,,PASS,/framework/ISG,PASS,200
+Auditor,Frameworks,Framework — ISO27001,,,PASS,/framework/ISO27001,PASS,200
+Auditor,Frameworks,Framework — ITDRM,,,PASS,/framework/ITDRM,PASS,200
+Auditor,Frameworks,Framework — ITPP,,,PASS,/framework/ITPP,PASS,200
+Auditor,Frameworks,Framework — Nginx Baselining,,,PASS,/framework/Nginx%20Baselining,PASS,200
+Auditor,Frameworks,Framework — OS Baselining,,,PASS,/framework/OS%20Baselining,PASS,200
+Auditor,Frameworks,Framework — PCI DSS,,,PASS,/framework/PCI%20DSS,PASS,200
+Auditor,Frameworks,Framework — RBI Cyber Security,,,PASS,/framework/RBI%20Cyber%20Security,PASS,200
+Auditor,Frameworks,Framework — SOC2,,,PASS,/framework/SOC2,PASS,200
+Auditor,Frameworks,Framework — VAPT,,,PASS,/framework/VAPT,PASS,200
+Auditor,Operations,AI Ops Summary — Business,,,PASS,/mvp/ai-ops-assistant/summary/business,PASS,200
+Auditor,Operations,AI Ops Summary — Technical,,,PASS,/mvp/ai-ops-assistant/summary/technical,PASS,200
+Auditor,Operations,AI Ops Summary — Executive,,,PASS,/mvp/ai-ops-assistant/summary/executive,PASS,200
+Auditor,Operations,AI Ops Summary — Audit,,,PASS,/mvp/ai-ops-assistant/summary/audit,PASS,200
+Auditor,Operations,AI Ops Summary — Compliance,,,PASS,/mvp/ai-ops-assistant/summary/compliance,PASS,200
+Auditor,Operations,AI Ops Summary — Evidence,,,PASS,/mvp/ai-ops-assistant/summary/evidence,PASS,200
+Auditor,Operations,AI Ops Summary — Incident,,,PASS,/mvp/ai-ops-assistant/summary/incident,PASS,200
+Auditor,Operations,AI Ops Summary — Root_Cause,,,PASS,/mvp/ai-ops-assistant/summary/root_cause,PASS,200
+Auditor,AI SDLC Governance,AI SDLC Report Detail,,,PASS,/mvp/ai-sdlc/reports/app-compliance,PASS,200
+Auditor,AI SDLC Governance,AI SDLC Evidence Viewer,,,PASS,/mvp/ai-sdlc/evidence/view/EV-AISDLC-0001,PASS,200
+Auditor,Evidence,Evidence Review — ASST,,,PASS,/evidence/review?framework_name=ASST&control_name=ASST-01%20%E2%80%94%20Application%20Security%20Posture&evidence_id=EVD-ASS-011,PASS,200

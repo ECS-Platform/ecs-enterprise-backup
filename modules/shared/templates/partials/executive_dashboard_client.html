@@ -160,16 +160,29 @@
     var map = chartIds || {
       observations: 'ecsGranObsChart',
       compliance: 'ecsGranCompChart',
-      failed_evidence: 'ecsGranFailChart',
+      evidence_rejections: 'ecsGranRejChart',
       risk_escalation: 'ecsGranEscChart',
       evidence_aging: 'ecsGranAgeChart',
       remediation: 'ecsGranRemChart'
+    };
+    var agingDrill = {
+      evidence_aging: 'evidence_aging',
+      remediation: 'remediation_velocity'
     };
     Object.keys(map).forEach(function(key) {
       var cid = map[key];
       var series = g[key] || [];
       if (window.ecsRenderCompactBarChart && document.getElementById(cid)) {
-        ecsRenderCompactBarChart(cid, series, { suffix: series[0] && series[0].suffix ? series[0].suffix : (key === 'compliance' ? '%' : ''), defaultTone: key === 'compliance' ? 'green' : (key.indexOf('fail') >= 0 ? 'red' : 'blue') });
+        var el = document.getElementById(cid);
+        var isAging = el && (el.classList.contains('ecs-aging-bar-chart') || el.closest('.ecs-evidence-aging-grid'));
+        var opts = {
+          suffix: series[0] && series[0].suffix ? series[0].suffix : (key === 'compliance' ? '%' : ''),
+          defaultTone: key === 'compliance' ? 'green' : (key.indexOf('fail') >= 0 ? 'red' : 'blue')
+        };
+        if (isAging && window.ecsExecutiveTrendBarOpts) {
+          opts = window.ecsExecutiveTrendBarOpts(agingDrill[key] || key, 'trends', opts);
+        }
+        ecsRenderCompactBarChart(cid, series, opts);
       }
     });
   };

@@ -94,7 +94,7 @@
       showWorkflowToast({ type: 'success', title: '✓ Evidence Uploaded Successfully', body: notice || 'Dashboard metrics updated.' });
       setTimeout(refreshCounters, 400);
     } else if (toast === 'scheduler_ok') {
-      showWorkflowToast({ type: 'success', title: '✓ Scheduler Run Completed', body: notice || 'Observations scanned and dashboard refreshed.' });
+      showWorkflowToast({ type: 'success', title: '✓ Evidence Collection Completed', body: notice || 'Evidence refreshed and dashboard updated.' });
       setTimeout(refreshCounters, 400);
     } else if (toast === 'scheduler_retry_ok') {
       showWorkflowToast({ type: 'success', title: '✓ Observation Reprocessed Successfully', body: notice || 'Removed from failed queue.' });

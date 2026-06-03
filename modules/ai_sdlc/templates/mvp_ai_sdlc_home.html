@@ -17,6 +17,19 @@
 <span class="aisdlc-pill">EXECUTION LAYER</span>
 </div>
 
+{% from "partials/ecs_ux_macros.html" import persona_tab_nav %}
+{% set sdlc_tabs = [
+  {"id": "tab-overview", "label": "Overview"},
+  {"id": "tab-applications", "label": "Applications"},
+  {"id": "tab-evidence", "label": "Evidence"},
+  {"id": "tab-compliance", "label": "Compliance"},
+  {"id": "tab-analytics", "label": "Analytics"},
+] %}
+{{ persona_tab_nav(sdlc_tabs, 'tab-overview') }}
+
+<div class="tab-content ecs-persona-tab-content">
+
+<div class="tab-pane fade show active ecs-persona-tab-pane" id="tab-overview" role="tabpanel">
 <div class="row g-2 mb-3 flex-shrink-0">
 {% set sc = v.summary_counts %}
 <div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/requirements{{ q }}" class="card text-decoration-none h-100"><div class="card-body py-2"><div class="small text-muted">Requirements Pending</div><div class="fs-4 fw-bold">{{ sc.controls_pending_requirements }}</div></div></a></div>
@@ -28,36 +41,56 @@
 <div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/findings{{ q }}" class="card text-decoration-none h-100"><div class="card-body py-2"><div class="small text-muted">Open Findings</div><div class="fs-4 fw-bold text-danger">{{ sc.open_findings }}</div></div></a></div>
 <div class="col-md-3 col-6"><a href="/mvp/ai-sdlc/requirements{{ q }}" class="card text-decoration-none h-100 border-warning"><div class="card-body py-2"><div class="small text-muted">Overdue Activities</div><div class="fs-4 fw-bold text-warning">{{ sc.overdue_activities }}</div></div></a></div>
 </div>
+</div>
 
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-applications" role="tabpanel">
 <h6 class="small text-muted text-uppercase mb-1">My Applications</h6>
-<div class="ecs-no-gov-enhance">
-<div class="ecs-gov-table-scroll aisdlc-home-apps-wrap">
-<table class="aisdlc-table aisdlc-home-apps-table mb-0" data-export-name="ai-sdlc-my-apps">
-<colgroup>
-<col style="width:15%"><col style="width:10%"><col style="width:10%"><col style="width:8%"><col style="width:12%"><col style="width:35%"><col style="width:10%">
-</colgroup>
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0" data-export-name="ai-sdlc-my-apps">
 <thead><tr>
-<th>Application</th><th>Business Owner</th><th>App Owner</th><th class="aisdlc-col-criticality">Criticality</th><th>Classification</th><th class="aisdlc-col-frameworks">Frameworks</th><th>Controls</th>
+<th class="col-app">Application</th><th class="col-app">Business Owner</th><th class="col-app">App Owner</th>
+<th class="col-risk">Criticality</th><th class="col-status">Classification</th><th class="col-fw">Frameworks</th><th class="col-status">Controls</th><th class="col-expand"></th>
 </tr></thead>
 <tbody>
 {% for app in v.my_applications %}
 {% set fw_full = app.frameworks|join(', ') %}
 <tr>
 <td><a href="/mvp/ai-sdlc/onboarding{{ q }}">{{ app.application_name }}</a></td>
-<td>{{ app.business_owner }}</td><td>{{ app.application_owner }}</td>
-<td class="aisdlc-col-criticality"><span class="aisdlc-badge {{ app.criticality }}">{{ app.criticality }}</span></td>
-<td class="ecs-gov-wrap small">{{ app.regulatory_classification }}</td>
-<td class="aisdlc-fw-cell" title="{{ fw_full }}" data-full="{{ fw_full }}">
-<span class="aisdlc-fw-list">{{ app.frameworks|join(', ') }}</span>
-</td>
+<td><span class="ecs-cell-tip" title="{{ app.business_owner }}">{{ app.business_owner }}</span></td>
+<td><span class="ecs-cell-tip" title="{{ app.application_owner }}">{{ app.application_owner }}</span></td>
+<td><span class="aisdlc-badge {{ app.criticality }}">{{ app.criticality }}</span></td>
+<td><span class="ecs-cell-tip" title="{{ app.regulatory_classification }}">{{ app.regulatory_classification }}</span></td>
+<td><span class="ecs-cell-tip" title="{{ fw_full }}">{{ app.frameworks|join(', ') }}</span></td>
 <td>{{ app.control_count }}</td>
+<td><button type="button" class="ecs-risk-expand-btn" aria-expanded="false">+</button></td>
 </tr>
+<tr class="ecs-risk-detail-row" hidden><td colspan="8">{{ app.application_name }} · {{ fw_full }} · {{ app.control_count }} controls in scope</td></tr>
 {% endfor %}
 </tbody>
 </table>
 </div>
 </div>
 
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-evidence" role="tabpanel">
+<p class="text-muted small">Evidence awaiting submission across SDLC stages.</p>
+<a href="/mvp/ai-sdlc/evidence{{ q }}" class="btn btn-outline-primary btn-sm">Open Evidence Workspace</a>
+<div class="mt-3"><strong>{{ sc.evidence_awaiting_submission }}</strong> packages pending submission</div>
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-compliance" role="tabpanel">
+<p class="text-muted small">Framework coverage and control execution posture.</p>
+<a href="/mvp/ai-sdlc/control-tower{{ q }}" class="btn btn-outline-primary btn-sm">Open Control Tower</a>
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-analytics" role="tabpanel">
+<p class="text-muted small">SDLC analytics, findings trends, and audit readiness.</p>
+<a href="/mvp/ai-sdlc/reports{{ q }}" class="btn btn-outline-primary btn-sm">View Reports</a>
+<a href="/mvp/ai-sdlc/findings{{ q }}" class="btn btn-outline-danger btn-sm ms-1">{{ sc.open_findings }} Open Findings</a>
+</div>
+
+</div>
+
 </div></div></div>
 {% include "partials/ecs_governance_table_framework.html" %}
+<script>if (window.ecsBindRiskTables) window.ecsBindRiskTables(document);</script>
 </body></html>

@@ -444,12 +444,86 @@ def build_closed_observations_queue(limit: int = 50) -> list[dict]:
     return items[:limit]
 
 
+def build_pending_approvals_queue(role: str, limit: int = 30) -> list[dict]:
+    """Role-specific items awaiting sign-off — CIO, Vertical Head, Compliance, Auditor."""
+    role = (role or "cio").strip().lower()
+    if role == "auditor":
+        return build_auditor_review_queue(limit=limit)
+    if role in ("compliance_head", "compliance_officer", "security_officer"):
+        role = "compliance_head"
+    items: list[dict] = []
+    seen: set[str] = set()
+
+    for key in list(ecs_state.submitted_controls.keys()):
+        framework, control = key.split("::", 1)
+        ctrl = _catalog_ctrl(framework, control)
+        if not ctrl:
+            continue
+        ev = ctrl["evidences"][0]
+        item = _queue_item(framework, ctrl, ev, include_closed=False)
+        if not item or key in seen:
+            continue
+        item["approval_type"] = "Evidence submitted — pending review"
+        item["executive_action"] = "Approve / Reject"
+        if role == "vertical_head" and item.get("priority") not in ("Critical", "High"):
+            if not ecs_state.escalated_controls.get(key):
+                continue
+        if role == "cio":
+            item["executive_action"] = "Executive sign-off"
+        items.append(item)
+        seen.add(key)
+
+    if role == "cio":
+        for key in list(ecs_state.escalated_controls.keys()):
+            if key in seen:
+                continue
+            framework, control = key.split("::", 1)
+            ctrl = _catalog_ctrl(framework, control)
+            if not ctrl:
+                continue
+            ev = ctrl["evidences"][0]
+            item = _queue_item(framework, ctrl, ev, include_closed=False)
+            if item:
+                item["escalated"] = True
+                item["approval_type"] = "Escalated — CIO decision"
+                item["executive_action"] = "Review Escalation"
+                items.append(item)
+                seen.add(key)
+
+    if role == "compliance_head":
+        for key in ecs_state.rejected_controls:
+            if key in seen:
+                continue
+            framework, control = key.split("::", 1)
+            ctrl = _catalog_ctrl(framework, control)
+            if not ctrl:
+                continue
+            ev = ctrl["evidences"][0]
+            item = _queue_item(framework, ctrl, ev)
+            if item:
+                item["approval_type"] = "Policy gap — compliance review"
+                item["executive_action"] = "Policy Gap Review"
+                items.append(item)
+                seen.add(key)
+
+    items.sort(
+        key=lambda x: (
+            0 if x.get("escalated") else 1,
+            PRIORITY_ORDER.get(x.get("priority"), 9),
+            -x.get("aging_days", 0),
+        )
+    )
+    return [_enrich_queue_item(i) for i in items[:limit]]
+
+
 def work_queue_summary() -> dict:
     owner_q = build_owner_work_queue(limit=500)
     auditor_q = build_auditor_review_queue(limit=500)
+    cio_pending = build_pending_approvals_queue("cio", limit=500)
     return {
         "owner_pending": len(owner_q),
         "auditor_pending": len(auditor_q),
+        "pending_approvals": len(cio_pending),
         "escalated": len(ecs_state.escalated_controls),
         "clarifications": len(ecs_state.clarification_controls),
         "rejected": len(ecs_state.rejected_controls),

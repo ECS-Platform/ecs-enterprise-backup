@@ -10,7 +10,11 @@
 <body class="bg-light ecs-cap-gov-analytics ecs-analytics-live"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
-<h1 class="ecs-workspace-title h5">Enterprise Governance Analytics</h1>
+{% from "partials/ecs_ux_macros.html" import persona_profile %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+<h1 class="ecs-workspace-title h5 mb-0">Enterprise Governance Analytics</h1>
+{{ persona_profile(persona) }}
+</div>
 {% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills %}
 {% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary, enterprise_drill=true) }}{% endif %}
 {% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics, enterprise_drill=true) }}{% endif %}
@@ -22,22 +26,12 @@
 {% from "partials/analytics_macros.html" import metric_info %}
 {% set intel = module_view.intel %}
 
-<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
-{% for k in module_view.kpis %}
-<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}" data-grc-drill data-grc-module="governance" data-grc-metric="{{ k.drill|default('audit_readiness') }}" title="{{ k.tooltip|default('Click to drill down') }}" tabindex="0">
-<span class="ecs-exec-kpi-val">{{ k.value }}</span>
-<span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
-</div>
-{% endfor %}
-</div></div>
+{{ workspace_exec_strip(module_view) }}
 
 {% if filter_options is defined and analytics_filters is defined %}{% include "partials/analytics_filter_bar.html" %}{% endif %}
 {{ workspace_tab_nav(workspace) }}
 
 {{ workspace_pane('overview', true) }}
-<div class="ecs-ws-metric-row mb-1">{% for k in module_view.kpis %}
-<span data-grc-drill data-grc-module="governance" data-grc-metric="{{ k.drill|default('audit_readiness') }}" tabindex="0"><strong>{{ k.label }}</strong> {{ k.value }}</span>{% if not loop.last %} · {% endif %}
-{% endfor %}</div>
 {{ module_action('governance_analytics','export_chart',role,user,'Export','btn-primary btn-sm') }}
 <p class="small text-muted">14-month enterprise trend · 3-year audit history · click any KPI or chart segment</p>
 <h6 class="small text-muted text-uppercase mt-2 mb-1">Governance Audit History ({{ module_view.audit_history|length }} events)</h6>

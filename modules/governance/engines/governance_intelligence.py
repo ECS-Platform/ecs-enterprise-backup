@@ -138,42 +138,47 @@ def _combined_multiplier(filters: dict) -> float:
     return _framework_multiplier(filters) * _risk_multiplier(filters)
 
 
-def build_extended_trends(filters: dict) -> dict:
+def build_extended_trends(filters: dict, tab_payload: dict | None = None) -> dict:
     """Additional trend series — control growth, evidence collection, remediation velocity."""
+    from modules.governance.engines.trends_analytics_engine import build_trends_tab_payload
+
     mult = _combined_multiplier(filters)
     fw = filters.get("framework", "Enterprise-wide")
     app = filters.get("application", "All Applications")
-    weeks = ["W1", "W2", "W3", "W4", "W5", "W6"]
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-    quarters = ["Q1", "Q2", "Q3", "Q4"]
+    tab = tab_payload or build_trends_tab_payload(filters)
+    from modules.executive_overview.engines.executive_analytics_engine import timeline_labels_weekly
+
+    weeks = timeline_labels_weekly(6)
+    months = [r["label"] for r in tab["coverage_series"]] or ["Jan", "Feb", "Mar", "Apr", "May"]
+    quarters = [r["quarter"].split()[0] for r in tab["quarterly_coverage"]]
     return {
         "weekly_control_growth": [
             {"label": w, "value": max(2, int((_seed(f"{fw}-{app}-{w}-ctrl", 4, 18) * mult)))}
             for w in weeks
         ],
         "monthly_evidence_collection": [
-            {"label": m, "value": max(8, int((_seed(f"{fw}-{app}-{m}-ev", 40, 120) * mult)))}
-            for m in months
+            {"label": m, "value": max(8, int(tab["coverage_series"][i]["implemented"] / 180 * mult)) if i < len(tab["coverage_series"]) else 40}
+            for i, m in enumerate(months)
         ],
         "quarterly_audit_readiness": [
-            {"label": q, "value": min(99, round((_seed(f"{fw}-{q}-ready", 68, 94) * mult), 1))}
-            for q in quarters
+            {"label": q, "value": tab["quarterly_coverage"][i]["coverage_pct"], "suffix": "%", "tone": "green"}
+            for i, q in enumerate(quarters)
         ],
         "yearly_maturity_evolution": [
             {"label": str(2022 + i), "value": min(99, round((62 + i * 5 + _seed(fw + str(i), 0, 6)) * mult, 1))}
             for i in range(5)
         ],
         "remediation_closure_velocity": [
-            {"label": m, "value": max(3, int((_seed(f"{fw}-{m}-rem", 6, 28) * mult)))}
-            for m in months
+            {"label": s["label"], "value": s["closed"], "tone": "teal"}
+            for s in tab["observations_series"]
         ],
-        "failed_controls_trend": [
-            {"label": m, "value": max(1, int((_seed(f"{fw}-{m}-fail", 2, 14) / mult)))}
-            for m in months
+        "evidence_rejection_trend": [
+            {"label": s["label"], "value": s["rejected"], "tone": "orange"}
+            for s in tab["rejections_series"]
         ],
         "stale_evidence_trend": [
-            {"label": m, "value": max(2, int((_seed(f"{fw}-{m}-stale", 5, 22) / mult)))}
-            for m in months
+            {"label": s["label"], "value": max(2, tab["evidence_aging"]["expired_count"] + _seed(fw + s["label"], 0, 8)), "tone": "slate"}
+            for s in tab["observations_series"]
         ],
     }
 
@@ -254,15 +259,21 @@ def audit_observations_opened_closed(filters: dict) -> dict:
     total_opened = sum(s["opened"] for s in series)
     total_closed = sum(s["closed"] for s in series)
     closure_rate = round((total_closed / max(total_opened, 1)) * 100, 1)
+    from modules.governance.engines.trends_analytics_engine import (
+        OBSERVATIONS_CLOSURE_LABEL,
+        OBSERVATIONS_CLOSURE_TOOLTIP,
+    )
+
     return {
         "title": "Audit Observations Opened vs Closed",
-        "subtitle": "Control observations · evidence gaps · audit findings · remediation tickets",
+        "subtitle": "Monthly opened vs closed audit observations",
         "tooltip": SCOPE_TOOLTIPS["observations"],
         "scope": _scope_label(filters),
         "series": series,
         "closure_rate_pct": closure_rate,
+        "closure_rate_label": OBSERVATIONS_CLOSURE_LABEL,
+        "closure_rate_tooltip": OBSERVATIONS_CLOSURE_TOOLTIP,
         "avg_days_to_close": 18.6,
-        "categories": ["Control observations", "Evidence gaps", "Audit findings", "Remediation tickets"],
     }
 
 
@@ -430,14 +441,50 @@ def top_risk_applications(filters: dict) -> list[dict]:
 
 
 def build_contextual_trends(filters: dict | None = None) -> dict:
+    from modules.governance.engines.trends_analytics_engine import build_trends_tab_payload
+
     base = parse_analytics_filters()
     if filters:
         base.update({k: v for k, v in filters.items() if v})
-    f = base
+    tab = build_trends_tab_payload(base)
+    f = tab["filters"]
+
     impl = control_implementation_coverage(f)
+    impl["current_pct"] = tab["control_totals"]["coverage_pct"]
+    impl["implemented_controls"] = tab["control_totals"]["implemented_controls"]
+    impl["total_controls"] = tab["control_totals"]["total_controls"]
+    impl["missing_controls"] = tab["control_totals"]["missing_controls"]
+    impl["pending_controls"] = tab["control_totals"]["pending_controls"]
+    impl["series"] = [
+        {
+            **row,
+            "coverage_pct": row["coverage_pct"],
+            "implemented": row["implemented"],
+            "missing": row["missing"],
+            "pending": row["pending"],
+        }
+        for row in tab["coverage_series"]
+    ]
+    impl["framework_contributions"] = tab["framework_contributions"]
+    impl["quarterly_history"] = tab["quarterly_coverage"]
+
     obs = audit_observations_opened_closed(f)
+    obs["series"] = tab["observations_series"]
+    obs["closure_rate_pct"] = tab["closure_rate_pct"]
+    obs["closure_rate_label"] = tab.get("closure_rate_label")
+    obs["closure_rate_tooltip"] = tab.get("closure_rate_tooltip")
+
     rej = auditor_evidence_rejection_rate(f)
+    rej["series"] = tab["rejections_series"]
+    rej["latest_rate_pct"] = tab["rejections_series"][-1]["rate_pct"] if tab["rejections_series"] else 4.2
+    rej["top_reasons"] = tab["rejection_reasons"]
+
     sla = remediation_sla_compliance(f)
+    sla["series"] = tab["sla_series"]
+    sla["latest_on_time_pct"] = tab["sla_series"][-1]["on_time_pct"] if tab["sla_series"] else 91
+    sla["application_wise"] = tab["sla_violators"]
+    sla["total_breaches"] = tab["total_breaches"]
+
     aging = active_evidence_age_distribution(f)
     apps = top_risk_applications(f)
 
@@ -446,12 +493,12 @@ def build_contextual_trends(filters: dict | None = None) -> dict:
         risk_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
         apps = [a for a in apps if a.get("risk") == risk or (risk == "High" and a.get("risk") in ("High", "Critical"))]
 
-    extended = build_extended_trends(f)
+    extended = build_extended_trends(f, tab)
 
     return {
         "filters": f,
         "filter_options": get_filter_options(),
-        "scope_summary": _scope_label(f),
+        "scope_summary": tab["scope_summary"],
         "implementation_coverage": impl,
         "observations": obs,
         "rejection_rate": rej,
@@ -459,36 +506,8 @@ def build_contextual_trends(filters: dict | None = None) -> dict:
         "evidence_aging": aging,
         "top_risk_applications": apps,
         "extended_trends": extended,
-        "executive_kpis": [
-            {
-                "label": "Implementation Coverage",
-                "value": f"{impl['current_pct']}%",
-                "tone": "success",
-                "tooltip": impl["tooltip"],
-                "context": impl["scope"],
-            },
-            {
-                "label": "Observations Net (Latest)",
-                "value": obs["series"][-1]["net"] if obs["series"] else 0,
-                "tone": "primary",
-                "tooltip": obs["tooltip"],
-                "context": f"Closed {obs['series'][-1]['closed']} vs opened {obs['series'][-1]['opened']}" if obs["series"] else "",
-            },
-            {
-                "label": "Auditor Rejection Rate",
-                "value": f"{rej['latest_rate_pct']}%",
-                "tone": "warning",
-                "tooltip": rej["tooltip"],
-                "context": rej["scope"],
-            },
-            {
-                "label": "Remediation SLA Compliance",
-                "value": f"{sla['latest_on_time_pct']}%",
-                "tone": "info",
-                "tooltip": sla["tooltip"],
-                "context": f"{sla['total_breaches']} active breaches in queue",
-            },
-        ],
+        "executive_kpis": tab["executive_kpis"],
+        "trends_payload": tab,
     }
 
 

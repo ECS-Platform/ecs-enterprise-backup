@@ -75,6 +75,8 @@ def _stage_key_from_label(label: str) -> str:
 
 
 def build_run_scheduler() -> dict[str, Any]:
+    from modules.shared.services.execution_engine_registry import governance_assessment_engine
+
     s = _RUN_SUMMARY
     matrix = []
     for fw in _TOWER_FRAMEWORKS:
@@ -102,13 +104,14 @@ def build_run_scheduler() -> dict[str, Any]:
             {"phase": "Calculating Controlled Go-Live Readiness...", "result": "Completed"},
             {"phase": "Generating Findings Summary...", "result": "Completed"},
             {"phase": "Generating Readiness Report...", "result": "Completed"},
-            {"phase": "Scheduler Run Complete", "result": ""},
+            {"phase": "Governance Assessment Complete", "result": ""},
         ],
         "summary": s,
         "readiness_matrix": {
             "stage_columns": [_STAGE_SHORT[k] for k in _STAGE_KEYS],
             "rows": matrix,
         },
+        "engine": governance_assessment_engine(),
     }
 
 
@@ -204,7 +207,7 @@ def build_action_queue_detail(activity_id: str) -> dict[str, Any] | None:
 def build_scheduler_log() -> dict[str, Any]:
     s = _RUN_SUMMARY
     entries = [
-        ("13:45:01", "Scheduler Started"),
+        ("13:45:01", "Governance Assessment Started"),
         ("13:45:03", f"{s['applications_scanned']} Applications Loaded"),
         ("13:45:06", f"{s['frameworks_assessed']} Frameworks Mapped"),
         ("13:45:08", f"{s['controls_assessed']:,} Controls Assessed"),
@@ -216,7 +219,7 @@ def build_scheduler_log() -> dict[str, Any]:
         ("13:45:29", "Controlled Go-Live Readiness Calculated"),
         ("13:45:32", f"{s['open_findings']} Open Findings Detected"),
         ("13:45:35", "Readiness Report Generated"),
-        ("13:45:37", "Scheduler Run Completed"),
+        ("13:45:37", "Governance Assessment Completed"),
     ]
     return {
         "run_id": f"ECS-SCAN-{ANCHOR.strftime('%Y%m%d')}-001",
@@ -361,14 +364,17 @@ def build_control_tower_tab(tab_id: str) -> dict[str, Any] | None:
 
 
 def build_control_tower_shell() -> dict[str, Any]:
+    from modules.shared.services.execution_engine_registry import governance_assessment_engine
+
     return {
         "title": "AI SDLC Control Tower",
-        "subtitle": "ECS scheduler orchestration and readiness monitoring",
+        "subtitle": "Governance assessment orchestration and readiness monitoring",
+        "engine": governance_assessment_engine(),
         "tabs": [
-            {"id": "run-scheduler", "label": "Run Scheduler"},
+            {"id": "run-scheduler", "label": "Run Governance Assessment"},
             {"id": "framework-readiness", "label": "Framework Readiness"},
             {"id": "action-queue", "label": "Action Queue"},
-            {"id": "scheduler-log", "label": "Scheduler Log"},
+            {"id": "scheduler-log", "label": "Assessment Log"},
             {"id": "ai-recommendations", "label": "AI Recommendations"},
         ],
     }

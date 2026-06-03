@@ -1,4 +1,4 @@
-<div class="chat-popup ecs-chat-copilot ecs-chat-size-md" id="ecsChatCopilot" data-state="expanded">
+<div class="chat-popup ecs-chat-copilot ecs-chat-size-md" id="ecsChatCopilot" data-state="expanded" data-dock="right">
 <button type="button" class="ecs-chat-fab" id="ecsChatFab" title="Open ECS AI Copilot" aria-label="Open copilot">
 <span class="ecs-chat-fab-icon">✦</span>
 <span class="badge bg-danger ecs-chat-fab-badge" id="ecsChatFabBadge" style="display:none">0</span>
@@ -23,6 +23,10 @@
 <span class="badge bg-primary ecs-chat-role-badge ms-1">{{ role|replace('_',' ')|title }}</span>
 </div>
 <div class="ecs-chat-header-controls" role="toolbar" aria-label="Copilot controls">
+<div class="btn-group btn-group-sm ecs-chat-dock-group me-1" role="group" aria-label="Dock position">
+<button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-dock-btn" data-dock="right" title="Dock right">R</button>
+<button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-dock-btn" data-dock="bottom" title="Dock bottom">B</button>
+</div>
 <div class="btn-group btn-group-sm ecs-chat-size-group" role="group" aria-label="Window size">
 <button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-size-btn" data-size="sm" title="Small">S</button>
 <button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-size-btn active" data-size="md" title="Medium">M</button>
@@ -101,6 +105,30 @@
   var user = {{ user|tojson }};
   var role = {{ role|tojson }};
   var storageKey = 'ecs_copilot_ui_' + String(user).replace(/\s/g,'_') + '_' + role;
+  var persistKey = 'ecs_copilot_persist_' + role;
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(persistKey) || sessionStorage.getItem(storageKey) || '{}';
+      return JSON.parse(raw);
+    } catch(e) { return {}; }
+  }
+  function saveState(partial) {
+    var s = loadState();
+    Object.assign(s, partial);
+    sessionStorage.setItem(storageKey, JSON.stringify(s));
+    try { localStorage.setItem(persistKey, JSON.stringify(s)); } catch(e) {}
+  }
+
+  function setDock(dock) {
+    dock = dock === 'bottom' ? 'bottom' : 'right';
+    copilot.setAttribute('data-dock', dock);
+    document.querySelectorAll('.ecs-chat-dock-btn').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-dock') === dock);
+    });
+    saveState({ dock: dock });
+  }
+
   var hasNewResponse = {% if response or (chat_response_html is defined and chat_response_html) %}true{% else %}false{% endif %};
   var hasOutageAlert = {% if chat_response_html is defined and chat_response_html and 'Operations Intelligence' in chat_response_html %}true{% else %}false{% endif %};
 
@@ -114,15 +142,6 @@
   var unreadBadge = document.getElementById('ecsChatUnreadBadge');
   var fabBadge = document.getElementById('ecsChatFabBadge');
   var alertBadge = document.getElementById('ecsChatAlertBadge');
-
-  function loadState() {
-    try { return JSON.parse(sessionStorage.getItem(storageKey) || '{}'); } catch(e) { return {}; }
-  }
-  function saveState(partial) {
-    var s = loadState();
-    Object.assign(s, partial);
-    sessionStorage.setItem(storageKey, JSON.stringify(s));
-  }
 
   function setState(state) {
     copilot.setAttribute('data-state', state);
@@ -261,6 +280,7 @@
 
   function initFromStorage() {
     var s = loadState();
+    setDock(s.dock || 'right');
     var size = s.size || (window.innerWidth < 768 ? 'sm' : 'md');
     setSize(size);
     var state = s.state;
@@ -332,6 +352,13 @@
       copilot.classList.remove('ecs-chat-maximized');
       document.getElementById('ecsChatMaximizeBtn').textContent = '□';
       setSize(btn.getAttribute('data-size'));
+    });
+  });
+
+  document.querySelectorAll('.ecs-chat-dock-btn').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      setDock(btn.getAttribute('data-dock'));
     });
   });
 

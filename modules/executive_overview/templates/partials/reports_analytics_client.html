@@ -1,0 +1,104 @@
+{# Reports overview client — KPI drilldowns, trends, activity tables #}
+<script>
+(function(){
+  if (window.__ecsReportsAnalyticsInit) return;
+  window.__ecsReportsAnalyticsInit = true;
+
+  var PAGE = 'reports';
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function renderTrend(containerId, series, chartId) {
+    var el = document.getElementById(containerId);
+    if (!el || !series || !series.length) return;
+    if (window.ecsRenderCompactBarChart) {
+      ecsRenderCompactBarChart(el, series.map(function(s) {
+        return { label: s.label, value: s.value, tone: 'teal' };
+      }), { maxHeight: 56 });
+      el.querySelectorAll('.ecs-bar-col').forEach(function(bar) {
+        bar.setAttribute('data-ecs-universal-chart', '');
+        bar.setAttribute('data-ecs-universal-page', PAGE);
+        bar.setAttribute('data-ecs-universal-chart-id', chartId);
+        bar.setAttribute('data-ecs-universal-element', bar.querySelector('.ecs-bar-lbl')?.textContent || '');
+        bar.classList.add('ecs-kpi-clickable');
+      });
+    }
+  }
+
+  function renderDistribution(containerId, dist) {
+    var el = document.getElementById(containerId);
+    if (!el || !dist) return;
+    var max = Math.max.apply(null, Object.values(dist).concat([1]));
+    el.innerHTML = Object.keys(dist).map(function(k) {
+      var v = dist[k];
+      var pct = Math.round(v / max * 100);
+      return '<div class="ecs-insight-bar mb-1 ecs-kpi-clickable" role="button" tabindex="0" ' +
+        'data-ecs-universal-chart data-ecs-universal-page="' + PAGE + '" ' +
+        'data-ecs-universal-chart-id="export_distribution" data-ecs-universal-element="' + esc(k) + '" ' +
+        'data-ecs-universal-count="' + v + '">' +
+        '<div class="ecs-insight-bar-label"><span>' + esc(k) + '</span><span>' + v + '</span></div>' +
+        '<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-blue" style="width:' + pct + '%"></div></div></div>';
+    }).join('');
+  }
+
+  function tableHtml(rows, cols) {
+    if (!rows || !rows.length) return '<p class="text-muted small mb-0">No records.</p>';
+    var h = '<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-compact-table ecs-paginated-table mb-0"><thead><tr>';
+    cols.forEach(function(c) { h += '<th>' + esc(c.replace(/_/g, ' ')) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function(r) {
+      h += '<tr class="ecs-kpi-clickable" data-ecs-universal-row data-ecs-universal-page="' + PAGE + '" data-ecs-universal-type="report" data-ecs-universal-id="' + esc(r.report_name || r.report_id || '') + '"><td>';
+      h += cols.map(function(c) { return esc(r[c]); }).join('</td><td>');
+      h += '</td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  window.ecsRenderReportsOverview = function(data) {
+    var ov = data.reports_overview || data;
+    var kpis = data.kpis || ov.kpis || [];
+
+    var kpiRow = document.getElementById('ecsReportsKpiRow');
+    if (kpiRow && kpis.length) {
+      kpiRow.innerHTML = kpis.map(function(k) {
+        var count = String(k.value).replace(/[^0-9.]/g, '') || '0';
+        return '<div class="ecs-exec-kpi ecs-exec-kpi-' + esc(k.tone || 'primary') + ' ecs-kpi-clickable" role="button" tabindex="0" ' +
+          'data-ecs-universal-kpi data-ecs-universal-page="' + PAGE + '" ' +
+          'data-ecs-universal-metric="' + esc(k.drill || k.label.toLowerCase().replace(/[^a-z0-9]+/g, '_')) + '" ' +
+          'data-ecs-universal-label="' + esc(k.label) + '" data-ecs-universal-count="' + esc(count) + '" ' +
+          'title="' + esc(k.tooltip || '') + '">' +
+          '<span class="ecs-exec-kpi-val">' + esc(k.value) + '</span>' +
+          '<span class="ecs-exec-kpi-lbl">' + esc(k.label) + '</span></div>';
+      }).join('');
+    }
+
+    renderDistribution('ecsReportsExportDist', ov.export_distribution);
+    renderTrend('ecsReportsTrendDaily', (ov.generation_trend || {}).daily, 'generation_daily');
+    renderTrend('ecsReportsTrendWeekly', (ov.generation_trend || {}).weekly, 'generation_weekly');
+    renderTrend('ecsReportsTrendMonthly', (ov.generation_trend || {}).monthly, 'generation_monthly');
+
+    var topDl = document.getElementById('ecsReportsTopDownloaded');
+    if (topDl) topDl.innerHTML = tableHtml(ov.top_downloaded, ['report_name', 'downloads', 'format', 'framework', 'last_download']);
+
+    var recent = document.getElementById('ecsReportsRecentActivity');
+    if (recent) recent.innerHTML = tableHtml(ov.recent_activity, ['report_name', 'action', 'actor', 'timestamp', 'format', 'status']);
+
+    var upcoming = document.getElementById('ecsReportsUpcomingScheduled');
+    if (upcoming) upcoming.innerHTML = tableHtml(ov.upcoming_scheduled, ['report_name', 'next_run', 'schedule_frequency', 'owner', 'status']);
+
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var init = document.getElementById('ecsReportsOverviewDataset');
+    if (init) {
+      try { ecsRenderReportsOverview(JSON.parse(init.textContent || '{}')); } catch (e) {}
+    }
+  });
+})();
+</script>
+<style>
+.ecs-reports-overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+@media (max-width: 991px) { .ecs-reports-overview-grid { grid-template-columns: 1fr; } }
+.ecs-reports-trend-tabs .btn { font-size: 0.62rem; padding: 0.15rem 0.45rem; }
+</style>

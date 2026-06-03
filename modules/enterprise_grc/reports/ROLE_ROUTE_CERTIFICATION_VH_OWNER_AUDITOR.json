@@ -1,0 +1,426 @@
+{
+  "certification": "PASS",
+  "certification_type": "FULL_ROLE_ROUTE_MATRIX",
+  "summary": {
+    "total_cells": 240,
+    "tested": 240,
+    "not_tested": 0,
+    "pass": 240,
+    "fail": 0,
+    "roles": 3,
+    "routes": 80,
+    "role_keys": [
+      "vertical_head",
+      "owner",
+      "auditor"
+    ]
+  },
+  "issues_fixed_this_run": [
+    "Persona via ecs_sidebar_profile on all MVP pages",
+    "Module KPI/drill validation cached per role\u00d7module",
+    "AI SDLC evidence viewer uses live mock evidence ID"
+  ],
+  "failures": [],
+  "matrix_sample": [
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/dashboard",
+      "Screen": "Main Dashboard",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/dashboard/vertical-head",
+      "Screen": "Vertical Head Dashboard",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/dashboard/compliance-head",
+      "Screen": "Compliance Dashboard",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/dashboard/functional-head",
+      "Screen": "Functional Head Dashboard",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/mvp/demo-overview",
+      "Screen": "Demo Overview",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/mvp/enterprise",
+      "Screen": "Enterprise",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/mvp/pan-india",
+      "Screen": "Pan India",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/mvp/reports",
+      "Screen": "Reports",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Executive Overview",
+      "Route": "/mvp/trends",
+      "Screen": "Trends",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Frameworks",
+      "Route": "/mvp/framework-loader",
+      "Screen": "Framework Loader",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Frameworks",
+      "Route": "/mvp/framework-admin",
+      "Screen": "Framework Administration",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Operations",
+      "Route": "/mvp/scheduler",
+      "Screen": "Scheduler",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Operations",
+      "Route": "/mvp/ai-ops-assistant",
+      "Screen": "AI Ops Assistant",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Operations",
+      "Route": "/mvp/upload",
+      "Screen": "Bulk Upload",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Operations",
+      "Route": "/mvp/bulk-upload",
+      "Screen": "Bulk Upload Hub",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Operations",
+      "Route": "/mvp/integrations",
+      "Screen": "Integrations",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Operations",
+      "Route": "/mvp/onboarding",
+      "Screen": "Onboarding",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Operations",
+      "Route": "/mvp/integrations-hub",
+      "Screen": "Integrations Hub",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/audit-prep",
+      "Screen": "Audit Prep",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/evidence-health",
+      "Screen": "Evidence Health",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/reuse",
+      "Screen": "Evidence Reuse",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/lifecycle",
+      "Screen": "Lifecycle",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/completeness",
+      "Screen": "Completeness",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/comparison",
+      "Screen": "App Comparison",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/search",
+      "Screen": "Search",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/evidence-approval",
+      "Screen": "Evidence Approval Analytics",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/workflow/close-gap",
+      "Screen": "Close Gap Workflow",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/workflow/assign-owner",
+      "Screen": "Assign Owner Workflow",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/workflow/upload-missing",
+      "Screen": "Upload Missing Workflow",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Governance",
+      "Route": "/mvp/workflow/mock-audit",
+      "Screen": "Mock Audit",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/risk-register",
+      "Screen": "Risk Register",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/exceptions",
+      "Screen": "Exceptions / TD",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/exception-governance",
+      "Screen": "Exception Governance",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/cmdb",
+      "Screen": "CMDB / Assets",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/regulatory",
+      "Screen": "Regulatory Mapping",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/heatmaps",
+      "Screen": "Executive Heatmaps",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/correlation",
+      "Screen": "Cross-Tool Correlation",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "Enterprise GRC",
+      "Route": "/mvp/governance-analytics",
+      "Screen": "Governance Analytics",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc",
+      "Screen": "AI SDLC Home",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/control-tower",
+      "Screen": "AI SDLC Control Tower",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/onboarding",
+      "Screen": "Application Onboarding",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/requirements",
+      "Screen": "Requirements",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/design",
+      "Screen": "Design",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/development",
+      "Screen": "Development",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/testing",
+      "Screen": "Testing",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/golive",
+      "Screen": "Go-Live",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/evidence",
+      "Screen": "Evidence Collection",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/findings",
+      "Screen": "Findings & Remediation",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-sdlc/reports",
+      "Screen": "AI SDLC Reports",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    },
+    {
+      "Role": "Vertical Head",
+      "Module": "AI SDLC Governance",
+      "Route": "/mvp/ai-governance",
+      "Screen": "AI Governance",
+      "Issue Found": "",
+      "Pass/Fail": "PASS"
+    }
+  ]
+}

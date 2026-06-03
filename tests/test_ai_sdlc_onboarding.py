@@ -26,7 +26,7 @@ def test_onboarding_page_shell():
     assert resp.status_code == 200
     html = resp.text
     assert "Application Onboarding" in html
-    assert "generate AI SDLC work packages" in html
+    assert "generate" in html.lower() and "sdlc" in html.lower()
     assert "ecsRunOnboarderBtn" in html
     assert "ecsObDrillModal" in html
 

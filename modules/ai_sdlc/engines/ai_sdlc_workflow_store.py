@@ -65,7 +65,7 @@ def _ensure_init() -> None:
     for row in ev["rows"]:
         eid = row["evidence_id"]
         doc = enrich_row_control(row, stage=row.get("stage", "Evidence Collection"))
-        _STORE["evidence"][eid] = {
+        entry = {
             **doc,
             "item_type": "evidence",
             "document_name": f"{doc.get('artifact_type', 'Evidence')}_{eid}.pdf",
@@ -76,6 +76,23 @@ def _ensure_init() -> None:
             "files": [{"name": f"{doc.get('artifact_type', 'Evidence')}_{eid}.pdf", "uploaded_at": "2026-05-22"}],
             "approval_history": [],
         }
+        if eid == "EV-AISDLC-0001" or (seed("ev-appr", eid) % 5 == 0):
+            entry["status"] = "Approved"
+            entry["approved_by"] = "Security Reviewer"
+            entry["approval_date"] = "2026-05-15"
+            entry["finding_status"] = "Remediated"
+            entry["remediation_date"] = "2026-05-22"
+            entry["controls_covered"] = 4
+            entry["evidence_package"] = "Complete"
+            entry["approval_history"] = [{
+                "timestamp": "2026-05-15 10:30 UTC",
+                "action": "Approve",
+                "actor": "Security Reviewer",
+                "from_status": "In Review",
+                "to_status": "Approved",
+                "comments": "Evidence package validated against control objectives.",
+            }]
+        _STORE["evidence"][eid] = entry
     _STORE["initialized"] = True
 
 
@@ -122,11 +139,13 @@ def item_audit_trail(item_id: str) -> list[dict[str, str]]:
 
 
 def build_review_payload(item_id: str, item_type: str = "") -> dict[str, Any] | None:
+    from modules.ai_sdlc.engines.ai_sdlc_evidence_governance import attach_evidence_governance_summary
+
     item = get_item(item_id, item_type)
     if not item:
         return None
     audit = item_audit_trail(item_id)
-    return {
+    payload = {
         **item,
         "audit_trail": audit,
         "approval_history": item.get("approval_history", []),
@@ -142,20 +161,24 @@ def build_review_payload(item_id: str, item_type: str = "") -> dict[str, Any] | 
             "owner": item.get("owner"),
         },
     }
+    return attach_evidence_governance_summary(payload)
 
 
 def build_evidence_viewer(evidence_id: str) -> dict[str, Any] | None:
+    from modules.ai_sdlc.engines.ai_sdlc_evidence_governance import attach_evidence_governance_summary
+
     item = get_evidence(evidence_id)
     if not item:
         from modules.ai_sdlc.engines.ai_sdlc_controlled_documents import build_controlled_evidence_viewer
         item = build_controlled_evidence_viewer(evidence_id)
     if not item:
         return None
-    return {
+    payload = {
         **item,
         "audit_trail": item_audit_trail(evidence_id),
         "approval_history": item.get("approval_history", []),
     }
+    return attach_evidence_governance_summary(payload)
 
 
 def perform_upload(
@@ -234,6 +257,17 @@ def perform_status_action(
     new_status = rule["to"]
     current["status"] = new_status
     label = action.replace("_", " ").title()
+    if action == "approve":
+        current["approved_by"] = actor
+        current["approval_date"] = _now()[:10]
+        if not current.get("finding_status"):
+            current["finding_status"] = "Remediated"
+        if not current.get("remediation_date"):
+            current["remediation_date"] = _now()[:10]
+        if not current.get("controls_covered"):
+            current["controls_covered"] = 4
+        if not current.get("evidence_package"):
+            current["evidence_package"] = "Complete"
     if action == "rework":
         label = "Request Rework"
         current["owner"] = current.get("owner") or "App Owner"

@@ -230,16 +230,21 @@
 </div>
 {% endmacro %}
 
-{% macro page_header(title, subtitle='', user='', role='') %}
+{% macro page_header(title, subtitle='', user='', role='', persona=none) %}
 <div class="ecs-page-header mb-4">
 <div class="ecs-page-header-main">
 <h1 class="ecs-page-title">{{ title }}</h1>
 {% if subtitle %}<p class="ecs-page-subtitle">{{ subtitle }}</p>{% endif %}
 </div>
-{% if user %}
+{% if persona is defined and persona %}
+<div class="ecs-page-header-meta">
+<span class="ecs-user-chip">{{ persona.display_name }}</span>
+<span class="ecs-role-chip">{{ persona.role_title }}</span>
+</div>
+{% elif user %}
 <div class="ecs-page-header-meta">
 <span class="ecs-user-chip">{{ user }}</span>
-{% if role %}<span class="ecs-role-chip">{{ role|replace('_',' ')|title }}</span>{% endif %}
+{% if role %}<span class="ecs-role-chip">{{ role_label(role) }}</span>{% endif %}
 </div>
 {% endif %}
 </div>
@@ -285,7 +290,102 @@
 {% endmacro %}
 
 {% macro role_label(role) %}
-{% if role == 'owner' %}App Owner{% elif role == 'auditor' %}Auditor{% else %}{{ role|replace('_',' ')|title }}{% endif %}
+{% if role == 'owner' %}Application Owner{% elif role == 'auditor' %}Auditor{% elif role == 'cio' %}CIO{% elif role == 'vertical_head' %}Vertical Head{% elif role == 'compliance_head' or role == 'compliance_officer' %}Compliance Officer{% else %}{{ role|replace('_',' ')|title }}{% endif %}
+{% endmacro %}
+
+{% macro persona_profile(persona) %}
+{% if persona is defined and persona %}
+<div class="ecs-page-header-meta">
+<span class="ecs-user-chip">{{ persona.display_name }}</span>
+<span class="ecs-role-chip">{{ persona.role_title }}</span>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro persona_tab_nav(tabs, active_id='tab-overview') %}
+{% if tabs %}
+<ul class="nav nav-tabs ecs-persona-tabs mb-3" role="tablist">
+{% for t in tabs %}
+<li class="nav-item" role="presentation">
+<button class="nav-link{% if t.id == active_id %} active{% endif %}" id="{{ t.id }}-btn" data-bs-toggle="tab" data-bs-target="#{{ t.id }}" type="button" role="tab" aria-controls="{{ t.id }}" aria-selected="{{ 'true' if t.id == active_id else 'false' }}">{{ t.label }}</button>
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}
+
+{% macro risk_controls_table(rows, table_id='risk-controls') %}
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0" id="{{ table_id }}">
+<thead><tr>
+<th class="col-control">Control Name</th>
+<th class="col-app">Application</th>
+<th class="col-fw">Framework</th>
+<th class="col-risk">Risk</th>
+<th class="col-age">Age</th>
+<th class="col-status">Status</th>
+<th class="col-expand"><span class="visually-hidden">Expand</span></th>
+</tr></thead>
+<tbody>
+{% for r in rows %}
+<tr class="ecs-drill-row-clickable"{% if r.control is defined %} data-grc-drill data-grc-module="governance" data-grc-metric="high_risk_controls" data-grc-id="{{ r.control }}"{% endif %}>
+<td class="col-control"><span class="ecs-cell-tip" title="{{ r.control }}">{{ r.control }}</span></td>
+<td class="col-app"><span class="ecs-cell-tip" title="{{ r.application|default('—') }}">{{ r.application|default('—') }}</span></td>
+<td class="col-fw">{{ r.framework }}</td>
+<td class="col-risk"><span class="badge bg-{% if r.risk in ['Critical','High'] %}danger{% else %}warning text-dark{% endif %}">{{ r.risk }}</span></td>
+<td class="col-age">{{ r.aging_days|default(r.age|default('—')) }}{% if r.aging_days is defined %}d{% endif %}</td>
+<td class="col-status"><span class="badge bg-secondary">{{ r.status|default('Open') }}</span></td>
+<td class="col-expand"><button type="button" class="ecs-risk-expand-btn" aria-expanded="false" aria-label="Expand row" title="Expand details">+</button></td>
+</tr>
+<tr class="ecs-risk-detail-row" hidden>
+<td colspan="7">
+<strong>{{ r.control }}</strong> · {{ r.framework }} · {{ r.application|default('Enterprise') }}
+{% if r.owner is defined %} · Owner: {{ r.owner }}{% endif %}
+{% if r.sla is defined %} · SLA: {{ r.sla }}{% endif %}
+</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="text-muted small">No high-risk controls in scope</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% endmacro %}
+
+{% macro risk_applications_table(rows, table_id='risk-apps') %}
+<div class="ecs-risk-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0" id="{{ table_id }}">
+<thead><tr>
+<th class="col-app">Application</th>
+<th class="col-fw">Framework</th>
+<th class="col-status">Compliance</th>
+<th class="col-risk">Risk</th>
+<th class="col-age">Obs</th>
+<th class="col-status">SLA</th>
+<th class="col-expand"><span class="visually-hidden">Expand</span></th>
+</tr></thead>
+<tbody>
+{% for a in rows %}
+<tr class="ecs-drill-row-clickable" data-grc-drill data-grc-module="governance" data-grc-metric="application" data-grc-id="{{ a.application }}">
+<td class="col-app"><strong><span class="ecs-cell-tip" title="{{ a.application }}">{{ a.application }}</span></strong></td>
+<td class="col-fw">{{ a.framework|default('Multi') }}</td>
+<td class="col-status">{{ a.compliance_pct }}%</td>
+<td class="col-risk"><span class="badge {% if a.risk|default('') in ['Critical','High'] %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ a.risk|default('Elevated') }}</span></td>
+<td class="col-age">{{ a.open_observations|default(0) }}</td>
+<td class="col-status">{{ a.sla_breaches|default(0) }}</td>
+<td class="col-expand"><button type="button" class="ecs-risk-expand-btn" aria-expanded="false" aria-label="Expand row" title="Expand details">+</button></td>
+</tr>
+<tr class="ecs-risk-detail-row" hidden>
+<td colspan="7">
+<strong>{{ a.application }}</strong> — {{ a.compliance_pct }}% compliance · {{ a.open_observations|default(0) }} open observations · {{ a.sla_breaches|default(0) }} SLA breaches
+</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="text-muted small">No applications in scope</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
 {% endmacro %}
 
 {% macro zone_close() %}

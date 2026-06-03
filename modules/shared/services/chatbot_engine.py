@@ -118,6 +118,10 @@ def clear_chat_structured(user: str, role: str):
     _structured.pop(_session_key(user, role), None)
 
 
+def clear_chat_history(user: str, role: str):
+    _history.pop(_session_key(user, role), None)
+
+
 def record_exchange(user: str, role: str, query: str, response: str):
     key = _session_key(user, role)
     _history.setdefault(key, []).append({

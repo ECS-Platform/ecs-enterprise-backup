@@ -204,39 +204,45 @@ def register_mvp_routes(app, templates):
         role: str = "cio",
         framework: str = "",
         label: str = "",
+        application: str = "",
+        readiness_pct: str = "",
     ):
-        from modules.shared.drilldowns.ecs_universal_drill_engine import (
-            drill_universal_chart,
-            drill_universal_kpi,
-            drill_universal_row,
-        )
+        from modules.shared.services.drilldown_engine import drill_metric
 
-        if scope == "row":
-            return JSONResponse(drill_universal_row(page, type or "record", id, role=role, framework=framework))
-        if scope == "chart":
-            return JSONResponse(drill_universal_chart(page, chart or "chart", element or metric, count=count, role=role))
-        if not metric and not label:
-            return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
-        return JSONResponse(drill_universal_kpi(page, metric or label, count=count, role=role, framework=framework, label=label))
+        return JSONResponse(drill_metric(
+            scope,
+            page=page,
+            metric=metric,
+            chart=chart,
+            element=element,
+            row_type=type,
+            row_id=id,
+            count=count,
+            role=role,
+            framework=framework,
+            label=label,
+            application=application,
+            readiness_pct=readiness_pct,
+        ))
 
     @app.get("/api/ecs/workflow-drill")
     def api_ecs_workflow_drill(metric: str = "", count: int = 0, role: str = "cio"):
-        from modules.shared.drilldowns.ecs_universal_drill_engine import drill_enterprise_workflow
+        from modules.shared.services.drilldown_engine import drill_workflow
 
         if not metric:
             return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
-        return JSONResponse(drill_enterprise_workflow(role, metric, count))
+        return JSONResponse(drill_workflow(role, metric, count))
 
     @app.post("/mvp/scheduler/run")
     def mvp_scheduler_run(role: str = Form(...), user: str = Form(...)):
         try:
             from modules.shared.services.ecs_logging import log_scheduler
-            log_scheduler("Manual scheduler run triggered", user=user)
+            log_scheduler("Manual evidence collection run triggered", user=user)
         except Exception:
             pass
         result = run_scheduled_pull(user=user)
         notice = (
-            f"Scheduler run completed — {result['observations_scanned']} observations scanned, "
+            f"Evidence collection completed — {result['observations_scanned']} observations scanned, "
             f"{result['new_findings']} new findings detected."
         )
         return RedirectResponse(
@@ -1677,6 +1683,57 @@ def register_mvp_routes(app, templates):
         encoded = quote(response)
         sep = "&" if "?" in return_url else "?"
         return RedirectResponse(url=f"{return_url}{sep}response={encoded}", status_code=303)
+
+    @app.post("/mvp/api/chat-response-mode")
+    def mvp_chat_response_mode(
+        scenario_key: str = Form(...),
+        mode: str = Form(...),
+        role: str = Form(...),
+        user: str = Form(...),
+    ):
+        from modules.operations.engines.operations_intelligence import OUTAGE_SCENARIOS, _build_summary_html
+        from modules.operations.engines.ai_ops_response_modes import render_response_mode
+
+        scenario = OUTAGE_SCENARIOS.get(scenario_key)
+        if not scenario or mode not in (
+            "business", "technical", "executive", "audit",
+            "compliance", "evidence", "incident", "root_cause",
+        ):
+            return JSONResponse({"ok": False, "error": "invalid scenario or mode"}, status_code=400)
+        mode_html = render_response_mode(scenario, mode, scenario_key, role, user)
+        shell_html = _build_summary_html(scenario, scenario_key, role, active_mode=mode)
+        from modules.shared.services.chatbot_engine import get_chat_structured, set_chat_structured
+
+        existing = get_chat_structured(user, role)
+        if existing and "ecsOpsInvestigation" in existing:
+            set_chat_structured(user, role, shell_html)
+        return JSONResponse({"ok": True, "mode": mode, "html": mode_html, "shell_html": shell_html})
+
+    @app.post("/mvp/api/chat-investigation")
+    def mvp_chat_investigation(
+        query: str = Form(...),
+        role: str = Form(...),
+        user: str = Form(...),
+    ):
+        """Fresh investigation — clear history and return a single Q&A pair."""
+        from app.main import chatbot_answer
+        from modules.shared.services.chatbot_engine import (
+            clear_chat_history,
+            clear_chat_structured,
+            get_chat_structured,
+        )
+        from modules.shared.services.ecs_logging import log_chatbot
+
+        log_chatbot(user, role, query, "")
+        clear_chat_history(user, role)
+        clear_chat_structured(user, role)
+        plain = chatbot_answer(query, role=role, user=user)
+        html = get_chat_structured(user, role)
+        if not html:
+            from html import escape
+
+            html = f'<pre class="mb-0 small" style="white-space:pre-wrap;">{escape(plain)}</pre>'
+        return JSONResponse({"ok": True, "query": query, "plain": plain, "html": html})
 
     @app.post("/mvp/api/chat-action")
     def mvp_chat_action(

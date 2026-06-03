@@ -1,16 +1,16 @@
 <!DOCTYPE html><html><head><title>Trends</title>{% include "partials/mvp_styles.html" %}
 <style>
 .ecs-analytics-chart-card .chart-def{font-size:.68rem;margin-bottom:.25rem;color:#475569;max-width:680px}
-.ecs-reason-row{font-size:.72rem;padding:.25rem 0;border-bottom:1px solid #f1f5f9}
+.ecs-reason-row{font-size:.72rem;padding:.25rem 0;border-bottom:1px solid #f1f5f9;cursor:pointer}
+.ecs-trend-summary{font-size:.72rem;display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin-bottom:.5rem;color:#334155}
 </style></head>
 <body class="bg-light ecs-cap-trends ecs-analytics-live"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
 <h1 class="ecs-workspace-title h5">Compliance Analytics &amp; Trends</h1>
 {% include "partials/role_metrics_strip.html" %}
-{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% from "partials/mvp_workspace_macros.html" import workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/analytics_macros.html" import metric_info %}
-{{ workspace_exec_strip(module_view) }}
 {% if filter_options is defined and analytics_filters is defined %}{% include "partials/analytics_filter_bar.html" %}{% endif %}
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-2 ecs-gran-toggle">
@@ -25,15 +25,34 @@
 <p class="ecs-exec-desc-muted mb-2" id="ecsAnalyticsFilterSummary">Scope: {{ module_view.intel.scope_summary|default('Enterprise-wide') }}</p>
 {{ workspace_tab_nav(workspace) }}
 {% set intel = module_view.intel %}
+{% set tab = intel.trends_payload|default({}) %}
+{% set totals = tab.control_totals|default({}) %}
 
 {{ workspace_pane('overview', true) }}
-<div class="ecs-ws-metric-row" id="ecsTrendKpiRow">{% for k in module_view.kpis %}
-<span title="{{ k.tooltip|default('') }}"><strong>{{ k.label }}</strong> {{ k.value }}{% if k.context %} <small class="text-muted">({{ k.context }})</small>{% endif %}</span>
-{% endfor %}</div>
+<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll" id="ecsTrendKpiRow">
+{% for k in module_view.kpis %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }} ecs-kpi-clickable" role="button" tabindex="0"
+  data-ecs-universal-kpi data-ecs-universal-page="trends"
+  data-ecs-universal-metric="{{ k.drill|default(k.label|lower|replace(' ','_')|replace('/','_')) }}"
+  data-ecs-universal-label="{{ k.label }}"
+  data-ecs-universal-count="{{ k.value|string|replace('%','')|replace(',','') }}"
+  title="{{ k.tooltip|default('Click for calculation detail') }}">
+<span class="ecs-exec-kpi-val">{{ k.value }}</span>
+<span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
+</div>
+{% endfor %}
+</div></div>
+<div class="ecs-trend-summary" id="ecsTrendCoverageSummary">
+{% if totals.implemented_controls is defined %}
+<span><strong>Implemented Controls:</strong> {{ "{:,}".format(totals.implemented_controls) }}</span>
+<span><strong>Total Controls:</strong> {{ "{:,}".format(totals.total_controls) }}</span>
+<span><strong>Coverage:</strong> {{ totals.coverage_pct }}%</span>
+{% endif %}
+</div>
 <div class="compact-chart-grid mb-2">
 <div class="chart-card"><div class="chart-card-title">Compliance Trend</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsGranCompChart"></div></div></div>
-<div class="chart-card"><div class="chart-card-title">Observation Trend</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsGranObsChart"></div></div></div>
-<div class="chart-card"><div class="chart-card-title">Failed Evidence</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsGranFailChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Observation Trend</div><div class="ecs-obs-legend" id="ecsGranObsChartLegend" aria-label="Chart legend"></div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsGranObsChart"></div></div></div>
+<div class="chart-card"><div class="chart-card-title">Evidence Rejections</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsGranRejChart"></div></div></div>
 <div class="chart-card"><div class="chart-card-title">Risk Escalation</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsGranEscChart"></div></div></div>
 </div>
 {{ workspace_pane_end() }}
@@ -41,44 +60,57 @@
 {{ workspace_pane('coverage', false) }}
 <div class="ecs-analytics-chart-card chart-card">
 <h6 class="chart-card-title mb-0">{{ intel.implementation_coverage.title }}{{ metric_info(intel.implementation_coverage.tooltip) }}</h6>
-<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsTrendCoverageChart"></div></div>
+<p class="chart-def mb-1">Implemented · Missing · Pending controls by month with percentage breakdown. Click any bar for drilldown.</p>
+<div class="chart-container-compact"><div id="ecsTrendCoverageChart"></div></div>
+</div>
+<div class="row g-2 mt-1">
+<div class="col-md-7"><div class="chart-card"><div class="chart-card-title">Framework Contribution</div><div id="ecsTrendFwContrib"></div></div></div>
+<div class="col-md-5"><div class="chart-card"><div class="chart-card-title">Historical Trend</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsTrendQuarterly"></div></div></div></div>
 </div>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('observations', false) }}
 <div class="ecs-analytics-chart-card chart-card">
 <h6 class="chart-card-title mb-0">{{ intel.observations.title }}</h6>
-<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsTrendObsChart"></div></div>
-<p class="chart-kpi-inline mb-0">Closure {{ intel.observations.closure_rate_pct }}%</p>
+<p class="chart-def mb-1">{{ intel.observations.subtitle|default('Monthly opened vs closed audit observations') }}</p>
+<div class="ecs-obs-legend" id="ecsTrendObsChartLegend" aria-label="Chart legend"></div>
+<div class="chart-container-compact"><div id="ecsTrendObsChart"></div></div>
+<p class="chart-kpi-inline mb-0" id="ecsTrendObsClosure"
+  title="{{ intel.observations.closure_rate_tooltip|default('Percentage of observations closed relative to newly opened observations during the selected period. Values above 100% indicate backlog reduction.') }}">
+  {{ intel.observations.closure_rate_label|default('Closed vs Newly Opened Rate') }} {{ intel.observations.closure_rate_pct }}%</p>
 </div>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('rejections', false) }}
 <div class="ecs-analytics-chart-card chart-card">
 <h6 class="chart-card-title mb-0">{{ intel.rejection_rate.title }}</h6>
-<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsTrendRejChart"></div></div>
+<div class="chart-container-compact"><div id="ecsTrendRejChart"></div></div>
+<h6 class="small text-muted text-uppercase mt-2 mb-1">Top Rejection Reasons</h6>
+<div id="ecsTrendRejReasons"></div>
 </div>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('sla', false) }}
 <div class="ecs-analytics-chart-card chart-card">
 <h6 class="chart-card-title mb-0">{{ intel.sla_compliance.title }}</h6>
-<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsTrendSlaChart"></div></div>
+<div class="chart-container-compact"><div id="ecsTrendSlaChart"></div></div>
+<h6 class="small text-muted text-uppercase mt-2 mb-1">Top Applications Violating SLA</h6>
+<div id="ecsTrendSlaViolators"></div>
 </div>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('aging', false) }}
 <p class="ecs-exec-desc mb-1">{{ intel.evidence_aging.definition }}</p>
-<div class="compact-chart-grid mb-2">
-<div class="chart-card"><div class="chart-card-title">Evidence Aging Trend</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsGranAgeChart"></div></div></div>
-<div class="chart-card"><div class="chart-card-title">Remediation Velocity</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsGranRemChart"></div></div></div>
-<div class="chart-card"><div class="chart-card-title">Weekly Control Growth</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsTrendWeeklyCtrl"></div></div></div>
-<div class="chart-card"><div class="chart-card-title">Stale Evidence</div><div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsTrendStale"></div></div></div>
+<div class="compact-chart-grid ecs-evidence-aging-grid mb-2">
+<div class="chart-card ecs-aging-chart-card"><div class="chart-card-title">Evidence Aging Trend</div><div class="chart-container-aging"><div class="ecs-bar-chart ecs-aging-bar-chart" id="ecsGranAgeChart" data-chart-id="evidence_aging"></div></div></div>
+<div class="chart-card ecs-aging-chart-card"><div class="chart-card-title">Remediation Velocity</div><div class="chart-container-aging"><div class="ecs-bar-chart ecs-aging-bar-chart" id="ecsGranRemChart" data-chart-id="remediation_velocity"></div></div></div>
+<div class="chart-card ecs-aging-chart-card"><div class="chart-card-title">Weekly Control Growth</div><div class="chart-container-aging"><div class="ecs-bar-chart ecs-aging-bar-chart" id="ecsTrendWeeklyCtrl" data-chart-id="weekly_control_growth"></div></div></div>
+<div class="chart-card ecs-aging-chart-card"><div class="chart-card-title">Stale Evidence</div><div class="chart-container-aging"><div class="ecs-bar-chart ecs-aging-bar-chart" id="ecsTrendStale" data-chart-id="stale_evidence"></div></div></div>
 </div>
 <div class="table-responsive ecs-paginated-wrap ecs-fit-view">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table mb-0"><thead><tr><th>Application</th><th>Compliance</th><th>Risk</th><th>Obs</th><th>Gaps</th></tr></thead><tbody id="ecsTrendRiskAppsBody">
 {% for a in intel.top_risk_applications %}
-<tr data-grc-drill data-grc-module="governance" data-grc-metric="application" data-grc-id="{{ a.application }}"><td>{{ a.application }}</td><td>{{ a.compliance_pct }}%</td><td>{{ a.risk|default('Elevated') }}</td><td>{{ a.open_observations }}</td><td>{{ a.high_risk_gaps|default(0) }}</td></tr>
+<tr data-ecs-universal-row data-ecs-universal-page="trends" data-ecs-universal-type="application" data-ecs-universal-id="{{ a.application }}"><td>{{ a.application }}</td><td>{{ a.compliance_pct }}%</td><td>{{ a.risk|default('Elevated') }}</td><td>{{ a.open_observations }}</td><td>{{ a.high_risk_gaps|default(0) }}</td></tr>
 {% endfor %}
 </tbody></table></div>
 {{ workspace_pane_end() }}
@@ -86,19 +118,31 @@
 </div></div></div>
 <script type="application/json" id="ecsAnalyticsIntelDataset">{{ {'intel': module_view.intel, 'kpis': module_view.kpis, 'scope_summary': module_view.intel.scope_summary}|tojson }}</script>
 <script type="application/json" id="ecsGranularityTrends">{{ module_view.granularity_trends|default({})|tojson }}</script>
-{% include "partials/analytics_filter_client.html" %}
-{% include "partials/grc_demo_drill_modal.html" %}
+{% include "partials/trends_analytics_client.html" %}
 <script>
 (function(){
   var granData = {};
   try { granData = JSON.parse(document.getElementById('ecsGranularityTrends').textContent || '{}'); } catch(e) {}
-  var currentGran = 'monthly';
   function applyGran(g) {
-    currentGran = g;
     document.querySelectorAll('#ecsTrendGranularity [data-gran]').forEach(function(btn){
       btn.classList.toggle('active', btn.getAttribute('data-gran') === g);
     });
-    if (window.ecsRenderGranularityTrends) ecsRenderGranularityTrends(g, granData);
+    var chartIds = {
+      observations: 'ecsGranObsChart',
+      compliance: 'ecsGranCompChart',
+      evidence_rejections: 'ecsGranRejChart',
+      risk_escalation: 'ecsGranEscChart',
+      evidence_aging: 'ecsGranAgeChart',
+      remediation: 'ecsGranRemChart'
+    };
+    if (g === 'monthly' && granData.monthly && granData.monthly.observations_grouped && window.ecsRenderObservationsGroupedChart) {
+      ecsRenderObservationsGroupedChart('ecsGranObsChart', granData.monthly.observations_grouped, 'observations');
+      var rest = Object.assign({}, chartIds);
+      delete rest.observations;
+      if (window.ecsRenderGranularityTrends) ecsRenderGranularityTrends(g, granData, rest);
+    } else if (window.ecsRenderGranularityTrends) {
+      ecsRenderGranularityTrends(g, granData, chartIds);
+    }
   }
   document.querySelectorAll('#ecsTrendGranularity [data-gran]').forEach(function(btn){
     btn.addEventListener('click', function(){ applyGran(btn.getAttribute('data-gran')); });

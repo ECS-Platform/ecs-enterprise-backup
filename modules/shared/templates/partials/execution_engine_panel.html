@@ -1,0 +1,31 @@
+{# Execution engine panel — title, description, run metadata, dashboard strip #}
+{% macro execution_engine_panel(engine, show_dashboard=true) %}
+{% if engine is defined and engine %}
+<div class="ecs-engine-panel border rounded bg-white p-2 mb-2">
+<div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-1">
+<div>
+<h6 class="mb-0">{{ engine.title }}</h6>
+<p class="small text-muted mb-0">{{ engine.description }}</p>
+</div>
+<span class="badge {% if engine.run_status in ('Success', 'Ready', 'Completed') %}bg-success{% elif engine.run_status == 'Paused' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ engine.run_status }}</span>
+</div>
+<div class="row g-1 small mb-1">
+<div class="col-6 col-md-2"><span class="text-muted d-block">Last Run</span><strong>{{ engine.last_run }}</strong></div>
+<div class="col-6 col-md-2"><span class="text-muted d-block">Run Status</span><strong>{{ engine.run_status }}</strong></div>
+<div class="col-6 col-md-2"><span class="text-muted d-block">Records Processed</span><strong>{{ engine.records_processed }}</strong></div>
+<div class="col-6 col-md-2"><span class="text-muted d-block">Execution Duration</span><strong>{{ engine.execution_duration_sec }}s</strong></div>
+{% if engine.location %}<div class="col-12 col-md-4"><span class="text-muted d-block">Location</span><strong>{{ engine.location }}</strong></div>{% endif %}
+</div>
+{% if show_dashboard and engine.dashboard %}
+<div class="ecs-sched-summary mt-1">
+<div class="ecs-sched-card"><strong>{{ engine.dashboard.successful_runs }}</strong><span>Successful Runs</span></div>
+<div class="ecs-sched-card"><strong>{{ engine.dashboard.failed_runs }}</strong><span>Failed Runs</span></div>
+<div class="ecs-sched-card"><strong>{{ engine.dashboard.avg_runtime_sec }}s</strong><span>Avg Runtime</span></div>
+<div class="ecs-sched-card"><strong>{{ engine.dashboard.records_processed }}</strong><span>Records Processed</span></div>
+<div class="ecs-sched-card"><strong>{{ engine.dashboard.applications_affected }}</strong><span>Applications Affected</span></div>
+<div class="ecs-sched-card"><strong>{{ engine.dashboard.frameworks_affected }}</strong><span>Frameworks Affected</span></div>
+</div>
+{% endif %}
+</div>
+{% endif %}
+{% endmacro %}

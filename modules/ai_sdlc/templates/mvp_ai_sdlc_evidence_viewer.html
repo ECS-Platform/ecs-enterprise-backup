@@ -16,6 +16,18 @@
 <a href="/mvp/ai-sdlc/evidence{{ q }}" class="aisdlc-pill text-decoration-none text-white">← Evidence Collection</a>
 </div>
 
+<div class="card mb-3"><div class="card-body py-2">
+<dl class="row small mb-0">
+<dt class="col-sm-4 col-md-3">Evidence Status</dt><dd class="col-sm-8 col-md-3">{{ ev.evidence_status|default(ev.status) }}</dd>
+<dt class="col-sm-4 col-md-3">Approved By</dt><dd class="col-sm-8 col-md-3">{{ ev.approved_by|default('—') }}</dd>
+<dt class="col-sm-4 col-md-3">Approval Date</dt><dd class="col-sm-8 col-md-3">{{ ev.approval_date|default('—') }}</dd>
+<dt class="col-sm-4 col-md-3">Finding Status</dt><dd class="col-sm-8 col-md-3">{{ ev.finding_status|default('—') }}</dd>
+<dt class="col-sm-4 col-md-3">Remediation Date</dt><dd class="col-sm-8 col-md-3">{{ ev.remediation_date|default('—') }}</dd>
+<dt class="col-sm-4 col-md-3">Controls Covered</dt><dd class="col-sm-8 col-md-3">{{ ev.controls_covered|default('—') }}</dd>
+<dt class="col-sm-4 col-md-3">Evidence Package</dt><dd class="col-sm-8 col-md-3">{{ ev.evidence_package|default('—') }}</dd>
+</dl>
+</div></div>
+
 <div class="row g-3">
 <div class="col-md-6">
 <div class="card h-100"><div class="card-header py-2"><strong>Document</strong></div><div class="card-body">

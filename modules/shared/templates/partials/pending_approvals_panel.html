@@ -1,0 +1,57 @@
+{% if pending_approvals_queue is defined and pending_approvals_queue %}
+<div class="ecs-section-card mb-4" id="ecs-pending-approvals">
+<div class="ecs-section-card-header">
+<div>
+<h2 class="ecs-section-card-title">{{ pending_approvals_title|default('Pending Approvals') }}</h2>
+<p class="text-muted small mb-0">Evidence submissions and executive sign-offs requiring action.</p>
+</div>
+<span class="badge bg-warning text-dark">{{ pending_approvals_queue|length }} pending</span>
+</div>
+
+<div class="ecs-exec-strip mb-3"><div class="ecs-exec-strip-scroll">
+<div class="ecs-exec-kpi ecs-exec-kpi-warning"><span class="ecs-exec-kpi-val">{{ pending_approvals_queue|length }}</span><span class="ecs-exec-kpi-lbl">Awaiting Action</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-danger"><span class="ecs-exec-kpi-val">{{ pending_approvals_queue|selectattr('escalated')|list|length }}</span><span class="ecs-exec-kpi-lbl">Escalated</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-primary"><span class="ecs-exec-kpi-val">{{ pending_approvals_queue|selectattr('workflow_code', 'equalto', 'submitted')|list|length }}</span><span class="ecs-exec-kpi-lbl">Submitted Evidence</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-teal"><span class="ecs-exec-kpi-val">{{ pending_approvals_queue|selectattr('aging_days', 'gt', 14)|list|length }}</span><span class="ecs-exec-kpi-lbl">SLA At Risk</span></div>
+</div></div>
+
+<div class="ecs-table-wrap ecs-paginated-wrap">
+<table class="table ecs-table-modern ecs-workflow-table mb-0 ecs-paginated-table">
+<thead><tr>
+<th>Framework</th><th>Control</th><th>Application</th><th>Type</th><th>Risk</th><th>Aging</th><th>SLA</th><th class="ecs-sticky-actions">Actions</th>
+</tr></thead>
+<tbody>
+{% for item in pending_approvals_queue %}
+<tr class="{% if item.escalated %}row-rejected{% elif item.aging_days > 14 %}row-warning{% endif %}">
+<td>{{ item.framework }}</td>
+<td><small>{{ item.control_id }}</small></td>
+<td>{{ item.application }}</td>
+<td><small class="text-muted">{{ item.approval_type|default(item.executive_action|default('Pending')) }}</small></td>
+<td><span class="ecs-severity-pill ecs-severity-{% if item.risk_rating == 'Critical' %}critical{% else %}high{% endif %}">{{ item.risk_rating }}</span></td>
+<td>{{ item.aging_days }}d</td>
+<td><span class="{{ item.sla_class }}">{{ item.sla }}</span></td>
+<td class="ecs-sticky-actions">
+<div class="ecs-action-group">
+<a class="btn btn-outline-secondary btn-sm" href="/framework/{{ item.framework }}?role={{ role }}&user={{ user|urlencode }}">View</a>
+{% if role == 'cio' %}
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve</button></form>
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="send_back"><button class="btn btn-warning btn-sm">Send Back</button></form>
+{% elif role == 'vertical_head' %}
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve</button></form>
+<form method="post" action="/reject" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><input type="hidden" name="reject_reason" value="Vertical Head rejected — remediation required."><button class="btn btn-danger btn-sm">Reject</button></form>
+{% elif role in ('compliance_head', 'compliance_officer', 'security_officer') %}
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve</button></form>
+<form method="post" action="/workflow/leadership/review" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="action" value="reopen"><button class="btn btn-warning btn-sm">Reopen</button></form>
+{% elif role == 'auditor' %}
+<form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><button class="btn btn-success btn-sm">Approve Evidence</button></form>
+<form method="post" action="/reject" class="d-inline"><input type="hidden" name="control_name" value="{{ item.control }}"><input type="hidden" name="framework_name" value="{{ item.framework }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="return_to" value="dashboard"><input type="hidden" name="reject_reason" value="Evidence does not meet audit criteria."><button class="btn btn-danger btn-sm">Reject</button></form>
+{% endif %}
+</div>
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+{% endif %}

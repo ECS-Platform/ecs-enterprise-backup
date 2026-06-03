@@ -33,9 +33,15 @@ AUDITOR_ALLOWED_ACTIONS = frozenset({
 
 def normalize_role(role: str) -> str:
     role = (role or "owner").strip().lower()
-    if role == "compliance_officer":
-        return "compliance_head"
-    return role
+    aliases = {
+        "compliance_officer": "compliance_head",
+        "security_officer": "compliance_head",
+        "operations_owner": "owner",
+        "ai_governance_owner": "cio",
+        "ai_sdlc_owner": "owner",
+        "framework_owner": "compliance_head",
+    }
+    return aliases.get(role, role)
 
 
 def can_raise_exception(role: str) -> bool:

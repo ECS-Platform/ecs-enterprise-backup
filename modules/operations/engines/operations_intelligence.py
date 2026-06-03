@@ -281,36 +281,37 @@ def _severity_class(sev: str) -> str:
     return {"CRITICAL": "danger", "HIGH": "warning", "MEDIUM": "info", "LOW": "secondary"}.get(sev, "secondary")
 
 
-def _build_summary_html(scenario: dict, scenario_key: str, role: str) -> str:
+def _build_summary_html(scenario: dict, scenario_key: str, role: str, active_mode: str = "business") -> str:
     from modules.operations.engines.ai_ops_assistant_engine import build_summary_mode_buttons
+    from modules.operations.engines.ai_ops_response_modes import render_response_mode
 
     sev = scenario["severity"]
     badge = _severity_class(sev)
-    signals = "".join(f'<li class="small">{s}</li>' for s in scenario["correlated_signals"])
-    modes = build_summary_mode_buttons(scenario_key)
-    timeline = "".join(
-        f'<div class="ecs-ops-timeline-item"><small class="text-muted">{t}</small><br>{e}</div>'
-        for t, e in scenario.get("timeline", [])[:4]
-    )
+    modes = build_summary_mode_buttons(scenario_key, active_mode=active_mode)
+    mode_html = render_response_mode(scenario, active_mode, scenario_key, role, "User")
     follow_btns = "".join(
         f'<button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" '
         f'data-action="{key}" data-scenario="{scenario_key}">{label}</button>'
         for label, key in OUTAGE_FOLLOW_UPS[:4]
     )
+    inc_id = scenario["correlated_signals"][0].split("—")[0].strip() if scenario.get("correlated_signals") else "INC-OPEN"
     return f"""
-<div class="ecs-ops-intel-card border rounded p-2 mb-1">
-<div class="d-flex justify-content-between align-items-start mb-2">
+<div id="ecsOpsInvestigation" class="ecs-ops-intel-card border rounded p-2 mb-1" data-scenario-key="{scenario_key}">
+<div class="ecs-ops-incident-context small mb-2 pb-2 border-bottom">
+<div class="d-flex justify-content-between align-items-start mb-1">
 <div><span class="badge bg-{badge} ecs-ops-severity">{sev}</span>
-<span class="badge bg-secondary ms-1">{scenario['status']}</span></div>
-<small class="text-muted">Operations Intelligence</small></div>
-<h6 class="mb-1">{scenario['application']}</h6>
-<p class="small mb-2"><strong>Customer Impact:</strong> {scenario['customer_impact']}</p>
-<div class="small mb-2"><strong>Data compromise:</strong> <span class="text-success">{scenario['data_compromise']}</span>
-· <strong>ETA:</strong> <span class="badge bg-info text-dark">{scenario['eta']}</span></div>
-<div class="mb-2"><small class="text-muted d-block">Correlated governance signals:</small><ul class="mb-0 ps-3 ecs-paginated-list">{signals}</ul></div>
-<div class="ecs-ops-mode-select mb-2 p-2 bg-light rounded"><small class="text-muted d-block mb-1">Select response mode (expand for detail):</small>{modes}</div>
-<details class="ecs-ops-timeline small mb-2"><summary>Operations timeline</summary>{timeline}</details>
-<div class="ecs-ops-followups"><small class="text-muted d-block">Suggested follow-ups:</small>{follow_btns}</div>
+<span class="badge bg-secondary ms-1">{scenario['status']}</span>
+<span class="badge bg-light text-dark ms-1">{inc_id}</span></div>
+<small class="text-muted">Operations Intelligence · same incident</small></div>
+<strong>{scenario['application']}</strong> · ETA <span class="badge bg-info text-dark">{scenario['eta']}</span>
+· Data compromise: <span class="text-success">{scenario['data_compromise']}</span>
+</div>
+<div class="ecs-ops-mode-select mb-2 p-2 bg-light rounded">
+<small class="text-muted d-block mb-1">Response mode — switch perspective without changing the investigation:</small>
+{modes}
+</div>
+<div id="ecsChatModePanel" data-active-mode="{active_mode}">{mode_html}</div>
+<div class="ecs-ops-followups mt-2"><small class="text-muted d-block">Suggested follow-ups:</small>{follow_btns}</div>
 </div>"""
 
 
@@ -407,10 +408,9 @@ def try_operations_answer(query: str, role: str = "owner", user: str = "User") -
             "business", "technical", "customer", "executive", "audit",
             "compliance", "evidence", "incident", "root_cause",
         ):
-            html = _build_summary_html(scenario, scenario_key, role) + _build_mode_html(
-                scenario, mode_or_follow, scenario_key, role, user
-            )
-            plain = f"[{mode_or_follow.title()} View] — {scenario['application']}\nSee detailed response in copilot panel."
+            mode = "business" if mode_or_follow == "customer" else mode_or_follow
+            html = _build_summary_html(scenario, scenario_key, role, active_mode=mode)
+            plain = f"[{mode.replace('_', ' ').title()} View] — {scenario['application']}\nSee detailed response in copilot panel."
         else:
             return None
         set_chat_structured(user, role, html)
@@ -471,7 +471,7 @@ def try_operations_answer(query: str, role: str = "owner", user: str = "User") -
 
     ctx["active_outage"] = scenario_key
     update_chat_context(user, role, q, application=scenario["application"], module="Operations", severity=scenario["severity"])
-    html = _build_summary_html(scenario, scenario_key, role)
+    html = _build_summary_html(scenario, scenario_key, role, active_mode="business")
     plain = _plain_summary(scenario)
     set_chat_structured(user, role, html)
     record_exchange(user, role, q, plain)

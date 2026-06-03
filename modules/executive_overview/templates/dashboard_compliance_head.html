@@ -1,25 +1,82 @@
-<!DOCTYPE html><html><head><title>Compliance Head Dashboard</title>{% include "partials/mvp_styles.html" %}</head>
-<body class="bg-light"><div class="container-fluid"><div class="row">
-{% set sidebar_brand = "ECS" %}
+<!DOCTYPE html>
+<html>
+<head>
+<title>Compliance Head Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include "partials/enterprise_theme.html" %}
+</head>
+<body class="bg-light ecs-enterprise-body">
+<div class="container-fluid"><div class="row">
 {% set nav_active = "role_dashboard" %}
 {% include "partials/ecs_sidebar.html" %}
-<div class="col-md-10 p-4">
-<h1>Compliance Head Dashboard</h1>
-{% include "partials/enterprise_widgets.html" %}
-{% include "partials/leadership_work_queue.html" %}
-<div class="row g-3 mb-4">
-<div class="col-md-4"><div class="card p-3 border-warning"><small>Missing Evidence</small><h3>{{completeness.missing_count}}</h3></div></div>
-<div class="col-md-4"><div class="card p-3 border-danger"><small>Rejected</small><h3>{{analytics.totals.rejected}}</h3></div></div>
-<div class="col-md-4"><div class="card p-3 border-success"><small>Compliance</small><h3>{{analytics.overall_compliance_pct}}%</h3></div></div>
+<div class="col-md-10 ecs-main-content p-4">
+
+<div class="ecs-page ecs-page-loaded ecs-page-content">
+{% from "partials/ecs_ux_macros.html" import kpi_card, persona_profile, persona_tab_nav, zone_open, zone_close %}
+
+<div class="ecs-page-header mb-3">
+<div class="ecs-page-header-main"><h1 class="ecs-page-title mb-0">Compliance Officer Dashboard</h1></div>
+{{ persona_profile(persona) }}
 </div>
-<h3>Audit Status Summary</h3>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table table-bordered bg-white ecs-paginated-table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>
-<tr><td>Pending</td><td>{{analytics.totals.pending}}</td></tr>
-<tr><td>Submitted</td><td>{{analytics.totals.submitted}}</td></tr>
-<tr><td>Approved</td><td>{{analytics.totals.approved}}</td></tr>
-<tr><td>Rejected</td><td>{{analytics.totals.rejected}}</td></tr>
-</tbody></table></div>
-<h3>Top Risk Frameworks</h3>
-<ul class="ecs-paginated-list">{% for f in enterprise.top_risk_frameworks %}<li>{{f.name}} — {{f.compliance_pct}}%</li>{% endfor %}</ul>
-</div></div></div>{% include "partials/chatbot_global.html" %}</body></html>
+
+{% set tabs = persona.tabs if persona is defined and persona.tabs else [] %}
+{{ persona_tab_nav(tabs, 'tab-overview') }}
+
+<div class="tab-content ecs-persona-tab-content">
+
+<div class="tab-pane fade show active ecs-persona-tab-pane" id="tab-overview" role="tabpanel">
+{{ zone_open('top') }}
+<div class="row g-3 mb-3">
+{{ kpi_card('Missing Evidence', completeness.missing_count, 'Gaps requiring upload', 'warning') }}
+{{ kpi_card('Rejected', analytics.totals.rejected, 'Returned controls', 'danger') }}
+{{ kpi_card('Compliance', analytics.overall_compliance_pct ~ '%', 'Enterprise posture', 'success') }}
+{{ kpi_card('Pending', analytics.totals.pending, 'Awaiting evidence', 'primary') }}
+</div>
+{{ zone_close() }}
+{% include "partials/enterprise_widgets.html" %}
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-frameworks" role="tabpanel">
+{% include "partials/framework_compliance_overview.html" %}
+<h3 class="h6 mt-3">Top Risk Frameworks</h3>
+<ul class="list-group ecs-paginated-list mb-3">
+{% for f in enterprise.top_risk_frameworks %}
+<li class="list-group-item d-flex justify-content-between">{{ f.name }} <span class="badge bg-{% if f.compliance_pct >= 70 %}warning text-dark{% else %}danger{% endif %}">{{ f.compliance_pct }}%</span></li>
+{% endfor %}
+</ul>
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-mapping" role="tabpanel">
+{% set show_governance = true %}
+{% set hide_risk_tables = true %}
+{% include "partials/governance_analytics_panel.html" %}
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-gaps" role="tabpanel">
+{% include "partials/pending_approvals_panel.html" %}
+{% set leadership_title = 'Compliance Head — Cross-Framework Gaps' %}
+{% include "partials/leadership_work_queue.html" %}
+<div class="ecs-risk-table-wrap ecs-paginated-wrap mt-3">
+<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
+<thead><tr><th class="col-status">Status</th><th class="col-risk">Count</th></tr></thead>
+<tbody>
+<tr><td>Pending</td><td>{{ analytics.totals.pending }}</td></tr>
+<tr><td>Submitted</td><td>{{ analytics.totals.submitted }}</td></tr>
+<tr><td>Approved</td><td>{{ analytics.totals.approved }}</td></tr>
+<tr><td>Rejected</td><td>{{ analytics.totals.rejected }}</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-reports" role="tabpanel">
+<p class="text-muted small mb-2">Compliance reporting and audit-ready exports.</p>
+<a href="/mvp/reports?role={{ role }}&user={{ user }}" class="btn btn-outline-primary btn-sm">Open Reports Module</a>
+</div>
+
+</div>
+</div>
+</div></div></div>
+{% include "partials/chatbot_global.html" %}
+</body></html>

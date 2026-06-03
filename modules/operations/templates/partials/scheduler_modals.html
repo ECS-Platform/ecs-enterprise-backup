@@ -1,4 +1,4 @@
-{# Scheduler action modals — Run Now, Pause, Resume, Retry, App drill-down #}
+{# Evidence collection action modals — Run, Pause, Resume, Retry, App drill-down #}
 {% from "partials/mvp_module_actions.html" import module_action %}
 
 <div class="modal fade" id="schedRunModal" tabindex="-1" aria-labelledby="schedRunModalLabel" aria-hidden="true">
@@ -28,7 +28,7 @@
 </form></div></div></div></div>
 
 <div class="modal fade" id="schedPauseModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-<div class="modal-header py-2"><h6 class="modal-title">Pause Scheduler</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-header py-2"><h6 class="modal-title">Pause Evidence Collection</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body small">Pause all non-critical evidence collection jobs? Critical PCI DSS and audit-window pulls will continue.</div>
 <div class="modal-footer py-2">
 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
@@ -37,8 +37,8 @@
 </div></div></div></div>
 
 <div class="modal fade" id="schedResumeModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-<div class="modal-header py-2"><h6 class="modal-title">Resume Scheduler</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body small">Resume all paused scheduler jobs and restore full collection cadence?</div>
+<div class="modal-header py-2"><h6 class="modal-title">Resume Evidence Collection</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body small">Resume all paused evidence collection jobs and restore full collection cadence?</div>
 <div class="modal-footer py-2">
 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
 <form method="post" action="/mvp/scheduler/resume" class="d-inline"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">

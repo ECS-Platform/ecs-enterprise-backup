@@ -76,7 +76,7 @@ def test_evidence_primary_workspace():
 
 def test_onboarding_execution_workspace():
     html = client.get(f"/mvp/ai-sdlc/onboarding{Q}").text
-    assert "Run Onboarder" in html
+    assert "Onboard Application" in html
     assert "Discover applications" in html
     assert "Supported Frameworks" not in html
     assert "ITPP Domain Structure" not in html
