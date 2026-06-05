@@ -1,6 +1,7 @@
 import { Box, Grid, Typography, Button, LinearProgress } from '@mui/material';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { KpiCard } from '../components/common/KpiCard';
+import { DrilldownTableRow } from '../components/common/DrilldownTableRow';
 import { GlassCard } from '../components/common/GlassCard';
 import { ModuleHeader } from '../components/common/ModuleHeader';
 import { SeverityChip } from '../components/common/SeverityChip';
@@ -111,19 +112,19 @@ export function ExecutiveControlTower() {
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Risk by SDLC Phase" />
-            <DonutChart data={executive.riskByPhase} centerLabel="Open Risks" centerValue={executive.openRisks} height={150} />
+            <DonutChart chartId="executive.risk-by-phase" data={executive.riskByPhase} centerLabel="Open Risks" centerValue={executive.openRisks} height={150} />
           </GlassCard>
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2 }} glow="green">
             <ModuleHeader title="Release Confidence" />
-            <GaugeChart value={release.confidence} label="Enterprise Avg" showGo />
+            <GaugeChart chartId="release.confidence-gauge" value={release.confidence} label="Enterprise Avg" showGo />
           </GlassCard>
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Business Impact Areas" />
-            <HorizontalBarChart data={executive.businessImpactAreas} height={150} barColor={colors.secondary} />
+            <HorizontalBarChart chartId="executive.business-impact" data={executive.businessImpactAreas} height={150} barColor={colors.secondary} />
           </GlassCard>
         </Grid>
       </Grid>
@@ -133,14 +134,21 @@ export function ExecutiveControlTower() {
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Critical Incidents" />
             {executive.criticalIncidents.map((inc) => (
-              <Box key={inc.id} sx={{ p: 1, mb: 0.75, borderRadius: 1, bgcolor: colors.bg.glass, border: `1px solid ${colors.border.subtle}` }}>
+              <DrilldownTableRow
+                key={inc.id}
+                chartId="executive.critical-incidents"
+                segment={inc.id}
+                label={inc.title}
+                value={inc.id}
+                sx={{ p: 1, mb: 0.75, borderRadius: 1, bgcolor: colors.bg.glass, border: `1px solid ${colors.border.subtle}` }}
+              >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="caption" sx={{ fontWeight: 700 }}>{inc.id}</Typography>
                   <SeverityChip severity={inc.severity} />
                 </Box>
                 <Typography variant="caption" sx={{ display: 'block', mt: 0.25 }}>{inc.title}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{inc.domain} · {inc.duration}</Typography>
-              </Box>
+              </DrilldownTableRow>
             ))}
           </GlassCard>
         </Grid>
@@ -166,7 +174,7 @@ export function ExecutiveControlTower() {
               </Box>
             ))}
             <ModuleHeader title="Governance Snapshot" />
-            <DonutChart data={governance.findingSeverity} centerLabel="Findings" height={120} />
+            <DonutChart chartId="finding-severity" data={governance.findingSeverity} centerLabel="Findings" height={120} />
           </GlassCard>
         </Grid>
       </Grid>

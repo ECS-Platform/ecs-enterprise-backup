@@ -44,4 +44,6 @@ export interface KpiDrilldownContext {
   suffix?: string;
   trend?: number;
   data?: SparkPoint[];
+  chartId?: string;
+  segment?: string;
 }

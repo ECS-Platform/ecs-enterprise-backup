@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { colors } from '../../theme/colors';
+import { useSimulation } from '../../context/SimulationContext';
 
 interface GaugeChartProps {
   value: number;
@@ -8,17 +9,43 @@ interface GaugeChartProps {
   sublabel?: string;
   size?: number;
   showGo?: boolean;
+  chartId?: string;
 }
 
-export function GaugeChart({ value, label, sublabel, size = 180, showGo }: GaugeChartProps) {
+export function GaugeChart({ value, label, sublabel, size = 180, showGo, chartId }: GaugeChartProps) {
+  const { openKpiDrilldown } = useSimulation();
   const gaugeColor = value >= 90 ? colors.success : value >= 70 ? colors.warning : colors.critical;
   const data = [
     { value },
     { value: 100 - value },
   ];
 
+  const handleClick = () => {
+    if (!chartId) return;
+    openKpiDrilldown({
+      chartId,
+      segment: label ?? 'gauge',
+      label: label ?? 'Gauge',
+      value,
+      suffix: '%',
+    });
+  };
+
   return (
-    <Box sx={{ position: 'relative', width: size, height: size * 0.65, mx: 'auto' }}>
+    <Box
+      role={chartId ? 'button' : undefined}
+      tabIndex={chartId ? 0 : undefined}
+      onClick={chartId ? handleClick : undefined}
+      onKeyDown={chartId ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } } : undefined}
+      sx={{
+        position: 'relative',
+        width: size,
+        height: size * 0.65,
+        mx: 'auto',
+        cursor: chartId ? 'pointer' : 'default',
+        '&:focus-visible': chartId ? { outline: `2px solid ${colors.primary}`, borderRadius: 1 } : {},
+      }}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie

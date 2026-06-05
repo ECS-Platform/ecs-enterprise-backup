@@ -38,6 +38,7 @@ export function TestingHub() {
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Coverage Heatmap" />
             <HeatmapGrid
+              chartId="testing.coverage-heatmap"
               rows={testing.coverageHeatmap.map((r) => r.slice(1).map(Number))}
               columns={testing.heatmapEnvs}
               rowLabels={testing.coverageHeatmap.map((r) => String(r[0]))}

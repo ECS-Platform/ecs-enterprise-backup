@@ -34,7 +34,7 @@ export function ArchitectureHub() {
             <ModuleHeader title="Layer Readiness" />
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center', mt: 1 }}>
               {architecture.layerReadiness.map((g) => (
-                <CircularGauge key={g.label} value={g.value} label={g.label} />
+                <CircularGauge key={g.label} chartId="architecture.layer-readiness" value={g.value} label={g.label} />
               ))}
             </Box>
           </GlassCard>

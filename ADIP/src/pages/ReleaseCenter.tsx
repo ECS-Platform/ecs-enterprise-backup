@@ -1,6 +1,7 @@
 import { Box, Grid, Typography, Button } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { KpiCard } from '../components/common/KpiCard';
+import { DrilldownTableRow } from '../components/common/DrilldownTableRow';
 import { GlassCard } from '../components/common/GlassCard';
 import { ModuleHeader } from '../components/common/ModuleHeader';
 import { SeverityChip } from '../components/common/SeverityChip';
@@ -26,7 +27,7 @@ export function ReleaseCenter() {
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2, textAlign: 'center' }} glow="green">
             <ModuleHeader title="Enterprise Release Confidence" />
-            <GaugeChart value={release.confidence} label="Confidence Score" showGo size={220} />
+            <GaugeChart chartId="release.confidence-gauge" value={release.confidence} label="Confidence Score" showGo size={220} />
             <Button variant="contained" sx={{ mt: 1, bgcolor: colors.success }}>Run Readiness Assessment</Button>
           </GlassCard>
         </Grid>
@@ -35,7 +36,7 @@ export function ReleaseCenter() {
             <ModuleHeader title="Readiness by Dimension" />
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
               {release.readiness.map((r) => (
-                <CircularGauge key={r.dimension} value={r.score} label={r.dimension} />
+                <CircularGauge key={r.dimension} chartId="release.readiness-dimension" value={r.score} label={r.dimension} />
               ))}
             </Box>
           </GlassCard>
@@ -56,24 +57,39 @@ export function ReleaseCenter() {
       <GlassCard sx={{ p: 2, mt: 1.5 }}>
         <ModuleHeader title="In-Flight Banking Releases" />
         {release.releases.map((r) => (
-          <Box key={r.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1, borderBottom: `1px solid ${colors.border.subtle}` }}>
+          <DrilldownTableRow
+            key={r.id}
+            chartId="release.in-flight"
+            segment={r.id}
+            label={r.name}
+            value={r.confidence}
+            suffix="%"
+            sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1, borderBottom: `1px solid ${colors.border.subtle}` }}
+          >
             <Typography variant="caption" sx={{ fontWeight: 700, minWidth: 100 }}>{r.id}</Typography>
             <Typography variant="caption" sx={{ flex: 1 }}>{r.name}</Typography>
             <Typography variant="caption" color="text.secondary">{r.domain}</Typography>
             <Typography variant="caption" sx={{ fontWeight: 700, color: r.confidence >= 90 ? colors.success : colors.warning }}>{r.confidence}%</Typography>
             <SeverityChip severity={r.risk} />
-          </Box>
+          </DrilldownTableRow>
         ))}
       </GlassCard>
 
       <GlassCard sx={{ p: 2, mt: 1.5 }}>
         <ModuleHeader title="Release Risk Matrix" />
         {release.riskMatrix.map((r) => (
-          <Box key={r.title} sx={{ display: 'flex', gap: 2, py: 0.75, borderBottom: `1px solid ${colors.border.subtle}` }}>
+          <DrilldownTableRow
+            key={r.title}
+            chartId="release.risk-matrix"
+            segment={r.title}
+            label={r.title}
+            value={r.severity}
+            sx={{ display: 'flex', gap: 2, py: 0.75, borderBottom: `1px solid ${colors.border.subtle}` }}
+          >
             <Typography variant="caption" sx={{ flex: 1 }}>{r.title}</Typography>
             <Typography variant="caption" color="text.secondary">{r.domain}</Typography>
             <SeverityChip severity={r.severity} />
-          </Box>
+          </DrilldownTableRow>
         ))}
       </GlassCard>
     </Box>

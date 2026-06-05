@@ -128,7 +128,7 @@ export function KpiDrilldownDrawer() {
           >
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
-                KPI Drilldown
+                Drilldown
               </Typography>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
                 {payload.label}

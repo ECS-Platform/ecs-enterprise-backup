@@ -1,6 +1,7 @@
 import { Box, Grid, Typography } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { KpiCard } from '../components/common/KpiCard';
+import { DrilldownTableRow } from '../components/common/DrilldownTableRow';
+import { BarChartPanel } from '../components/charts/BarChartPanel';
 import { GlassCard } from '../components/common/GlassCard';
 import { ModuleHeader } from '../components/common/ModuleHeader';
 import { SeverityChip } from '../components/common/SeverityChip';
@@ -29,35 +30,30 @@ export function DeliveryHub() {
         <Grid size={{ xs: 12, md: 6 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="SDLC Pipeline Velocity" subtitle="Items per stage" />
-            <Box sx={{ height: 200 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={delivery.pipelineVelocity} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border.subtle} horizontal={false} />
-                  <XAxis type="number" tick={{ fill: colors.text.muted, fontSize: 11 }} />
-                  <YAxis type="category" dataKey="stage" width={90} tick={{ fill: colors.text.secondary, fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: colors.bg.secondary, borderRadius: 8, fontSize: 12 }} />
-                  <Bar dataKey="count" fill={colors.primary} radius={[0, 4, 4, 0]} barSize={16} />
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
+            <BarChartPanel
+              chartId="delivery.pipeline-velocity"
+              data={delivery.pipelineVelocity}
+              categoryKey="stage"
+              series={[{ dataKey: 'count', name: 'Items', fill: colors.primary, barSize: 16, radius: [0, 4, 4, 0] }]}
+              height={200}
+              layout="vertical"
+            />
           </GlassCard>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Sprint Burndown" subtitle="Planned vs actual" />
-            <Box sx={{ height: 200 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={delivery.sprintBurndown}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border.subtle} vertical={false} />
-                  <XAxis dataKey="day" tick={{ fill: colors.text.muted, fontSize: 11 }} />
-                  <YAxis tick={{ fill: colors.text.muted, fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: colors.bg.secondary, borderRadius: 8, fontSize: 12 }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="planned" fill={colors.text.muted} name="Planned" barSize={20} />
-                  <Bar dataKey="actual" fill={colors.success} name="Actual" barSize={20} />
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
+            <BarChartPanel
+              chartId="delivery.sprint-burndown"
+              data={delivery.sprintBurndown}
+              categoryKey="day"
+              series={[
+                { dataKey: 'planned', name: 'Planned', fill: colors.text.muted, barSize: 20 },
+                { dataKey: 'actual', name: 'Actual', fill: colors.success, barSize: 20 },
+              ]}
+              height={200}
+              showLegend
+            />
           </GlassCard>
         </Grid>
       </Grid>
@@ -72,12 +68,19 @@ export function DeliveryHub() {
       <GlassCard sx={{ p: 2, mt: 1.5 }}>
         <ModuleHeader title="Active Banking Requirements" />
         {delivery.topRequirements.map((req) => (
-          <Box key={req.id} sx={{ display: 'flex', gap: 2, py: 1, borderBottom: `1px solid ${colors.border.subtle}` }}>
+          <DrilldownTableRow
+            key={req.id}
+            chartId="delivery.top-requirements"
+            segment={req.id}
+            label={req.title}
+            value={req.id}
+            sx={{ display: 'flex', gap: 2, py: 1, borderBottom: `1px solid ${colors.border.subtle}` }}
+          >
             <Typography variant="caption" sx={{ fontWeight: 700, minWidth: 100 }}>{req.id}</Typography>
             <Typography variant="caption" sx={{ flex: 1 }}>{req.title}</Typography>
             <Typography variant="caption" color="text.secondary">{req.domain}</Typography>
             <SeverityChip severity={req.risk} />
-          </Box>
+          </DrilldownTableRow>
         ))}
       </GlassCard>
     </Box>

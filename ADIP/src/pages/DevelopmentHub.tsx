@@ -1,6 +1,7 @@
 import { Box, Grid, Typography } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { KpiCard } from '../components/common/KpiCard';
+import { DrilldownTableRow } from '../components/common/DrilldownTableRow';
+import { BarChartPanel } from '../components/charts/BarChartPanel';
 import { GlassCard } from '../components/common/GlassCard';
 import { ModuleHeader } from '../components/common/ModuleHeader';
 import { SeverityChip } from '../components/common/SeverityChip';
@@ -38,17 +39,13 @@ export function DevelopmentHub() {
         <Grid size={{ xs: 12, md: 5 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="PR Aging Distribution" />
-            <Box sx={{ height: 220 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={development.prAging}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border.subtle} vertical={false} />
-                  <XAxis dataKey="range" tick={{ fill: colors.text.muted, fontSize: 10 }} />
-                  <YAxis tick={{ fill: colors.text.muted, fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: colors.bg.secondary, borderRadius: 8, fontSize: 12 }} />
-                  <Bar dataKey="count" fill={colors.secondary} radius={[4, 4, 0, 0]} barSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
+            <BarChartPanel
+              chartId="development.pr-aging"
+              data={development.prAging}
+              categoryKey="range"
+              series={[{ dataKey: 'count', name: 'PRs', fill: colors.secondary, barSize: 28, radius: [4, 4, 0, 0] }]}
+              height={220}
+            />
           </GlassCard>
         </Grid>
       </Grid>
@@ -57,29 +54,34 @@ export function DevelopmentHub() {
         <Grid size={{ xs: 12, md: 8 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Weekly Commit & PR Volume" />
-            <Box sx={{ height: 200 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={development.commitTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={colors.border.subtle} vertical={false} />
-                  <XAxis dataKey="week" tick={{ fill: colors.text.muted, fontSize: 11 }} />
-                  <YAxis tick={{ fill: colors.text.muted, fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: colors.bg.secondary, borderRadius: 8, fontSize: 12 }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="commits" fill={colors.primary} barSize={22} />
-                  <Bar dataKey="prs" fill={colors.info} barSize={22} />
-                </BarChart>
-              </ResponsiveContainer>
-            </Box>
+            <BarChartPanel
+              chartId="development.commit-trend"
+              data={development.commitTrend}
+              categoryKey="week"
+              series={[
+                { dataKey: 'commits', name: 'Commits', fill: colors.primary, barSize: 22 },
+                { dataKey: 'prs', name: 'PRs', fill: colors.info, barSize: 22 },
+              ]}
+              height={200}
+              showLegend
+            />
           </GlassCard>
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Security Findings" subtitle={`${development.securityFindings} open`} />
             {development.securityItems.map((f) => (
-              <Box key={f.title} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, borderBottom: `1px solid ${colors.border.subtle}` }}>
+              <DrilldownTableRow
+                key={f.title}
+                chartId="development.security-items"
+                segment={f.title}
+                label={f.title}
+                value={f.severity}
+                sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, borderBottom: `1px solid ${colors.border.subtle}` }}
+              >
                 <Typography variant="caption" sx={{ fontSize: '0.72rem', flex: 1, mr: 1 }}>{f.title}</Typography>
                 <SeverityChip severity={f.severity} />
-              </Box>
+              </DrilldownTableRow>
             ))}
           </GlassCard>
         </Grid>

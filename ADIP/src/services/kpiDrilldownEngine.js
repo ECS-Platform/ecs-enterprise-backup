@@ -937,12 +937,365 @@ const resolvers = {
     }),
 };
 
+/** @type {Record<string, (state: SimulationState, ctx: KpiDrilldownContext) => KpiDrilldownPayload>} */
+const chartResolvers = {
+  'executive.risk-by-phase': (state, ctx) => {
+    const phase = ctx.segment ?? '';
+    const phaseReqs = state.requirements.topRiskRequirements.filter((_, i) => {
+      const phases = ['Requirements', 'Architecture', 'Development', 'Testing'];
+      return phases[i % phases.length] === phase || phase === '';
+    });
+    return buildPayload(ctx, {
+      sourceRecords: phaseReqs.length
+        ? phaseReqs.map((r) => ({ id: r.id, title: r.title, detail: r.domain, meta: r.risk }))
+        : [{ id: phase, title: `${phase} phase risks`, meta: `${state.executive.riskByPhase.find((p) => p.name === phase)?.value ?? 0} open` }],
+      supportingEvidence: state.requirements.topRiskRequirements.map((r) => `${r.id} — ${r.title}`),
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(state.executive.riskByPhase.find((p) => p.name === phase)?.value ?? 5 * 10),
+    });
+  },
+
+  'executive.business-impact': (state, ctx) => {
+    const area = state.executive.businessImpactAreas.find((a) => a.name === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.delivery.topRequirements.map((r) => ({
+        id: r.id, title: r.title, detail: r.impact, meta: r.domain,
+      })),
+      supportingEvidence: [`${ctx.segment} impact score: ${area?.value ?? ctx.value}%`, ...state.dynamicInsights.slice(0, 2)],
+      relatedApplications: appsFromArchitecture(state).slice(0, 4),
+      relatedIncidents: incidentsFromState(state).slice(0, 3),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(area?.value ?? 85),
+    });
+  },
+
+  'finding-severity': (state, ctx) => {
+    const severity = (ctx.segment ?? '').toLowerCase();
+    const findings = state.governance.topFindings.filter((f) => !severity || f.severity === severity);
+    return buildPayload(ctx, {
+      sourceRecords: findings.map((f, i) => ({ id: `FND-${i}`, title: f.title, meta: f.severity })),
+      supportingEvidence: state.governance.auditTrail.map((a) => `${a.event} (${a.time})`),
+      relatedApplications: appsFromArchitecture(state).filter((a) => a.status !== 'low'),
+      relatedIncidents: incidentsFromState(state).filter((i) => !severity || i.severity === severity),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(state.governance.governanceScore),
+    });
+  },
+
+  'requirements.risk-distribution': (state, ctx) => {
+    const risk = (ctx.segment ?? '').toLowerCase();
+    const reqs = state.requirements.topRiskRequirements.filter((r) => !risk || r.risk === risk);
+    return buildPayload(ctx, {
+      sourceRecords: reqs.map((r) => ({ id: r.id, title: r.title, detail: r.domain, meta: r.impact })),
+      supportingEvidence: state.requirements.complianceBreakdown.map((c) => `${c.name}: ${c.count}`),
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).slice(0, 2),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(state.requirements.qualityScore),
+    });
+  },
+
+  'requirements.compliance-breakdown': (state, ctx) => {
+    const item = state.requirements.complianceBreakdown.find((c) => c.name === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.requirements.topRiskRequirements
+        .filter((r) => r.impact === 'Compliance' || r.domain === 'Payments')
+        .map((r) => ({ id: r.id, title: r.title, meta: r.risk })),
+      supportingEvidence: state.governance.complianceStandards.map((s) => `${s.name}: ${s.score}%`),
+      relatedApplications: appsFromArchitecture(state).slice(0, 3),
+      relatedIncidents: incidentsFromState(state).slice(0, 2),
+      relatedReleases: releasesFromState(state).filter((r) => r.domain === 'Payments'),
+      historicalTrend: sparkline7d((item?.count ?? 1) * 10),
+    });
+  },
+
+  'requirements.quality-gauge': (state, ctx) => resolvers['Requirements Analysed'](state, { ...ctx, label: 'Requirements Analysed', value: state.requirements.analysed, suffix: '' }),
+
+  'governance.compliance-standards': (state, ctx) => {
+    const std = state.governance.complianceStandards.find((s) => s.name === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.governance.topFindings.map((f, i) => ({ id: `GOV-${i}`, title: f.title, meta: f.severity })),
+      supportingEvidence: [`${ctx.segment} compliance: ${std?.score ?? ctx.value}%`],
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).slice(0, 2),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(std?.score ?? 90),
+    });
+  },
+
+  'governance.gauge': (state, ctx) => resolvers['Governance Health'](state, { ...ctx, label: 'Governance Health', value: state.governance.governanceScore }),
+
+  'governance.compliance-gauge': (state, ctx) => {
+    const score = ctx.segment === 'Baseline'
+      ? state.governance.baselineCompliance
+      : state.governance.policyCompliance;
+    return buildPayload(ctx, {
+      sourceRecords: state.governance.complianceStandards.map((s) => ({ id: s.name, title: s.name, meta: `${s.score}%` })),
+      supportingEvidence: state.governance.auditTrail.map((a) => `${a.event} (${a.time})`),
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).slice(0, 2),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(score),
+    });
+  },
+
+  'operations.health-gauge': (state, ctx) => resolvers['Batch Health'](state, { ...ctx, label: 'Batch Health', value: state.operations.operationalHealth }),
+
+  'operations.batch-jobs': (state, ctx) => {
+    const job = state.operations.batchJobs.find((j) => j.name === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: job ? [{ id: job.name, title: job.name, meta: `${job.status} · ${job.progress}%` }] : [],
+      supportingEvidence: state.operations.operationalRisks.map((r) => `${r.title} (${r.severity})`),
+      relatedApplications: appsFromArchitecture(state).slice(0, 3),
+      relatedIncidents: incidentsFromState(state).slice(0, 2),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(state.operations.batchHealth),
+    });
+  },
+
+  'release.confidence-gauge': (state, ctx) => resolvers['Release Confidence'](state, { ...ctx, label: 'Release Confidence', value: state.release.confidence }),
+
+  'release.readiness-dimension': (state, ctx) => {
+    const dim = state.release.readiness.find((r) => r.dimension === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.release.checklist.map((c, i) => ({ id: `CHK-${i}`, title: c.item, meta: c.status })),
+      supportingEvidence: [`${ctx.segment}: ${dim?.score ?? ctx.value}% · ${dim?.status ?? ''}`],
+      relatedApplications: appsFromArchitecture(state).filter((a) => a.status === 'critical'),
+      relatedIncidents: incidentsFromState(state),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(dim?.score ?? state.release.confidence),
+    });
+  },
+
+  'architecture.layer-readiness': (state, ctx) => {
+    const layer = state.architecture.layerReadiness.find((l) => l.label === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.architecture.techRisks.map((r, i) => ({ id: `AR-${i}`, title: r.title, meta: r.severity })),
+      supportingEvidence: state.architecture.recommendations,
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).slice(0, 2),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(layer?.value ?? state.architecture.readiness),
+    });
+  },
+
+  'testing.coverage-heatmap': (state, ctx) => {
+    const [rowLabel, colLabel] = (ctx.segment ?? '|').split('|');
+    return buildPayload(ctx, {
+      sourceRecords: state.testing.aiRecommendations.map((r, i) => ({ id: `REC-${i}`, title: r })),
+      supportingEvidence: [`${rowLabel} · ${colLabel}: ${ctx.value}% coverage`, ...state.testing.aiRecommendations],
+      relatedApplications: appsFromArchitecture(state).filter((a) => rowLabel && a.name.includes(rowLabel.split(' ')[0])),
+      relatedIncidents: incidentsFromState(state).slice(0, 2),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(Number(ctx.value) || state.testing.coverage),
+    });
+  },
+
+  'delivery.pipeline-velocity': (state, ctx) => {
+    const stage = state.delivery.pipelineVelocity.find((p) => p.stage === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.delivery.topRequirements.map((r) => ({ id: r.id, title: r.title, meta: r.domain })),
+      supportingEvidence: [`${ctx.segment}: ${stage?.count ?? ctx.value} items · avg ${stage?.avgDays ?? '—'}d`],
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).slice(0, 2),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d((stage?.count ?? 30) + 60),
+    });
+  },
+
+  'delivery.sprint-burndown': (state, ctx) => {
+    const [day, series] = (ctx.segment ?? '|').split('|');
+    const point = state.delivery.sprintBurndown.find((p) => p.day === day);
+    const val = series === 'planned' ? point?.planned : point?.actual;
+    return buildPayload(ctx, {
+      sourceRecords: state.delivery.topRequirements.map((r) => ({ id: r.id, title: r.title, meta: r.risk })),
+      supportingEvidence: [`${day} ${series}: ${val ?? ctx.value}% remaining`],
+      relatedApplications: appsFromArchitecture(state).slice(0, 3),
+      relatedIncidents: incidentsFromState(state).slice(0, 1),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: state.delivery.sprintBurndown.map((p) => ({ day: p.day, value: p.actual })),
+    });
+  },
+
+  'development.pr-aging': (state, ctx) => {
+    const bucket = state.development.prAging.find((p) => p.range === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.development.securityItems.map((s, i) => ({ id: `PR-${i}`, title: s.title, meta: s.severity })),
+      supportingEvidence: [`${ctx.segment}: ${bucket?.count ?? ctx.value} pull requests`],
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).slice(0, 1),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: state.development.commitTrend.map((p) => ({ day: p.week, value: p.prs })),
+    });
+  },
+
+  'development.commit-trend': (state, ctx) => {
+    const [week, series] = (ctx.segment ?? '|').split('|');
+    const point = state.development.commitTrend.find((p) => p.week === week);
+    const val = series === 'prs' ? point?.prs : point?.commits;
+    return buildPayload(ctx, {
+      sourceRecords: state.development.securityItems.map((s, i) => ({ id: `CM-${i}`, title: s.title, meta: s.severity })),
+      supportingEvidence: [`${week} — ${series ?? 'commits'}: ${val ?? ctx.value}`],
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).slice(0, 1),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: state.development.commitTrend.map((p) => ({ day: p.week, value: p.commits })),
+    });
+  },
+
+  'production.incident-trend': (state, ctx) => {
+    const day = state.production.incidentTrend.find((p) => p.day === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.production.openIncidents.map((i) => ({
+        id: i.id, title: i.title, detail: i.domain, meta: i.severity,
+      })),
+      supportingEvidence: state.production.topIssues.map((i) => i.rca),
+      relatedApplications: state.production.serviceHealth.map((s) => ({ name: s.name, status: s.status })),
+      relatedIncidents: incidentsFromState(state),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: state.production.incidentTrend.map((p) => ({ day: p.day, value: p.count })),
+    });
+  },
+
+  'requirements.top-risk': (state, ctx) => {
+    const req = state.requirements.topRiskRequirements.find((r) => r.id === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: req ? [{ id: req.id, title: req.title, detail: req.domain, meta: `${req.risk} · ${req.impact}` }] : [],
+      supportingEvidence: state.requirements.complianceBreakdown.map((c) => `${c.name}: ${c.count}`),
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).filter((i) => i.domain === req?.domain),
+      relatedReleases: releasesFromState(state).filter((r) => r.domain === req?.domain),
+      historicalTrend: sparkline7d(state.requirements.qualityScore),
+    });
+  },
+
+  'delivery.top-requirements': (state, ctx) => {
+    const req = state.delivery.topRequirements.find((r) => r.id === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: req ? [{ id: req.id, title: req.title, detail: req.domain, meta: req.risk }] : [],
+      supportingEvidence: state.delivery.pipelineVelocity.map((p) => `${p.stage}: ${p.count} items`),
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(state.delivery.businessImpactIndex),
+    });
+  },
+
+  'release.in-flight': (state, ctx) => {
+    const rel = state.release.releases.find((r) => r.id === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: state.release.checklist.map((c, i) => ({ id: `CHK-${i}`, title: c.item, meta: c.status })),
+      supportingEvidence: state.release.riskMatrix.map((r) => r.title),
+      relatedApplications: appsFromArchitecture(state).filter((a) => a.status === 'critical'),
+      relatedIncidents: incidentsFromState(state).filter((i) => i.domain === rel?.domain),
+      relatedReleases: rel ? [{ id: rel.id, name: rel.name, confidence: rel.confidence, risk: rel.risk }] : releasesFromState(state),
+      historicalTrend: sparkline7d(rel?.confidence ?? state.release.confidence),
+    });
+  },
+
+  'release.risk-matrix': (state, ctx) => {
+    const risk = state.release.riskMatrix.find((r) => r.title === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: risk ? [{ id: 'RISK-1', title: risk.title, detail: risk.domain, meta: risk.severity }] : [],
+      supportingEvidence: state.release.checklist.map((c) => `${c.item}: ${c.status}`),
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state),
+      relatedReleases: releasesFromState(state).filter((r) => r.domain === risk?.domain),
+      historicalTrend: sparkline7d(state.release.confidence),
+    });
+  },
+
+  'governance.top-findings': (state, ctx) => {
+    const finding = state.governance.topFindings.find((f) => f.title === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: finding ? [{ id: 'FND-1', title: finding.title, meta: finding.severity }] : [],
+      supportingEvidence: state.governance.auditTrail.map((a) => `${a.time} — ${a.event}`),
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(state.governance.governanceScore),
+    });
+  },
+
+  'production.open-incidents': (state, ctx) => {
+    const inc = state.production.openIncidents.find((i) => i.id === ctx.segment);
+    const rca = state.production.topIssues.find((i) => i.issue === inc?.title);
+    return buildPayload(ctx, {
+      sourceRecords: inc ? [{ id: inc.id, title: inc.title, detail: inc.domain, meta: `${inc.severity} · ${inc.status}` }] : [],
+      supportingEvidence: rca ? [rca.rca] : state.production.topIssues.map((i) => i.rca),
+      relatedApplications: state.production.serviceHealth.map((s) => ({ name: s.name, status: s.status })),
+      relatedIncidents: inc ? [{ id: inc.id, title: inc.title, severity: inc.severity, domain: inc.domain }] : incidentsFromState(state),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: state.production.incidentTrend.map((p) => ({ day: p.day, value: p.count })),
+    });
+  },
+
+  'production.service-health': (state, ctx) => {
+    const svc = state.production.serviceHealth.find((s) => s.name === ctx.segment);
+    const issue = state.production.topIssues.find((i) => i.issue.includes((ctx.segment ?? '').split(' ')[0]));
+    return buildPayload(ctx, {
+      sourceRecords: svc ? [{ id: svc.name, title: svc.name, meta: `${svc.uptime}% uptime · ${svc.status}` }] : [],
+      supportingEvidence: issue ? [issue.rca] : [],
+      relatedApplications: [{ name: ctx.segment ?? '', status: svc?.status }],
+      relatedIncidents: incidentsFromState(state),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: sparkline7d(svc?.uptime ?? state.production.health),
+    });
+  },
+
+  'development.security-items': (state, ctx) => {
+    const item = state.development.securityItems.find((s) => s.title === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: item ? [{ id: 'SEC-1', title: item.title, meta: item.severity }] : [],
+      supportingEvidence: state.development.prAging.map((p) => `${p.range}: ${p.count} PRs`),
+      relatedApplications: appsFromArchitecture(state),
+      relatedIncidents: incidentsFromState(state).slice(0, 1),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: state.development.qualityTrend.map((p) => ({ day: p.month, value: p.quality })),
+    });
+  },
+
+  'executive.critical-incidents': (state, ctx) => {
+    const inc = state.executive.criticalIncidents.find((i) => i.id === ctx.segment);
+    return buildPayload(ctx, {
+      sourceRecords: inc ? [{ id: inc.id, title: inc.title, detail: inc.domain, meta: `${inc.severity} · ${inc.duration}` }] : [],
+      supportingEvidence: state.production.topIssues.map((i) => i.rca),
+      relatedApplications: appsFromArchitecture(state).filter((a) => a.status !== 'healthy'),
+      relatedIncidents: inc ? [{ id: inc.id, title: inc.title, severity: inc.severity, domain: inc.domain }] : incidentsFromState(state),
+      relatedReleases: releasesFromState(state),
+      historicalTrend: state.production.incidentTrend.map((p) => ({ day: p.day, value: p.count })),
+    });
+  },
+};
+
+/**
+ * @param {KpiDrilldownContext} ctx
+ * @param {SimulationState} state
+ * @returns {KpiDrilldownPayload}
+ */
+function resolveChartDrilldown(ctx, state) {
+  const resolver = chartResolvers[ctx.chartId ?? ''];
+  if (resolver) return resolver(state, ctx);
+
+  return buildPayload(ctx, {
+    sourceRecords: [{ id: ctx.segment ?? '—', title: ctx.label, meta: String(ctx.value) }],
+    supportingEvidence: state.dynamicInsights.slice(0, 3),
+    relatedApplications: appsFromArchitecture(state),
+    relatedIncidents: incidentsFromState(state),
+    relatedReleases: releasesFromState(state),
+  });
+}
+
 /**
  * @param {KpiDrilldownContext} ctx
  * @param {SimulationState} state
  * @returns {KpiDrilldownPayload}
  */
 export function resolveKpiDrilldown(ctx, state) {
+  if (ctx.chartId) return resolveChartDrilldown(ctx, state);
+
   const resolver = resolvers[ctx.label];
   if (resolver) return resolver(state, ctx);
 

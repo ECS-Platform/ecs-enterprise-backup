@@ -1,6 +1,7 @@
 import { Box, Grid, Typography } from '@mui/material';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { KpiCard } from '../components/common/KpiCard';
+import { DrilldownTableRow } from '../components/common/DrilldownTableRow';
 import { GlassCard } from '../components/common/GlassCard';
 import { ModuleHeader } from '../components/common/ModuleHeader';
 import { SeverityChip } from '../components/common/SeverityChip';
@@ -44,7 +45,7 @@ export function OperationsCenter() {
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2, textAlign: 'center' }}>
             <ModuleHeader title="Operational Health" />
-            <GaugeChart value={operations.operationalHealth} label="Health Score" size={180} />
+            <GaugeChart chartId="operations.health-gauge" value={operations.operationalHealth} label="Health Score" size={180} />
           </GlassCard>
         </Grid>
       </Grid>
@@ -70,11 +71,19 @@ export function OperationsCenter() {
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Batch Monitoring" subtitle={`${operations.activeJobs} active · ${operations.failedJobs} failed`} />
             {operations.batchJobs.map((job) => (
-              <Box key={job.name} sx={{ display: 'flex', gap: 2, py: 0.75, borderBottom: `1px solid ${colors.border.subtle}` }}>
+              <DrilldownTableRow
+                key={job.name}
+                chartId="operations.batch-jobs"
+                segment={job.name}
+                label={job.name}
+                value={job.progress}
+                suffix="%"
+                sx={{ display: 'flex', gap: 2, py: 0.75, borderBottom: `1px solid ${colors.border.subtle}` }}
+              >
                 <Typography variant="caption" sx={{ flex: 1 }}>{job.name}</Typography>
                 <Typography variant="caption" sx={{ color: job.status === 'Failed' ? colors.critical : colors.success }}>{job.status}</Typography>
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>{job.progress}%</Typography>
-              </Box>
+              </DrilldownTableRow>
             ))}
           </GlassCard>
         </Grid>

@@ -1,5 +1,6 @@
 import { Box, Grid, Typography, LinearProgress } from '@mui/material';
 import { KpiCard } from '../components/common/KpiCard';
+import { DrilldownTableRow } from '../components/common/DrilldownTableRow';
 import { GlassCard } from '../components/common/GlassCard';
 import { ModuleHeader } from '../components/common/ModuleHeader';
 import { SeverityChip } from '../components/common/SeverityChip';
@@ -27,21 +28,21 @@ export function GovernanceCenter() {
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Finding Severity" />
-            <DonutChart data={governance.findingSeverity} centerLabel="Total" height={160} />
+            <DonutChart chartId="finding-severity" data={governance.findingSeverity} centerLabel="Total" height={160} />
           </GlassCard>
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2, textAlign: 'center' }}>
             <ModuleHeader title="Governance Health" />
-            <GaugeChart value={governance.governanceScore} label="Score" size={180} />
+            <GaugeChart chartId="governance.gauge" value={governance.governanceScore} label="Score" size={180} />
           </GlassCard>
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Compliance Posture" />
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3 }}>
-              <CircularGauge value={governance.baselineCompliance} label="Baseline" />
-              <CircularGauge value={governance.policyCompliance} label="Policy" />
+              <CircularGauge chartId="governance.compliance-gauge" value={governance.baselineCompliance} label="Baseline" />
+              <CircularGauge chartId="governance.compliance-gauge" value={governance.policyCompliance} label="Policy" />
             </Box>
           </GlassCard>
         </Grid>
@@ -51,17 +52,24 @@ export function GovernanceCenter() {
         <Grid size={{ xs: 12, md: 6 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Regulatory Compliance" />
-            <HorizontalBarChart data={governance.complianceStandards.map((s) => ({ name: s.name, value: s.score }))} height={160} barColor={colors.success} />
+            <HorizontalBarChart chartId="governance.compliance-standards" data={governance.complianceStandards.map((s) => ({ name: s.name, value: s.score }))} height={160} barColor={colors.success} />
           </GlassCard>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
           <GlassCard sx={{ p: 2 }}>
             <ModuleHeader title="Top Governance Observations" />
             {governance.topFindings.map((f) => (
-              <Box key={f.title} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, borderBottom: `1px solid ${colors.border.subtle}` }}>
+              <DrilldownTableRow
+                key={f.title}
+                chartId="governance.top-findings"
+                segment={f.title}
+                label={f.title}
+                value={f.severity}
+                sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, borderBottom: `1px solid ${colors.border.subtle}` }}
+              >
                 <Typography variant="caption" sx={{ flex: 1, mr: 1 }}>{f.title}</Typography>
                 <SeverityChip severity={f.severity} />
-              </Box>
+              </DrilldownTableRow>
             ))}
             {governance.auditTrail.map((a) => (
               <Typography key={a.event} variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75, fontSize: '0.65rem' }}>
