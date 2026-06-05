@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { AIAdvisor } from './AIAdvisor';
 import { KpiDrilldownDrawer } from '../common/KpiDrilldownDrawer';
+import { ExecutiveSummaryDrawer } from '../common/ExecutiveSummaryDrawer';
 import { PageTransition } from './PageTransition';
 import { layout } from '../../theme/theme';
 import { colors } from '../../theme/colors';
@@ -39,6 +40,7 @@ export function AppLayout() {
       <TopBar title={meta.title} subtitle={meta.subtitle} />
       <AIAdvisor />
       <KpiDrilldownDrawer />
+      <ExecutiveSummaryDrawer />
       <Box
         component="main"
         sx={{

@@ -11,9 +11,11 @@ import { createInitialState } from '../services/mockDataEngine.js';
 import { startSimulation, forceTick, getRefreshInterval } from '../services/simulationEngine.js';
 import { generateAIResponse } from '../services/aiResponseEngine.js';
 import { resolveKpiDrilldown } from '../services/kpiDrilldownEngine.js';
+import { generateExecutiveSummary as buildExecutiveSummary } from '../services/executiveSummaryEngine.js';
 
 import type { SimulationState } from '../types/simulation';
 import type { KpiDrilldownContext, KpiDrilldownPayload } from '../types/kpiDrilldown';
+import type { ExecutiveSummary } from '../types/executiveSummary';
 
 type SimState = SimulationState;
 
@@ -39,6 +41,9 @@ interface SimulationContextValue {
   kpiDrilldown: KpiDrilldownState | null;
   openKpiDrilldown: (context: KpiDrilldownContext) => void;
   closeKpiDrilldown: () => void;
+  executiveSummary: ExecutiveSummary | null;
+  generateExecutiveSummary: () => void;
+  closeExecutiveSummary: () => void;
 }
 
 const SimulationContext = createContext<SimulationContextValue | null>(null);
@@ -50,6 +55,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [selectedDomain, setSelectedDomain] = useState('all');
   const [querySession, setQuerySession] = useState<QuerySession | null>(null);
   const [kpiDrilldown, setKpiDrilldown] = useState<KpiDrilldownState | null>(null);
+  const [executiveSummary, setExecutiveSummary] = useState<ExecutiveSummary | null>(null);
 
   useEffect(() => {
     const stop = startSimulation((next: SimulationState) => setState(next));
@@ -80,6 +86,12 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
 
   const closeKpiDrilldown = useCallback(() => setKpiDrilldown(null), []);
 
+  const generateExecutiveSummary = useCallback(() => {
+    setExecutiveSummary(buildExecutiveSummary(stateRef.current));
+  }, []);
+
+  const closeExecutiveSummary = useCallback(() => setExecutiveSummary(null), []);
+
   return (
     <SimulationContext.Provider
       value={{
@@ -94,6 +106,9 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         kpiDrilldown,
         openKpiDrilldown,
         closeKpiDrilldown,
+        executiveSummary,
+        generateExecutiveSummary,
+        closeExecutiveSummary,
       }}
     >
       {children}

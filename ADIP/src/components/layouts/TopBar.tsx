@@ -1,10 +1,11 @@
 import {
-  Box, Typography, InputBase, Select, MenuItem, IconButton, Badge, Avatar, Chip, Tooltip,
+  Box, Typography, InputBase, Select, MenuItem, IconButton, Badge, Avatar, Chip, Tooltip, Button,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import SummarizeIcon from '@mui/icons-material/Summarize';
 import { motion } from 'framer-motion';
 import { colors } from '../../theme/colors';
 import { layout } from '../../theme/theme';
@@ -23,6 +24,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
     refreshNow,
     refreshIntervalMs,
     state,
+    generateExecutiveSummary,
   } = useSimulation();
 
   return (
@@ -108,6 +110,27 @@ export function TopBar({ title, subtitle }: TopBarProps) {
           border: `1px solid ${colors.success}33`,
         }}
       />
+
+      <Tooltip title="Generate Executive Summary from current state">
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SummarizeIcon sx={{ fontSize: 16 }} />}
+          onClick={generateExecutiveSummary}
+          sx={{
+            height: 28,
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            textTransform: 'none',
+            borderColor: colors.border.subtle,
+            color: colors.text.primary,
+            px: 1.25,
+            '&:hover': { borderColor: colors.primary, color: colors.primary },
+          }}
+        >
+          Generate Executive Summary
+        </Button>
+      </Tooltip>
 
       <Tooltip title={`Live simulation · refresh every ${refreshIntervalMs / 1000}s`}>
         <IconButton size="small" onClick={refreshNow} sx={{ color: colors.text.secondary }}>
