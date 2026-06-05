@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { AIAdvisor } from './AIAdvisor';
+import { KpiDrilldownDrawer } from '../common/KpiDrilldownDrawer';
 import { PageTransition } from './PageTransition';
 import { layout } from '../../theme/theme';
 import { colors } from '../../theme/colors';
@@ -37,6 +38,7 @@ export function AppLayout() {
       <Sidebar />
       <TopBar title={meta.title} subtitle={meta.subtitle} />
       <AIAdvisor />
+      <KpiDrilldownDrawer />
       <Box
         component="main"
         sx={{

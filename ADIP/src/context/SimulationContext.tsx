@@ -10,14 +10,21 @@ import {
 import { createInitialState } from '../services/mockDataEngine.js';
 import { startSimulation, forceTick, getRefreshInterval } from '../services/simulationService.js';
 import { generateAIResponse } from '../services/aiResponseEngine.js';
+import { resolveKpiDrilldown } from '../services/kpiDrilldownEngine.js';
 
 import type { SimulationState } from '../types/simulation';
+import type { KpiDrilldownContext, KpiDrilldownPayload } from '../types/kpiDrilldown';
 
 type SimState = SimulationState;
 
 interface QuerySession {
   question: string;
   answer: string;
+}
+
+interface KpiDrilldownState {
+  context: KpiDrilldownContext;
+  payload: KpiDrilldownPayload;
 }
 
 interface SimulationContextValue {
@@ -29,6 +36,9 @@ interface SimulationContextValue {
   querySession: QuerySession | null;
   askQuestion: (question: string) => void;
   clearQuery: () => void;
+  kpiDrilldown: KpiDrilldownState | null;
+  openKpiDrilldown: (context: KpiDrilldownContext) => void;
+  closeKpiDrilldown: () => void;
 }
 
 const SimulationContext = createContext<SimulationContextValue | null>(null);
@@ -39,6 +49,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
   const [selectedDomain, setSelectedDomain] = useState('all');
   const [querySession, setQuerySession] = useState<QuerySession | null>(null);
+  const [kpiDrilldown, setKpiDrilldown] = useState<KpiDrilldownState | null>(null);
 
   useEffect(() => {
     const stop = startSimulation((next: SimulationState) => setState(next));
@@ -60,6 +71,15 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
 
   const clearQuery = useCallback(() => setQuerySession(null), []);
 
+  const openKpiDrilldown = useCallback((context: KpiDrilldownContext) => {
+    setKpiDrilldown({
+      context,
+      payload: resolveKpiDrilldown(context, stateRef.current),
+    });
+  }, []);
+
+  const closeKpiDrilldown = useCallback(() => setKpiDrilldown(null), []);
+
   return (
     <SimulationContext.Provider
       value={{
@@ -71,6 +91,9 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         querySession,
         askQuestion,
         clearQuery,
+        kpiDrilldown,
+        openKpiDrilldown,
+        closeKpiDrilldown,
       }}
     >
       {children}

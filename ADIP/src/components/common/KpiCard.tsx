@@ -1,8 +1,10 @@
+import type { KeyboardEvent } from 'react';
 import { Box, Typography } from '@mui/material';
 import { TrendingUp, TrendingDown } from '@mui/icons-material';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { GlassCard } from './GlassCard';
 import { colors } from '../../theme/colors';
+import { useSimulation } from '../../context/SimulationContext';
 
 interface KpiCardProps {
   label: string;
@@ -15,10 +17,37 @@ interface KpiCardProps {
 }
 
 export function KpiCard({ label, value, suffix = '%', trend, data, delay = 0, compact }: KpiCardProps) {
+  const { openKpiDrilldown } = useSimulation();
   const isPositive = trend !== undefined && trend >= 0;
 
+  const handleClick = () => {
+    openKpiDrilldown({ label, value, suffix, trend, data });
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  };
+
   return (
-    <GlassCard delay={delay} sx={{ p: compact ? 1.5 : 2, minHeight: compact ? 90 : 110 }}>
+    <GlassCard
+      delay={delay}
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      sx={{
+        p: compact ? 1.5 : 2,
+        minHeight: compact ? 90 : 110,
+        cursor: 'pointer',
+        '&:focus-visible': {
+          outline: `2px solid ${colors.primary}`,
+          outlineOffset: 2,
+        },
+      }}
+    >
       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {label}
       </Typography>
