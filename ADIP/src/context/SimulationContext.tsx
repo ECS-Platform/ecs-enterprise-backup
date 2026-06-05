@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createInitialState } from '../services/mockDataEngine.js';
-import { startSimulation, forceTick, getRefreshInterval } from '../services/simulationService.js';
+import { startSimulation, forceTick, getRefreshInterval } from '../services/simulationEngine.js';
 import { generateAIResponse } from '../services/aiResponseEngine.js';
 import { resolveKpiDrilldown } from '../services/kpiDrilldownEngine.js';
 

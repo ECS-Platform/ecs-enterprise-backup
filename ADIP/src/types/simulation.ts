@@ -12,10 +12,30 @@ export interface DomainHealth {
   trend: SparkPoint[];
 }
 
+export interface PaymentChannelSnapshot {
+  id: string;
+  name: string;
+  weight: number;
+  health: number;
+  tps: number;
+  successRate: number;
+  latencyMs: number;
+  openIncidents: number;
+  load: number;
+}
+
+export interface PaymentsRollup {
+  channels: PaymentChannelSnapshot[];
+  aggregateHealth: number;
+  totalTps: number;
+  criticalChannels: number;
+}
+
 export interface SimulationState {
   tick: number;
   lastUpdated: string;
   selectedDomain: string;
+  payments?: PaymentsRollup;
   executive: {
     kpis: { label: string; value: number; trend: number; data: SparkPoint[] }[];
     openRisks: number;

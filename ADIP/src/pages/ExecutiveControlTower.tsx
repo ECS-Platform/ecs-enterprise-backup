@@ -90,7 +90,7 @@ export function ExecutiveControlTower() {
         </Grid>
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard sx={{ p: 2, height: '100%' }} glow="purple">
-            <ModuleHeader title="Executive Insights" subtitle="Live · updates every 15s" />
+            <ModuleHeader title="Executive Insights" subtitle="Live · updates every 30s" />
             {dynamicInsights.map((insight) => (
               <Typography key={insight} variant="body2" color="text.secondary" sx={{ fontSize: '0.78rem', mb: 1, lineHeight: 1.5 }}>
                 • {insight}

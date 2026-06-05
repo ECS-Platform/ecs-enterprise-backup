@@ -9,6 +9,121 @@ export const DOMAINS = [
 
 export const BANKING_DOMAINS = ['Net Banking', 'Mobile Banking', 'Payments'];
 
+/**
+ * Payments sub-channels with banking-realistic characteristics.
+ * weight       - share of Payments domain health (sums to 1.0)
+ * basePeakTps  - approximate transactions/sec at daily peak (used for load profile)
+ * volatility   - how erratic the channel is (drives incident probability noise)
+ * incidentBias - structural likelihood multiplier for incident generation
+ * timeProfile  - hourly load multiplier (0..1) sampled by simulated hour-of-day
+ *                length 24, indexed by hour. NEFT/RTGS reflect window-bound operations.
+ * dependsOn    - architectural services that, when degraded, depress this channel
+ */
+export const PAYMENT_CHANNELS = [
+  {
+    id: 'upi',
+    name: 'UPI',
+    weight: 0.45,
+    basePeakTps: 12000,
+    volatility: 0.32,
+    incidentBias: 1.6,
+    dependsOn: ['Fraud Engine', 'UPI Switch'],
+    timeProfile: [
+      0.18, 0.14, 0.12, 0.12, 0.15, 0.22,
+      0.42, 0.58, 0.72, 0.88, 0.95, 0.92,
+      0.90, 0.82, 0.74, 0.70, 0.78, 0.88,
+      0.96, 0.98, 0.94, 0.86, 0.62, 0.34,
+    ],
+  },
+  {
+    id: 'imps',
+    name: 'IMPS',
+    weight: 0.15,
+    basePeakTps: 2200,
+    volatility: 0.18,
+    incidentBias: 0.9,
+    dependsOn: ['Payment Gateway'],
+    timeProfile: [
+      0.40, 0.36, 0.34, 0.34, 0.38, 0.46,
+      0.62, 0.72, 0.78, 0.82, 0.84, 0.80,
+      0.78, 0.74, 0.72, 0.74, 0.78, 0.82,
+      0.84, 0.82, 0.74, 0.62, 0.54, 0.46,
+    ],
+  },
+  {
+    id: 'neft',
+    name: 'NEFT',
+    weight: 0.10,
+    basePeakTps: 350,
+    volatility: 0.22,
+    incidentBias: 0.8,
+    dependsOn: ['Core Banking'],
+    timeProfile: [
+      0.02, 0.02, 0.02, 0.02, 0.02, 0.02,
+      0.10, 0.62, 0.18, 0.74, 0.22, 0.80,
+      0.24, 0.84, 0.26, 0.88, 0.28, 0.92,
+      0.32, 0.78, 0.08, 0.02, 0.02, 0.02,
+    ],
+  },
+  {
+    id: 'rtgs',
+    name: 'RTGS',
+    weight: 0.10,
+    basePeakTps: 60,
+    volatility: 0.14,
+    incidentBias: 0.5,
+    dependsOn: ['Core Banking'],
+    timeProfile: [
+      0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
+      0.05, 0.42, 0.68, 0.82, 0.86, 0.88,
+      0.84, 0.80, 0.76, 0.72, 0.64, 0.36,
+      0.06, 0.00, 0.00, 0.00, 0.00, 0.00,
+    ],
+  },
+  {
+    id: 'merchant',
+    name: 'Merchant Payments',
+    weight: 0.20,
+    basePeakTps: 4800,
+    volatility: 0.26,
+    incidentBias: 1.1,
+    dependsOn: ['Payment Gateway', 'Fraud Engine'],
+    timeProfile: [
+      0.22, 0.18, 0.16, 0.16, 0.18, 0.24,
+      0.38, 0.52, 0.66, 0.78, 0.84, 0.88,
+      0.86, 0.82, 0.78, 0.76, 0.82, 0.90,
+      0.94, 0.92, 0.86, 0.78, 0.96, 0.62,
+    ],
+  },
+];
+
+export const INCIDENT_CATALOG_FULL = [
+  { id: 'INC-2847', title: 'Fraud Engine Timeout', domain: 'Payments', channel: 'upi', severity: 'critical' },
+  { id: 'INC-2843', title: 'Payment Gateway Latency', domain: 'Payments', channel: 'merchant', severity: 'high' },
+  { id: 'INC-2835', title: 'UPI Settlement Delay', domain: 'Payments', channel: 'upi', severity: 'critical' },
+  { id: 'INC-2902', title: 'IMPS Beneficiary Lookup Slow', domain: 'Payments', channel: 'imps', severity: 'medium' },
+  { id: 'INC-2914', title: 'NEFT Batch Window Stuck', domain: 'Payments', channel: 'neft', severity: 'high' },
+  { id: 'INC-2921', title: 'RTGS Message Sequence Mismatch', domain: 'Payments', channel: 'rtgs', severity: 'high' },
+  { id: 'INC-2927', title: 'Merchant Settlement Backlog', domain: 'Payments', channel: 'merchant', severity: 'critical' },
+  { id: 'INC-2839', title: 'Notification Queue Delay', domain: 'Mobile Banking', severity: 'high' },
+  { id: 'INC-2828', title: 'Mobile Auth Token Mismatch', domain: 'Mobile Banking', severity: 'medium' },
+  { id: 'INC-2873', title: 'Mobile Biometric Service Errors', domain: 'Mobile Banking', severity: 'medium' },
+  { id: 'INC-2831', title: 'Net Banking Session Drop', domain: 'Net Banking', severity: 'medium' },
+  { id: 'INC-2856', title: 'Net Banking Bulk Transfer Errors', domain: 'Net Banking', severity: 'high' },
+];
+
+export const GOVERNANCE_CATALOG_FULL = [
+  { title: 'Missing API Encryption on UPI verify', severity: 'critical' },
+  { title: 'Expired TLS Certificate – Payment Gateway', severity: 'high' },
+  { title: 'Open Audit Observation – Settlement reconciliation', severity: 'high' },
+  { title: 'Critical VAPT Finding – Auth bypass on Mobile', severity: 'critical' },
+  { title: 'PCI-DSS Control Gap – Card vault rotation', severity: 'medium' },
+  { title: 'Excessive Service Account Permissions – Core', severity: 'medium' },
+  { title: 'Logging Gap – RTGS message audit trail', severity: 'medium' },
+  { title: 'NPCI Policy Drift – UPI mandate retry', severity: 'high' },
+  { title: 'IAM stale roles – Net Banking admin', severity: 'medium' },
+];
+
 const REQUIREMENTS_CATALOG = [
   { id: 'REQ-NB-1042', title: 'UPI Limit Enhancement', domain: 'Net Banking', risk: 'high', impact: 'Revenue' },
   { id: 'REQ-PAY-1038', title: 'Merchant Auto Settlement', domain: 'Payments', risk: 'high', impact: 'Operations' },
@@ -465,6 +580,23 @@ export function createInitialState() {
         { name: 'Splunk', status: 'healthy', lastSync: '30s ago' },
         { name: 'Dynatrace', status: 'healthy', lastSync: '2m ago' },
       ],
+    },
+
+    payments: {
+      channels: PAYMENT_CHANNELS.map((c) => ({
+        id: c.id,
+        name: c.name,
+        weight: c.weight,
+        health: 90,
+        tps: Math.round(c.basePeakTps * 0.5),
+        successRate: 99.4,
+        latencyMs: 180,
+        openIncidents: 0,
+        load: 0.5,
+      })),
+      aggregateHealth: 86,
+      totalTps: 0,
+      criticalChannels: 0,
     },
 
     dynamicInsights: [
