@@ -12,21 +12,19 @@ export function AIAdvisor() {
     state,
     querySession,
     askQuestion,
-    clearQuery,
     refreshIntervalMs,
   } = useSimulation();
   const [input, setInput] = useState('');
+  const inChatMode = querySession !== null;
 
   const handleAsk = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    clearQuery();
     askQuestion(trimmed);
     setInput('');
   };
 
   const handleSuggestedClick = (q: string) => {
-    clearQuery();
     askQuestion(q);
     setInput('');
   };
@@ -78,72 +76,77 @@ export function AIAdvisor() {
       </Box>
 
       <Box sx={{ flex: 1, overflow: 'auto', p: 1.5, display: 'flex', flexDirection: 'column' }}>
-        <Typography
-          variant="caption"
-          sx={{
-            fontWeight: 700,
-            color: colors.secondary,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontSize: '0.65rem',
-          }}
-        >
-          Live Executive Insights
-        </Typography>
-        <Box sx={{ mt: 1, mb: 2 }}>
-          {state.dynamicInsights.slice(0, 3).map((insight) => (
-            <Box
-              key={insight}
+        {!inChatMode && (
+          <>
+            <Typography
+              variant="caption"
               sx={{
-                p: 1,
-                mb: 0.5,
-                borderRadius: 1,
-                bgcolor: colors.bg.glass,
-                border: `1px solid ${colors.border.subtle}`,
-                fontSize: '0.72rem',
-                color: colors.text.secondary,
-                lineHeight: 1.45,
+                fontWeight: 700,
+                color: colors.secondary,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                fontSize: '0.65rem',
               }}
             >
-              {insight}
+              Live Executive Insights
+            </Typography>
+            <Box sx={{ mt: 1, mb: 2 }}>
+              {state.dynamicInsights.slice(0, 3).map((insight) => (
+                <Box
+                  key={insight}
+                  sx={{
+                    p: 1,
+                    mb: 0.5,
+                    borderRadius: 1,
+                    bgcolor: colors.bg.glass,
+                    border: `1px solid ${colors.border.subtle}`,
+                    fontSize: '0.72rem',
+                    color: colors.text.secondary,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {insight}
+                </Box>
+              ))}
             </Box>
-          ))}
-        </Box>
 
-        <Typography
-          variant="caption"
-          sx={{
-            fontWeight: 700,
-            color: colors.text.muted,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontSize: '0.65rem',
-          }}
-        >
-          Suggested Questions
-        </Typography>
-        <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-          {state.aiSuggestedQuestions.map((q) => (
-            <Chip
-              key={q}
-              label={q}
-              size="small"
-              onClick={() => handleSuggestedClick(q)}
+            <Typography
+              variant="caption"
               sx={{
+                fontWeight: 700,
+                color: colors.text.muted,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
                 fontSize: '0.65rem',
-                height: 'auto',
-                py: 0.5,
-                bgcolor: colors.bg.glass,
-                border: `1px solid ${colors.border.subtle}`,
-                cursor: 'pointer',
-                '&:hover': { borderColor: colors.primary, color: colors.primary },
               }}
-            />
-          ))}
-        </Box>
+            >
+              Suggested Questions
+            </Typography>
+            <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
+              {state.aiSuggestedQuestions.map((q) => (
+                <Chip
+                  key={q}
+                  label={q}
+                  size="small"
+                  onClick={() => handleSuggestedClick(q)}
+                  sx={{
+                    fontSize: '0.65rem',
+                    height: 'auto',
+                    py: 0.5,
+                    bgcolor: colors.bg.glass,
+                    border: `1px solid ${colors.border.subtle}`,
+                    cursor: 'pointer',
+                    '&:hover': { borderColor: colors.primary, color: colors.primary },
+                  }}
+                />
+              ))}
+            </Box>
+          </>
+        )}
 
         {querySession && (
           <Box
+            key={querySession.question}
             component={motion.div}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
