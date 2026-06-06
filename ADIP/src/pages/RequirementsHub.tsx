@@ -1,4 +1,4 @@
-import { Box, Grid, Typography, Button, TextField } from '@mui/material';
+import { Box, Grid, Typography } from '@mui/material';
 import { KpiCard } from '../components/common/KpiCard';
 import { DrilldownTableRow } from '../components/common/DrilldownTableRow';
 import { GlassCard } from '../components/common/GlassCard';
@@ -9,6 +9,7 @@ import { DonutChart } from '../components/charts/DonutChart';
 import { HorizontalBarChart } from '../components/charts/HorizontalBarChart';
 import { useFilteredSimulation } from '../hooks/useFilteredSimulation';
 import { RequirementIntakeWorkflow } from '../components/requirements/RequirementIntakeWorkflow';
+import { AnalyzeWithAIPanel } from '../components/workflow/AnalyzeWithAIPanel';
 import { colors } from '../theme/colors';
 
 export function RequirementsHub() {
@@ -16,14 +17,17 @@ export function RequirementsHub() {
 
   return (
     <Box>
-      <GlassCard sx={{ p: 2, mb: 1.5 }} glow="purple">
-        <ModuleHeader number={2} title="Requirement Analysis" subtitle="Banking requirements queue" />
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
-          <TextField fullWidth multiline rows={2} placeholder="e.g. UPI Limit Enhancement, Merchant Auto Settlement..." size="small" sx={{ '& .MuiOutlinedInput-root': { bgcolor: colors.bg.glass, fontSize: '0.8125rem' } }} />
-          <Button variant="contained" sx={{ minWidth: 140, bgcolor: colors.secondary, alignSelf: 'flex-start' }}>Analyze with AI</Button>
-        </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>{requirements.analysisQueue} items in analysis queue</Typography>
-      </GlassCard>
+      <AnalyzeWithAIPanel
+        phase="requirements"
+        number={2}
+        title="Requirement Analysis"
+        subtitle="Banking requirements queue"
+        placeholder="e.g. UPI Limit Enhancement, Merchant Auto Settlement..."
+        glow="purple"
+      />
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+        {requirements.analysisQueue} items in analysis queue
+      </Typography>
 
       <Grid container spacing={1.5}>
         <Grid size={{ xs: 6, md: 3 }}><KpiCard label="Requirements Analysed" value={requirements.analysed} suffix="" trend={6} /></Grid>
