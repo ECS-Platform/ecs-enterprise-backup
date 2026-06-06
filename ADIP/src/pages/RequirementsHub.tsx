@@ -8,6 +8,7 @@ import { GaugeChart } from '../components/charts/GaugeChart';
 import { DonutChart } from '../components/charts/DonutChart';
 import { HorizontalBarChart } from '../components/charts/HorizontalBarChart';
 import { useFilteredSimulation } from '../hooks/useFilteredSimulation';
+import { RequirementIntakeWorkflow } from '../components/requirements/RequirementIntakeWorkflow';
 import { colors } from '../theme/colors';
 
 export function RequirementsHub() {
@@ -76,6 +77,8 @@ export function RequirementsHub() {
           </DrilldownTableRow>
         ))}
       </GlassCard>
+
+      <RequirementIntakeWorkflow />
     </Box>
   );
 }

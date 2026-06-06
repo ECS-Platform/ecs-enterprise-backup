@@ -8,6 +8,7 @@ import { CircularGauge } from '../components/charts/CircularGauge';
 import { AIInsightBox } from '../components/common/AIInsightBox';
 import { colors } from '../theme/colors';
 import { useFilteredSimulation } from '../hooks/useFilteredSimulation';
+import { DesignIntakeWorkflow } from '../components/architecture/DesignIntakeWorkflow';
 
 export function ArchitectureHub() {
   const { architecture } = useFilteredSimulation();
@@ -64,6 +65,8 @@ export function ArchitectureHub() {
           </GlassCard>
         </Grid>
       </Grid>
+
+      <DesignIntakeWorkflow />
     </Box>
   );
 }
