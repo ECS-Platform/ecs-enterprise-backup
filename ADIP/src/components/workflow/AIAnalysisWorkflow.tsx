@@ -7,6 +7,13 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import ArchitectureIcon from '@mui/icons-material/Architecture';
+import CodeIcon from '@mui/icons-material/Code';
+import ScienceIcon from '@mui/icons-material/Science';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import type { SvgIconComponent } from '@mui/icons-material';
 import { GlassCard } from '../common/GlassCard';
 import { ModuleHeader } from '../common/ModuleHeader';
 import { colors } from '../../theme/colors';
@@ -19,6 +26,15 @@ import {
 
 const PROGRESS_STEPS = [0, 25, 50, 75, 100];
 const TOTAL_DURATION_MS = 4000;
+
+const PHASE_ICONS: Record<AnalysisPhase, SvgIconComponent> = {
+  requirements: AssignmentIcon,
+  architecture: AccountTreeIcon,
+  design: ArchitectureIcon,
+  development: CodeIcon,
+  testing: ScienceIcon,
+  deployment: RocketLaunchIcon,
+};
 
 interface AIAnalysisWorkflowProps {
   phase: AnalysisPhase;
@@ -85,6 +101,12 @@ export function AIAnalysisWorkflow({ phase, inputText, onComplete }: AIAnalysisW
     ? config.agents[currentAgentIndex]
     : null;
 
+  const currentProgressMessage = isRunning && currentAgentIndex < config.progressMessages.length
+    ? config.progressMessages[currentAgentIndex]
+    : null;
+
+  const PhaseIcon = PHASE_ICONS[phase];
+
   const summaryEntries = result
     ? Object.entries(result).filter(([, value]) => typeof value !== 'object')
     : [];
@@ -97,9 +119,18 @@ export function AIAnalysisWorkflow({ phase, inputText, onComplete }: AIAnalysisW
     <Box sx={{ mt: 1.5 }}>
       <GlassCard sx={{ p: 2 }} glow={config.glow}>
         <ModuleHeader
-          title={isRunning ? 'AI Analysis Running' : 'AI Analysis Complete'}
-          subtitle={`${phase.charAt(0).toUpperCase() + phase.slice(1)} phase · mock analysis`}
+          title={isRunning ? config.runningTitle : config.completeTitle}
+          subtitle={config.subtitle}
         />
+
+        {currentProgressMessage && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+            <PhaseIcon sx={{ fontSize: 18, color: colors.secondary }} />
+            <Typography variant="caption" sx={{ fontSize: '0.78rem', color: colors.text.secondary, fontStyle: 'italic' }}>
+              {currentProgressMessage}
+            </Typography>
+          </Box>
+        )}
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
           <Box sx={{ flex: 1 }}>

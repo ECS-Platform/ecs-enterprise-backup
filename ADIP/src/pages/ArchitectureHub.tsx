@@ -24,6 +24,14 @@ export function ArchitectureHub() {
         glow="blue"
       />
 
+      <AnalyzeWithAIPanel
+        phase="design"
+        title="Design Analysis"
+        subtitle="Solution design, integration points, and security review"
+        placeholder="e.g. Merchant settlement HLD, NPCI integration blueprint..."
+        glow="blue"
+      />
+
       <Grid container spacing={1.5}>
         <Grid size={{ xs: 6, md: 3 }}><KpiCard label="Architecture Readiness" value={architecture.readiness} trend={1.5} /></Grid>
         <Grid size={{ xs: 6, md: 3 }}><KpiCard label="Critical Dependencies" value={architecture.criticalDependencies} suffix="" /></Grid>

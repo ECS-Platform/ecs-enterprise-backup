@@ -10,12 +10,22 @@ import { CircularGauge } from '../components/charts/CircularGauge';
 import { StatusDot } from '../components/common/StatusDot';
 import { colors } from '../theme/colors';
 import { useFilteredSimulation } from '../hooks/useFilteredSimulation';
+import { AnalyzeWithAIPanel } from '../components/workflow/AnalyzeWithAIPanel';
+import { ReleaseIntakeWorkflow } from '../components/release/ReleaseIntakeWorkflow';
 
 export function ReleaseCenter() {
   const { release } = useFilteredSimulation();
 
   return (
     <Box>
+      <AnalyzeWithAIPanel
+        phase="deployment"
+        title="Deployment Analysis"
+        subtitle="Release planning, rollback, and go-live validation"
+        placeholder="e.g. UPI v2.4 production rollout, settlement service deployment..."
+        glow="green"
+      />
+
       <Grid container spacing={1.5}>
         <Grid size={{ xs: 6, md: 3 }}><KpiCard label="Release Confidence" value={release.confidence} trend={2} /></Grid>
         <Grid size={{ xs: 6, md: 3 }}><KpiCard label="Rollback Readiness" value={release.rollbackReadiness} trend={1} /></Grid>
@@ -92,6 +102,8 @@ export function ReleaseCenter() {
           </DrilldownTableRow>
         ))}
       </GlassCard>
+
+      <ReleaseIntakeWorkflow />
     </Box>
   );
 }

@@ -6,6 +6,7 @@ import { AIAnalysisWorkflow } from './AIAnalysisWorkflow';
 import { colors } from '../../theme/colors';
 import type { AnalysisPhase } from '../../data/aiAnalysisMockData';
 
+
 interface AnalyzeWithAIPanelProps {
   phase: AnalysisPhase;
   title: string;
@@ -28,13 +29,13 @@ export function AnalyzeWithAIPanel({
   const [showAnalysis, setShowAnalysis] = useState(false);
 
  const handleAnalyze = () => {
-  alert('Analyze button clicked');
-  console.log('Analyze button clicked');
+
   setShowAnalysis(true);
   setAnalysisKey((k) => k + 1);
 };
 
   return (
+    
     <>
       <GlassCard sx={{ p: 2, mb: 1.5 }} glow={glow}>
         <ModuleHeader number={number} title={title} subtitle={subtitle} />
@@ -54,23 +55,17 @@ export function AnalyzeWithAIPanel({
             onClick={handleAnalyze}
             sx={{ minWidth: 140, bgcolor: colors.secondary, alignSelf: 'flex-start' }}
           >
-            Analyze with AI  Test
+            Analyze with AI  
           </Button>
         </Box>
       </GlassCard>
 
-    {showAnalysis && (
-  <div
-    style={{
-      background: 'red',
-      color: 'white',
-      padding: '20px',
-      marginTop: '20px',
-      fontSize: '24px'
-    }}
-  >
-    AI WORKFLOW TEST PANEL
-  </div>
+{showAnalysis && (
+  <AIAnalysisWorkflow
+    key={analysisKey}
+    phase={phase}
+    inputText={inputText}
+  />
 )}
     </>
   );

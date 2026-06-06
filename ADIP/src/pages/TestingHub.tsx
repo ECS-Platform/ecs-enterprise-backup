@@ -7,12 +7,22 @@ import { HeatmapGrid } from '../components/charts/HeatmapGrid';
 import { AIInsightBox } from '../components/common/AIInsightBox';
 import { colors } from '../theme/colors';
 import { useFilteredSimulation } from '../hooks/useFilteredSimulation';
+import { AnalyzeWithAIPanel } from '../components/workflow/AnalyzeWithAIPanel';
+import { TestingIntakeWorkflow } from '../components/testing/TestingIntakeWorkflow';
 
 export function TestingHub() {
   const { testing } = useFilteredSimulation();
 
   return (
     <Box>
+      <AnalyzeWithAIPanel
+        phase="testing"
+        title="Testing Analysis"
+        subtitle="Test planning, regression packs, and coverage"
+        placeholder="e.g. UPI settlement regression, payment flow test strategy..."
+        glow="green"
+      />
+
       <Grid container spacing={1.5}>
         <Grid size={{ xs: 6, md: 2 }}><KpiCard label="Total Tests" value={testing.totalTests.toLocaleString()} suffix="" compact /></Grid>
         <Grid size={{ xs: 6, md: 2 }}><KpiCard label="Manual Tests" value={testing.manualTests.toLocaleString()} suffix="" compact /></Grid>
@@ -65,6 +75,8 @@ export function TestingHub() {
           </GlassCard>
         </Grid>
       </Grid>
+
+      <TestingIntakeWorkflow />
     </Box>
   );
 }

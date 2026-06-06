@@ -8,12 +8,22 @@ import { SeverityChip } from '../components/common/SeverityChip';
 import { MultiLineChart } from '../components/charts/MultiLineChart';
 import { colors } from '../theme/colors';
 import { useFilteredSimulation } from '../hooks/useFilteredSimulation';
+import { AnalyzeWithAIPanel } from '../components/workflow/AnalyzeWithAIPanel';
+import { DevelopmentIntakeWorkflow } from '../components/development/DevelopmentIntakeWorkflow';
 
 export function DevelopmentHub() {
   const { development } = useFilteredSimulation();
 
   return (
     <Box>
+      <AnalyzeWithAIPanel
+        phase="development"
+        title="Development Analysis"
+        subtitle="API, service, and database design readiness"
+        placeholder="e.g. Settlement API implementation, merchant limit service..."
+        glow="purple"
+      />
+
       <Grid container spacing={1.5}>
         <Grid size={{ xs: 6, md: 2.4 }}><KpiCard label="Pull Requests" value={development.pullRequests} suffix="" trend={8} compact /></Grid>
         <Grid size={{ xs: 6, md: 2.4 }}><KpiCard label="Commits" value={development.commits} suffix="" trend={5} compact /></Grid>
@@ -86,6 +96,8 @@ export function DevelopmentHub() {
           </GlassCard>
         </Grid>
       </Grid>
+
+      <DevelopmentIntakeWorkflow />
     </Box>
   );
 }
