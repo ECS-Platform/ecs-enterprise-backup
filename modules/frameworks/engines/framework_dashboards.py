@@ -299,6 +299,62 @@ def build_relational_control_breakdown(framework_name: str) -> list[dict]:
     return rows
 
 
+def build_control_library(framework_name: str, catalog_controls: list[dict]) -> list[dict]:
+    """Framework-scoped control library rows with consolidated control details."""
+    g = get_framework_graph(framework_name)
+    finding_map: dict[str, int] = {}
+    domain_map: dict[str, str] = {}
+    validation_map: dict[str, str] = {}
+    app_map: dict[str, set[str]] = {}
+    for c in g.get("controls", []):
+        cid = c.get("control_id", "")
+        if not cid:
+            continue
+        domain_map.setdefault(cid, c.get("domain", "Governance"))
+        validation_map.setdefault(cid, c.get("validation", "PENDING"))
+        app_map.setdefault(cid, set()).add(c.get("application", ""))
+    for f in g.get("findings", []):
+        cid = f.get("linked_control", "")
+        if not cid:
+            continue
+        finding_map[cid] = finding_map.get(cid, 0) + 1
+
+    rows: list[dict[str, Any]] = []
+    for ctrl in catalog_controls:
+        cid = ctrl.get("control_id", "")
+        if not cid:
+            continue
+        evidence_count = len(ctrl.get("evidences", []))
+        applications = {
+            ev.get("application_name", "")
+            for ev in ctrl.get("evidences", [])
+            if ev.get("application_name")
+        }
+        applications.update({a for a in app_map.get(cid, set()) if a})
+        finding_count = finding_map.get(cid, 0)
+        validation = validation_map.get(cid, "PENDING").upper()
+        if validation in ("PASS", "APPROVED"):
+            status = "Approved"
+            risk = "Low"
+        elif validation in ("FAIL", "REJECTED"):
+            status = "Failed"
+            risk = "High"
+        else:
+            status = "Pending"
+            risk = "Medium"
+        rows.append({
+            "control_id": cid,
+            "control_name": ctrl.get("control", ""),
+            "domain": domain_map.get(cid, "Governance"),
+            "status": status,
+            "risk": risk,
+            "evidence_count": evidence_count,
+            "finding_count": finding_count,
+            "mapped_applications": sorted(applications),
+        })
+    return rows
+
+
 def build_control_breakdown(framework_name: str, catalog_controls: list[dict]) -> list[dict]:
     """Control-wise implementation view for drill-down tables."""
     rows = []
@@ -378,7 +434,7 @@ def _executive_extras(framework_name: str, controls: list[dict], stats: dict[str
 def _drill_modules(framework_name: str) -> list[dict]:
     base = [
         {"id": "applications", "label": "Applications", "icon": "◫"},
-        {"id": "controls", "label": "Controls", "icon": "☑"},
+        {"id": "control-library", "label": "Control Library", "icon": "☑"},
         {"id": "evidence", "label": "Evidence Repository", "icon": "📁"},
         {"id": "pending", "label": "Pending Actions & Gaps", "icon": "⏳"},
         {"id": "findings", "label": "Open Observations", "icon": "⚠"},
@@ -548,6 +604,7 @@ def build_framework_dashboard(framework_name: str, catalog_controls: list[dict])
     op = _operational_counts(framework_name, catalog_controls, stats)
     gov_ctx = build_governance_context(framework_name, catalog_controls)
     rel_controls = build_relational_control_breakdown(framework_name)
+    control_library = build_control_library(framework_name, catalog_controls)
     rel_integrations = gov_ctx.get("integrations_detailed") or []
     rel_exceptions = gov_ctx.get("framework_exceptions") or []
     # Enrich KPI hints with scope
@@ -567,6 +624,7 @@ def build_framework_dashboard(framework_name: str, catalog_controls: list[dict])
         "framework_analytics": build_framework_governance_analytics(framework_name),
         "governance_context": gov_ctx,
         "control_breakdown": rel_controls or build_control_breakdown(framework_name, catalog_controls),
+        "control_library": control_library,
         "executive_extras": _executive_extras(framework_name, catalog_controls, stats),
         "drill_modules": _drill_modules(framework_name),
         "insights": _insight_sections(framework_name),

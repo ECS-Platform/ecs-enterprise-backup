@@ -20,7 +20,7 @@
   role="button" tabindex="0" title="Click for evidence detail">
 <td><code class="small">{{ ev.evidence_id }}</code><br><span class="text-muted small">{{ ev.name|truncate(26, True, '') }}</span></td>
 <td><code class="small">{{ ev.observation_id|default('—') }}</code></td>
-<td><code class="small">{{ ev.control_id }}</code><br><span class="small">{{ ev.control_name|default(ev.control|default(''))|truncate(28, True, '') }}</span></td>
+<td><a href="#" class="small" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ ev.control_id|e }}"><code>{{ ev.control_id }}</code></a><br><span class="small">{{ ev.control_name|default(ev.control|default(''))|truncate(28, True, '') }}</span></td>
 <td class="small">{{ ev.framework|default(framework_name) }}</td>
 <td>{{ ev.application }}</td>
 <td><span class="badge {% if ev.validation in ('Validated', 'PASS') %}bg-success{% elif ev.validation in ('Failed', 'FAIL') %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ ev.validation }}</span></td>

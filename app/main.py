@@ -497,6 +497,7 @@ def api_framework_tab_drill(framework: str = "", tab: str = ""):
     tab_map = {
         "applications": ("application", "all"),
         "controls": ("control", "all"),
+        "control-library": ("control", "all"),
         "evidence": ("evidence", "repository"),
         "findings": ("finding", "open"),
         "pending": ("pending", "actions"),

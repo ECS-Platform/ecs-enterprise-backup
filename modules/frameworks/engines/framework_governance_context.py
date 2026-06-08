@@ -95,3 +95,36 @@ def build_governance_context(framework_name: str, catalog_controls: list[dict] |
         },
         "trend_analytics": build_framework_trends_analytics(framework_name),
     }
+
+
+def validate_framework_control_mappings(framework_name: str, catalog_controls: list[dict] | None = None) -> dict[str, Any]:
+    """Validate that control references across framework drill datasets map to catalog controls."""
+    controls = catalog_controls or get_framework_controls(framework_name)
+    valid_ids = {c.get("control_id", "") for c in controls}
+    ctx = build_governance_context(framework_name, controls)
+    checks: dict[str, dict[str, int]] = {}
+
+    def _check(name: str, rows: list[dict], getter) -> None:
+        total = 0
+        valid = 0
+        for r in rows or []:
+            cid = getter(r)
+            if not cid:
+                continue
+            total += 1
+            if cid in valid_ids:
+                valid += 1
+        checks[name] = {"total": total, "valid": valid, "invalid": max(total - valid, 0)}
+
+    _check("evidence_repository", ctx.get("evidence_repository", []), lambda r: r.get("control_id"))
+    _check("open_findings", ctx.get("open_findings", []), lambda r: r.get("linked_control"))
+    _check("pending_actions", ctx.get("pending_actions_and_gaps", []), lambda r: r.get("control_id"))
+    _check("exceptions", ctx.get("framework_exceptions", []), lambda r: r.get("control_id"))
+    _check("relational_controls", ctx.get("relational_controls", []), lambda r: r.get("control_id"))
+
+    return {
+        "framework": framework_name,
+        "controls_in_library": len(valid_ids),
+        "checks": checks,
+        "all_pass": all(v["invalid"] == 0 for v in checks.values()),
+    }

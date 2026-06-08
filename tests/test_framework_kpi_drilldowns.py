@@ -112,6 +112,21 @@ def test_search_box_in_drill_client():
     assert "attachSearch" in resp.text
 
 
+def test_framework_workflow_draft_submitted_counts_match_drill_totals():
+    from modules.frameworks.engines.framework_workflow_engine import ALL_FRAMEWORKS, build_framework_workflow_context, drill_framework_workflow
+
+    for fw in ALL_FRAMEWORKS:
+        ctx = build_framework_workflow_context(fw, "cio")
+        draft_expected = ctx["summary"]["draft"]
+        submitted_expected = ctx["summary"]["submitted"]
+        draft_drill = drill_framework_workflow(fw, "draft")
+        submitted_drill = drill_framework_workflow(fw, "submitted")
+        assert len(draft_drill["rows"]) == draft_expected, f"{fw} draft mismatch"
+        assert len(submitted_drill["rows"]) == submitted_expected, f"{fw} submitted mismatch"
+        assert draft_drill.get("summary", {}).get("total_draft_evidence") == draft_expected
+        assert submitted_drill.get("summary", {}).get("total_submitted_evidence") == submitted_expected
+
+
 def test_total_drilldown_count():
     total = _count_kpis()
     assert total == len(list(iter_framework_kpi_pairs()))

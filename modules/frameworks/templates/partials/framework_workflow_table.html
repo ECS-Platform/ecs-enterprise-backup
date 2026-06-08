@@ -17,7 +17,7 @@
 {% for ev in ctrl.evidences %}
 <tr data-ecs-page-group="{{ ctrl_idx }}" data-ckey="{{ ckey }}" class="{% if ckey in approved_controls %}row-approved ecs-wf-row-approved{% elif ckey in rejected_controls %}table-danger{% elif ckey in submitted_controls %}table-warning{% endif %}">
 {% if loop.first %}
-<td rowspan="{{ row_span }}"><strong>{{ ctrl.control|truncate(36, True, '') }}</strong><br><small class="text-muted">{{ ctrl.control_id }}</small></td>
+<td rowspan="{{ row_span }}"><strong>{{ ctrl.control|truncate(36, True, '') }}</strong><br><a href="#" class="small text-muted" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ ctrl.control_id|e }}"><code>{{ ctrl.control_id }}</code></a></td>
 {% endif %}
 <td><strong>{{ ev.evidence_name|truncate(24, True, '') }}</strong></td>
 <td>{{ ev.application_name }}</td>

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from modules.governance.engines.governance_relational_model import APP_OWNERS, _owner
+from modules.governance.engines.governance_relational_model import APP_OWNERS, _owner, get_framework_graph
 from modules.frameworks.engines.framework_catalog import resolve_framework_name
 
 CORE_APPS = ["Net Banking", "Mobile Banking", "Payments"]
@@ -57,6 +57,35 @@ def _existing_ids(items: list[dict], key: str = "evidence_id") -> set[str]:
     return {i[key] for i in items if key in i}
 
 
+def _resolve_control_id(
+    controls: list[dict[str, Any]],
+    *,
+    requested_control_id: str = "",
+    requested_control_name: str = "",
+    application: str = "",
+    fallback_index: int = 0,
+) -> tuple[str, str]:
+    if not controls:
+        return requested_control_id or "—", requested_control_name or "—"
+    for c in controls:
+        if requested_control_id and c.get("control_id") == requested_control_id:
+            return c.get("control_id", "—"), c.get("control_name", c.get("control", "—"))
+    if requested_control_name:
+        rn = "".join(ch.lower() for ch in requested_control_name if ch.isalnum())
+        for c in controls:
+            cname = str(c.get("control_name", c.get("control", "")))
+            cn = "".join(ch.lower() for ch in cname if ch.isalnum())
+            if rn and (rn == cn or rn in cn):
+                return c.get("control_id", "—"), c.get("control_name", c.get("control", "—"))
+    if application:
+        app_controls = [c for c in controls if c.get("application") == application]
+        if app_controls:
+            c = app_controls[fallback_index % len(app_controls)]
+            return c.get("control_id", "—"), c.get("control_name", c.get("control", "—"))
+    c = controls[fallback_index % len(controls)]
+    return c.get("control_id", "—"), c.get("control_name", c.get("control", "—"))
+
+
 def enrich_evidence(framework: str, existing: list[dict], controls: list[dict]) -> list[dict]:
     """Ensure 7–8 evidence rows per core app."""
     out = list(existing)
@@ -75,7 +104,7 @@ def enrich_evidence(framework: str, existing: list[dict], controls: list[dict]) 
             if eid in seen:
                 continue
             ctrl = controls[(n % max(len(controls), 1))] if controls else {}
-            cid = ctrl.get("control_id", f"{prefix}-{idx:02d}")
+            cid, cname = _resolve_control_id(controls, requested_control_id=ctrl.get("control_id", ""), application=app, fallback_index=n)
             lc = LIFECYCLES[_seed(f"{eid}lc", 0, len(LIFECYCLES) - 1)]
             val = "Validated" if lc == "Approved" else ("Failed" if lc == "Rejected" else "Warning")
             out.append({
@@ -83,6 +112,7 @@ def enrich_evidence(framework: str, existing: list[dict], controls: list[dict]) 
                 "name": f"{types[n % len(types)]} — {app} {framework} Q2-2026 #{idx}",
                 "application": app,
                 "control_id": cid,
+                "control_name": cname,
                 "uploaded_by": _owner(app),
                 "type": types[n % len(types)],
                 "lifecycle": lc,
@@ -302,16 +332,25 @@ def merge_pending_and_gaps(framework: str, pending: list[dict], gaps: list[dict]
     merged: list[dict] = []
     seen_keys: set[str] = set()
 
-    def _add(row: dict, row_type: str) -> None:
-        key = f"{row.get('control_id')}::{row.get('application')}::{row_type}"
+    controls = get_framework_graph(framework).get("controls", [])
+
+    def _add(row: dict, row_type: str, idx: int = 0) -> None:
+        resolved_id, resolved_name = _resolve_control_id(
+            controls,
+            requested_control_id=row.get("control_id", ""),
+            requested_control_name=row.get("control_name", row.get("control", "")),
+            application=row.get("application", ""),
+            fallback_index=idx,
+        )
+        key = f"{resolved_id}::{row.get('application')}::{row_type}"
         if key in seen_keys:
             return
         seen_keys.add(key)
         merged.append({
             "framework": row.get("framework", framework),
             "application": row["application"],
-            "control_id": row.get("control_id", "—"),
-            "control_name": row.get("control_name", row.get("control", "")),
+            "control_id": resolved_id,
+            "control_name": resolved_name,
             "evidence_id": row.get("evidence_id", row.get("primary_evidence_id", "")),
             "item_type": row_type,
             "finding_id": row.get("finding_id", "—"),
@@ -325,10 +364,10 @@ def merge_pending_and_gaps(framework: str, pending: list[dict], gaps: list[dict]
             "blocker": row.get("blocker", "—"),
         })
 
-    for p in pending:
-        _add(p, "Pending Action")
-    for g in gaps:
-        _add({**g, "action": g.get("description", "Close gap")}, "Open Gap")
+    for i, p in enumerate(pending):
+        _add(p, "Pending Action", i)
+    for j, g in enumerate(gaps):
+        _add({**g, "action": g.get("description", "Close gap")}, "Open Gap", j)
 
     extra_actions = [
         ("Observation closure pending", "High", "Open Gap"),
@@ -345,7 +384,6 @@ def merge_pending_and_gaps(framework: str, pending: list[dict], gaps: list[dict]
         cid_prefix = PREFIX_BY_FW.get(framework, "XX-C")
         _add({
             "application": app,
-            "control_id": f"{cid_prefix}-{(i % 5) + 1:02d}" if "-" in cid_prefix else f"{cid_prefix}-{(i % 3) + 7}.{i % 2}",
             "control_name": desc[:40],
             "finding_id": "—" if i % 2 else f"OBS-{i:03d}",
             "owner": _owner(app),
@@ -356,17 +394,27 @@ def merge_pending_and_gaps(framework: str, pending: list[dict], gaps: list[dict]
             "sla_aging_days": 4 + i * 2,
             "risk": risk,
             "blocker": ["Owner capacity", "CAB approval", "Vendor delay", "Integration auth"][i % 4],
-        }, rtype)
+        }, rtype, i)
 
     return merged
 
 
 def enrich_exceptions(framework: str, existing: list[dict]) -> list[dict]:
     """Add RAF / TD breach metadata and expand count."""
+    controls = get_framework_graph(framework).get("controls", [])
     out = []
     for i, ex in enumerate(existing):
+        cid, cname = _resolve_control_id(
+            controls,
+            requested_control_id=ex.get("control_id", ""),
+            requested_control_name=ex.get("control_name", ""),
+            application=ex.get("application", ""),
+            fallback_index=i,
+        )
         out.append({
             **ex,
+            "control_id": cid,
+            "control_name": cname,
             "td_breach_type": ex.get("td_breach_type", RAF_TYPES[i % len(RAF_TYPES)]),
             "risk_access_form_id": ex.get("risk_access_form_id", f"RAF-2026-{1400 + i:04d}"),
             "submitted_via": "Bank Pay Risk Access Form (online)",
@@ -377,9 +425,11 @@ def enrich_exceptions(framework: str, existing: list[dict]) -> list[dict]:
     for j in range(max(0, 6 - len(out))):
         app = apps[j % len(apps)]
         idx = len(out) + j + 1
+        cid, cname = _resolve_control_id(controls, application=app, fallback_index=j)
         out.append({
             "id": f"TD-{framework[:2].upper()}-{100 + idx:03d}",
-            "control_id": f"{prefix}-{(j % 4) + 1:02d}" if framework != "PCI DSS" else f"PCI-{(j % 4) + 7}.{j % 3 + 1}",
+            "control_id": cid,
+            "control_name": cname,
             "application": app,
             "title": f"{RAF_TYPES[(j + 2) % len(RAF_TYPES)]} — {app}",
             "td_breach_type": RAF_TYPES[(j + 2) % len(RAF_TYPES)],

@@ -561,7 +561,6 @@ def _itpp_catalog() -> list[dict]:
         ("DR Plan Exists", "Enterprise DR plan document v2026", "DR plan board approval minutes", 0, 4),
         ("DR Drill Conducted", "Semi-annual DR drill report", "DR drill attendance & signoff sheet", 0, 4),
         ("RPO and RTO Defined", "RPO/RTO matrix — critical apps", "Business impact analysis summary", 4, 9),
-        ("DR Site Reachability", "DR site network connectivity test", "DR link latency monitoring export", 0, 4),
         ("DR Failover Validation", "Failover test execution log", "Application recovery validation checklist", 1, 4),
         ("DR Critical Applications Coverage", "Critical app DR coverage register", "Gap remediation tracker — DR scope", 0, 0),
         # Backup Management
@@ -622,7 +621,6 @@ def _soc2_catalog() -> list[dict]:
         ("C1.2 — Confidential Data Disposal", "Secure disposal certificate", "Media destruction log", 5, 1),
         ("PI1.1 — Processing Integrity", "Reconciliation report — settlement", "Mismatch closure register", 4, 3),
         ("PI1.2 — System Inputs Controls", "Input validation test results", "Reject queue review log", 2, 1),
-        ("PI1.3 — System Output Controls", "Output reconciliation evidence", "Variance investigation log", 4, 9),
     ]
     return _generic_catalog("SOC", "SOC2", tpl)
 
@@ -769,7 +767,9 @@ def build_legacy_frameworks() -> dict[str, list[tuple[str, str]]]:
 FRAMEWORK_ALIASES: dict[str, str] = {
     "PCI": "PCI DSS",
     "OSB": "OS Baselining",
+    "OS Baseline": "OS Baselining",
     "NGX": "Nginx Baselining",
+    "Nginx Baseline": "Nginx Baselining",
     "DBB": "DB Baselining",
     "ISO": "ISO27001",
     "ISO 27001": "ISO27001",

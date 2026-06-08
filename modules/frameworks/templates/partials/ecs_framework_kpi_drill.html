@@ -11,23 +11,55 @@
 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
 </div>
 </div></div></div>
+<div class="modal fade" id="ecsFrameworkRecordDetailModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header py-2">
+<h6 class="modal-title" id="ecsFrameworkRecordDetailTitle">Record Detail</h6>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body small" id="ecsFrameworkRecordDetailBody"></div>
+<div class="modal-footer py-2">
+<button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
 <script>
 (function(){
   if (window.__ecsFrameworkDrillInit) return;
+  var lastPrimaryRows = [];
+  var lastPrimaryColumns = [];
+  var lastFetchKind = '';
 
   function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function renderCell(c, value, row) {
+    var v = value == null ? '' : String(value);
+    if (c === 'control_id' && v && v !== '—') {
+      return '<a href="#" data-ecs-framework-control-drill data-ecs-framework-control-framework="' +
+        esc(row.framework || '') + '" data-ecs-framework-control-id="' + esc(v) + '"><code>' + esc(v) + '</code></a>';
+    }
+    return esc(v);
+  }
 
-  function tableHtml(rows, cols) {
+  function tableHtml(rows, cols, rowType, summary) {
     if (!rows || !rows.length) return '<p class="text-muted mb-0">No supporting records.</p>';
+    var totalDraft = summary && summary.total_draft_evidence != null ? summary.total_draft_evidence : '—';
+    var totalSubmitted = summary && summary.total_submitted_evidence != null ? summary.total_submitted_evidence : '—';
     var h = '<div class="ecs-kpi-drill-toolbar mb-2">' +
+      '<div class="small mb-1">' +
+      '<strong>Total Draft Evidence = ' + esc(totalDraft) + '</strong> &nbsp;|&nbsp; ' +
+      '<strong>Total Submitted Evidence = ' + esc(totalSubmitted) + '</strong>' +
+      '</div>' +
+      '<div class="text-muted small mb-1 ecs-kpi-drill-range">Showing records 1-' + rows.length + ' of ' + rows.length + '</div>' +
       '<input type="search" class="form-control form-control-sm ecs-kpi-drill-search" placeholder="Search records…" aria-label="Search drill records">' +
       '<div class="text-muted small mt-1 ecs-kpi-drill-count">' + rows.length + ' records</div></div>';
     h += '<div class="table-responsive ecs-paginated-wrap ecs-fit-view ecs-kpi-drill-table-wrap"><table class="table table-sm ecs-paginated-table ecs-compact-table ecs-force-paginate mb-0"><thead><tr>';
     cols.forEach(function(c){ h += '<th>' + esc(c.replace(/_/g,' ')) + '</th>'; });
     h += '</tr></thead><tbody>';
-    rows.forEach(function(r){
-      h += '<tr>';
-      cols.forEach(function(c){ h += '<td>' + esc(r[c]) + '</td>'; });
+    rows.forEach(function(r, idx){
+      var trClass = rowType === 'workflow-record' ? ' class="ecs-fw-record-row" role="button" tabindex="0" title="Open record detail"' : '';
+      var trData = rowType === 'workflow-record' ? ' data-record-idx="' + idx + '"' : '';
+      h += '<tr' + trClass + trData + '>';
+      cols.forEach(function(c){ h += '<td>' + renderCell(c, r[c], r) + '</td>'; });
       h += '</tr>';
     });
     return h + '</tbody></table></div>';
@@ -50,9 +82,144 @@
       var rows = sections[name];
       if (!rows || !rows.length) return;
       h += '<h6 class="text-muted small text-uppercase mt-3 mb-1">' + esc(name.replace(/_/g,' ')) + '</h6>';
-      h += tableHtml(rows, ['application','framework','control','finding','evidence','owner','status','risk','last_updated']);
+      h += tableHtml(rows, ['application','framework','control','finding','evidence','owner','status','risk','last_updated'], 'supporting');
     });
     return h;
+  }
+
+  function kpiDetailHtml(d) {
+    if (!d) return '<p class="text-muted mb-0">No KPI detail available.</p>';
+    var h = '<div class="row g-2 mb-2">';
+    h += '<div class="col-md-3"><div class="text-muted small">KPI Value</div><strong>' + esc(d.kpi_value || '—') + '</strong></div>';
+    h += '<div class="col-md-9"><div class="text-muted small">Formula Used</div><strong>' + esc(d.formula || '—') + '</strong></div>';
+    h += '</div>';
+    h += '<div class="mb-2"><div class="text-muted small">Actual Calculation</div><div>' + esc(d.calculation || '—') + '</div></div>';
+    if (Array.isArray(d.inputs) && d.inputs.length) {
+      h += '<h6 class="text-muted small text-uppercase mb-1">Inputs Used</h6><div class="table-responsive mb-2"><table class="table table-sm mb-0"><thead><tr><th>Input</th><th>Value</th></tr></thead><tbody>';
+      d.inputs.forEach(function(i){ h += '<tr><td>' + esc(i.name || '—') + '</td><td>' + esc(i.value) + '</td></tr>'; });
+      h += '</tbody></table></div>';
+    }
+    h += '<div class="mb-2"><div class="text-muted small">Reason For Current Value</div><div>' + esc(d.reason || '—') + '</div></div>';
+    if (Array.isArray(d.contributors) && d.contributors.length) {
+      h += '<h6 class="text-muted small text-uppercase mb-1">Key Contributors</h6><div class="table-responsive mb-2"><table class="table table-sm mb-0"><thead><tr><th>Application</th><th>Pending</th><th>Findings</th><th>Controls</th></tr></thead><tbody>';
+      d.contributors.forEach(function(c){
+        h += '<tr><td>' + esc(c.application || '—') + '</td><td>' + esc(c.pending) + '</td><td>' + esc(c.findings) + '</td><td>' + esc(c.controls) + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    if (Array.isArray(d.trend_factors) && d.trend_factors.length) {
+      h += '<h6 class="text-muted small text-uppercase mb-1">Trend / Impact Factors</h6><ul class="small mb-0">';
+      d.trend_factors.forEach(function(t){ h += '<li><strong>' + esc(t.factor || 'Factor') + ':</strong> ' + esc(t.impact || '—') + '</li>'; });
+      h += '</ul>';
+    }
+    if (Array.isArray(d.top_controls) && d.top_controls.length) {
+      h += '<h6 class="text-muted small text-uppercase mt-3 mb-1">Top Contributing Controls</h6><div class="table-responsive mb-2"><table class="table table-sm mb-0"><thead><tr><th>Control ID</th><th>Control</th><th>Pending Review</th><th>Re-upload</th><th>Open Findings</th></tr></thead><tbody>';
+      d.top_controls.forEach(function(c){
+        h += '<tr><td>' + esc(c.control_id || '—') + '</td><td>' + esc(c.control || '—') + '</td><td>' + esc(c.pending_review || 0) + '</td><td>' + esc(c.reupload || 0) + '</td><td>' + esc(c.open_findings || 0) + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    if (Array.isArray(d.findings_affecting_kpi) && d.findings_affecting_kpi.length) {
+      h += '<h6 class="text-muted small text-uppercase mb-1">Findings Affecting KPI</h6><ul class="small mb-2">';
+      d.findings_affecting_kpi.forEach(function(f){
+        h += '<li><strong>' + esc(f.id || '—') + '</strong> (' + esc(f.application || '—') + ', ' + esc(f.severity || '—') + '): ' + esc(f.observation || '—') + '</li>';
+      });
+      h += '</ul>';
+    }
+    if (Array.isArray(d.exceptions_affecting_kpi) && d.exceptions_affecting_kpi.length) {
+      h += '<h6 class="text-muted small text-uppercase mb-1">Exceptions Affecting KPI</h6><ul class="small mb-2">';
+      d.exceptions_affecting_kpi.forEach(function(ex){
+        h += '<li><strong>' + esc(ex.id || '—') + '</strong> (' + esc(ex.application || '—') + '): ' + esc(ex.title || '—') + ' [' + esc(ex.status || '—') + ']</li>';
+      });
+      h += '</ul>';
+    }
+    if (Array.isArray(d.attention) && d.attention.length) {
+      h += '<h6 class="text-muted small text-uppercase mb-1">Requires Attention</h6><ul class="small mb-0">';
+      d.attention.forEach(function(a){ h += '<li>' + esc(a) + '</li>'; });
+      h += '</ul>';
+    }
+    return h;
+  }
+
+  function parseControlId(row) {
+    if (row.control_id) return row.control_id;
+    var txt = String(row.control || '');
+    var m = txt.match(/^[A-Z]{2,6}[- ]?[A-Z0-9]{1,4}/);
+    return m ? m[0].replace(/\s+/g, '-') : '—';
+  }
+
+  function rowDetailHtml(row) {
+    var evidenceId = row.evidence_id || row.evidence || '—';
+    var uploadDate = row.upload_date || row.submitted_on || row.last_updated || '—';
+    var dueDate = row.due_date || '—';
+    var attachments = [];
+    if (Array.isArray(row.attachments)) attachments = row.attachments;
+    else if (row.mock_file) attachments = [row.mock_file];
+    else if (row.evidence_name) attachments = [row.evidence_name];
+    else if (row.evidence && row.evidence !== '—') attachments = [row.evidence];
+    var findingId = row.finding_id || row.observation_id || '—';
+    var comments = row.comments || row.description || row.finding || '—';
+    var fields = [
+      ['Evidence ID', evidenceId],
+      ['Application', row.application || '—'],
+      ['Framework', row.framework || '—'],
+      ['Control ID', parseControlId(row)],
+      ['Owner', row.owner || '—'],
+      ['Status', row.status || '—'],
+      ['Upload Date', uploadDate],
+      ['Due Date', dueDate],
+      ['Observation/Finding ID', findingId]
+    ];
+    var h = '<div class="row g-2 mb-2">';
+    fields.forEach(function(f){
+      h += '<div class="col-md-4"><div class="text-muted small">' + esc(f[0]) + '</div><strong>' + esc(f[1]) + '</strong></div>';
+    });
+    h += '</div>';
+    h += '<div class="mb-2"><div class="text-muted small">Comments/Description</div><div>' + esc(comments) + '</div></div>';
+    h += '<div><div class="text-muted small">Attachments</div>';
+    if (attachments.length) {
+      h += '<ul class="mb-0">';
+      attachments.forEach(function(a){ h += '<li>' + esc(a) + '</li>'; });
+      h += '</ul>';
+    } else {
+      h += '<div>None</div>';
+    }
+    return h + '</div>';
+  }
+
+  function showRecordDetail(row) {
+    var modalEl = document.getElementById('ecsFrameworkRecordDetailModal');
+    var titleEl = document.getElementById('ecsFrameworkRecordDetailTitle');
+    var bodyEl = document.getElementById('ecsFrameworkRecordDetailBody');
+    var parentModalEl = document.getElementById('ecsFrameworkKpiDrillModal');
+    if (!modalEl || !titleEl || !bodyEl || typeof bootstrap === 'undefined') return;
+    titleEl.textContent = 'Record Detail — ' + (row.evidence_id || row.evidence || row.application || 'Evidence');
+    bodyEl.innerHTML = rowDetailHtml(row);
+    var parentZ = Number((window.getComputedStyle(parentModalEl).zIndex || '1055')) || 1055;
+    modalEl.style.zIndex = String(parentZ + 20);
+    var inst = bootstrap.Modal.getOrCreateInstance(modalEl);
+    inst.show();
+    setTimeout(function(){
+      var backdrops = document.querySelectorAll('.modal-backdrop');
+      if (!backdrops.length) return;
+      backdrops[backdrops.length - 1].style.zIndex = String(parentZ + 10);
+    }, 0);
+  }
+
+  function bindRecordRows(bodyEl) {
+    bodyEl.querySelectorAll('.ecs-fw-record-row').forEach(function(tr){
+      tr.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        var idx = parseInt(tr.getAttribute('data-record-idx') || '-1', 10);
+        if (idx >= 0 && lastPrimaryRows[idx]) showRecordDetail(lastPrimaryRows[idx]);
+      });
+      tr.addEventListener('keydown', function(ev){
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        ev.preventDefault();
+        tr.click();
+      });
+    });
   }
 
   function attachSearch(bodyEl) {
@@ -70,7 +237,27 @@
       });
       if (countEl) countEl.textContent = q ? (visible + ' matching records') : (table.tBodies[0].rows.length + ' records');
       if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+      updateVisibleRange(bodyEl);
     });
+  }
+
+  function updateVisibleRange(bodyEl) {
+    var rangeEl = bodyEl.querySelector('.ecs-kpi-drill-range');
+    var table = bodyEl.querySelector('.ecs-kpi-drill-table-wrap table');
+    if (!rangeEl || !table || !table.tBodies.length) return;
+    var rows = Array.from(table.tBodies[0].rows || []);
+    var visibleRows = rows.filter(function(tr){ return tr.style.display !== 'none'; });
+    var total = visibleRows.length;
+    if (!total) {
+      rangeEl.textContent = 'Showing records 0-0 of 0';
+      return;
+    }
+    var first = rows.findIndex(function(tr){ return tr.style.display !== 'none'; });
+    var last = -1;
+    for (var i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].style.display !== 'none') { last = i; break; }
+    }
+    rangeEl.textContent = 'Showing records ' + (first + 1) + '-' + (last + 1) + ' of ' + total;
   }
 
   function showModal(title, html) {
@@ -80,8 +267,10 @@
     if (!modalEl || !bodyEl || typeof bootstrap === 'undefined') return;
     titleEl.textContent = title || 'Detail';
     bodyEl.innerHTML = html;
+    bindRecordRows(bodyEl);
     attachSearch(bodyEl);
     if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+    updateVisibleRange(bodyEl);
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
 
@@ -92,13 +281,62 @@
     if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
     fetch(url).then(function(r){ return r.json(); }).then(function(j){
       if (!j.ok) { showModal(title, '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'); return; }
+      lastFetchKind = url.indexOf('/api/framework/workflow-drill') >= 0 ? 'workflow' : 'other';
+      lastPrimaryRows = Array.isArray(j.rows) ? j.rows : [];
+      lastPrimaryColumns = Array.isArray(j.columns) ? j.columns : [];
       var html = '';
+      if (j.kind === 'kpi_detail') {
+        html += kpiDetailHtml(j.kpi_detail || {});
+        if (j.show_supporting_table && j.rows && j.rows.length) {
+          html += '<hr class="my-2"><p class="text-muted small mb-2">Supporting Data</p>';
+          html += tableHtml(j.rows, j.columns || ['application','framework','control','owner','status','evidence'], 'supporting', j.summary || null);
+        }
+        showModal(j.title || title, html);
+        return;
+      }
       if (j.detail) html += detailHtml(j.detail);
       html += '<p class="text-muted small mb-2">' + (j.rows || []).length + ' supporting records</p>';
-      html += tableHtml(j.rows, j.columns || ['application','framework','control','owner','status','evidence']);
+      html += tableHtml(
+        j.rows,
+        j.columns || ['application','framework','control','owner','status','evidence'],
+        lastFetchKind === 'workflow' ? 'workflow-record' : 'supporting',
+        j.summary || null
+      );
       html += sectionsHtml(j.sections);
       showModal(j.title || title, html);
     }).catch(function(){ showModal(title, '<p class="text-danger">Request failed.</p>'); });
+  }
+
+  function openControlledRequirementDoc(framework, controlId) {
+    var title = 'Control Requirement Document — ' + (controlId || '');
+    showModal(title, '<p class="text-muted">Loading…</p>');
+    fetch('/api/framework/row-drill?framework=' + encodeURIComponent(framework || '') + '&type=control&id=' + encodeURIComponent(controlId || ''))
+      .then(function(r){ return r.json(); })
+      .then(function(detailRes){
+        if (!detailRes || !detailRes.ok) throw new Error('Unable to map control context');
+        var d = detailRes.detail || {};
+        var mappedApps = String(d.mapped_applications || '').split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+        var application = mappedApps[0] || d.application || 'Net Banking';
+        var domain = d.domain || 'Governance';
+        var controlName = d.control_name || d.control || controlId || '';
+        var q = new URLSearchParams({
+          stage: 'requirement',
+          application: application,
+          framework: framework || d.framework || '',
+          domain: domain,
+          control_id: controlId || d.control_id || '',
+          control_name: controlName
+        });
+        return fetch('/api/ai-sdlc/controlled-document?' + q.toString());
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(docRes){
+        if (!docRes || !docRes.ok || !docRes.data) throw new Error((docRes && docRes.error) || 'Document load failed');
+        showModal(docRes.data.document_type_label || title, docRes.data.html || '<p class="text-muted mb-0">No document content.</p>');
+      })
+      .catch(function(err){
+        showModal(title, '<p class="text-danger mb-0">' + esc(err && err.message ? err.message : 'Document load failed') + '</p>');
+      });
   }
 
   window.ecsOpenFrameworkKpiDrill = function(framework, metric, label) {
@@ -133,6 +371,15 @@
       if (wf) {
         e.preventDefault();
         ecsOpenFrameworkWorkflowDrill(wf.getAttribute('data-ecs-framework-wf-framework'), wf.getAttribute('data-ecs-framework-wf-metric'), wf.getAttribute('data-ecs-framework-wf-label'));
+        return;
+      }
+      var ctl = e.target.closest('[data-ecs-framework-control-drill]');
+      if (ctl) {
+        e.preventDefault();
+        openControlledRequirementDoc(
+          ctl.getAttribute('data-ecs-framework-control-framework'),
+          ctl.getAttribute('data-ecs-framework-control-id')
+        );
         return;
       }
       var row = e.target.closest('[data-ecs-framework-row-drill]');

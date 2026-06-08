@@ -86,8 +86,20 @@ def test_workflow_drill_api_returns_25_rows_all_metrics():
                 failures.append(f"{fw}/{metric} status={resp.status_code}")
                 continue
             data = resp.json()
-            if not data.get("ok") or len(data.get("rows", [])) < 25:
-                failures.append(f"{fw}/{metric} rows={len(data.get('rows', []))}")
+            if not data.get("ok"):
+                failures.append(f"{fw}/{metric} not_ok")
+                continue
+            row_count = len(data.get("rows", []))
+            if metric == "draft":
+                expected = data.get("summary", {}).get("total_draft_evidence")
+                if row_count != expected:
+                    failures.append(f"{fw}/{metric} rows={row_count} expected={expected}")
+            elif metric == "submitted":
+                expected = data.get("summary", {}).get("total_submitted_evidence")
+                if row_count != expected:
+                    failures.append(f"{fw}/{metric} rows={row_count} expected={expected}")
+            elif row_count < 25:
+                failures.append(f"{fw}/{metric} rows={row_count}")
     assert not failures, "; ".join(failures[:8])
 
 

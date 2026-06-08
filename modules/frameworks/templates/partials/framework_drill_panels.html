@@ -48,22 +48,22 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 {% endfor %}
 </tbody></table></div></div>
 
-{# CONTROLS #}
-<div class="tab-pane fade{% if default_tab == 'controls' %} show active{% endif %}" id="pane-controls" role="tabpanel">
-{% if gc %}<p class="small text-muted mb-2"><strong>{{ framework_name }} controls only</strong> — {{ gc.scope.control_count }} controls mapped to {{ gc.scope.application_count }} applications · prefix registry enforced</p>{% endif %}
+{# CONTROL LIBRARY #}
+<div class="tab-pane fade{% if default_tab in ['control-library', 'controls'] %} show active{% endif %}" id="pane-control-library" role="tabpanel">
+{% if gc %}<p class="small text-muted mb-2"><strong>{{ framework_name }} control library</strong> — {{ gc.scope.control_count }} controls mapped to {{ gc.scope.application_count }} applications</p>{% endif %}
 <div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
-<table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
-<thead><tr><th>Control ID</th><th>Control</th><th>Application</th><th>Owner</th><th>Evidence</th><th>Governance State</th><th></th></tr></thead>
+<table class="table ecs-table-modern ecs-paginated-table ecs-force-paginate ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Control ID</th><th>Control Name</th><th>Domain</th><th>Status</th><th>Risk</th><th>Evidence Count</th><th>Finding Count</th></tr></thead>
 <tbody>
-{% for row in rel_controls %}
-<tr class="ecs-drill-row-clickable{% if row.validation == 'FAIL' or 'Rejected' in row.workflow_status %} table-danger{% elif row.validation == 'WARN' or 'Pending' in row.workflow_status %} table-warning{% endif %}" {{ fw_row_drill(framework_name, 'control', row.control_id) }}>
-<td><code class="small">{{ row.control_id }}</code></td>
-<td><strong>{{ row.control|truncate(40, True, '') }}</strong></td>
-<td>{{ row.application }}</td>
-<td class="small">{{ row.owner|default('—') }}</td>
-<td class="small">{% if row.evidence_present or row.evidence_name %}{{ row.evidence_name|default('Linked')|truncate(24, True, '') }}{% else %}<span class="text-danger">Missing</span>{% endif %}</td>
-<td>{{ workflow_state_group(row) }}</td>
-<td class="ecs-sticky-actions">{{ governance_action_menu(loop.index, framework_name, role, user, row, fq) }}</td>
+{% for row in fw_dashboard.control_library|default([]) %}
+<tr class="ecs-drill-row-clickable{% if row.status == 'Failed' %} table-danger{% elif row.status == 'Pending' %} table-warning{% endif %}" {{ fw_row_drill(framework_name, 'control', row.control_id) }}>
+<td><a href="#" class="small" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ row.control_id|e }}"><code>{{ row.control_id }}</code></a></td>
+<td><strong>{{ row.control_name|truncate(44, True, '') }}</strong></td>
+<td>{{ row.domain }}</td>
+<td>{{ row.status }}</td>
+<td><span class="badge {% if row.risk == 'High' %}bg-danger{% elif row.risk == 'Medium' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ row.risk }}</span></td>
+<td>{{ row.evidence_count }}</td>
+<td>{{ row.finding_count }}</td>
 </tr>
 {% endfor %}
 </tbody></table></div></div>
@@ -80,7 +80,7 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 {% for pa in pending_rows %}
 <tr class="ecs-drill-row-clickable{% if pa.risk == 'Critical' %} table-danger{% elif pa.risk == 'High' %} table-warning{% endif %}" {{ fw_row_drill(framework_name, 'pending', pa.control_id|default(pa.application)) }}>
 <td><strong>{{ pa.application }}</strong></td>
-<td><code class="small">{{ pa.control_id }}</code>{% if pa.finding_id and pa.finding_id != '—' %}<br><span class="small text-muted">Obs {{ pa.finding_id }}</span>{% endif %}<br><span class="small text-muted">{{ pa.control_name|default(pa.control|default(''))|truncate(28, True, '') }}</span></td>
+<td><a href="#" class="small" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ pa.control_id|e }}"><code>{{ pa.control_id }}</code></a>{% if pa.finding_id and pa.finding_id != '—' %}<br><span class="small text-muted">Obs {{ pa.finding_id }}</span>{% endif %}<br><span class="small text-muted">{{ pa.control_name|default(pa.control|default(''))|truncate(28, True, '') }}</span></td>
 <td><span class="badge {% if pa.item_type == 'Open Gap' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ pa.item_type|default(pa.gap_type|default('Pending Action')) }}</span></td>
 <td class="small">{{ pa.owner }}</td>
 <td class="small">{{ pa.action|default(pa.description)|truncate(40, True, '') }}</td>
@@ -96,7 +96,7 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 {% set primary_ev = ctrl.evidences[0] %}
 <tr class="{% if ckey in rejected_controls %}table-danger{% else %}table-warning{% endif %}">
 <td>{{ primary_ev.application_name }}</td>
-<td><code class="small">{{ ctrl.control_id }}</code></td>
+<td><a href="#" class="small" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ ctrl.control_id|e }}"><code>{{ ctrl.control_id }}</code></a></td>
 <td>—</td>
 <td class="small">{{ primary_ev.uploaded_by }}</td>
 <td>{% if ckey in rejected_controls %}Resubmit evidence{% else %}Auditor review{% endif %}</td>
@@ -136,7 +136,7 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 <td>{{ f.severity }}</td>
 <td class="small">{{ f.owner|default('—') }}</td>
 <td>{{ f.open_since }}{% if f.aging_days|default('') %} <span class="text-muted">({{ f.aging_days }}d)</span>{% endif %}</td>
-<td><code class="small">{{ f.linked_control }}</code></td>
+<td><a href="#" class="small" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ f.linked_control|e }}"><code>{{ f.linked_control }}</code></a></td>
 <td>{{ f.status }}</td>
 </tr>
 {% endfor %}
@@ -226,7 +226,7 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 <strong class="ecs-priority-title">{{ ex.id }} — {{ ex.title }}</strong>
 <div class="ecs-priority-meta">
 RAF <code>{{ ex.risk_access_form_id|default('—') }}</code> · TD: {{ ex.td_breach_type|default('—') }} ·
-Control <code>{{ ex.control_id|default('—') }}</code> · {{ ex.application|default(framework_name) }} · Expires {{ ex.expires }}
+Control <a href="#" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ ex.control_id|default('')|e }}"><code>{{ ex.control_id|default('—') }}</code></a> · {{ ex.application|default(framework_name) }} · Expires {{ ex.expires }}
 </div>
 </div>
 <span class="badge {% if ex.status == 'Active' %}bg-warning text-dark{% elif ex.status == 'Review Due' %}bg-danger{% else %}bg-secondary{% endif %}">{{ ex.status }}</span>
@@ -262,9 +262,9 @@ Control <code>{{ ex.control_id|default('—') }}</code> · {{ ex.application|def
 {% for r in gc.reuse_mappings %}
 <tr class="ecs-drill-row-clickable" {{ fw_row_drill(framework_name, 'reuse', r.source_control ~ '->' ~ r.target_control) }}>
 <td>{{ r.source_framework }}</td>
-<td class="small"><code>{{ r.source_control }}</code></td>
+<td class="small"><a href="#" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ r.source_framework|e }}" data-ecs-framework-control-id="{{ r.source_control|e }}"><code>{{ r.source_control }}</code></a></td>
 <td>{{ r.target_framework }}</td>
-<td class="small"><code>{{ r.target_control }}</code></td>
+<td class="small"><a href="#" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ r.target_framework|e }}" data-ecs-framework-control-id="{{ r.target_control|e }}"><code>{{ r.target_control }}</code></a></td>
 <td>{{ r.shared_evidence|truncate(32, True, '') }}</td>
 <td>{{ r.confidence_pct }}%</td>
 </tr>

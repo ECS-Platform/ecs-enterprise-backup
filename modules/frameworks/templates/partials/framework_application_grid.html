@@ -36,8 +36,8 @@
 <tbody>
 {% for row in application_view.controls %}
 {% set primary_ev = row.evidences[0] %}
-<tr class="{% if row.ckey in rejected_controls %}table-danger{% elif row.ckey in submitted_controls %}table-warning{% endif %}">
-<td><strong>{{ row.control }}</strong><br><small class="text-muted">{{ row.control_id }}</small></td>
+<tr class="ecs-drill-row-clickable{% if row.ckey in rejected_controls %} table-danger{% elif row.ckey in submitted_controls %} table-warning{% endif %}" data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ framework_name|e }}" data-ecs-framework-row-type="control" data-ecs-framework-row-id="{{ row.control_id|e }}" role="button" tabindex="0" title="Click for control detail">
+<td><strong>{{ row.control }}</strong><br><a href="#" class="small text-muted" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ row.control_id|e }}"><code>{{ row.control_id }}</code></a></td>
 <td>{{ row.evidences|length }}{% if row.reject_reason %}<br><small class="text-danger">{{ row.reject_reason|truncate(40, True, '…') }}</small>{% endif %}</td>
 <td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
 <td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Approved</span>
