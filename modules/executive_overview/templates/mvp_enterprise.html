@@ -4,6 +4,27 @@
 <div class="col-md-10 ecs-workspace-main">
 <h1 class="ecs-workspace-title h5">Enterprise Governance Overview</h1>
 {% include "partials/role_metrics_strip.html" %}
+{% if role_metrics and role_metrics.show_strip|default(true) %}
+<div class="card shadow-sm mb-2 border-warning border-opacity-25">
+<div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div class="small text-muted">Main dashboard queue summary</div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if role_metrics.pending_tasks is defined %}
+    <button type="button" class="btn btn-sm btn-warning" data-ecs-ent-queue-drill="pending"
+      title="Count source: role_dashboard_metrics.pending_tasks; shows framework records with open items in current view.">
+      Pending: {{ role_metrics.pending_tasks }}
+    </button>
+    {% endif %}
+    {% if role_metrics.approvals_today is defined %}
+    <button type="button" class="btn btn-sm btn-success" data-ecs-ent-queue-drill="today"
+      title="Count source: role_dashboard_metrics.approvals_today; shows today's available framework records in current view.">
+      Today: {{ role_metrics.approvals_today }}
+    </button>
+    {% endif %}
+  </div>
+</div>
+</div>
+{% endif %}
 {% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
 {{ workspace_exec_strip(module_view) }}
@@ -76,9 +97,24 @@
 {% endif %}
 
 </div></div></div>
+<div class="modal fade" id="ecsEntQueueDrillModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title" id="ecsEntQueueDrillTitle">Queue Detail</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body small" id="ecsEntQueueDrillBody"></div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
 (function(){
   var bu = {{ module_view.banking_bu_analytics|default([])|tojson }};
+  var fwRows = {{ module_view.rows|default([])|tojson }};
   var charts = {{ module_view.bu_charts|default({})|tojson }};
   if (window.ecsInitBuCards) ecsInitBuCards('ecsEntBuCards', bu);
   if (window.ecsRenderCompactBarChart && charts) {
@@ -88,6 +124,42 @@
     ecsRenderCompactBarChart('ecsEntBuObsChart', charts.observations || [], {defaultTone:'red'});
     ecsRenderCompactBarChart('ecsEntBuRiskChart', charts.risk_score || [], {defaultTone:'navy'});
   }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function showQueueDrill(kind) {
+    var titleEl = document.getElementById('ecsEntQueueDrillTitle');
+    var bodyEl = document.getElementById('ecsEntQueueDrillBody');
+    var modalEl = document.getElementById('ecsEntQueueDrillModal');
+    if (!titleEl || !bodyEl || !modalEl || typeof bootstrap === 'undefined') return;
+    var rows = [];
+    var explanation = '';
+    if (kind === 'pending') {
+      rows = (fwRows || []).filter(function(r){ return Number(r.open_items || 0) > 0; });
+      explanation = 'Pending count comes from role metrics pending_tasks; related records below are framework rows with open items (> 0) in this dashboard view.';
+      titleEl.textContent = 'Pending Queue Records';
+    } else {
+      rows = (fwRows || []).slice(0, 14);
+      explanation = 'Today count comes from role metrics approvals_today; related records below are today-context framework rows currently available in this dashboard view.';
+      titleEl.textContent = 'Today Queue Records';
+    }
+    var html = '<p class="text-muted mb-2">' + esc(explanation) + '</p>';
+    if (!rows.length) {
+      html += '<p class="text-muted mb-0">No details available.</p>';
+    } else {
+      html += '<div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Framework</th><th>Maturity</th><th>Open Items</th><th>Risk</th></tr></thead><tbody>';
+      rows.forEach(function(r){
+        html += '<tr><td><strong>' + esc(r.framework) + '</strong></td><td>' + esc(r.maturity_pct) + '%</td><td>' + esc(r.open_items) + '</td><td>' + esc(r.risk) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    bodyEl.innerHTML = html;
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-ecs-ent-queue-drill]');
+    if (!btn) return;
+    e.preventDefault();
+    showQueueDrill(btn.getAttribute('data-ecs-ent-queue-drill'));
+  });
 })();
 </script>
 {% include "partials/standard_filter_include.html" %}

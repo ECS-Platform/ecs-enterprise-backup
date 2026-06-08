@@ -35,7 +35,7 @@
 </td>
 <td>
 {% if row.simulation.status in ['Success','Healthy','Approved','Within SLA','Stable','Normal'] or '99.' in row.simulation.status %}
-<span class="badge bg-success ecs-val-badge">{{ row.simulation.status }}</span>
+<span class="badge bg-success ecs-val-badge">{{ 'Closed' if row.simulation.status == 'Approved' else row.simulation.status }}</span>
 {% elif row.simulation.overdue %}
 <span class="badge bg-warning text-dark ecs-val-badge">Overdue</span>
 {% else %}
@@ -43,7 +43,7 @@
 {% endif %}
 </td>
 <td>
-{% if row.workflow_status == 'approved' %}<span class="badge bg-success">Approved</span>
+{% if row.workflow_status == 'approved' %}<span class="badge bg-success">Closed</span>
 {% elif row.workflow_status == 'submitted' %}<span class="badge bg-warning text-dark">Pending Review</span>
 {% elif row.workflow_status == 'rejected' %}<span class="badge bg-danger">Rejected</span>
 {% else %}<span class="badge bg-secondary">Draft</span>{% endif %}
@@ -72,7 +72,7 @@
 <h6 class="text-muted">Recent Operational Actions</h6>
 <div class="enterprise-feed">
 {% for log in itpp_operational.drill_log %}
-<div class="border-bottom pb-2 mb-2"><strong>{{ log.action }}</strong> — {{ log.user }}<span class="chat-ts float-end">{{ log.timestamp }}</span><br><small>{{ log.message }}</small></div>
+<div class="border-bottom pb-2 mb-2{% if loop.first %} bg-warning-subtle border border-warning rounded px-2 pt-2{% endif %}"><strong>{{ log.action }}</strong>{% if loop.first %}<span class="badge bg-warning text-dark ms-1">Newest</span>{% endif %} — {{ log.user }}<span class="chat-ts float-end">{{ log.timestamp }}</span><br><small>{{ log.message }}</small></div>
 {% endfor %}
 </div>
 </div>

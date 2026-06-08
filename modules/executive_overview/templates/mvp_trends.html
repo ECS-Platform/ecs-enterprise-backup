@@ -123,7 +123,38 @@
 (function(){
   var granData = {};
   try { granData = JSON.parse(document.getElementById('ecsGranularityTrends').textContent || '{}'); } catch(e) {}
+  var currentGran = 'monthly';
+  function normSeries(list, fallbackKey) {
+    return (list || []).map(function(it){
+      var v = it.value;
+      if (v == null && fallbackKey && it[fallbackKey] != null) v = it[fallbackKey];
+      if (v == null && it.net != null) v = it.net;
+      if (v == null && it.rate_pct != null) v = it.rate_pct;
+      if (v == null && it.within_sla_pct != null) v = it.within_sla_pct;
+      return {
+        label: it.label || it.month || it.quarter || '',
+        value: v == null ? 0 : v,
+        tone: it.tone,
+        suffix: it.suffix
+      };
+    });
+  }
+  window.ecsUpdateTrendGranularityFromIntel = function(intel) {
+    if (!intel) return;
+    var tab = intel.trends_payload || {};
+    var ext = intel.extended_trends || {};
+    granData.monthly = granData.monthly || {};
+    granData.monthly.compliance = normSeries(tab.coverage_series || [], 'coverage_pct').map(function(s){ return Object.assign({}, s, { suffix: '%' }); });
+    granData.monthly.observations = normSeries(tab.observations_series || [], 'net');
+    granData.monthly.observations_grouped = tab.observations_series || [];
+    granData.monthly.evidence_rejections = normSeries(tab.rejections_series || [], 'rejected');
+    granData.monthly.risk_escalation = normSeries(tab.observations_series || [], 'opened').map(function(s){ return Object.assign({}, s, { value: Math.max(0, Math.floor((s.value || 0) / 4)) }); });
+    granData.monthly.evidence_aging = normSeries(ext.stale_evidence_trend || []);
+    granData.monthly.remediation = normSeries(ext.remediation_closure_velocity || []);
+    applyGran(currentGran);
+  };
   function applyGran(g) {
+    currentGran = g;
     document.querySelectorAll('#ecsTrendGranularity [data-gran]').forEach(function(btn){
       btn.classList.toggle('active', btn.getAttribute('data-gran') === g);
     });

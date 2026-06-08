@@ -121,31 +121,43 @@
     });
     renderTable('sched-jobs', jobs, function(r) {
       var bc = r.health === 'Healthy' ? 'success' : 'warning text-dark';
-      return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-risk="' + esc(r.risk) + '" data-filter-status="' + esc(r.status) + '" data-filter-owner="' + esc(r.owner) + '">' +
+      var rid = (r.job_id || (r.application + '::' + r.framework));
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(r.framework) + '" data-filter-application="' + esc(r.application) + '" data-filter-risk="' + esc(r.risk) + '" data-filter-status="' + esc(r.status) + '" data-filter-owner="' + esc(r.owner) + '"' +
+        ' data-sched-row-drill-row data-sched-table="jobs" data-sched-row-id="' + esc(rid) + '">' +
         '<td><code class="small">' + esc(r.job_id) + '</code></td><td class="small">' + esc(r.source_system) + '</td><td>' + esc(r.framework) + '</td><td>' + esc(r.frequency) + '</td>' +
-        '<td><span class="badge bg-' + bc + '">' + esc(r.health) + '</span></td><td class="small">' + esc(r.last_run) + '</td><td>' + esc(r.records || r.evidence_collected) + '</td><td></td></tr>';
+        '<td><span class="badge bg-' + bc + '">' + esc(r.health) + '</span></td><td class="small">' + esc(r.last_run) + '</td><td>' + esc(r.records || r.evidence_collected) + '</td>' +
+        '<td><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="jobs" data-sched-row-id="' + esc(rid) + '">Details</button></td></tr>';
     });
     renderTable('sched-scans', scans, function(s) {
       var bc = s.health === 'Healthy' ? 'success' : (s.health === 'Attention' ? 'warning text-dark' : 'danger');
-      return '<tr data-ecs-filter-row data-filter-framework="' + esc(s.framework) + '" data-filter-application="' + esc(s.application) + '" data-filter-risk="' + esc(s.risk) + '" data-filter-status="' + esc(s.health) + '" data-filter-owner="' + esc(s.owner) + '">' +
+      var rid = (s.scan_id || (s.application + '::' + s.framework));
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(s.framework) + '" data-filter-application="' + esc(s.application) + '" data-filter-risk="' + esc(s.risk) + '" data-filter-status="' + esc(s.health) + '" data-filter-owner="' + esc(s.owner) + '"' +
+        ' data-sched-row-drill-row data-sched-table="application_scans" data-sched-row-id="' + esc(rid) + '">' +
         '<td><strong>' + esc(s.application) + '</strong></td><td>' + esc(s.framework) + '</td><td>' + s.evidence_collected + '</td><td>' + s.controls_passed + '</td>' +
         '<td>' + s.controls_pending + '</td><td>' + s.missing_evidence + '</td><td>' + esc(s.risk) + '</td><td class="small">' + esc(s.last_scan) + '</td>' +
-        '<td><span class="badge bg-' + bc + '">' + esc(s.health) + '</span></td><td></td></tr>';
+        '<td><span class="badge bg-' + bc + '">' + esc(s.health) + '</span></td>' +
+        '<td><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="application_scans" data-sched-row-id="' + esc(rid) + '">Details</button></td></tr>';
     });
     renderTable('sched-cron', cron, function(c) {
       var bc = c.health === 'Success' ? 'success' : (c.health === 'Partial' ? 'warning text-dark' : 'danger');
-      return '<tr data-ecs-filter-row data-filter-framework="' + esc(c.framework) + '" data-filter-application="' + esc(c.application) + '" data-filter-risk="' + esc(c.risk) + '" data-filter-status="' + esc(c.health) + '">' +
+      var rid = (c.run_id || (c.application + '::' + c.framework + '::' + c.timestamp));
+      return '<tr data-ecs-filter-row data-filter-framework="' + esc(c.framework) + '" data-filter-application="' + esc(c.application) + '" data-filter-risk="' + esc(c.risk) + '" data-filter-status="' + esc(c.health) + '"' +
+        ' data-sched-row-drill-row data-sched-table="cron_runs" data-sched-row-id="' + esc(rid) + '">' +
         '<td><button type="button" class="btn btn-link btn-sm p-0">+</button></td>' +
         '<td><code class="small">' + esc(c.run_id) + '</code><br>' + esc(c.label) + '</td><td class="small">' + esc(c.timestamp) + '</td><td>' + c.duration_sec + 's</td>' +
         '<td>' + c.applications_scanned + '</td><td>' + c.evidence_collected + '</td><td>' + c.controls_validated + '</td><td>' + c.failures + '</td><td>' + (c.retry_count || 0) + '</td>' +
-        '<td><span class="badge bg-' + bc + '">' + esc(c.health) + '</span></td></tr>';
+        '<td><span class="badge bg-' + bc + '">' + esc(c.health) + '</span></td>' +
+        '<td><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="cron_runs" data-sched-row-id="' + esc(rid) + '">Details</button></td></tr>';
     });
     renderTable('sched-failures', failures, function(f) {
       var bc = f.severity === 'High' ? 'danger' : 'warning text-dark';
-      return '<tr class="' + (f.severity === 'High' ? 'table-danger' : 'table-warning') + '" data-ecs-filter-row data-filter-framework="' + esc(f.framework) + '" data-filter-application="' + esc(f.application) + '" data-filter-status="' + esc(f.status) + '" data-filter-owner="' + esc(f.owner) + '">' +
+      var rid = (f.failure_id || (f.source + '::' + f.application));
+      return '<tr class="' + (f.severity === 'High' ? 'table-danger' : 'table-warning') + '" data-ecs-filter-row data-filter-framework="' + esc(f.framework) + '" data-filter-application="' + esc(f.application) + '" data-filter-status="' + esc(f.status) + '" data-filter-owner="' + esc(f.owner) + '"' +
+        ' data-sched-row-drill-row data-sched-table="failures" data-sched-row-id="' + esc(rid) + '">' +
         '<td>' + esc(f.failure_id) + '</td><td><strong>' + esc(f.source) + '</strong><br><span class="small">' + esc(f.type) + '</span></td>' +
         '<td class="small">' + esc(f.description) + '</td><td><span class="badge bg-' + bc + '">' + esc(f.severity) + '</span></td>' +
-        '<td class="small">' + esc(f.impact) + '</td><td class="small">' + esc(f.affected_applications) + '</td><td class="small">' + esc(f.remediation) + '</td><td>' + esc(f.retry_status) + '</td><td></td></tr>';
+        '<td class="small">' + esc(f.impact) + '</td><td class="small">' + esc(f.affected_applications) + '</td><td class="small">' + esc(f.remediation) + '</td><td>' + esc(f.retry_status) + '</td>' +
+        '<td><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="failures" data-sched-row-id="' + esc(rid) + '">Details</button></td></tr>';
     });
     var cronOverview = document.getElementById('ecsSchedCronOverview');
     var cronChart = document.getElementById('ecsSchedCronChart');

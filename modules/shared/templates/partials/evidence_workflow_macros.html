@@ -4,21 +4,22 @@
 {% if summary and summary.counters %}
 <div class="ecs-wf-counter-strip mb-2" id="ecsWorkflowCounterStrip" data-ecs-wf-counters>
 {% for c in summary.counters %}
+{% set display_label = c.label|replace('Auditor Approved', 'Closed')|replace('Approval Rate', 'Closure Rate')|replace('Approved', 'Closed') %}
 <div class="ecs-wf-counter ecs-wf-counter-{{ c.tone|default('primary') }}{% if drillable or enterprise_drill %} ecs-kpi-clickable{% endif %}"
      {% if drillable and c.metric|default('') and framework_name %}
      data-ecs-framework-wf-drill
      data-ecs-framework-wf-framework="{{ framework_name|e }}"
      data-ecs-framework-wf-metric="{{ c.metric|e }}"
-     data-ecs-framework-wf-label="{{ c.label|e }}"
+     data-ecs-framework-wf-label="{{ display_label|e }}"
      {% elif enterprise_drill and c.metric|default('') %}
      data-ecs-enterprise-wf-drill
      data-ecs-enterprise-wf-metric="{{ c.metric|e }}"
-     data-ecs-enterprise-wf-label="{{ c.label|e }}"
+     data-ecs-enterprise-wf-label="{{ display_label|e }}"
      data-ecs-enterprise-wf-count="{{ c.value|e }}"
      {% endif %}
-     {% if drillable or enterprise_drill %}role="button" tabindex="0" title="Click to drill into {{ c.label }}"{% endif %}>
+     {% if drillable or enterprise_drill %}role="button" tabindex="0" title="Click to drill into {{ display_label }}"{% endif %}>
 <div class="ecs-wf-counter-val" data-ecs-wf-count="{{ c.label|lower|replace(' ','_') }}">{{ c.value }}</div>
-<div class="ecs-wf-counter-lbl">{{ c.label }}</div>
+<div class="ecs-wf-counter-lbl">{{ display_label }}</div>
 </div>
 {% endfor %}
 </div>
@@ -29,21 +30,22 @@
 {% if analytics and analytics.cards %}
 <div class="ecs-wf-analytics-row mb-2">
 {% for card in analytics.cards[:5] %}
+{% set display_label = card.label|replace('Auditor Approved', 'Closed')|replace('Approval Rate', 'Closure Rate')|replace('Approved', 'Closed') %}
 <div class="ecs-wf-analytic-card ecs-wf-analytic-{{ card.tone|default('primary') }}{% if drillable or enterprise_drill %} ecs-kpi-clickable{% endif %}"
      {% if drillable and card.metric|default('') and framework_name %}
      data-ecs-framework-wf-drill
      data-ecs-framework-wf-framework="{{ framework_name|e }}"
      data-ecs-framework-wf-metric="{{ card.metric|e }}"
-     data-ecs-framework-wf-label="{{ card.label|e }}"
+     data-ecs-framework-wf-label="{{ display_label|e }}"
      {% elif enterprise_drill and card.metric|default('') %}
      data-ecs-enterprise-wf-drill
      data-ecs-enterprise-wf-metric="{{ card.metric|e }}"
-     data-ecs-enterprise-wf-label="{{ card.label|e }}"
+     data-ecs-enterprise-wf-label="{{ display_label|e }}"
      data-ecs-enterprise-wf-count="{{ card.value|e }}"
      {% endif %}
-     {% if drillable or enterprise_drill %}role="button" tabindex="0" title="Click to drill into {{ card.label }}"{% endif %}>
+     {% if drillable or enterprise_drill %}role="button" tabindex="0" title="Click to drill into {{ display_label }}"{% endif %}>
 <div class="ecs-wf-analytic-val">{{ card.value }}</div>
-<div class="ecs-wf-analytic-lbl">{{ card.label }}</div>
+<div class="ecs-wf-analytic-lbl">{{ display_label }}</div>
 <div class="ecs-wf-analytic-hint">{{ card.hint|default('') }}</div>
 </div>
 {% endfor %}
@@ -55,17 +57,18 @@
 {% if summary_cards %}
 <div class="ecs-wf-analytics-row mb-2">
 {% for card in summary_cards %}
+{% set display_label = card.label|replace('Auditor Approved', 'Closed')|replace('Approval Rate', 'Closure Rate')|replace('Approved', 'Closed') %}
 <div class="ecs-wf-analytic-card ecs-wf-analytic-{{ card.tone|default('primary') }}{% if drillable %} ecs-kpi-clickable{% endif %}"
      {% if drillable and card.metric|default('') %}
      data-ecs-framework-wf-drill
      data-ecs-framework-wf-framework="{{ framework_name|e }}"
      data-ecs-framework-wf-metric="{{ card.metric|e }}"
-     data-ecs-framework-wf-label="{{ card.label|e }}"
+     data-ecs-framework-wf-label="{{ display_label|e }}"
      role="button" tabindex="0"
-     title="Click to drill into {{ card.label }}"
+     title="Click to drill into {{ display_label }}"
      {% endif %}>
 <div class="ecs-wf-analytic-val">{{ card.value }}</div>
-<div class="ecs-wf-analytic-lbl">{{ card.label }}</div>
+<div class="ecs-wf-analytic-lbl">{{ display_label }}</div>
 <div class="ecs-wf-analytic-hint">{{ card.hint|default('') }}</div>
 </div>
 {% endfor %}
@@ -107,20 +110,21 @@
 {% if queues and queues.queues %}
 <div class="ecs-wf-queue-pills mb-2">
 {% for q in queues.queues %}
+{% set display_label = q.label|replace('Auditor Approved', 'Closed')|replace('Approval Rate', 'Closure Rate')|replace('Approved', 'Closed') %}
 <span class="ecs-wf-queue-pill{% if drillable or enterprise_drill %} ecs-kpi-clickable{% endif %}"
       data-queue-id="{{ q.id }}"
       {% if drillable and q.metric|default('') and framework_name %}
       data-ecs-framework-wf-drill
       data-ecs-framework-wf-framework="{{ framework_name|e }}"
       data-ecs-framework-wf-metric="{{ q.metric|e }}"
-      data-ecs-framework-wf-label="{{ q.label|e }}"
+      data-ecs-framework-wf-label="{{ display_label|e }}"
       {% elif enterprise_drill and q.metric|default('') %}
       data-ecs-enterprise-wf-drill
       data-ecs-enterprise-wf-metric="{{ q.metric|e }}"
-      data-ecs-enterprise-wf-label="{{ q.label|e }}"
+      data-ecs-enterprise-wf-label="{{ display_label|e }}"
       data-ecs-enterprise-wf-count="{{ q.count|e }}"
       {% endif %}
-      {% if drillable or enterprise_drill %}role="button" tabindex="0" title="Click to drill into {{ q.label }}"{% endif %}>{{ q.label }} <strong>{{ q.count }}</strong></span>
+      {% if drillable or enterprise_drill %}role="button" tabindex="0" title="Click to drill into {{ display_label }}"{% endif %}>{{ display_label }} <strong>{{ q.count }}</strong></span>
 {% endfor %}
 </div>
 {% endif %}

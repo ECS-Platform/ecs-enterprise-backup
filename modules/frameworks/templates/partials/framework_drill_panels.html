@@ -34,7 +34,19 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 <thead><tr><th>Application</th><th>Owner</th><th>Readiness</th><th>Controls</th><th>Findings</th><th>Failed</th><th>Last Validation</th><th>Risk</th><th></th></tr></thead>
 <tbody>
 {% for app in application_grid %}
-<tr class="ecs-drill-row-clickable" {{ fw_row_drill(framework_name, 'application', app.name) }}>
+<tr class="ecs-drill-row-clickable" {{ fw_row_drill(framework_name, 'application', app.name) }}
+  data-ecs-app-name="{{ app.name|e }}"
+  data-ecs-app-owner="{{ app.owner|default('—')|e }}"
+  data-ecs-app-readiness="{{ (app.audit_readiness_pct|default(app.compliance_pct))|e }}"
+  data-ecs-app-controls="{{ app.implemented|default('—')|e }}"
+  data-ecs-app-findings="{{ app.findings|default(0)|e }}"
+  data-ecs-app-failed="{{ app.failed_controls|default(0)|e }}"
+  data-ecs-app-risk="{{ app.risk_rating|default('—')|e }}"
+  data-ecs-app-status="{{ app.status|default('—')|e }}"
+  data-ecs-app-validation="{{ app.last_validation|default(app.last_refresh)|default('—')|e }}"
+  data-ecs-app-coverage="{{ app.compliance_pct|default('—')|e }}"
+  data-ecs-app-integrations="{{ app.integrations|default([])|join(', ')|e }}"
+  data-ecs-app-audit-activity="{{ app.recent_audit_activity|default('—')|e }}">
 <td><strong>{{ app.name }}</strong>{% if app.focus|default('') %}<br><span class="small text-muted">{{ app.focus|truncate(36, True, '') }}</span>{% endif %}</td>
 <td class="small">{{ app.owner|default('—') }}</td>
 <td>{{ app.audit_readiness_pct|default(app.compliance_pct) }}%</td>
@@ -214,6 +226,7 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 {# EXCEPTIONS / TD — Risk Access Form (RAF) #}
 <div class="tab-pane fade" id="pane-exceptions" role="tabpanel">
 {% set exceptions = gc.framework_exceptions if gc and gc.framework_exceptions else fw_dashboard.framework_exceptions|default([]) %}
+{% set exceptions = exceptions|selectattr('framework', 'undefined')|list + exceptions|selectattr('framework', 'equalto', framework_name)|list %}
 <p class="small text-muted mb-2"><strong>{{ framework_name }} exceptions / TD</strong> — Bank Pay Risk Access Form (RAF) submissions for TD breaches · {{ exceptions|length }} active waivers</p>
 <div class="ecs-ws-metric-row mb-2">
 <span class="badge bg-warning text-dark">Active TDs: {{ exceptions|length }}</span>
@@ -249,17 +262,17 @@ Control <a href="#" data-ecs-framework-control-drill data-ecs-framework-control-
 {# REUSE MAPPING #}
 <div class="tab-pane fade" id="pane-reuse" role="tabpanel">
 {% if gc and gc.reuse_mappings %}
+{% set reuse_rows = gc.reuse_mappings|selectattr('source_framework', 'equalto', framework_name)|list + gc.reuse_mappings|selectattr('target_framework', 'equalto', framework_name)|list %}
 <p class="small text-muted mb-2"><strong>{{ framework_name }} evidence reuse</strong> — cross-framework control mappings (PCI ↔ VAPT ↔ AppSec ↔ others)</p>
-{% set pci_reuse = gc.reuse_mappings|selectattr('source_framework', 'equalto', 'PCI DSS')|list|length if framework_name == 'PCI DSS' else 0 %}
 <div class="ecs-ws-metric-row mb-2">
-<span class="badge bg-info text-dark">{{ gc.reuse_mappings|length }} reuse mappings</span>
-{% if framework_name == 'PCI DSS' %}<span class="badge bg-primary">PCI reused in {{ gc.reuse_mappings|map(attribute='target_framework')|unique|list|length }} frameworks</span>{% endif %}
+<span class="badge bg-info text-dark">{{ reuse_rows|length }} reuse mappings</span>
+{% if framework_name == 'PCI DSS' %}<span class="badge bg-primary">PCI reused in {{ reuse_rows|map(attribute='target_framework')|unique|list|length }} frameworks</span>{% endif %}
 </div>
 <div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view mb-2">
 <table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
 <thead><tr><th>Source</th><th>Source Control</th><th>Target</th><th>Target Control</th><th>Shared Evidence</th><th>Confidence</th></tr></thead>
 <tbody>
-{% for r in gc.reuse_mappings %}
+{% for r in reuse_rows %}
 <tr class="ecs-drill-row-clickable" {{ fw_row_drill(framework_name, 'reuse', r.source_control ~ '->' ~ r.target_control) }}>
 <td>{{ r.source_framework }}</td>
 <td class="small"><a href="#" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ r.source_framework|e }}" data-ecs-framework-control-id="{{ r.source_control|e }}"><code>{{ r.source_control }}</code></a></td>
@@ -268,6 +281,8 @@ Control <a href="#" data-ecs-framework-control-drill data-ecs-framework-control-
 <td>{{ r.shared_evidence|truncate(32, True, '') }}</td>
 <td>{{ r.confidence_pct }}%</td>
 </tr>
+{% else %}
+<tr><td colspan="6" class="text-muted small">No reuse mappings in selected framework scope.</td></tr>
 {% endfor %}
 </tbody></table></div>
 {% endif %}
@@ -291,13 +306,6 @@ Control <a href="#" data-ecs-framework-control-drill data-ecs-framework-control-
   document.querySelectorAll('.ecs-drill-module-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       activateTab(btn.getAttribute('data-drill-tab'));
-      if (window.ecsOpenFrameworkTabDrill && btn.hasAttribute('data-ecs-framework-tab-drill')) {
-        ecsOpenFrameworkTabDrill(
-          btn.getAttribute('data-ecs-framework-tab-framework'),
-          btn.getAttribute('data-ecs-framework-tab-id'),
-          btn.getAttribute('data-ecs-framework-tab-label')
-        );
-      }
     });
   });
   var initial = '{{ default_tab }}' || 'applications';

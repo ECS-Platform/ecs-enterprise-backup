@@ -30,7 +30,7 @@
 <td><strong>{{ row.control }}</strong><br><small class="text-muted">{{ row.control_id }}</small></td>
 <td>{{ row.evidences|length }}</td>
 <td>{% if primary_ev.evidence_status == 'Expired' %}<span class="badge bg-danger">{{ primary_ev.evidence_status }}</span>{% else %}<span class="badge bg-success">{{ primary_ev.evidence_status|default('Current') }}</span>{% endif %}</td>
-<td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Approved</span>
+<td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Closed</span>
 {% elif row.ckey in rejected_controls %}<span class="badge bg-danger">Rejected</span>
 {% elif row.ckey in submitted_controls %}<span class="badge bg-warning text-dark">Pending</span>
 {% else %}<span class="badge bg-secondary">Draft</span>{% endif %}</td>

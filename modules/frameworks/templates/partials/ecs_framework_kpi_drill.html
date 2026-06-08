@@ -29,6 +29,23 @@
   var lastPrimaryRows = [];
   var lastPrimaryColumns = [];
   var lastFetchKind = '';
+  function pageScope() {
+    try {
+      var q = new URLSearchParams(window.location.search || '');
+      return {
+        app: (q.get('fw_app') || '').trim(),
+        owner: (q.get('fw_owner') || '').trim(),
+      };
+    } catch (e) {
+      return { app: '', owner: '' };
+    }
+  }
+  function rowPassesScope(r, scope) {
+    if (!r) return false;
+    if (scope.app && String(r.application || '').toLowerCase() !== scope.app.toLowerCase()) return false;
+    if (scope.owner && String(r.owner || '').toLowerCase() !== scope.owner.toLowerCase()) return false;
+    return true;
+  }
 
   function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
   function renderCell(c, value, row) {
@@ -84,6 +101,29 @@
       h += '<h6 class="text-muted small text-uppercase mt-3 mb-1">' + esc(name.replace(/_/g,' ')) + '</h6>';
       h += tableHtml(rows, ['application','framework','control','finding','evidence','owner','status','risk','last_updated'], 'supporting');
     });
+    return h;
+  }
+
+  function applicationDetailHtml(app) {
+    var recentAudit = app.recentAuditActivity && app.recentAuditActivity !== '—'
+      ? '<li>' + esc(app.recentAuditActivity) + '</li>'
+      : '<li class="text-muted">No recent audit activity.</li>';
+    var h = '<div class="row g-2">';
+    h += '<div class="col-md-6"><div class="text-muted small">Application Name</div><strong>' + esc(app.name || '—') + '</strong></div>';
+    h += '<div class="col-md-6"><div class="text-muted small">Owner</div><strong>' + esc(app.owner || '—') + '</strong></div>';
+    h += '<div class="col-md-6"><div class="text-muted small">Framework Coverage</div><strong>' + esc(app.coverage || '—') + '</strong></div>';
+    h += '<div class="col-md-6"><div class="text-muted small">Controls Mapped</div><strong>' + esc(app.controlsMapped) + '</strong></div>';
+    h += '<div class="col-md-4"><div class="text-muted small">Evidence Count</div><strong>' + esc(app.evidenceCount || '—') + '</strong></div>';
+    h += '<div class="col-md-4"><div class="text-muted small">Findings</div><strong>' + esc(app.findings || '—') + '</strong></div>';
+    h += '<div class="col-md-4"><div class="text-muted small">Open Gaps</div><strong>' + esc(app.openGaps || '—') + '</strong></div>';
+    h += '<div class="col-md-4"><div class="text-muted small">Readiness %</div><strong>' + esc(app.readiness) + '%</strong></div>';
+    h += '<div class="col-md-4"><div class="text-muted small">Risk</div><strong>' + esc(app.risk) + '</strong></div>';
+    h += '<div class="col-md-4"><div class="text-muted small">Status</div><strong>' + esc(app.status) + '</strong></div>';
+    h += '<div class="col-md-6"><div class="text-muted small">Integrations</div><strong>' + esc(app.integrations || '—') + '</strong></div>';
+    h += '<div class="col-md-6"><div class="text-muted small">Coverage Metrics</div><strong>' + esc(app.coverageMetrics || '—') + '</strong></div>';
+    h += '</div>';
+    h += '<hr class="my-2">';
+    h += '<h6 class="text-muted small text-uppercase mb-1">Recent Audit Activity</h6><ul class="small mb-0">' + recentAudit + '</ul>';
     return h;
   }
 
@@ -282,8 +322,16 @@
     fetch(url).then(function(r){ return r.json(); }).then(function(j){
       if (!j.ok) { showModal(title, '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'); return; }
       lastFetchKind = url.indexOf('/api/framework/workflow-drill') >= 0 ? 'workflow' : 'other';
-      lastPrimaryRows = Array.isArray(j.rows) ? j.rows : [];
+      var scope = pageScope();
+      var baseRows = Array.isArray(j.rows) ? j.rows : [];
+      lastPrimaryRows = baseRows.filter(function(r){ return rowPassesScope(r, scope); });
       lastPrimaryColumns = Array.isArray(j.columns) ? j.columns : [];
+      if (j.sections && typeof j.sections === 'object') {
+        Object.keys(j.sections).forEach(function(k){
+          var arr = Array.isArray(j.sections[k]) ? j.sections[k] : [];
+          j.sections[k] = arr.filter(function(r){ return rowPassesScope(r, scope); });
+        });
+      }
       var html = '';
       if (j.kind === 'kpi_detail') {
         html += kpiDetailHtml(j.kpi_detail || {});
@@ -295,9 +343,9 @@
         return;
       }
       if (j.detail) html += detailHtml(j.detail);
-      html += '<p class="text-muted small mb-2">' + (j.rows || []).length + ' supporting records</p>';
+      html += '<p class="text-muted small mb-2">' + (lastPrimaryRows || []).length + ' supporting records</p>';
       html += tableHtml(
-        j.rows,
+        lastPrimaryRows,
         j.columns || ['application','framework','control','owner','status','evidence'],
         lastFetchKind === 'workflow' ? 'workflow-record' : 'supporting',
         j.summary || null
@@ -310,26 +358,40 @@
   function openControlledRequirementDoc(framework, controlId) {
     var title = 'Control Requirement Document — ' + (controlId || '');
     showModal(title, '<p class="text-muted">Loading…</p>');
+    function loadCrd(meta) {
+      var q = new URLSearchParams({
+        stage: 'requirement',
+        application: meta.application || 'Net Banking',
+        framework: meta.framework || '',
+        domain: meta.domain || 'Governance',
+        control_id: meta.control_id || '',
+        control_name: meta.control_name || ''
+      });
+      return fetch('/api/ai-sdlc/controlled-document?' + q.toString())
+        .then(function(r){ return r.json(); });
+    }
     fetch('/api/framework/row-drill?framework=' + encodeURIComponent(framework || '') + '&type=control&id=' + encodeURIComponent(controlId || ''))
       .then(function(r){ return r.json(); })
       .then(function(detailRes){
-        if (!detailRes || !detailRes.ok) throw new Error('Unable to map control context');
+        if (!detailRes || !detailRes.ok) {
+          return loadCrd({
+            application: 'Net Banking',
+            framework: framework || '',
+            domain: 'Governance',
+            control_id: controlId || '',
+            control_name: ''
+          });
+        }
         var d = detailRes.detail || {};
         var mappedApps = String(d.mapped_applications || '').split(',').map(function(x){ return x.trim(); }).filter(Boolean);
-        var application = mappedApps[0] || d.application || 'Net Banking';
-        var domain = d.domain || 'Governance';
-        var controlName = d.control_name || d.control || controlId || '';
-        var q = new URLSearchParams({
-          stage: 'requirement',
-          application: application,
+        return loadCrd({
+          application: mappedApps[0] || d.application || 'Net Banking',
           framework: framework || d.framework || '',
-          domain: domain,
+          domain: d.domain || 'Governance',
           control_id: controlId || d.control_id || '',
-          control_name: controlName
+          control_name: d.control_name || d.control || controlId || ''
         });
-        return fetch('/api/ai-sdlc/controlled-document?' + q.toString());
       })
-      .then(function(r){ return r.json(); })
       .then(function(docRes){
         if (!docRes || !docRes.ok || !docRes.data) throw new Error((docRes && docRes.error) || 'Document load failed');
         showModal(docRes.data.document_type_label || title, docRes.data.html || '<p class="text-muted mb-0">No document content.</p>');
@@ -349,7 +411,68 @@
       '&metric=' + encodeURIComponent(metric || ''), label || metric);
   };
 
-  window.ecsOpenFrameworkRowDrill = function(framework, rowType, rowId) {
+  window.ecsOpenFrameworkRowDrill = function(framework, rowType, rowId, rowEl) {
+    if ((rowType || '').toLowerCase() === 'application') {
+      var title = 'Application Detail — ' + (rowId || '');
+      var app = {
+        name: rowEl ? rowEl.getAttribute('data-ecs-app-name') : rowId,
+        owner: rowEl ? rowEl.getAttribute('data-ecs-app-owner') : '—',
+        readiness: rowEl ? rowEl.getAttribute('data-ecs-app-readiness') : '—',
+        controlsMapped: rowEl ? rowEl.getAttribute('data-ecs-app-controls') : '—',
+        findings: rowEl ? rowEl.getAttribute('data-ecs-app-findings') : '—',
+        openGaps: rowEl ? rowEl.getAttribute('data-ecs-app-failed') : '—',
+        risk: rowEl ? rowEl.getAttribute('data-ecs-app-risk') : '—',
+        status: rowEl ? rowEl.getAttribute('data-ecs-app-status') : '—',
+        coverage: framework || '—',
+        coverageMetrics: rowEl ? rowEl.getAttribute('data-ecs-app-coverage') : '—',
+        integrations: rowEl ? rowEl.getAttribute('data-ecs-app-integrations') : '—',
+        recentAuditActivity: rowEl ? rowEl.getAttribute('data-ecs-app-audit-activity') : '—',
+        evidenceCount: '—'
+      };
+      showModal(title, '<p class="text-muted mb-0">Loading…</p>');
+      fetch('/api/framework/row-drill?framework=' + encodeURIComponent(framework || '') +
+        '&type=application&id=' + encodeURIComponent(rowId || ''))
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          if (!j || !j.ok) {
+            showModal(title, applicationDetailHtml(app));
+            return;
+          }
+          var d = j.detail || {};
+          var sections = j.sections || {};
+          var evidenceRows = sections.related_evidence || [];
+          var findingRows = sections.related_findings || [];
+          var mappingRows = sections.related_framework_mappings || [];
+          var auditRows = sections.related_audit_history || [];
+          var integrationSet = {};
+          mappingRows.forEach(function(rw){
+            var key = rw.framework || rw.application || '';
+            if (key) integrationSet[key] = true;
+          });
+          var merged = {
+            name: app.name,
+            owner: app.owner,
+            readiness: app.readiness,
+            controlsMapped: app.controlsMapped,
+            findings: app.findings,
+            risk: app.risk,
+            coverage: app.coverage,
+            coverageMetrics: app.coverageMetrics,
+            evidenceCount: evidenceRows.length ? String(evidenceRows.length) : (d.evidence_count != null ? String(d.evidence_count) : app.evidenceCount),
+            status: d.status || app.status,
+            integrations: Object.keys(integrationSet).length ? Object.keys(integrationSet).join(', ') : app.integrations,
+            openGaps: d.open_findings != null ? String(d.open_findings) : app.openGaps,
+            recentAuditActivity: auditRows.length
+              ? auditRows.slice(0, 3).map(function(a){ return [a.last_updated || '—', a.finding || 'Audit update', a.status || 'Recorded'].join(' · '); }).join(' | ')
+              : app.recentAuditActivity
+          };
+          showModal(title, applicationDetailHtml(merged));
+        })
+        .catch(function(){
+          showModal(title, applicationDetailHtml(app));
+        });
+      return;
+    }
     fetchJson('/api/framework/row-drill?framework=' + encodeURIComponent(framework || '') +
       '&type=' + encodeURIComponent(rowType || '') + '&id=' + encodeURIComponent(rowId || ''), rowType + ': ' + rowId);
   };
@@ -386,13 +509,13 @@
       if (row) {
         if (e.target.closest('a, button, .dropdown-menu, .ecs-sticky-actions, .btn')) return;
         e.preventDefault();
-        ecsOpenFrameworkRowDrill(row.getAttribute('data-ecs-framework-row-framework'), row.getAttribute('data-ecs-framework-row-type'), row.getAttribute('data-ecs-framework-row-id'));
+        ecsOpenFrameworkRowDrill(row.getAttribute('data-ecs-framework-row-framework'), row.getAttribute('data-ecs-framework-row-type'), row.getAttribute('data-ecs-framework-row-id'), row);
         return;
       }
     });
     document.addEventListener('keydown', function(e){
       if (e.key !== 'Enter' && e.key !== ' ') return;
-      var el = e.target.closest('[data-ecs-framework-kpi],[data-ecs-framework-wf-drill],[data-ecs-framework-row-drill]');
+      var el = e.target.closest('[data-ecs-framework-kpi],[data-ecs-framework-wf-drill],[data-ecs-framework-row-drill],[data-ecs-framework-control-drill]');
       if (!el) return;
       e.preventDefault();
       el.click();

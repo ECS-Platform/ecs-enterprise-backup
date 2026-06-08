@@ -72,10 +72,107 @@
 
 <script type="application/json" id="schedAppScanData">{{ module_view.application_scans|tojson }}</script>
 <script type="application/json" id="schedRunHistoryData">{{ module_view.execution_history|tojson }}</script>
+<script type="application/json" id="schedCronData">{{ module_view.cron_timeline|tojson }}</script>
+<script type="application/json" id="schedFailureData">{{ module_view.scheduler_failures|tojson }}</script>
+<script type="application/json" id="schedUpcomingData">{{ module_view.upcoming_plan|tojson }}</script>
+<script type="application/json" id="schedIntegrationData">{{ module_view.integration_health|tojson }}</script>
+<script type="application/json" id="schedJobData">{{ module_view.rows|tojson }}</script>
 <script>
 (function(){
-  var scanData = JSON.parse(document.getElementById('schedAppScanData').textContent || '[]');
-  var runHistory = JSON.parse(document.getElementById('schedRunHistoryData').textContent || '[]');
+  function parseJson(id) {
+    var el = document.getElementById(id);
+    if (!el) return [];
+    try { return JSON.parse(el.textContent || '[]'); } catch (e) { return []; }
+  }
+  var scanData = parseJson('schedAppScanData');
+  var runHistory = parseJson('schedRunHistoryData');
+  var cronData = parseJson('schedCronData');
+  var failureData = parseJson('schedFailureData');
+  var upcomingData = parseJson('schedUpcomingData');
+  var integrationData = parseJson('schedIntegrationData');
+  var jobData = parseJson('schedJobData');
+  var selectedRowState = null;
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function rowId(table, row) {
+    if (!row) return '';
+    if (table === 'application_scans') return row.scan_id || (row.application + '::' + row.framework);
+    if (table === 'run_history' || table === 'cron_runs') return row.run_id || '';
+    if (table === 'failures') return row.failure_id || '';
+    if (table === 'integration_health') return row.name || '';
+    if (table === 'upcoming_plan') return (row.schedule || '') + '::' + (row.target || '');
+    if (table === 'jobs') return row.job_id || (row.application + '::' + row.framework);
+    return '';
+  }
+  function findRow(table, rid) {
+    var rows = [];
+    if (table === 'application_scans') rows = scanData;
+    else if (table === 'run_history') rows = runHistory;
+    else if (table === 'cron_runs') rows = cronData;
+    else if (table === 'failures') rows = failureData;
+    else if (table === 'upcoming_plan') rows = upcomingData;
+    else if (table === 'integration_health') rows = integrationData;
+    else if (table === 'jobs') rows = jobData;
+    return (rows || []).find(function(r){ return String(rowId(table, r)) === String(rid); }) || null;
+  }
+  function historyRowsFor(table, row) {
+    if (!row) return [];
+    if (table === 'application_scans') {
+      return cronData.filter(function(c){ return c.application === row.application && c.framework === row.framework; });
+    }
+    if (table === 'cron_runs') return [row];
+    if (table === 'run_history') return [row];
+    if (table === 'failures') {
+      return cronData.filter(function(c){
+        var appHit = String(row.affected_applications || '').indexOf(c.application || '') >= 0;
+        var fwHit = !row.framework || c.framework === row.framework;
+        return appHit && fwHit;
+      });
+    }
+    if (table === 'upcoming_plan') {
+      return cronData.filter(function(c){
+        var fwHit = String(row.frameworks || '').indexOf(c.framework || '') >= 0;
+        var appHit = String(row.target || '').indexOf(c.application || '') >= 0;
+        return fwHit || appHit;
+      });
+    }
+    if (table === 'integration_health') {
+      return cronData.filter(function(c){
+        var txt = [c.failure_reason || '', (c.details || []).join(' ')].join(' ').toLowerCase();
+        return txt.indexOf(String(row.name || '').toLowerCase()) >= 0;
+      });
+    }
+    if (table === 'jobs') {
+      return cronData.filter(function(c){ return c.application === row.application && c.framework === row.framework; });
+    }
+    return [];
+  }
+  function renderDetail(table, row) {
+    if (!row) return '<p class="text-muted mb-0">No details available.</p>';
+    var keys = Object.keys(row).filter(function(k){ return typeof row[k] !== 'object'; });
+    var html = '<div class="row g-2 mb-2">';
+    keys.forEach(function(k){
+      html += '<div class="col-md-4"><div class="text-muted small">' + esc(k.replace(/_/g,' ')) + '</div><strong>' + esc(row[k]) + '</strong></div>';
+    });
+    html += '</div>';
+    var hist = historyRowsFor(table, row);
+    html += '<hr class="my-2"><h6 class="small text-muted text-uppercase mb-1">Scan History</h6>';
+    if (!hist.length) return html + '<p class="text-muted mb-0">No details available.</p>';
+    html += '<div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Run</th><th>Application</th><th>Framework</th><th>Status</th><th>Evidence</th></tr></thead><tbody>';
+    hist.forEach(function(h){
+      html += '<tr><td><code class="small">' + esc(h.run_id || h.schedule || '—') + '</code></td><td>' + esc(h.application || row.application || '—') + '</td><td>' + esc(h.framework || row.framework || '—') + '</td><td>' + esc(h.health || h.status || '—') + '</td><td>' + esc(h.evidence_collected || h.evidence_count || row.evidence_collected || '—') + '</td></tr>';
+    });
+    return html + '</tbody></table></div>';
+  }
+  function openRowDrill(table, rid) {
+    var row = findRow(table, rid);
+    selectedRowState = { table: table, rowId: rid };
+    var titleEl = document.getElementById('schedAppDrillTitle');
+    var bodyEl = document.getElementById('schedAppDrillBody');
+    if (!titleEl || !bodyEl) return;
+    titleEl.textContent = (row && (row.application || row.name || row.run_id || rid) ? (row.application || row.name || row.run_id || rid) : 'Scheduler Record') + ' — Detail';
+    bodyEl.innerHTML = renderDetail(table, row);
+    new bootstrap.Modal(document.getElementById('schedAppDrillModal')).show();
+  }
 
   document.querySelectorAll('[data-sched-run]').forEach(function(btn){
     btn.addEventListener('click', function(e){ e.preventDefault(); new bootstrap.Modal(document.getElementById('schedRunModal')).show(); });
@@ -125,41 +222,19 @@
     tick();
   });
 
-  document.querySelectorAll('[data-sched-app-drill]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var idx = parseInt(btn.getAttribute('data-sched-app-drill'), 10);
-      var s = scanData[idx];
-      if (!s) return;
-      document.getElementById('schedAppDrillTitle').textContent = s.application + ' — ' + s.framework + ' Scan Output';
-      var d = s.drill_down;
-      var html = '';
-      function section(title, items, cls){
-        html += '<div class="ecs-drill-section"><h6>' + title + '</h6><ul>';
-        items.forEach(function(i){ html += '<li class="' + (cls||'') + '">' + i + '</li>'; });
-        html += '</ul></div>';
-      }
-      section('Evidence Collected', d.collected, 'text-success');
-      section('Missing Evidence', d.missing, 'text-danger');
-      section('Failed Integrations', d.failed_integrations, 'text-warning');
-      section('Controls Validated', d.validated, '');
-      section('Controls Pending Review', d.pending, '');
-      section('Recommendations', d.recommendations, 'text-primary');
-      document.getElementById('schedAppDrillBody').innerHTML = html;
-      new bootstrap.Modal(document.getElementById('schedAppDrillModal')).show();
-    });
-  });
-
-  document.querySelectorAll('[data-sched-run-log]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var idx = parseInt(btn.getAttribute('data-sched-run-log'), 10);
-      var h = runHistory[idx];
-      if (!h) return;
-      document.getElementById('schedRunLogTitle').textContent = h.run_id + ' — Execution Log';
-      var lines = (h.log_preview || []).join('\n');
-      lines += '\n[' + h.completed + '] Status: ' + h.status + ' — ' + h.evidence_count + ' evidence files';
-      document.getElementById('schedRunLogBody').textContent = lines;
-      new bootstrap.Modal(document.getElementById('schedRunLogModal')).show();
-    });
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-sched-row-drill]');
+    if (btn) {
+      e.preventDefault();
+      openRowDrill(btn.getAttribute('data-sched-table') || '', btn.getAttribute('data-sched-row-id') || '');
+      return;
+    }
+    var rowEl = e.target.closest('[data-sched-row-drill-row]');
+    if (rowEl && !e.target.closest('a,button,.btn')) {
+      e.preventDefault();
+      openRowDrill(rowEl.getAttribute('data-sched-table') || '', rowEl.getAttribute('data-sched-row-id') || '');
+      return;
+    }
   });
 
   document.querySelectorAll('[data-sched-export]').forEach(function(btn){

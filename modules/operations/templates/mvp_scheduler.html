@@ -76,11 +76,11 @@
 <th>Application</th><th>Framework</th><th>Evidence</th><th>Passed</th><th>Pending</th><th>Missing</th><th>Risk</th><th>Health</th><th>Actions</th>
 </tr></thead><tbody>
 {% for s in module_view.application_scans[:10] %}
-<tr data-ecs-filter-row data-filter-application="{{ s.application }}" data-filter-framework="{{ s.framework }}" data-filter-risk="{{ s.risk }}" data-filter-owner="{{ s.owner }}">
+<tr data-ecs-filter-row data-filter-application="{{ s.application }}" data-filter-framework="{{ s.framework }}" data-filter-risk="{{ s.risk }}" data-filter-owner="{{ s.owner }}" data-sched-row-drill-row data-sched-table="application_scans" data-sched-row-id="{{ (s.scan_id|default(s.application ~ '::' ~ s.framework))|e }}">
 <td>{{ s.application }}</td><td>{{ s.framework }}</td><td>{{ s.evidence_collected }}</td><td>{{ s.controls_passed }}</td>
 <td>{{ s.controls_pending }}</td><td>{{ s.missing_evidence }}</td><td>{{ s.risk }}</td>
 <td><span class="badge {% if s.health=='Healthy' %}bg-success{% elif s.health=='Attention' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ s.health }}</span></td>
-<td><button type="button" class="btn btn-link btn-sm p-0" data-sched-app-drill="{{ loop.index0 }}">Details</button></td></tr>
+<td><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="application_scans" data-sched-row-id="{{ (s.scan_id|default(s.application ~ '::' ~ s.framework))|e }}">Details</button></td></tr>
 {% endfor %}
 </tbody></table></div>
 {{ workspace_pane_end() }}
@@ -91,11 +91,11 @@
 <th>Application</th><th>Framework</th><th>Evidence Collected</th><th>Controls Passed</th><th>Controls Pending</th><th>Missing</th><th>Risk</th><th>Last Scan</th><th>Health</th><th>Actions</th>
 </tr></thead><tbody>
 {% for s in module_view.application_scans[:10] %}
-<tr data-ecs-filter-row data-filter-application="{{ s.application }}" data-filter-framework="{{ s.framework }}" data-filter-risk="{{ s.risk }}" data-filter-status="{{ s.health }}" data-filter-owner="{{ s.owner }}">
+<tr data-ecs-filter-row data-filter-application="{{ s.application }}" data-filter-framework="{{ s.framework }}" data-filter-risk="{{ s.risk }}" data-filter-status="{{ s.health }}" data-filter-owner="{{ s.owner }}" data-sched-row-drill-row data-sched-table="application_scans" data-sched-row-id="{{ (s.scan_id|default(s.application ~ '::' ~ s.framework))|e }}">
 <td><strong>{{ s.application }}</strong></td><td>{{ s.framework }}</td><td>{{ s.evidence_collected }}</td><td>{{ s.controls_passed }}</td>
 <td>{{ s.controls_pending }}</td><td>{{ s.missing_evidence }}</td><td>{{ s.risk }}</td><td class="small">{{ s.last_scan }}</td>
 <td><span class="badge {% if s.health=='Healthy' %}bg-success{% elif s.health=='Attention' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ s.health }}</span></td>
-<td class="text-nowrap"><button type="button" class="btn btn-link btn-sm p-0" data-sched-app-drill="{{ loop.index0 }}">View</button>
+<td class="text-nowrap"><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="application_scans" data-sched-row-id="{{ (s.scan_id|default(s.application ~ '::' ~ s.framework))|e }}">View</button>
 {{ module_action('scheduler','run_now',role,user,'Re-scan','btn-sm btn-outline-primary',s.application) }}</td></tr>
 {% endfor %}
 </tbody></table></div>
@@ -107,14 +107,15 @@
 <th></th><th>Framework</th><th>Application</th><th>Scheduled</th><th>Last Execution</th><th>Evidence</th><th>Validated</th><th>Retries</th><th>Status</th><th>Failure Reason</th><th>Actions</th>
 </tr></thead><tbody>
 {% for c in module_view.cron_timeline[:10] %}
-<tr data-ecs-filter-row data-filter-framework="{{ c.framework|default('Enterprise-wide') }}" data-filter-application="{{ c.application|default('All Applications') }}" data-filter-status="{{ c.health }}"><td><button type="button" class="btn btn-link btn-sm p-0 ecs-ws-detail-toggle" data-ecs-detail-toggle="cron-detail-{{ loop.index0 }}">+</button></td>
+<tr data-ecs-filter-row data-filter-framework="{{ c.framework|default('Enterprise-wide') }}" data-filter-application="{{ c.application|default('All Applications') }}" data-filter-status="{{ c.health }}" data-sched-row-drill-row data-sched-table="cron_runs" data-sched-row-id="{{ c.run_id|default(c.application ~ '::' ~ c.framework ~ '::' ~ c.timestamp)|e }}"><td><button type="button" class="btn btn-link btn-sm p-0 ecs-ws-detail-toggle" data-ecs-detail-toggle="cron-detail-{{ loop.index0 }}">+</button></td>
 <td>{{ c.framework|default('—') }}</td><td>{{ c.application|default('—') }}</td>
 <td class="small">{{ c.scheduled_time|default(c.label) }}</td><td class="small">{{ c.last_execution|default(c.timestamp) }}</td>
 <td>{{ c.evidence_collected }}</td><td>{{ c.controls_validated }}</td>
 <td>{{ c.retry_count|default(0) }}</td>
 <td><span class="badge {% if c.health=='Success' %}bg-success{% elif c.health=='Partial' %}bg-warning text-dark{% elif c.health=='Running' %}bg-primary{% else %}bg-danger{% endif %}">{{ c.health }}</span></td>
 <td class="small text-danger">{{ c.failure_reason|default('—')|truncate(40) }}</td>
-<td class="text-nowrap"><button type="button" class="btn btn-sm btn-outline-warning" data-sched-retry>Retry</button>
+<td class="text-nowrap"><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="cron_runs" data-sched-row-id="{{ c.run_id|default(c.application ~ '::' ~ c.framework ~ '::' ~ c.timestamp)|e }}">Details</button>
+<button type="button" class="btn btn-sm btn-outline-warning" data-sched-retry>Retry</button>
 <button type="button" class="btn btn-sm btn-outline-primary" data-sched-run title="Run evidence collection for this job">Run Evidence Collection</button></td></tr>
 <tr class="d-none ecs-ws-detail-row" id="cron-detail-{{ loop.index0 }}"><td colspan="11">
 <strong class="small">Execution Details — {{ c.run_id }}</strong>
@@ -130,13 +131,13 @@
 <th>Run ID</th><th>Trigger</th><th>Started</th><th>Completed</th><th>Duration</th><th>Apps</th><th>Evidence</th><th>Status</th><th>Initiated By</th><th>Actions</th>
 </tr></thead><tbody>
 {% for h in module_view.execution_history %}
-<tr data-ecs-filter-row data-filter-status="{{ h.status }}">
+<tr data-ecs-filter-row data-filter-status="{{ h.status }}" data-sched-row-drill-row data-sched-table="run_history" data-sched-row-id="{{ h.run_id|e }}">
 <td><code class="small">{{ h.run_id }}</code></td><td>{{ h.trigger_type }}</td><td class="small">{{ h.started }}</td><td class="small">{{ h.completed }}</td>
 <td>{{ h.duration_sec }}s</td><td>{{ h.apps_covered }}</td><td>{{ h.evidence_count }}</td>
 <td><span class="badge {% if h.status=='Success' %}bg-success{% elif h.status=='Partial' %}bg-warning text-dark{% elif h.status=='Failed' %}bg-danger{% else %}bg-secondary{% endif %}">{{ h.status }}</span></td>
 <td>{{ h.initiated_by }}</td>
 <td class="text-nowrap">
-<button type="button" class="btn btn-link btn-sm p-0" data-sched-run-log="{{ loop.index0 }}">View Logs</button>
+<button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="run_history" data-sched-row-id="{{ h.run_id|e }}">View Logs</button>
 {{ module_action('scheduler','run_now',role,user,'Re-run','btn-sm btn-outline-primary',h.run_id) }}
 <button type="button" class="btn btn-link btn-sm p-0" data-sched-export="{{ h.run_id }}">Export</button>
 </td></tr>
@@ -150,13 +151,14 @@
 <th>ID</th><th>Source</th><th>Issue</th><th>Severity</th><th>Impact</th><th>Affected Apps</th><th>Remediation</th><th>Retry</th><th>Actions</th>
 </tr></thead><tbody>
 {% for f in module_view.scheduler_failures[:10] %}
-<tr class="{% if f.severity=='High' %}table-danger{% elif f.severity=='Medium' %}table-warning{% endif %}" data-ecs-filter-row data-filter-framework="{{ f.framework|default('') }}" data-filter-application="{{ f.application|default('') }}" data-filter-status="{{ f.status|default('') }}" data-filter-owner="{{ f.owner|default('') }}">
+<tr class="{% if f.severity=='High' %}table-danger{% elif f.severity=='Medium' %}table-warning{% endif %}" data-ecs-filter-row data-filter-framework="{{ f.framework|default('') }}" data-filter-application="{{ f.application|default('') }}" data-filter-status="{{ f.status|default('') }}" data-filter-owner="{{ f.owner|default('') }}" data-sched-row-drill-row data-sched-table="failures" data-sched-row-id="{{ f.failure_id|e }}">
 <td>{{ f.failure_id }}</td><td><strong>{{ f.source }}</strong><br><span class="small">{{ f.type }}</span></td>
 <td class="small">{{ f.description|truncate(55, True, '…') }}</td>
 <td><span class="badge {% if f.severity=='High' %}bg-danger{% elif f.severity=='Medium' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ f.severity }}</span></td>
 <td class="small">{{ f.impact }}</td><td class="small">{{ f.affected_applications }}</td><td class="small">{{ f.remediation|truncate(50, True, '…') }}</td>
 <td>{{ f.retry_status }}</td>
-<td class="text-nowrap">{{ module_action('scheduler','retry',role,user,'Retry','btn-sm btn-warning',f.failure_id) }}
+<td class="text-nowrap"><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="failures" data-sched-row-id="{{ f.failure_id|e }}">Details</button>
+{{ module_action('scheduler','retry',role,user,'Retry','btn-sm btn-warning',f.failure_id) }}
 {{ module_action('scheduler','escalate',role,user,'Escalate','btn-sm btn-outline-danger',f.failure_id) }}</td></tr>
 {% endfor %}
 </tbody></table></div>
@@ -166,12 +168,13 @@
 <h6 class="small text-muted text-uppercase mb-1">Upcoming Scheduled Collections</h6>
 <div class="table-responsive ecs-paginated-wrap">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
-<th>Schedule</th><th>Target</th><th>Frameworks</th><th>Expected Evidence</th><th>Est. Runtime</th><th>Warnings</th>
+<th>Schedule</th><th>Target</th><th>Frameworks</th><th>Expected Evidence</th><th>Est. Runtime</th><th>Warnings</th><th>Actions</th>
 </tr></thead><tbody>
 {% for u in module_view.upcoming_plan %}
-<tr class="{% if u.dependency_warning %}table-warning{% endif %}">
+<tr class="{% if u.dependency_warning %}table-warning{% endif %}" data-sched-row-drill-row data-sched-table="upcoming_plan" data-sched-row-id="{{ (u.schedule ~ '::' ~ u.target)|e }}">
 <td><strong>{{ u.schedule }}</strong></td><td>{{ u.target }}</td><td>{{ u.frameworks }}</td><td>{{ u.expected_evidence }}</td>
-<td>{{ u.estimated_runtime_min }} min</td><td class="small text-danger">{{ u.dependency_warning|default('—') }}</td></tr>
+<td>{{ u.estimated_runtime_min }} min</td><td class="small text-danger">{{ u.dependency_warning|default('—') }}</td>
+<td><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="upcoming_plan" data-sched-row-id="{{ (u.schedule ~ '::' ~ u.target)|e }}">Details</button></td></tr>
 {% endfor %}
 </tbody></table></div>
 {{ workspace_pane_end() }}
@@ -180,16 +183,16 @@
 <h6 class="small text-muted text-uppercase mb-1">Integration Health</h6>
 <div class="table-responsive ecs-paginated-wrap mb-2">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
-<th>Connector</th><th>Status</th><th>Sync Frequency</th><th>Last Sync</th><th>Failed Syncs</th><th>Latency</th><th>Auth</th><th>Detail</th>
+<th>Connector</th><th>Status</th><th>Sync Frequency</th><th>Last Sync</th><th>Failed Syncs</th><th>Latency</th><th>Auth</th><th>Detail</th><th>Actions</th>
 </tr></thead><tbody>
 {% for i in module_view.integration_health %}
-<tr><td><strong>{{ i.name }}</strong></td>
+<tr data-sched-row-drill-row data-sched-table="integration_health" data-sched-row-id="{{ i.name|e }}"><td><strong>{{ i.name }}</strong></td>
 <td><span class="badge {% if i.status=='Healthy' %}bg-success{% elif i.status in ['Authentication Issue','Retry Pending'] %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ i.status }}</span></td>
 <td>Every 6 hours</td><td class="small">{{ i.detail|truncate(30, True, '') }}</td>
 <td>{% if i.status in ['Delayed','Retry Pending','Authentication Issue'] %}1{% else %}0{% endif %}</td>
 <td>{{ (loop.index * 38 + 72) }}ms</td>
 <td>{% if i.status=='Authentication Issue' %}Expired{% else %}OK{% endif %}</td>
-<td class="small">{{ i.detail }}</td></tr>
+<td class="small">{{ i.detail }}</td><td><button type="button" class="btn btn-link btn-sm p-0" data-sched-row-drill data-sched-table="integration_health" data-sched-row-id="{{ i.name|e }}">Details</button></td></tr>
 {% endfor %}
 </tbody></table></div>
 <h6 class="small text-muted text-uppercase mb-1">Collection Jobs</h6>

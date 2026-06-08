@@ -10,7 +10,7 @@
 <p class="small text-muted mb-2"><strong>{{ framework_name }} scope:</strong> {{ application_view.focus }}</p>
 {% endif %}
 <div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
-<div class="ecs-exec-kpi ecs-exec-kpi-success"><span class="ecs-exec-kpi-val">{{ application_view.implemented }}</span><span class="ecs-exec-kpi-lbl">Approved Controls</span></div>
+<div class="ecs-exec-kpi ecs-exec-kpi-success"><span class="ecs-exec-kpi-val">{{ application_view.implemented }}</span><span class="ecs-exec-kpi-lbl">Closed Controls</span></div>
 <div class="ecs-exec-kpi ecs-exec-kpi-warning"><span class="ecs-exec-kpi-val">{{ application_view.pending }}</span><span class="ecs-exec-kpi-lbl">Pending Validation</span></div>
 <div class="ecs-exec-kpi ecs-exec-kpi-danger"><span class="ecs-exec-kpi-val">{{ application_view.findings }}</span><span class="ecs-exec-kpi-lbl">Open Findings</span></div>
 <div class="ecs-exec-kpi ecs-exec-kpi-danger"><span class="ecs-exec-kpi-val">{{ application_view.expired }}</span><span class="ecs-exec-kpi-lbl">Expired Evidence</span></div>
@@ -32,7 +32,7 @@
 <h6 class="small text-muted mb-2">{{ framework_name }} controls for {{ application_view.application }}</h6>
 <div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
 <table class="table ecs-table-modern ecs-paginated-table ecs-fit-table ecs-compact-table table-sm mb-0">
-<thead><tr><th>Control</th><th>Evidence</th><th>Approved</th><th>Status</th><th>Actions</th></tr></thead>
+<thead><tr><th>Control</th><th>Evidence</th><th>Closed</th><th>Status</th><th>Actions</th></tr></thead>
 <tbody>
 {% for row in application_view.controls %}
 {% set primary_ev = row.evidences[0] %}
@@ -40,7 +40,7 @@
 <td><strong>{{ row.control }}</strong><br><a href="#" class="small text-muted" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ row.control_id|e }}"><code>{{ row.control_id }}</code></a></td>
 <td>{{ row.evidences|length }}{% if row.reject_reason %}<br><small class="text-danger">{{ row.reject_reason|truncate(40, True, '…') }}</small>{% endif %}</td>
 <td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
-<td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Approved</span>
+<td>{% if row.ckey in approved_controls %}<span class="badge bg-success">Closed</span>
 {% elif row.ckey in rejected_controls %}<span class="badge bg-danger">Rejected</span>
 {% elif row.ckey in submitted_controls %}<span class="badge bg-warning text-dark">Pending Auditor</span>
 {% else %}<span class="badge bg-secondary">Awaiting Evidence</span>{% endif %}</td>

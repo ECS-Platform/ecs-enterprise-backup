@@ -23,6 +23,16 @@
     }
   }
 
+  function showNoDetails(title) {
+    var modalEl = document.getElementById('ecsUniversalDrillModal');
+    var titleEl = document.getElementById('ecsUniversalDrillTitle');
+    var bodyEl = document.getElementById('ecsUniversalDrillBody');
+    if (!modalEl || !titleEl || !bodyEl || typeof bootstrap === 'undefined') return;
+    titleEl.textContent = title || 'Detail';
+    bodyEl.innerHTML = '<p class="text-muted mb-0">No details available</p>';
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
   function renderGroupedBars(containerId, series, metrics, chartId, opts) {
     opts = opts || {};
     var el = document.getElementById(containerId);
@@ -38,13 +48,14 @@
         var pct = row[m.pctKey] != null ? row[m.pctKey] : null;
         var display = pct != null ? pct + '%' : (m.suffix === '%' ? v + '%' : v);
         var drillElement = opts.periodDrill ? (period + '|' + m.key) : m.key;
+        var explain = m.explain || (m.label + ' count from current filtered trend dataset');
         var maxH = m.max || Math.max.apply(null, series.map(function(r){ return r[m.key] || 0; }).concat([1]));
         html += '<div class="ecs-bar-col ecs-kpi-clickable" role="button" tabindex="0" ' +
           'data-ecs-universal-chart data-ecs-universal-page="' + PAGE + '" ' +
           'data-ecs-universal-chart-id="' + esc(chartId) + '" ' +
           'data-ecs-universal-element="' + esc(drillElement) + '" ' +
           'data-ecs-universal-count="' + esc(v) + '" ' +
-          'title="' + esc(m.label + ': ' + display) + '">' +
+          'title="' + esc(m.label + ': ' + display + ' | ' + explain) + '">' +
           '<span class="ecs-bar-val">' + esc(String(display)) + '</span>' +
           '<div class="ecs-bar-fill tone-' + esc(m.tone) + '" style="height:' + Math.max(8, Math.min(56, (pct != null ? pct : v) / maxH * 56)) + 'px"></div>' +
           '<span class="ecs-bar-lbl">' + esc(m.short || m.label.substring(0, 4)) + '</span></div>';
@@ -87,9 +98,10 @@
     if (!el) return;
     el.innerHTML = (reasons || []).map(function(r) {
       return '<div class="ecs-reason-row ecs-kpi-clickable" role="button" tabindex="0" ' +
-        'data-ecs-universal-chart data-ecs-universal-page="' + PAGE + '" ' +
-        'data-ecs-universal-chart-id="rejections" data-ecs-universal-element="' + esc(r.reason) + '" ' +
-        'data-ecs-universal-count="' + esc(r.pct) + '">' +
+        'data-ecs-universal-row data-ecs-universal-page="' + PAGE + '" ' +
+        'data-ecs-universal-type="rejection_reason" data-ecs-universal-id="' + esc(r.reason) + '" ' +
+        'data-ecs-universal-count="' + esc(r.pct) + '" ' +
+        'title="Count from rejected/submitted ratio for current filters">' +
         '<strong>' + esc(r.reason) + '</strong> — ' + esc(r.pct) + '% <span class="text-muted">' + esc(r.tooltip || '') + '</span></div>';
     }).join('');
   }
@@ -100,9 +112,10 @@
     el.innerHTML = '<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-compact-table mb-0"><thead><tr>' +
       '<th>Framework</th><th>Implemented</th><th>Total</th><th>Coverage</th></tr></thead><tbody>' +
       (rows || []).map(function(r) {
-        return '<tr class="ecs-kpi-clickable" role="button" tabindex="0" data-ecs-universal-kpi data-ecs-universal-page="' + PAGE + '" ' +
-          'data-ecs-universal-metric="implementation_coverage" data-ecs-universal-label="' + esc(r.framework) + '" ' +
-          'data-ecs-universal-count="' + esc(r.coverage_pct) + '">' +
+        return '<tr class="ecs-kpi-clickable" role="button" tabindex="0" data-ecs-universal-row data-ecs-universal-page="' + PAGE + '" ' +
+          'data-ecs-universal-type="framework" data-ecs-universal-id="' + esc(r.framework) + '" ' +
+          'data-ecs-universal-framework="' + esc(r.framework) + '" data-ecs-universal-count="' + esc(r.coverage_pct) + '"' +
+          ' title="Coverage = implemented/total for this framework">' +
           '<td>' + esc(r.framework) + '</td><td>' + esc(r.implemented_controls.toLocaleString()) + '</td>' +
           '<td>' + esc(r.total_controls.toLocaleString()) + '</td><td>' + esc(r.coverage_pct) + '%</td></tr>';
       }).join('') + '</tbody></table></div>';
@@ -162,26 +175,26 @@
     }
 
     renderGroupedBars('ecsTrendCoverageChart', tab.coverage_series || [], [
-      { key: 'implemented', pctKey: 'pct_implemented', label: 'Implemented Controls', short: 'Impl', tone: 'green', max: 100 },
-      { key: 'missing', pctKey: 'pct_missing', label: 'Missing Controls', short: 'Miss', tone: 'red', max: 100 },
-      { key: 'pending', pctKey: 'pct_pending', label: 'Pending Controls', short: 'Pend', tone: 'orange', max: 100 }
+      { key: 'implemented', pctKey: 'pct_implemented', label: 'Implemented Controls', short: 'Impl', tone: 'green', max: 100, explain: 'Implemented controls contributing to monthly total controls.' },
+      { key: 'missing', pctKey: 'pct_missing', label: 'Missing Controls', short: 'Miss', tone: 'red', max: 100, explain: 'Missing controls contributing to monthly total controls.' },
+      { key: 'pending', pctKey: 'pct_pending', label: 'Pending Controls', short: 'Pend', tone: 'orange', max: 100, explain: 'Pending controls awaiting implementation or validation.' }
     ], 'coverage');
 
     ecsRenderObservationsGroupedChart('ecsTrendObsChart', tab.observations_series || [], 'observations');
     updateObsClosure(tab, intel);
 
     renderGroupedBars('ecsTrendRejChart', tab.rejections_series || [], [
-      { key: 'submitted', label: 'Evidence Submitted', short: 'Sub', tone: 'blue', max: 200 },
-      { key: 'rejected', label: 'Evidence Rejected', short: 'Rej', tone: 'red', max: 30 },
-      { key: 'rate_pct', label: 'Rejection %', short: '%', tone: 'orange', max: 15, suffix: '%' }
+      { key: 'submitted', label: 'Evidence Submitted', short: 'Sub', tone: 'blue', max: 200, explain: 'Submitted evidence count in the selected month.' },
+      { key: 'rejected', label: 'Evidence Rejected', short: 'Rej', tone: 'red', max: 30, explain: 'Rejected evidence count in the selected month.' },
+      { key: 'rate_pct', label: 'Rejection %', short: '%', tone: 'orange', max: 15, suffix: '%', explain: 'Rejection % = rejected / submitted × 100.' }
     ], 'rejections');
 
     renderReasons('ecsTrendRejReasons', tab.rejection_reasons || intel.rejection_rate?.top_reasons);
 
     renderGroupedBars('ecsTrendSlaChart', tab.sla_series || [], [
-      { key: 'within_sla_pct', label: 'Within SLA', short: 'SLA', tone: 'green', max: 100, suffix: '%' },
-      { key: 'near_breach', label: 'Near Breach', short: 'Near', tone: 'orange', max: 20 },
-      { key: 'breached', label: 'Breached', short: 'Brch', tone: 'red', max: 20 }
+      { key: 'within_sla_pct', label: 'Within SLA', short: 'SLA', tone: 'green', max: 100, suffix: '%', explain: 'Tasks completed within SLA in this period.' },
+      { key: 'near_breach', label: 'Near Breach', short: 'Near', tone: 'orange', max: 20, explain: 'Tasks nearing SLA breach threshold.' },
+      { key: 'breached', label: 'Breached', short: 'Brch', tone: 'red', max: 20, explain: 'Tasks that breached SLA in this period.' }
     ], 'sla');
 
     renderHorizontalMetrics('ecsTrendSlaViolators', (tab.sla_violators || []).map(function(a) {
@@ -221,6 +234,9 @@
 
     var sum = document.getElementById('ecsAnalyticsFilterSummary');
     if (sum) sum.textContent = 'Scope: ' + (data.scope_summary || intel.scope_summary || 'Enterprise-wide');
+    if (window.ecsUpdateTrendGranularityFromIntel) {
+      window.ecsUpdateTrendGranularityFromIntel(intel);
+    }
   }
 
   function filterParams() {
@@ -256,6 +272,16 @@
     if (init) {
       try { renderIntel(JSON.parse(init.textContent || '{}')); } catch (e) {}
     }
+    document.addEventListener('click', function(e){
+      var el = e.target.closest('[data-ecs-universal-chart],[data-ecs-universal-row],[data-ecs-universal-kpi]');
+      if (!el) return;
+      var c = Number(el.getAttribute('data-ecs-universal-count') || '0');
+      if (c !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var title = el.getAttribute('data-ecs-universal-element') || el.getAttribute('data-ecs-universal-label') || 'Detail';
+      showNoDetails(title);
+    }, true);
   });
 })();
 </script>

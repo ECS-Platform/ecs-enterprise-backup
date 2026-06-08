@@ -377,13 +377,13 @@ def build_framework_workflow_context(framework: str, role: str = "cio") -> dict[
     pending = m["submitted"] + m["reupload"]
 
     counters = [
-        {"label": "Approved", "value": m["approved"], "tone": "success", "metric": "auditor_approved"},
+        {"label": "Closed", "value": m["approved"], "tone": "success", "metric": "auditor_approved"},
         {"label": "Pending Review", "value": m["submitted"], "tone": "warning", "metric": "submitted"},
         {"label": "Re-upload Required", "value": m["reupload"], "tone": "danger", "metric": "reupload"},
     ]
 
     analytics_cards = [
-        {"label": "Approval Rate", "value": f"{m['approval_rate']}%", "hint": f"{framework} in-scope evidence", "tone": "success", "metric": "approval_rate"},
+        {"label": "Closure Rate", "value": f"{m['approval_rate']}%", "hint": f"{framework} in-scope evidence", "tone": "success", "metric": "approval_rate"},
         {"label": "Avg Review Time", "value": f"{m['avg_review_days']}d", "hint": "Auditor turnaround", "tone": "primary", "metric": "avg_review_time"},
         {"label": "Rejection Trend", "value": f"{m['rejection_trend']}%", "hint": "Re-upload rate", "tone": "warning", "metric": "rejection_trend"},
         {"label": "Pending Aging", "value": f"{pending} items", "hint": "Avg 8 days in queue", "tone": "info", "metric": "pending_aging"},
@@ -397,7 +397,7 @@ def build_framework_workflow_context(framework: str, role: str = "cio") -> dict[
     ]
 
     queues = [
-        {"id": "approved", "label": "Auditor Approved", "count": m["approved"], "metric": "auditor_approved"},
+        {"id": "approved", "label": "Closed", "count": m["approved"], "metric": "auditor_approved"},
         {"id": "submitted", "label": "Pending Review", "count": m["submitted"], "metric": "submitted"},
         {"id": "reupload", "label": "Re-upload Required", "count": m["reupload"], "metric": "reupload"},
     ]
@@ -420,16 +420,16 @@ def _kpi_detail_payload(framework: str, metric: str, m: dict[str, Any]) -> dict[
     if metric == "approval_rate":
         return {
             "kpi_value": f"{m['approval_rate']}%",
-            "formula": "Approved Records / (Approved + Pending Review + Re-upload Required) × 100",
+            "formula": "Closed Records / (Closed + Pending Review + Re-upload Required) × 100",
             "calculation": f"{m['approved']} / {max(m.get('workflow_total', 0), 1)} × 100 = {m['approval_rate']}%",
             "inputs": [
-                {"name": "Approved Records", "value": m["approved"]},
+                {"name": "Closed Records", "value": m["approved"]},
                 {"name": "Pending Review Records", "value": m["submitted"]},
                 {"name": "Re-upload Required Records", "value": m["reupload"]},
             ],
             "reason": (
-                f"Approval rate reflects approved records against the full framework workflow population "
-                f"(approved + pending review + re-upload required)."
+                f"Closure rate reflects closed records against the full framework workflow population "
+                f"(closed + pending review + re-upload required)."
             ),
             "contributors": contributors,
             "top_controls": top_controls,
@@ -444,15 +444,15 @@ def _kpi_detail_payload(framework: str, metric: str, m: dict[str, Any]) -> dict[
     if metric == "avg_review_time":
         return {
             "kpi_value": f"{m['avg_review_days']} days",
-            "formula": "Average days between submission and approval",
+            "formula": "Average days between submission and closure",
             "calculation": f"Sum(review durations) / review samples = {m['avg_review_days']} days",
             "inputs": [
                 {"name": "Review Samples", "value": m["review_samples"]},
                 {"name": "Submitted Controls", "value": m["submitted"]},
-                {"name": "Approved Controls", "value": m["approved"]},
+                {"name": "Closed Controls", "value": m["approved"]},
             ],
             "reason": (
-                f"Average review time is derived from {m['review_samples']} submit-to-approve transitions; "
+                f"Average review time is derived from {m['review_samples']} submit-to-close transitions; "
                 f"pending records and re-uploads increase turnaround."
             ),
             "contributors": contributors,
@@ -468,15 +468,15 @@ def _kpi_detail_payload(framework: str, metric: str, m: dict[str, Any]) -> dict[
     if metric == "rejection_trend":
         return {
             "kpi_value": f"{m['rejection_trend']}%",
-            "formula": "Re-upload Required Records / (Approved + Pending Review + Re-upload Required) × 100",
+            "formula": "Re-upload Required Records / (Closed + Pending Review + Re-upload Required) × 100",
             "calculation": f"{m['reupload']} / {max(m.get('workflow_total', 0), 1)} × 100 = {m['rejection_trend']}%",
             "inputs": [
                 {"name": "Re-upload Required Records", "value": m["reupload"]},
-                {"name": "Approved Records", "value": m["approved"]},
+                {"name": "Closed Records", "value": m["approved"]},
                 {"name": "Pending Review Records", "value": m["submitted"]},
             ],
             "reason": (
-                f"Rejection trend is measured over the same workflow evidence population used by Approved, "
+                f"Rejection trend is measured over the same workflow evidence population used by Closed, "
                 f"Pending Review, and Re-upload Required KPIs."
             ),
             "contributors": contributors,
@@ -731,7 +731,7 @@ def validate_framework_kpi_calculations(framework: str) -> dict[str, Any]:
         1,
     )
     results = [
-        {"kpi": "Approval Rate", "value": m["approval_rate"], "derived": expected_approval_rate, "calc": f"{m['approved']}/{denom}*100", "pass": m["approval_rate"] == expected_approval_rate},
+        {"kpi": "Closure Rate", "value": m["approval_rate"], "derived": expected_approval_rate, "calc": f"{m['approved']}/{denom}*100", "pass": m["approval_rate"] == expected_approval_rate},
         {"kpi": "Avg Review Time", "value": round(m["avg_review_days"], 1), "derived": round(m["avg_review_days"], 1), "calc": "mean(submit_to_approve_days)", "pass": True},
         {"kpi": "Rejection Trend", "value": m["rejection_trend"], "derived": expected_rejection_trend, "calc": f"{m['reupload']}/{denom}*100", "pass": m["rejection_trend"] == expected_rejection_trend},
         {"kpi": "Pending Aging", "value": round(m["pending_aging_days"], 1), "derived": expected_pending_aging, "calc": "mean(age_days of pending+reupload records)", "pass": round(m["pending_aging_days"], 1) == expected_pending_aging},

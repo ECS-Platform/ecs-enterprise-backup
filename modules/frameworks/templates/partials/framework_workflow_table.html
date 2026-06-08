@@ -22,7 +22,7 @@
 <td><strong>{{ ev.evidence_name|truncate(24, True, '') }}</strong></td>
 <td>{{ ev.application_name }}</td>
 <td class="small">
-{% if ckey in approved_controls %}<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
+{% if ckey in approved_controls %}<span class="ecs-wf-status-chip ecs-wf-chip-success">CLOSED ✓</span>
 {% elif ckey in rejected_controls %}<span class="ecs-wf-status-chip ecs-wf-chip-danger">RE-UPLOAD REQUIRED</span>
 {% elif ckey in submitted_controls %}<span class="ecs-wf-status-chip ecs-wf-chip-warning">SENT TO AUDITOR</span>
 {% else %}<span class="ecs-wf-status-chip ecs-wf-chip-secondary">DRAFT</span>{% endif %}
@@ -31,7 +31,7 @@
 <td>{% if ckey in approved_controls %}<span class="badge bg-success">Validated</span>{% elif ckey in rejected_controls %}<span class="badge bg-danger">Failed</span>{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}</td>
 {% if loop.first %}
 <td rowspan="{{ row_span }}">
-{% if ckey in approved_controls %}<span class="badge bg-success">Approved</span>
+{% if ckey in approved_controls %}<span class="badge bg-success">Closed</span>
 {% elif ckey in rejected_controls %}<span class="badge bg-danger">Rejected</span>
 {% elif ckey in submitted_controls %}<span class="badge bg-warning text-dark">Pending Review</span>
 {% else %}<span class="badge bg-secondary">Draft</span>{% endif %}
@@ -40,7 +40,7 @@
 <td rowspan="{{ row_span }}" class="ecs-sticky-actions">
 {% if role == "owner" %}
 {% if ckey in approved_controls %}
-<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
+<span class="ecs-wf-status-chip ecs-wf-chip-success">CLOSED ✓</span>
 {% elif ckey in submitted_controls %}
 <span class="ecs-wf-status-chip ecs-wf-chip-warning">SENT TO AUDITOR</span>
 <a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-secondary btn-sm">View</a>
@@ -51,7 +51,7 @@
 {% endif %}
 {% elif role == "auditor" %}
 {% if ckey in approved_controls %}
-<span class="ecs-wf-status-chip ecs-wf-chip-success">APPROVED ✓</span>
+<span class="ecs-wf-status-chip ecs-wf-chip-success">CLOSED ✓</span>
 {% elif ckey in submitted_controls %}
 <a href="{{ review_url(framework_name, ctrl.control, primary_ev.evidence_id, role, user) }}" class="btn btn-outline-primary btn-sm">Review</a>
 <form method="post" action="/approve" class="d-inline"><input type="hidden" name="control_name" value="{{ ctrl.control }}"><input type="hidden" name="framework_name" value="{{ framework_name }}"><input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><button class="btn btn-success btn-sm ecs-wf-action-approve" data-wf-action="approve">Approve</button></form>
