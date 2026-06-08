@@ -5,13 +5,25 @@ __pycache__/
 # macOS
 .DS_Store
 
-# Python virtual environments (optional)
-venv/
-.venv/
-
 # IDE
 .cursor/
 .vscode/
 
-# Generated reports (optional if not needed in Git)
-reports/*.json
+# Python virtual env
+venv/
+.venv/
+
+# Test cache
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# ECS generated runtime files
+modules/shared/.ecs_boot_marker
+modules/enterprise_grc/reports/ECS_Defect_Report.json
+modules/enterprise_grc/reports/ECS_Validation_Report.json
+
+# Logs
+*.log
