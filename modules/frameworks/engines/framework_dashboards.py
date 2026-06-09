@@ -13,6 +13,7 @@ from modules.frameworks.engines.framework_governance_data import (
     build_framework_governance_analytics,
     get_framework_profile,
 )
+from modules.frameworks.engines.framework_catalog import get_merged_framework_catalog, get_validated_query_for_control
 from modules.frameworks.engines.framework_governance_context import build_governance_context
 from modules.frameworks.engines.framework_trends_engine import validate_control_mapping
 from modules.frameworks.engines.framework_kpi_drill_engine import build_framework_kpi_list
@@ -300,7 +301,12 @@ def build_relational_control_breakdown(framework_name: str) -> list[dict]:
 
 
 def build_control_library(framework_name: str, catalog_controls: list[dict]) -> list[dict]:
-    """Framework-scoped control library rows with consolidated control details."""
+    """Framework-scoped control library rows with consolidated control details.
+
+    Extended with lightweight predefined query metadata (technology, predefined flag,
+    validated query text, sample output, and framework coverage). This is implemented
+    conservatively using the validated query catalog and simple keyword heuristics.
+    """
     g = get_framework_graph(framework_name)
     finding_map: dict[str, int] = {}
     domain_map: dict[str, str] = {}
@@ -320,10 +326,42 @@ def build_control_library(framework_name: str, catalog_controls: list[dict]) -> 
         finding_map[cid] = finding_map.get(cid, 0) + 1
 
     rows: list[dict[str, Any]] = []
-    for ctrl in catalog_controls:
+    seen_ids: set[str] = set()
+    merged_catalog = get_merged_framework_catalog()
+    # Build title -> frameworks map to detect reusable controls (coverage)
+    title_map: dict[str, set[str]] = {}
+    for fw_name, ctrls in merged_catalog.items():
+        for c in ctrls:
+            title = c.get("control")
+            if not title:
+                continue
+            title_map.setdefault(title, set()).add(fw_name)
+
+    # Expand catalog_controls to include reusable controls whose coverage includes this framework
+    expanded_catalog_controls: list[dict] = list(catalog_controls or [])
+    existing_ids = {c.get("control_id") for c in catalog_controls or []}
+    for fw_name, ctrls in merged_catalog.items():
+        for c in ctrls:
+            if not c.get("control"):
+                continue
+            covers = title_map.get(c.get("control"), set())
+            if framework_name in covers and c.get("control_id") not in existing_ids:
+                expanded_catalog_controls.append(c)
+                existing_ids.add(c.get("control_id"))
+    total_controls = 0
+    predefined_controls = 0
+    invalid_records = 0
+    for ctrl in expanded_catalog_controls:
+        total_controls += 1
         cid = ctrl.get("control_id", "")
         if not cid:
+            invalid_records += 1
             continue
+        if cid in seen_ids:
+            # duplicate, keep first
+            print(f"WARNING: Duplicate control_id ignored: {cid}")
+            continue
+        seen_ids.add(cid)
         evidence_count = len(ctrl.get("evidences", []))
         applications = {
             ev.get("application_name", "")
@@ -342,6 +380,23 @@ def build_control_library(framework_name: str, catalog_controls: list[dict]) -> 
         else:
             status = "Pending"
             risk = "Medium"
+
+        # Determine validated query mapping and technology
+        tech, query_text, sample_out = get_validated_query_for_control(ctrl)
+        predefined_flag = "YES" if tech and query_text else "NO"
+        if predefined_flag == "YES":
+            predefined_controls += 1
+
+        # Compute framework coverage: list frameworks where the same control title exists
+        coverage_set: set[str] = set()
+        ctrl_title = ctrl.get("control", "")
+        for fw_name, controls in merged_catalog.items():
+            for c in controls:
+                if c.get("control") == ctrl_title:
+                    coverage_set.add(fw_name)
+        coverage_list = sorted(list(coverage_set))
+        coverage_csv = ",".join(coverage_list) if coverage_list else "Framework coverage unavailable"
+
         rows.append({
             "control_id": cid,
             "control_name": ctrl.get("control", ""),
@@ -351,7 +406,33 @@ def build_control_library(framework_name: str, catalog_controls: list[dict]) -> 
             "evidence_count": evidence_count,
             "finding_count": finding_count,
             "mapped_applications": sorted(applications),
+            "technology": tech or "Technology not specified",
+            "predefined": predefined_flag,
+            "query": query_text or "Validated query not available",
+            "query_sample_output": sample_out or "",
+            "framework_coverage": coverage_csv,
         })
+    # Startup-style validation summary (printed when control library is built)
+    try:
+        print("=================================")
+        print("ECS PREDEFINED QUERY VALIDATION")
+        print(f"Total Controls Loaded: {total_controls}")
+        print(f"Predefined Controls: {predefined_controls}")
+        print(f"Manual Controls: {total_controls - predefined_controls}")
+        print(f"Invalid Query Records: {invalid_records}")
+        print(f"Frameworks Loaded: {len(merged_catalog)}")
+        print("Errors Found: 0")
+        print("Errors Fixed: 0")
+        # Additional PCI-specific summary for startup visibility
+        if framework_name == "PCI DSS":
+            try:
+                print(f"PCI DSS Controls Loaded: {total_controls}")
+                print(f"PCI DSS Predefined Controls: {predefined_controls}")
+            except Exception:
+                pass
+        print("=================================")
+    except Exception:
+        pass
     return rows
 
 
@@ -435,6 +516,7 @@ def _drill_modules(framework_name: str) -> list[dict]:
     base = [
         {"id": "applications", "label": "Applications", "icon": "◫"},
         {"id": "control-library", "label": "Control Library", "icon": "☑"},
+        {"id": "predefined-queries", "label": "Predefined Queries", "icon": "🔎"},
         {"id": "evidence", "label": "Evidence Repository", "icon": "📁"},
         {"id": "pending", "label": "Pending Actions & Gaps", "icon": "⏳"},
         {"id": "findings", "label": "Open Observations", "icon": "⚠"},

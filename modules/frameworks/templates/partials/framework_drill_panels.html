@@ -80,6 +80,28 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 {% endfor %}
 </tbody></table></div></div>
 
+{# PREDEFINED QUERIES #}
+<div class="tab-pane fade{% if default_tab == 'predefined-queries' %} show active{% endif %}" id="pane-predefined-queries" role="tabpanel">
+{% set predefined_rows = fw_dashboard.control_library|selectattr('predefined','equalto','YES')|list %}
+<p class="small text-muted mb-2">Predefined executable queries for validated controls (demo-only; no execution).</p>
+<div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
+<table class="table ecs-table-modern ecs-paginated-table ecs-force-paginate ecs-fit-table ecs-compact-table table-sm mb-0">
+<thead><tr><th>Control ID</th><th>Control Name</th><th>Technology</th><th>Query</th><th>Framework Coverage</th><th></th></tr></thead>
+<tbody>
+{% for row in predefined_rows %}
+<tr>
+<td><a href="#" class="small" data-ecs-framework-control-drill data-ecs-framework-control-framework="{{ framework_name|e }}" data-ecs-framework-control-id="{{ row.control_id|e }}"><code>{{ row.control_id }}</code></a></td>
+<td><strong>{{ row.control_name|truncate(48, True, '') }}</strong></td>
+<td>{{ row.technology }}</td>
+<td class="small text-monospace">{{ row.query|truncate(80, True, '') }}</td>
+<td class="small">{{ row.framework_coverage }}</td>
+<td><button type="button" class="btn btn-outline-primary btn-sm ecs-run-query" data-query="{{ row.query|e }}" data-sample="{{ row.query_sample_output|e }}">Run Query</button></td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="text-muted small">No predefined queries available for this framework.</td></tr>
+{% endfor %}
+</tbody></table></div></div>
+
 {# PENDING ACTIONS & GAPS (merged) #}
 <div class="tab-pane fade" id="pane-pending" role="tabpanel">
 {% if gc %}<p class="small text-muted mb-2"><strong>{{ framework_name }} pending actions & open gaps</strong> — observation closure, missing evidence, failed validation, SLA breaches · application-mapped</p>{% endif %}
@@ -220,6 +242,29 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 </div>
 {% endfor %}
 </div>
+<script>
+  (function(){
+    function showQueryModal(query, sample) {
+      var modalEl = document.getElementById('ecsFrameworkKpiDrillModal');
+      var titleEl = document.getElementById('ecsFrameworkKpiDrillTitle');
+      var bodyEl = document.getElementById('ecsFrameworkKpiDrillBody');
+      if (!modalEl || !bodyEl || typeof bootstrap === 'undefined') return;
+      titleEl.textContent = 'Run Query — Demo Mode';
+      bodyEl.innerHTML = '<div class="text-muted small mb-2">Executing...<\/div><pre class="small bg-light p-2">' + (query || '') + '<\/pre>';
+      var inst = bootstrap.Modal.getOrCreateInstance(modalEl);
+      inst.show();
+      setTimeout(function(){
+        bodyEl.innerHTML = '<div class="text-muted small mb-2">Output (static demo)</div><pre class="small bg-light p-2">' + (sample || 'No sample output available') + '<\/pre>';
+      }, 900);
+    }
+    document.addEventListener('click', function(e){
+      var btn = e.target.closest && e.target.closest('.ecs-run-query');
+      if (!btn) return;
+      e.preventDefault();
+      showQueryModal(btn.getAttribute('data-query'), btn.getAttribute('data-sample'));
+    });
+  })();
+</script>
 {% endif %}
 </div>
 

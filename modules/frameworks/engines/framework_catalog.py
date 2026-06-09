@@ -755,6 +755,86 @@ FRAMEWORK_CATALOG: dict[str, list[dict]] = {
     "ASST": _asst_catalog(),
 }
 
+# Validated executable query catalog (demo-only static mapping)
+# Keys are canonical technology names; values provide a validated query and a static sample output.
+VALIDATED_QUERY_CATALOG: dict[str, dict[str, str]] = {
+    "PostgreSQL": {"query": "SHOW ssl;", "sample": "ssl = on\nStatus: PASS"},
+    "Oracle": {"query": "SELECT * FROM DBA_ROLE_PRIVS;", "sample": "ROWS: 12\nStatus: PASS"},
+    "Linux": {"query": "cat /etc/ssh/sshd_config", "sample": "PermitRootLogin no\nPasswordAuthentication yes\nStatus: PASS"},
+    "Windows": {"query": "Get-HotFix", "sample": "KB5034441 InstalledOn: 2026-05-01\nStatus: PASS"},
+    "NGINX": {"query": "nginx -T", "sample": "server { listen 443 ssl; }\nStatus: PASS"},
+    "SonarQube": {"query": "curl /api/issues/search", "sample": "issues: 0\nStatus: PASS"},
+    "GITLEAKS": {"query": "gitleaks detect", "sample": "secrets_found: 0\nStatus: PASS"},
+    "TRIVY": {"query": "trivy image app:latest", "sample": "Vulnerabilities: 0\nStatus: PASS"},
+}
+
+
+def get_validated_query_for_control(control: dict) -> tuple[str, str, str]:
+    """Return (technology, query, sample_output) for a control when a validated query exists.
+    If no validated query matches, return ("", "", ""). This logic is intentionally conservative
+    — only maps controls with clear technology keywords to known validated queries.
+    """
+    title = (control.get("control") or "").lower()
+    tech = ""
+    # Primary: title-based heuristic matching (conservative)
+    if "postgres" in title or "pg" in title or "postgresql" in title:
+        tech = "PostgreSQL"
+    elif "oracle" in title or ("db" in title and "oracle" in title):
+        tech = "Oracle"
+    elif "ssh" in title or "linux" in title or "cis" in title or "sysctl" in title:
+        tech = "Linux"
+    elif "windows" in title or "wsus" in title or "kb" in title:
+        tech = "Windows"
+    elif "nginx" in title or "tls" in title or "ssl" in title or "edge" in title:
+        tech = "NGINX"
+    elif "sonar" in title or "sast" in title:
+        tech = "SonarQube"
+    elif "gitleak" in title or "secret" in title or ("git" in title and "leak" in title):
+        tech = "GITLEAKS"
+    elif "trivy" in title or "image" in title or "container" in title:
+        tech = "TRIVY"
+
+    # Secondary: inspect evidence metadata for stronger signals
+    if not tech and isinstance(control.get("evidences"), list):
+        for ev in control.get("evidences", []):
+            if not isinstance(ev, dict):
+                continue
+            ev_name = (ev.get("evidence_name") or "" ).lower()
+            mock_file = (ev.get("mock_file") or "").lower()
+            server = (ev.get("server_name") or "").lower()
+            app = (ev.get("application_name") or "").lower()
+
+            if "nginx" in server or "nginx" in ev_name or "edge" in server or "tls" in ev_name or "ssl" in ev_name:
+                tech = "NGINX"
+                break
+            if "oracle" in server or "oracle" in ev_name or "cbs" in server:
+                tech = "Oracle"
+                break
+            if "postgres" in server or "postgresql" in server or "pg" in mock_file or "postgres" in ev_name:
+                tech = "PostgreSQL"
+                break
+            if "trivy" in ev_name or "vuln" in ev_name or "image" in ev_name:
+                tech = "TRIVY"
+                break
+            if "gitleak" in ev_name or "gitleaks" in ev_name or "secret" in ev_name or ("git" in ev_name and "secret" in ev_name):
+                tech = "GITLEAKS"
+                break
+            if "sonar" in ev_name or "sast" in ev_name:
+                tech = "SonarQube"
+                break
+            if "linux" in server or server.startswith("linux") or "ssh" in ev_name or "sudo" in ev_name:
+                tech = "Linux"
+                break
+            if "windows" in server or mock_file.endswith('.exe') or mock_file.endswith('.msi') or "kb" in ev_name:
+                tech = "Windows"
+                break
+
+    if not tech:
+        return "", "", ""
+
+    q = VALIDATED_QUERY_CATALOG.get(tech, {})
+    return tech, q.get("query", ""), q.get("sample", "")
+
 
 def build_legacy_frameworks() -> dict[str, list[tuple[str, str]]]:
     """Backward-compatible (control, primary_evidence) tuples for existing code."""

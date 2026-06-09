@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from modules.shared.utils.demo_data_standards import ensure_drill_rows, generate_standard_drill_row, pick, seed, between
-from modules.frameworks.engines.framework_catalog import get_framework_controls
+from modules.frameworks.engines.framework_catalog import get_framework_controls, get_validated_query_for_control
 from modules.governance.engines.governance_relational_model import get_framework_graph
 from modules.frameworks.engines.framework_workflow_engine import _fw_apps
 
@@ -147,6 +147,24 @@ def drill_framework_row(framework: str, row_type: str, row_id: str) -> dict[str,
             "finding_count": len(findings),
             "status": status,
         })
+        # Add demo-only validated query metadata for control drill views
+        try:
+            tech, qtext, sample_out = get_validated_query_for_control(catalog_row or {})
+            if tech:
+                detail["technology"] = tech
+                detail["query"] = qtext
+                detail["query_sample_output"] = sample_out
+                detail["automation_supported"] = "YES"
+            else:
+                detail["technology"] = ""
+                detail["query"] = ""
+                detail["query_sample_output"] = ""
+                detail["automation_supported"] = "NO"
+        except Exception:
+            detail["technology"] = ""
+            detail["query"] = ""
+            detail["query_sample_output"] = ""
+            detail["automation_supported"] = "NO"
     elif row_type == "finding":
         detail["finding_id"] = row_id
         detail["finding"] = row_id
