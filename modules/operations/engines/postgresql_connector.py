@@ -6,6 +6,8 @@ import os
 import time
 from typing import Any
 
+import psycopg2
+
 from modules.operations.engines.query_connectors import ConnectorResult
 
 DEFAULT_TIMEOUT_SEC = 30
@@ -69,11 +71,6 @@ class PostgreSQLConnector:
         self._last_error = ""
 
     def connect(self) -> bool:
-        try:
-            import psycopg2
-        except ImportError:
-            self._last_error = "psycopg2 is required for PostgreSQL execution"
-            return False
         try:
             self._conn = psycopg2.connect(
                 host=self.host,
