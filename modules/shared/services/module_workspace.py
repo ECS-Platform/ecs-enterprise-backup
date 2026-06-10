@@ -108,6 +108,11 @@ DEFAULT_TABS: dict[str, list[Tab]] = {
         {"id": "upcoming", "label": "Tomorrow Plan"},
         {"id": "integrations", "label": "Integrations"},
     ],
+    "predefined_queries": [
+        {"id": "catalog", "label": "Query Catalog"},
+        {"id": "history", "label": "Execution History"},
+        {"id": "manual", "label": "Manual Controls"},
+    ],
     "evidence_health": [
         {"id": "overview", "label": "Overview"},
         {"id": "queue", "label": "Evidence Queue"},
@@ -329,4 +334,8 @@ def build_module_workspace(module: str, role: str = "owner") -> dict:
     }
     if module in status_overrides:
         ws["statuses"] = ["All Status"] + status_overrides[module]
+    if module == "predefined_queries":
+        from modules.operations.engines.predefined_queries_engine import get_framework_filter_options
+
+        ws["frameworks"] = get_framework_filter_options()
     return ws

@@ -40,6 +40,7 @@ MODULE_LABELS = {
     "evidence_approval": "evidence pending validation or stale",
     "exception_governance": "exceptions pending CAB or expiring TD",
     "ai_ops_assistant": "active incident scenarios for copilot",
+    "predefined_queries": "predefined query controls in catalog",
 }
 
 MODULE_KEYS = list(MODULE_LABELS.keys())

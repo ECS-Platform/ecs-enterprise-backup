@@ -94,6 +94,12 @@ async def ecs_lifespan(application: FastAPI):
     seed_demo_workflow_state()
     from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
     self_heal_governance()
+    from modules.operations.engines.predefined_queries_engine import validate_startup
+    from modules.shared.services import ecs_logging
+
+    pq_report = validate_startup()
+    for line in pq_report.get("log_lines", []):
+        ecs_logging.info("PredefinedQueries", line)
     mark_startup_complete()
     log_platform_ready(host="127.0.0.1", port=8000)
     yield

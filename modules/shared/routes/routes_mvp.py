@@ -78,6 +78,7 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "evidence_approval": "/mvp/evidence-approval",
         "exception_governance": "/mvp/exception-governance",
         "ai_ops_assistant": "/mvp/ai-ops-assistant",
+        "predefined_queries": "/mvp/predefined-queries",
     }
     base = paths.get(module, "/dashboard")
     return RedirectResponse(url=f"{base}?role={role}&user={user}&notice={quote(notice)}", status_code=303)
@@ -143,6 +144,68 @@ def register_mvp_routes(app, templates):
 
         ctx = _base_ctx(role, user, unquote(response) if response else "", notice, page_module="ai_ops_assistant")
         return templates.TemplateResponse(request, "mvp_ai_ops_assistant.html", ctx)
+
+    @app.get("/mvp/predefined-queries", response_class=HTMLResponse)
+    def mvp_predefined_queries(
+        request: Request,
+        role: str = "owner",
+        user: str = "User",
+        response: str = "",
+        notice: str = "",
+        q: str = "",
+        framework: str = "All Frameworks",
+        page: int = 1,
+        sort: str = "control_id",
+        dir: str = "asc",
+    ):
+        from modules.operations.engines.predefined_queries_engine import get_predefined_queries_dashboard
+
+        ctx = _base_ctx(role, user, response, notice, page_module="predefined_queries")
+        ctx["module_view"] = get_predefined_queries_dashboard(
+            search=q,
+            framework=framework,
+            page=page,
+            per_page=10,
+            sort_by=sort,
+            sort_dir=dir,
+        )
+        ctx["module_view"]["purpose"] = "Predefined Queries — centralized catalog of control queries loaded from the ECS Query Driven Control Library."
+        ctx["module_view"]["module"] = "predefined_queries"
+        ctx["module_view"]["role"] = role
+        return templates.TemplateResponse(request, "mvp_predefined_queries.html", ctx)
+
+    @app.get("/mvp/predefined-queries/detail", response_class=HTMLResponse)
+    def mvp_predefined_query_detail(
+        request: Request,
+        control_id: str = "",
+        role: str = "owner",
+        user: str = "User",
+        notice: str = "",
+    ):
+        from modules.operations.engines.predefined_queries_engine import get_control_by_id, prepare_execution
+
+        ctx = _base_ctx(role, user, "", notice, page_module="predefined_queries")
+        control = get_control_by_id(control_id) if control_id else None
+        if not control:
+            ctx["control"] = {"control_id": control_id or "—", "control_name": "Not Found"}
+            ctx["error_message"] = "Control not found in the predefined query library."
+            ctx["execution_prep"] = {"ok": False}
+        else:
+            ctx["control"] = control
+            ctx["error_message"] = ""
+            ctx["execution_prep"] = prepare_execution(control_id, user)
+        return templates.TemplateResponse(request, "mvp_predefined_query_detail.html", ctx)
+
+    @app.post("/mvp/predefined-queries/prepare", response_class=JSONResponse)
+    def mvp_predefined_query_prepare(
+        control_id: str = Form(""),
+        role: str = Form("owner"),
+        user: str = Form("User"),
+    ):
+        from modules.operations.engines.predefined_queries_engine import prepare_execution
+
+        result = prepare_execution(control_id, user)
+        return JSONResponse(result)
 
     @app.get("/api/demo/kpi-drill")
     def api_demo_kpi_drill(metric: str = ""):
