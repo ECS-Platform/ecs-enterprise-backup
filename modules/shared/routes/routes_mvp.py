@@ -207,6 +207,24 @@ def register_mvp_routes(app, templates):
         result = prepare_execution(control_id, user)
         return JSONResponse(result)
 
+    @app.post("/mvp/predefined-queries/run")
+    def mvp_predefined_query_run(
+        control_id: str = Form(""),
+        role: str = Form("owner"),
+        user: str = Form("User"),
+        return_to: str = Form("detail"),
+    ):
+        from modules.operations.engines.predefined_queries_engine import run_postgresql_query
+
+        outcome = run_postgresql_query(control_id, user)
+        notice = outcome.get("message") if outcome.get("ok") else outcome.get("error", "Query execution failed")
+        dest = (
+            f"/mvp/predefined-queries?role={role}&user={user}&notice={quote(notice)}"
+            if return_to == "catalog"
+            else f"/mvp/predefined-queries/detail?control_id={quote(control_id)}&role={role}&user={user}&notice={quote(notice)}"
+        )
+        return RedirectResponse(url=dest, status_code=303)
+
     @app.get("/api/demo/kpi-drill")
     def api_demo_kpi_drill(metric: str = ""):
         from modules.executive_overview.engines.demo_kpi_drill_engine import drill_demo_kpi

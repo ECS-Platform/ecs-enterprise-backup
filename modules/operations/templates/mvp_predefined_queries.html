@@ -81,8 +81,16 @@
 <td class="small">{{ r.last_execution }}</td>
 <td class="text-nowrap">
 <a href="/mvp/predefined-queries/detail?control_id={{ r.control_id|urlencode }}&role={{ role }}&user={{ user|urlencode }}" class="btn btn-outline-primary btn-sm">View</a>
-{% if r.predefined %}
-<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Execution not yet enabled">Run Query</button>
+{% if r.technology == 'PostgreSQL' and r.predefined %}
+<form method="post" action="/mvp/predefined-queries/run" class="d-inline">
+<input type="hidden" name="control_id" value="{{ r.control_id }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="return_to" value="detail">
+<button type="submit" class="btn btn-outline-success btn-sm">Run Query</button>
+</form>
+{% elif r.predefined %}
+<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Execution enabled for PostgreSQL only">Run Query</button>
 {% endif %}
 </td>
 </tr>
@@ -115,8 +123,26 @@
 
 {{ workspace_pane('history', false) }}
 <h6 class="small text-muted text-uppercase mb-1">Execution History</h6>
-<p class="small text-muted">No executions recorded yet. Execution interfaces are prepared; runtime execution is not yet enabled.</p>
-<div class="alert alert-info py-2 px-3 small mb-0">Run Query will be available when connector execution is integrated with the Docker demo environment.</div>
+<div class="table-responsive ecs-ops-table-wrap mb-2">
+<table class="table table-sm table-bordered bg-white mb-0">
+<thead><tr><th>Control ID</th><th>Timestamp</th><th>User</th><th>Status</th><th>Result</th></tr></thead>
+<tbody>
+{% if module_view.execution_history_rows %}
+{% for h in module_view.execution_history_rows %}
+<tr>
+<td><a href="/mvp/predefined-queries/detail?control_id={{ h.control_id|urlencode }}&role={{ role }}&user={{ user|urlencode }}">{{ h.control_id }}</a></td>
+<td class="small">{{ h.execution_time }}</td>
+<td class="small">{{ h.user }}</td>
+<td><span class="badge bg-{% if h.status == 'Success' %}success{% else %}danger{% endif %}">{{ h.status }}</span></td>
+<td class="small ecs-pq-query" title="{{ (h.result or h.error_message or '')|e }}">{{ (h.result or h.error_message or '—')[:100] }}{% if (h.result or h.error_message or '')|length > 100 %}…{% endif %}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="5" class="text-center text-muted py-3">No executions recorded yet.</td></tr>
+{% endif %}
+</tbody>
+</table>
+</div>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('manual', false) }}

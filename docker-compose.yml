@@ -3,4 +3,24 @@ services:
     build: .
     ports:
       - "8000:8000"
+    environment:
+      ECS_PG_HOST: postgres-demo
+      ECS_PG_PORT: 5432
+      ECS_PG_DATABASE: ecs_demo
+      ECS_PG_USER: ecs_user
+      ECS_PG_PASSWORD: ecs_password
+    volumes:
+      - ./ECS_Query_Driven_Control_Library_Consolidated.xlsx:/app/ECS_Query_Driven_Control_Library_Consolidated.xlsx:ro
+    depends_on:
+      - postgres-demo
+    restart: unless-stopped
+
+  postgres-demo:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ecs_demo
+      POSTGRES_USER: ecs_user
+      POSTGRES_PASSWORD: ecs_password
+    ports:
+      - "5432:5432"
     restart: unless-stopped

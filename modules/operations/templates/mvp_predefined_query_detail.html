@@ -12,6 +12,7 @@
 <h1 class="ecs-workspace-title h5 mb-0">{{ control.control_id }}</h1>
 </div>
 <p class="small text-muted mb-3">{{ control.control_name }}</p>
+{% if notice %}<div class="alert alert-{% if 'successfully' in notice|lower %}success{% else %}warning{% endif %} py-2 px-3 small mb-2">{{ notice }}</div>{% endif %}
 
 {% if error_message %}
 <div class="alert alert-danger py-2 px-3 small">{{ error_message }}</div>
@@ -34,8 +35,19 @@
 <div class="card border-0 shadow-sm">
 <div class="card-body py-3">
 <h6 class="small text-muted text-uppercase mb-2">Execution</h6>
-<button type="button" class="btn btn-primary btn-sm w-100 mb-2" disabled title="Execution not yet enabled">Run Query</button>
-<p class="small text-muted mb-0">Connector interfaces are prepared. Runtime execution will integrate with DatabaseConnector, SSHConnector, and APIConnector.</p>
+{% if control.technology == 'PostgreSQL' and control.predefined and execution_prep.execution_enabled %}
+<form method="post" action="/mvp/predefined-queries/run" class="mb-2">
+<input type="hidden" name="control_id" value="{{ control.control_id }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="return_to" value="detail">
+<button type="submit" class="btn btn-primary btn-sm w-100">Run Query</button>
+</form>
+<p class="small text-muted mb-0">Live PostgreSQL execution against postgres-demo (ecs_demo).</p>
+{% else %}
+<button type="button" class="btn btn-primary btn-sm w-100 mb-2" disabled title="{% if control.technology != 'PostgreSQL' %}Execution not enabled for this technology{% else %}Execution not available{% endif %}">Run Query</button>
+<p class="small text-muted mb-0">{% if control.technology == 'PostgreSQL' %}PostgreSQL demo execution unavailable for this control.{% else %}Live execution is enabled for PostgreSQL demo queries only.{% endif %}</p>
+{% endif %}
 {% if execution_prep and not execution_prep.ok %}
 <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">{{ execution_prep.error }}</div>
 {% endif %}
@@ -54,12 +66,17 @@
 <h6 class="small text-muted text-uppercase mb-1">Execution Result Panel</h6>
 <div class="card border mb-3">
 <div class="card-body py-3">
-{% if control.latest_result %}
+{% if control.latest_execution %}
 <dl class="row ecs-pq-meta mb-0">
+<dt class="col-sm-3">Query</dt><dd class="col-sm-9"><code>{{ control.latest_execution.query }}</code></dd>
+<dt class="col-sm-3">Execution Time</dt><dd class="col-sm-9">{{ control.latest_execution.execution_time }}</dd>
+<dt class="col-sm-3">Status</dt><dd class="col-sm-9"><span class="badge bg-{% if control.latest_execution.status == 'Success' %}success{% else %}danger{% endif %}">{{ control.latest_execution.status }}</span></dd>
+<dt class="col-sm-3">Rows Returned</dt><dd class="col-sm-9">{{ control.latest_execution.rows_returned }}</dd>
+<dt class="col-sm-3">Duration</dt><dd class="col-sm-9">{{ control.latest_execution.duration_ms }} ms</dd>
+<dt class="col-sm-3">Output</dt><dd class="col-sm-9"><pre class="ecs-pq-detail-query mb-0">{{ control.latest_execution.result or control.latest_execution.error_message or '—' }}</pre></dd>
+{% if control.latest_result %}
 <dt class="col-sm-3">Evidence ID</dt><dd class="col-sm-9">{{ control.latest_result.evidence_id }}</dd>
-<dt class="col-sm-3">Timestamp</dt><dd class="col-sm-9">{{ control.latest_result.timestamp }}</dd>
-<dt class="col-sm-3">User</dt><dd class="col-sm-9">{{ control.latest_result.user }}</dd>
-<dt class="col-sm-3">Output</dt><dd class="col-sm-9"><pre class="ecs-pq-detail-query mb-0">{{ control.latest_result.result }}</pre></dd>
+{% endif %}
 </dl>
 {% else %}
 <p class="small text-muted mb-0">No execution results yet.</p>
@@ -70,17 +87,17 @@
 <h6 class="small text-muted text-uppercase mb-1">Execution History</h6>
 <div class="table-responsive mb-3">
 <table class="table table-sm table-bordered bg-white mb-0">
-<thead><tr><th>Execution ID</th><th>Time</th><th>Technology</th><th>Status</th><th>Duration</th><th>Error</th></tr></thead>
+<thead><tr><th>Execution ID</th><th>Time</th><th>User</th><th>Status</th><th>Duration</th><th>Result</th></tr></thead>
 <tbody>
 {% if control.execution_history %}
 {% for h in control.execution_history %}
 <tr>
 <td class="small">{{ h.execution_id }}</td>
 <td class="small">{{ h.execution_time }}</td>
-<td>{{ h.technology }}</td>
-<td><span class="badge bg-secondary">{{ h.status }}</span></td>
+<td class="small">{{ h.user }}</td>
+<td><span class="badge bg-{% if h.status == 'Success' %}success{% else %}danger{% endif %}">{{ h.status }}</span></td>
 <td class="small">{{ h.duration_ms }} ms</td>
-<td class="small text-danger">{{ h.error_message or '—' }}</td>
+<td class="small ecs-pq-query" title="{{ (h.result or h.error_message or '')|e }}">{{ (h.result or h.error_message or '—')[:80] }}{% if (h.result or h.error_message or '')|length > 80 %}…{% endif %}</td>
 </tr>
 {% endfor %}
 {% else %}

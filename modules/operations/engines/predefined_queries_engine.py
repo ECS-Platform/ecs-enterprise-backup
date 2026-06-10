@@ -6,8 +6,16 @@ import re
 from pathlib import Path
 from typing import Any
 
-from modules.operations.engines.predefined_query_audit import get_execution_history_for_control
-from modules.operations.engines.predefined_query_evidence import get_latest_evidence_for_control
+from modules.operations.engines.predefined_query_audit import (
+    get_execution_audit_log,
+    get_execution_history_for_control,
+    record_execution_audit,
+)
+from modules.operations.engines.predefined_query_evidence import (
+    get_latest_evidence_for_control,
+    prepare_evidence_record,
+    register_with_evidence_repository,
+)
 from modules.shared.utils.pagination import paginate
 
 EXCEL_FILENAME = "ECS_Query_Driven_Control_Library_Consolidated.xlsx"
@@ -38,6 +46,12 @@ TECHNOLOGY_RULES: list[tuple[str, list[str]]] = [
     ("Windows", ["get-hotfix", "get-mpcomputerstatus", "get-aduser", "powershell"]),
     ("Linux", ["df -h", "free -m", "timedatectl", "cat /etc/ssh/sshd_config", "/etc/ssh", "systemctl status"]),
 ]
+
+ALLOWED_POSTGRESQL_QUERIES: frozenset[str] = frozenset({
+    "show ssl;",
+    "show password_encryption;",
+    "select * from pg_stat_replication;",
+})
 
 _controls: list[dict[str, Any]] = []
 _validation_report: dict[str, Any] = {}
@@ -320,12 +334,38 @@ def get_all_controls() -> list[dict[str, Any]]:
     return list(_controls)
 
 
+def _normalize_query_allowlist(query: str) -> str:
+    q = re.sub(r"\s+", " ", query.strip().lower())
+    if q and not q.endswith(";"):
+        q += ";"
+    return q
+
+
+def is_postgresql_execution_enabled(control: dict[str, Any]) -> bool:
+    if not control.get("predefined"):
+        return False
+    if control.get("technology") != "PostgreSQL":
+        return False
+    normalized = _normalize_query_allowlist(control.get("query") or "")
+    return normalized in ALLOWED_POSTGRESQL_QUERIES
+
+
+def _refresh_control_last_execution(control_id: str) -> None:
+    last = _last_execution(control_id)
+    for ctrl in _controls:
+        if ctrl["control_id"] == control_id:
+            ctrl["last_execution"] = last
+            break
+
+
 def get_control_by_id(control_id: str) -> dict[str, Any] | None:
     for ctrl in get_all_controls():
         if ctrl["control_id"] == control_id:
             enriched = dict(ctrl)
-            enriched["execution_history"] = get_execution_history_for_control(control_id)
+            history = get_execution_history_for_control(control_id)
+            enriched["execution_history"] = history
             enriched["latest_result"] = get_latest_evidence_for_control(control_id)
+            enriched["latest_execution"] = history[0] if history else None
             return enriched
     return None
 
@@ -417,7 +457,8 @@ def get_predefined_queries_dashboard(
         "all_predefined_count": len(predefined_rows),
         "manual_count": len(manual_rows),
         "unsupported_count": len(unsupported),
-        "execution_enabled": False,
+        "execution_enabled": True,
+        "execution_history_rows": get_execution_audit_log(limit=100),
     }
 
 
@@ -458,12 +499,131 @@ def prepare_execution(control_id: str, user: str) -> dict[str, Any]:
             "error_type": "unsupported_technology",
         }
 
+    execution_enabled = technology == "PostgreSQL" and is_postgresql_execution_enabled(control)
     return {
         "ok": True,
-        "execution_enabled": False,
-        "message": "Execution interfaces ready — runtime execution not yet enabled",
+        "execution_enabled": execution_enabled,
+        "message": "PostgreSQL execution enabled" if execution_enabled else "Execution not enabled for this technology",
         "control_id": control_id,
         "technology": technology,
         "connector": type(connector).__name__,
         "user": user,
+    }
+
+
+def run_postgresql_query(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a predefined PostgreSQL query from the Excel catalog."""
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+
+    query = (control.get("query") or "").strip()
+    if not query:
+        return {"ok": False, "error": "Missing query for this control", "error_type": "missing_query"}
+
+    if control.get("technology") != "PostgreSQL":
+        return {
+            "ok": False,
+            "error": "Live execution is only enabled for PostgreSQL controls",
+            "error_type": "unsupported_technology",
+        }
+
+    if _normalize_query_allowlist(query) not in ALLOWED_POSTGRESQL_QUERIES:
+        return {
+            "ok": False,
+            "error": "This PostgreSQL query is not enabled for live demo execution",
+            "error_type": "unsupported_query",
+        }
+
+    from modules.operations.engines.postgresql_connector import PostgreSQLConnector, get_postgresql_config
+
+    connector = PostgreSQLConnector(**get_postgresql_config())
+    framework_coverage = control.get("framework_coverage") or ""
+
+    if not connector.connect():
+        record_execution_audit(
+            control_id,
+            user,
+            "PostgreSQL",
+            "Failed",
+            error_message=connector._last_error or "Connection failed",
+            framework_coverage=framework_coverage,
+            query=query,
+        )
+        _refresh_control_last_execution(control_id)
+        return {
+            "ok": False,
+            "error": connector._last_error or "Could not connect to PostgreSQL",
+            "error_type": "connection_failure",
+        }
+
+    try:
+        result = connector.execute(query)
+    finally:
+        connector.disconnect()
+
+    rows_returned = int(result.metadata.get("rows_returned", 0)) if result.metadata else 0
+
+    if not result.success:
+        record_execution_audit(
+            control_id,
+            user,
+            "PostgreSQL",
+            "Failed",
+            duration_ms=result.duration_ms,
+            error_message=result.error_message,
+            framework_coverage=framework_coverage,
+            query=query,
+            result=result.output,
+            rows_returned=rows_returned,
+        )
+        _refresh_control_last_execution(control_id)
+        return {
+            "ok": False,
+            "error": result.error_message,
+            "error_type": result.metadata.get("error_type", "query_failure") if result.metadata else "query_failure",
+        }
+
+    record_execution_audit(
+        control_id,
+        user,
+        "PostgreSQL",
+        "Success",
+        duration_ms=result.duration_ms,
+        framework_coverage=framework_coverage,
+        query=query,
+        result=result.output,
+        rows_returned=rows_returned,
+    )
+
+    evidence = prepare_evidence_record(
+        control_id=control_id,
+        result=result.output,
+        user=user,
+        framework_coverage=framework_coverage,
+    )
+    primary_fw = control.get("frameworks", [""])[0] if control.get("frameworks") else ""
+    register_with_evidence_repository(evidence, framework=primary_fw)
+    _refresh_control_last_execution(control_id)
+
+    from modules.shared.services.audit_trail import log_event
+
+    log_event(
+        "Predefined Query Executed",
+        user,
+        primary_fw,
+        control_id,
+        f"PostgreSQL — {rows_returned} rows — {result.duration_ms}ms",
+    )
+
+    return {
+        "ok": True,
+        "message": f"Query executed successfully — {rows_returned} row(s) returned in {result.duration_ms}ms",
+        "control_id": control_id,
+        "query": query,
+        "status": "Success",
+        "rows_returned": rows_returned,
+        "output": result.output,
+        "duration_ms": result.duration_ms,
+        "evidence_id": evidence.evidence_id,
     }

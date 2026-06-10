@@ -32,6 +32,8 @@ class ExecutionAuditRecord:
     error_message: str = ""
     framework_coverage: str = ""
     query: str = ""
+    result: str = ""
+    rows_returned: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -45,6 +47,8 @@ class ExecutionAuditRecord:
             "error_message": self.error_message,
             "framework_coverage": self.framework_coverage,
             "query": self.query,
+            "result": self.result,
+            "rows_returned": self.rows_returned,
         }
 
 
@@ -58,6 +62,8 @@ def record_execution_audit(
     error_message: str = "",
     framework_coverage: str = "",
     query: str = "",
+    result: str = "",
+    rows_returned: int = 0,
 ) -> ExecutionAuditRecord:
     """Persist an execution audit entry (in-memory until execution is enabled)."""
     record = ExecutionAuditRecord(
@@ -71,6 +77,8 @@ def record_execution_audit(
         error_message=error_message,
         framework_coverage=framework_coverage,
         query=query,
+        result=result,
+        rows_returned=rows_returned,
     )
     _execution_audit_log.insert(0, record.to_dict())
     return record

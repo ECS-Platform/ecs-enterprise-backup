@@ -8,6 +8,7 @@ from typing import Any
 
 # Prepared connector targets for future Docker demo environment integration.
 CONNECTOR_CONFIG: dict[str, dict[str, str | int]] = {
+    "postgres-demo": {"type": "PostgreSQLConnector", "technology": "PostgreSQL", "host": "postgres-demo", "port": 5432},
     "postgres-db": {"type": "DatabaseConnector", "technology": "PostgreSQL", "host": "postgres-db", "port": 5432},
     "oracle-db": {"type": "DatabaseConnector", "technology": "Oracle", "host": "oracle-db", "port": 1521},
     "ubuntu-host": {"type": "SSHConnector", "technology": "Linux", "host": "ubuntu-host", "port": 22},
@@ -108,7 +109,11 @@ def connector_for_technology(technology: str) -> BaseConnector | None:
     """Map derived technology to the appropriate connector interface."""
     if not technology or technology == "Unknown":
         return None
-    if technology in ("PostgreSQL", "Oracle"):
+    if technology == "PostgreSQL":
+        from modules.operations.engines.postgresql_connector import PostgreSQLConnector, get_postgresql_config
+
+        return PostgreSQLConnector(**get_postgresql_config())
+    if technology == "Oracle":
         return DatabaseConnector(technology=technology)
     if technology in ("Linux", "Windows", "NGINX", "GitLeaks", "Trivy"):
         return SSHConnector(technology=technology)
