@@ -1,0 +1,51 @@
+<!DOCTYPE html><html><head><title>Application Onboarding</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">Application Onboarding</h1>
+<p class="small text-muted mb-2">Register a business application into the ECS evidence platform. Onboarding defines ownership, criticality, and the compliance frameworks in scope — the foundation for evidence collection and audit readiness.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not inv.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ inv.error }} — start the <code>postgres</code> service.</div>{% endif %}
+
+<div class="row">
+<div class="col-md-7">
+<div class="card"><div class="card-body">
+<form method="post" action="/mvp/platform/onboarding">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<div class="row g-2">
+<div class="col-md-6"><label class="form-label small mb-0">Application name *</label><input class="form-control form-control-sm" name="name" required placeholder="Mobile Banking"></div>
+<div class="col-md-6"><label class="form-label small mb-0">Business unit</label><input class="form-control form-control-sm" name="business_unit" placeholder="Retail Banking"></div>
+<div class="col-md-6"><label class="form-label small mb-0">Owner</label><input class="form-control form-control-sm" name="owner" placeholder="Jane Doe"></div>
+<div class="col-md-6"><label class="form-label small mb-0">Owner email</label><input class="form-control form-control-sm" name="owner_email" placeholder="jane@bank.com"></div>
+<div class="col-md-4"><label class="form-label small mb-0">Criticality</label>
+<select class="form-select form-select-sm" name="criticality"><option>Critical</option><option selected>High</option><option>Medium</option><option>Low</option></select></div>
+<div class="col-md-4"><label class="form-label small mb-0">Environment</label>
+<select class="form-select form-select-sm" name="environment"><option selected>Production</option><option>Staging</option><option>Development</option></select></div>
+<div class="col-md-4"><label class="form-label small mb-0">Lifecycle</label>
+<select class="form-select form-select-sm" name="lifecycle_status"><option>Onboarding</option><option selected>Active</option><option>Decommissioned</option></select></div>
+<div class="col-md-6"><label class="form-label small mb-0">Tech stack</label><input class="form-control form-control-sm" name="tech_stack" placeholder="Java, React, PostgreSQL"></div>
+<div class="col-md-6"><label class="form-label small mb-0">Hosting</label><input class="form-control form-control-sm" name="hosting" placeholder="AWS ap-south-1"></div>
+<div class="col-md-12"><label class="form-label small mb-0">Frameworks in scope <span class="text-muted">(comma-separated)</span></label>
+<input class="form-control form-control-sm" name="frameworks" placeholder="SOC2, ISO27001, PCI-DSS, RBI-CSF" value="SOC2, ISO27001"></div>
+<div class="col-md-12"><label class="form-label small mb-0">Description</label><textarea class="form-control form-control-sm" name="description" rows="2"></textarea></div>
+</div>
+<div class="mt-2"><button class="btn btn-primary btn-sm" type="submit">Onboard Application</button></div>
+</form>
+</div></div>
+</div>
+<div class="col-md-5">
+<div class="card"><div class="card-body">
+<div class="text-muted small">Currently onboarded</div>
+<div class="h4 mb-2">{{ inv.total or 0 }} applications</div>
+<ul class="list-group list-group-flush small">
+{% for a in inv.applications[:10] %}
+<li class="list-group-item d-flex justify-content-between px-0 py-1"><span>{{ a.name }}</span><span class="badge bg-light text-dark">{{ a.criticality }}</span></li>
+{% else %}<li class="list-group-item px-0 small text-muted">None yet — onboard your first application.</li>{% endfor %}
+</ul>
+<a class="small" href="/mvp/platform/inventory?role={{ role }}&user={{ user }}">Open full inventory →</a>
+</div></div>
+</div>
+</div>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html><html><head><title>Evidence Explorer</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-ee-title { max-width:420px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ecs-ee-chain { border:1px solid #e5e7eb; border-radius:8px; padding:10px; background:#fff; margin-bottom:8px; }
+.ecs-ee-stage { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.7rem; margin:2px; }
+.ecs-ee-commit { background:#dbeafe; color:#1e40af; } .ecs-ee-build { background:#fef3c7; color:#92400e; } .ecs-ee-sonar { background:#dcfce7; color:#166534; }
+.ecs-ee-arrow { color:#9ca3af; margin:0 4px; }
+.ecs-ee-mono { font-family:ui-monospace,monospace; font-size:0.72rem; }
+</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Evidence Explorer</h1>
+<p class="small text-muted mb-2">Collected evidence stored in the PostgreSQL repository, with CI/CD relationships (Commit → Build → Sonar Scan).</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not data.ok %}
+<div class="alert alert-warning py-2 px-3 small mb-2"><strong>Repository unavailable.</strong> {{ data.error or 'Start the postgres service and sync a connector.' }}</div>
+{% endif %}
+
+<div class="mb-2">
+<span class="small text-muted me-1">Quick filter by source:</span>
+<a href="?role={{ role }}&user={{ user }}" class="btn btn-sm py-0 {% if not selected.source_system %}btn-secondary{% else %}btn-outline-secondary{% endif %}">All</a>
+{% for src in ["gitea","github","jira","confluence","figma","sonarqube","jenkins"] %}
+<a href="?role={{ role }}&user={{ user }}&source_system={{ src }}" class="btn btn-sm py-0 {% if selected.source_system == src %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ src }}</a>
+{% endfor %}
+</div>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<div class="col-md-3"><label class="form-label small mb-0">Source System</label>
+<select name="source_system" class="form-select form-select-sm"><option value="">All</option>
+{% for s in data.filters.sources %}<option value="{{ s }}"{% if selected.source_system == s %} selected{% endif %}>{{ s }}</option>{% endfor %}
+</select></div>
+<div class="col-md-3"><label class="form-label small mb-0">Object Type</label>
+<select name="object_type" class="form-select form-select-sm"><option value="">All</option>
+{% for t in data.filters.object_types %}<option value="{{ t }}"{% if selected.object_type == t %} selected{% endif %}>{{ t }}</option>{% endfor %}
+</select></div>
+<div class="col-md-3"><label class="form-label small mb-0">Application</label>
+<select name="application" class="form-select form-select-sm"><option value="">All</option>
+{% for a in data.filters.applications %}<option value="{{ a }}"{% if selected.application == a %} selected{% endif %}>{{ a }}</option>{% endfor %}
+</select></div>
+<div class="col-md-2"><button class="btn btn-primary btn-sm w-100" type="submit">Filter</button></div>
+</form>
+
+{% if data.correlations %}
+<h2 class="h6">Evidence Relationships</h2>
+{% for g in data.correlations %}
+<div class="ecs-ee-chain">
+<div class="small text-muted mb-1">{{ g.summary }}</div>
+{% for m in g.members %}
+<span class="ecs-ee-stage {% if m.type in ['commit','pull_request'] %}ecs-ee-commit{% elif m.type in ['ci_build','ci_job','test_result'] %}ecs-ee-build{% else %}ecs-ee-sonar{% endif %}">{{ m.source }}:{{ m.type }}</span>{% if not loop.last %}<span class="ecs-ee-arrow">→</span>{% endif %}
+{% endfor %}
+</div>
+{% endfor %}
+{% endif %}
+
+<h2 class="h6 mt-3">Evidence ({{ data.rows|length }})</h2>
+<table class="table table-sm table-hover bg-white">
+<thead><tr><th>Source</th><th>Type</th><th>Title</th><th>Application</th><th>Collected</th><th></th></tr></thead>
+<tbody>
+{% for r in data.rows %}
+<tr>
+<td><span class="badge bg-secondary">{{ r.source_system }}</span></td>
+<td class="small">{{ r.object_type }}</td>
+<td class="ecs-ee-title" title="{{ r.title }}">{{ r.title }}</td>
+<td class="small">{{ r.application }}</td>
+<td class="ecs-ee-mono">{{ r.collected_timestamp }}</td>
+<td>{% if r.url %}<a href="{{ r.url }}" target="_blank" class="small">open</a>{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="text-muted small">No evidence yet. Go to <a href="/mvp/integration-health?role={{ role }}&user={{ user }}">Integration Health</a> and click <em>Sync Now</em>.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html><html><head><title>Evidence Reuse</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fff}.ecs-kpi .n{font-size:1.4rem;font-weight:700}
+.bar{height:8px;border-radius:4px;background:#e5e7eb;overflow:hidden}.bar>span{display:block;height:100%;background:#2563eb}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">Evidence Reuse</h1>
+<p class="small text-muted mb-2">One evidence artifact often satisfies multiple controls and frameworks. Reuse measures the collection effort saved by mapping a single piece of evidence to many obligations — the core efficiency argument for ECS.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Reuse Rate</div><div class="n text-primary">{{ data.reuse_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Collection Ops Saved</div><div class="n text-success">{{ data.reuse_savings or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Control Mappings</div><div class="n">{{ data.control_links or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Correlation Chains</div><div class="n">{{ data.correlation_chains or 0 }}</div></div></div>
+</div>
+<p class="small text-muted">Reuse ratio {{ data.reuse_ratio or 0 }}× — each mapped evidence item satisfies on average {{ data.reuse_ratio or 0 }} controls. {{ data.multi_control_evidence or 0 }} items satisfy more than one control; {{ data.shared_artifacts or 0 }} artifacts are shared across applications.</p>
+
+<div class="row">
+<div class="col-md-6">
+<h2 class="h6 mt-2">Reuse by Control <span class="small text-muted">(evidence supporting each control)</span></h2>
+<table class="table table-sm bg-white">{% set mx = (data.by_control[0].c if data.by_control else 1) or 1 %}
+<thead><tr><th>Control</th><th style="width:45%">Evidence</th><th class="text-end">Count</th></tr></thead><tbody>
+{% for r in data.by_control %}
+<tr><td class="small">{{ r.control_id }}</td><td><div class="bar"><span style="width:{{ (100*r.c/mx)|round }}%"></span></div></td><td class="text-end small">{{ r.c }}</td></tr>
+{% else %}<tr><td colspan="3" class="text-muted small">No control mappings yet.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+<div class="col-md-6">
+<h2 class="h6 mt-2">Reuse by Framework</h2>
+<table class="table table-sm bg-white"><thead><tr><th>Framework</th><th class="text-end">Evidence</th></tr></thead><tbody>
+{% for r in data.by_framework %}
+<tr><td class="small">{{ r.framework_code }}</td><td class="text-end small">{{ r.c }}</td></tr>
+{% else %}<tr><td colspan="2" class="text-muted small">No framework mappings yet.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+</div>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

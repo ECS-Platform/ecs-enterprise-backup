@@ -1,0 +1,112 @@
+"""ECS Platform routes: evidence ingestion UI, integration health, evidence explorer.
+
+Wires the ecs_platform package (connectors + repository + relationships + audit)
+into the running FastAPI app. All heavy imports are lazy so the rest of the app
+is unaffected if platform dependencies (psycopg2/DB) are unavailable.
+"""
+
+from __future__ import annotations
+
+from urllib.parse import quote
+
+from fastapi import Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+
+from app import ecs_state
+
+
+def register_platform_routes(app, templates):
+    def _valid_connectors() -> list[str]:
+        """All configured connectors (gitea, jira, github, figma, ...)."""
+        try:
+            from ecs_platform.ingestion import available_connectors
+
+            return available_connectors()
+        except Exception:  # noqa: BLE001
+            return ["gitea", "sonarqube", "jenkins"]
+
+    def _frameworks():
+        try:
+            return list(ecs_state.frameworks.keys())
+        except Exception:  # noqa: BLE001
+            return []
+
+    @app.get("/mvp/integration-health", response_class=HTMLResponse)
+    def integration_health(request: Request, role: str = "admin", user: str = "Admin", notice: str = ""):
+        from ecs_platform.ingestion import health_overview
+
+        overview = health_overview()
+        ctx = {
+            "request": request, "role": role, "user": user, "notice": notice,
+            "frameworks": _frameworks(), "nav_module": "integration_health",
+            "overview": overview, "connectors": _valid_connectors(),
+        }
+        return templates.TemplateResponse(request=request, name="platform_integration_health.html", context=ctx)
+
+    @app.get("/mvp/evidence-explorer", response_class=HTMLResponse)
+    def evidence_explorer(request: Request, role: str = "admin", user: str = "Admin",
+                          application: str = "", source_system: str = "", object_type: str = "",
+                          notice: str = ""):
+        from ecs_platform.ingestion import list_evidence
+
+        data = list_evidence(application=application, source_system=source_system, object_type=object_type)
+        ctx = {
+            "request": request, "role": role, "user": user, "notice": notice,
+            "frameworks": _frameworks(), "nav_module": "evidence_explorer",
+            "data": data,
+            "selected": {"application": application, "source_system": source_system, "object_type": object_type},
+        }
+        return templates.TemplateResponse(request=request, name="platform_evidence_explorer.html", context=ctx)
+
+    @app.post("/mvp/platform/sync/{connector}")
+    def platform_sync(connector: str, role: str = Form("admin"), user: str = Form("Admin"),
+                      redirect: str = Form("/mvp/integration-health")):
+        from ecs_platform.ingestion import sync_connector
+
+        if connector not in _valid_connectors():
+            notice = f"Unknown connector: {connector}"
+        else:
+            res = sync_connector(connector, actor=user, role=role)
+            if res.get("ok"):
+                notice = (f"{connector}: collected {res['collected']}, persisted {res['persisted']}, "
+                          f"relationships {res['relationships']}, indexed {res['indexed']}")
+                if res.get("warnings"):
+                    notice += f" ({'; '.join(res['warnings'])})"
+            else:
+                notice = f"{connector} sync failed: {res.get('error', 'unknown error')}"
+        sep = "&" if "?" in redirect else "?"
+        return RedirectResponse(url=f"{redirect}{sep}role={role}&user={quote(user)}&notice={quote(notice)}",
+                                status_code=303)
+
+    @app.post("/mvp/platform/sync-all")
+    def platform_sync_all(role: str = Form("admin"), user: str = Form("Admin")):
+        from ecs_platform.ingestion import sync_all
+
+        results = sync_all(actor=user, role=role)
+        ok = sum(1 for r in results if r.get("ok"))
+        total = sum(r.get("persisted", 0) for r in results)
+        notice = f"Synced {ok}/{len(results)} connectors; {total} evidence items persisted."
+        return RedirectResponse(url=f"/mvp/integration-health?role={role}&user={quote(user)}&notice={quote(notice)}",
+                                status_code=303)
+
+    # ---- JSON APIs ----
+    @app.get("/api/platform/health")
+    def api_platform_health():
+        from ecs_platform.ingestion import health_overview
+
+        return JSONResponse(health_overview())
+
+    @app.post("/api/platform/sync/{connector}")
+    def api_platform_sync(connector: str, user: str = "system", role: str = "admin"):
+        from ecs_platform.ingestion import sync_connector
+
+        if connector not in _valid_connectors():
+            return JSONResponse({"ok": False, "error": f"unknown connector: {connector}"}, status_code=400)
+        return JSONResponse(sync_connector(connector, actor=user, role=role))
+
+    @app.get("/api/platform/evidence")
+    def api_platform_evidence(application: str = "", source_system: str = "", object_type: str = ""):
+        from ecs_platform.ingestion import list_evidence
+
+        return JSONResponse(list_evidence(application=application, source_system=source_system,
+                                          object_type=object_type))

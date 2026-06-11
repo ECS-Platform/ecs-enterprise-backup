@@ -214,9 +214,9 @@ def register_mvp_routes(app, templates):
         user: str = Form("User"),
         return_to: str = Form("detail"),
     ):
-        from modules.operations.engines.predefined_queries_engine import run_postgresql_query
+        from modules.operations.engines.predefined_queries_engine import run_predefined_query
 
-        outcome = run_postgresql_query(control_id, user)
+        outcome = run_predefined_query(control_id, user)
         notice = outcome.get("message") if outcome.get("ok") else outcome.get("error", "Query execution failed")
         dest = (
             f"/mvp/predefined-queries?role={role}&user={user}&notice={quote(notice)}"

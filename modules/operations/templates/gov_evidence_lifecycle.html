@@ -1,0 +1,53 @@
+<!DOCTYPE html><html><head><title>Evidence Lifecycle</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff}.ecs-kpi .n{font-size:1.3rem;font-weight:700}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">Evidence Lifecycle</h1>
+<p class="small text-muted mb-2">Every evidence artifact moves through a review lifecycle: <em>Collected → Under Review → Approved / Rejected</em>, and eventually <em>Expired</em> when it goes stale. Only Approved evidence counts toward audit readiness.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
+
+<div class="row g-2 mb-3">
+{% for st in data.states %}
+<div class="col"><div class="ecs-kpi"><div class="text-muted small">{{ st }}</div><div class="n">{{ data.counts[st] or 0 }}</div></div></div>
+{% endfor %}
+<div class="col"><div class="ecs-kpi"><div class="text-muted small">Approved %</div><div class="n text-success">{{ data.approval_pct or 0 }}%</div></div></div>
+</div>
+
+<div class="mb-2 small">
+<span class="me-2">Filter:</span>
+<a class="badge bg-{{ 'primary' if not status else 'light text-dark' }}" href="/mvp/platform/evidence-lifecycle?role={{ role }}&user={{ user }}">All</a>
+{% for st in data.states %}
+<a class="badge bg-{{ 'primary' if status==st else 'light text-dark' }}" href="/mvp/platform/evidence-lifecycle?role={{ role }}&user={{ user }}&status={{ st }}">{{ st }}</a>
+{% endfor %}
+</div>
+
+<table class="table table-sm bg-white align-middle">
+<thead><tr><th>Evidence</th><th>Source</th><th>Application</th><th>Status</th><th>Reviewer</th><th class="text-end">Action</th></tr></thead>
+<tbody>
+{% for r in data.rows %}
+<tr>
+<td class="small"><strong>{{ r.title }}</strong><div class="text-muted" style="font-size:.7rem">{{ r.evidence_uid[:18] }}…</div></td>
+<td class="small">{{ r.source_system }} / {{ r.object_type }}</td>
+<td class="small">{{ r.application or '—' }}</td>
+<td>{% set s=r.status %}<span class="badge bg-{{ 'success' if s=='Approved' else 'danger' if s=='Rejected' else 'warning' if s=='UnderReview' else 'secondary' if s=='Expired' else 'info' }}">{{ s }}</span></td>
+<td class="small">{{ r.reviewer or '—' }}</td>
+<td class="text-end">
+<form method="post" action="/mvp/platform/evidence-lifecycle/review" class="d-inline">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="evidence_uid" value="{{ r.evidence_uid }}">
+<input type="hidden" name="valid_days" value="90">
+<select name="status" class="form-select form-select-sm d-inline" style="width:auto">
+{% for st in data.states %}<option {{ 'selected' if st==r.status }}>{{ st }}</option>{% endfor %}
+</select>
+<button class="btn btn-outline-primary btn-sm py-0">Set</button>
+</form>
+</td>
+</tr>
+{% else %}<tr><td colspan="6" class="text-muted small text-center py-3">No evidence under this filter.</td></tr>{% endfor %}
+</tbody>
+</table>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

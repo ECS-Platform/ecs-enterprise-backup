@@ -1,0 +1,25 @@
+# ECS Vector Store configuration. Provider switch requires no code change.
+
+vectorstore:
+  provider: ${ECS_VECTOR_PROVIDER:-pgvector}   # pgvector | chroma | milvus
+  embedding_dim: ${ECS_VECTOR_DIM:-768}        # text-embedding-004 = 768
+  collection: ${ECS_VECTOR_COLLECTION:-ecs_evidence_chunks}
+
+  chunking:
+    chunk_size: ${ECS_CHUNK_SIZE:-1000}
+    chunk_overlap: ${ECS_CHUNK_OVERLAP:-150}
+
+  providers:
+    pgvector:
+      host: ${ECS_VECTOR_PG_HOST:-pgvector}
+      port: ${ECS_VECTOR_PG_PORT:-5432}
+      database: ${ECS_VECTOR_PG_DATABASE:-ecs_vectors}
+      user: ${ECS_VECTOR_PG_USER:-ecs_user}
+      password_env: ECS_VECTOR_PG_PASSWORD
+      table: ${ECS_VECTOR_PG_TABLE:-evidence_embeddings}
+    chroma:
+      host: ${CHROMA_HOST:-chroma}
+      port: ${CHROMA_PORT:-8000}
+    milvus:
+      host: ${MILVUS_HOST:-milvus}
+      port: ${MILVUS_PORT:-19530}

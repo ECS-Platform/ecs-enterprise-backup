@@ -9,6 +9,10 @@ from typing import Any
 # Prepared connector targets for future Docker demo environment integration.
 CONNECTOR_CONFIG: dict[str, dict[str, str | int]] = {
     "postgres-demo": {"type": "PostgreSQLConnector", "technology": "PostgreSQL", "host": "postgres-demo", "port": 5432},
+    "ubuntu-demo": {"type": "LinuxConnector", "technology": "Linux", "host": "ubuntu-demo", "port": 0},
+    "sonarqube-demo": {"type": "SonarQubeConnector", "technology": "SonarQube", "host": "sonarqube-demo", "port": 9000},
+    "trivy": {"type": "TrivyConnector", "technology": "Trivy", "host": "aquasec/trivy", "port": 0},
+    "gitleaks": {"type": "GitLeaksConnector", "technology": "GitLeaks", "host": "zricethezav/gitleaks", "port": 0},
     "postgres-db": {"type": "DatabaseConnector", "technology": "PostgreSQL", "host": "postgres-db", "port": 5432},
     "oracle-db": {"type": "DatabaseConnector", "technology": "Oracle", "host": "oracle-db", "port": 1521},
     "ubuntu-host": {"type": "SSHConnector", "technology": "Linux", "host": "ubuntu-host", "port": 22},
@@ -113,10 +117,24 @@ def connector_for_technology(technology: str) -> BaseConnector | None:
         from modules.operations.engines.postgresql_connector import PostgreSQLConnector, get_postgresql_config
 
         return PostgreSQLConnector(**get_postgresql_config())
+    if technology == "Linux":
+        from modules.operations.engines.linux_connector import LinuxConnector, get_linux_config
+
+        return LinuxConnector(**get_linux_config())
+    if technology == "SonarQube":
+        from modules.operations.engines.sonarqube_connector import SonarQubeConnector, get_sonarqube_config
+
+        return SonarQubeConnector(**get_sonarqube_config())
+    if technology == "Trivy":
+        from modules.operations.engines.trivy_connector import TrivyConnector, get_trivy_config
+
+        return TrivyConnector(**get_trivy_config())
+    if technology == "GitLeaks":
+        from modules.operations.engines.gitleaks_connector import GitLeaksConnector, get_gitleaks_config
+
+        return GitLeaksConnector(**get_gitleaks_config())
     if technology == "Oracle":
         return DatabaseConnector(technology=technology)
-    if technology in ("Linux", "Windows", "NGINX", "GitLeaks", "Trivy"):
+    if technology in ("Windows", "NGINX"):
         return SSHConnector(technology=technology)
-    if technology == "SonarQube":
-        return APIConnector(technology=technology)
     return None

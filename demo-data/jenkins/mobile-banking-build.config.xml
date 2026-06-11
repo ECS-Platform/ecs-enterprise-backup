@@ -1,0 +1,42 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<!-- ECS demo job: core-only freestyle (no plugins needed; Jenkins wizard disabled).
+     The shell step writes sample source, "builds" it, and emits test counts. -->
+<project>
+  <description>ECS demo pipeline - Mobile Banking build (generates sample source, builds, archives artifacts)</description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>set -e
+echo "=== [mobile-banking-build] generating sample source ==="
+mkdir -p src out
+printf 'def transfer(src, dst, amount):\n    if amount &lt;= 0:\n        raise ValueError("amount must be positive")\n    return {"from": src, "to": dst, "amount": amount, "status": "ok"}\n\nif __name__ == "__main__":\n    print(transfer("ACC1", "ACC2", 100))\n' &gt; src/app.py
+echo "--- src/app.py ---"
+cat src/app.py
+echo "=== compiling / packaging ==="
+echo "mobile-banking artifact built at $(date -u +%Y-%m-%dT%H:%M:%SZ)" &gt; out/mobile-banking.jar
+echo "=== running unit tests ==="
+echo "tests: 5 passed, 0 failed, 0 skipped"
+echo "BUILD SUCCESS"
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.ArtifactArchiver>
+      <artifacts>out/*,src/*</artifacts>
+      <allowEmptyArchive>false</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
+      <caseSensitive>true</caseSensitive>
+    </hudson.tasks.ArtifactArchiver>
+  </publishers>
+  <buildWrappers/>
+</project>

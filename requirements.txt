@@ -4,3 +4,5 @@ jinja2
 python-multipart
 openpyxl
 psycopg2-binary
+# ECS platform foundation
+pyyaml

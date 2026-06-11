@@ -100,6 +100,26 @@ async def ecs_lifespan(application: FastAPI):
     pq_report = validate_startup()
     for line in pq_report.get("log_lines", []):
         ecs_logging.info("PredefinedQueries", line)
+
+    # Best-effort evidence repository schema init (never blocks startup).
+    try:
+        from ecs_platform.ingestion import init_repository
+
+        repo_status = init_repository()
+        if repo_status.get("ok"):
+            ecs_logging.info("ECSPlatform", "Evidence repository schema ready")
+            from ecs_platform.governance import init_governance_schema
+
+            gov_status = init_governance_schema()
+            if gov_status.get("ok"):
+                ecs_logging.info("ECSPlatform", "Governance schema ready")
+            else:
+                ecs_logging.info("ECSPlatform", f"Governance schema skipped: {gov_status.get('error', '')}")
+        else:
+            ecs_logging.info("ECSPlatform", f"Evidence repository unavailable: {repo_status.get('error', '')}")
+    except Exception as exc:  # noqa: BLE001
+        ecs_logging.info("ECSPlatform", f"Evidence repository init skipped: {exc}")
+
     mark_startup_complete()
     log_platform_ready(host="127.0.0.1", port=8000)
     yield
@@ -1200,6 +1220,14 @@ def workflow_leadership_review(
 
 register_mvp_routes(app, templates)
 register_evidence_routes(app, templates)
+
+from app.routes_platform import register_platform_routes
+
+register_platform_routes(app, templates)
+
+from app.routes_governance import register_governance_routes
+
+register_governance_routes(app, templates)
 
 from app.routes_ai_sdlc_governance import register_ai_sdlc_routes
 

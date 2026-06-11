@@ -1,0 +1,53 @@
+# ECS Role-Based Access Control policy.
+# Every API and chatbot query is filtered through this policy.
+
+rbac:
+  enabled: true
+  default_role: application_owner
+
+  roles:
+    admin:
+      description: Full platform administration.
+      scope: enterprise
+      can: ["*"]
+    cio:
+      description: Enterprise-wide analytics and posture.
+      scope: enterprise
+      can: [read_evidence, read_analytics, read_connectors, read_lineage]
+    vertical_head:
+      description: Aggregated evidence across owned vertical.
+      scope: vertical
+      can: [read_evidence, read_analytics, read_lineage]
+    functional_head:
+      description: Aggregated evidence across owned function.
+      scope: function
+      can: [read_evidence, read_analytics, read_lineage]
+    compliance_officer:
+      description: Framework and control compliance oversight.
+      scope: enterprise
+      can: [read_evidence, read_analytics, read_lineage, read_framework]
+    security_officer:
+      description: Security findings, vulnerabilities, hotspots.
+      scope: enterprise
+      can: [read_evidence, read_security, read_lineage]
+    control_owner:
+      description: Evidence for owned controls.
+      scope: control
+      can: [read_evidence, read_lineage]
+    auditor:
+      description: Read-only access to permitted evidence only.
+      scope: assigned
+      can: [read_evidence, read_lineage, export_evidence]
+    application_owner:
+      description: Evidence for assigned applications only.
+      scope: application
+      can: [read_evidence, read_lineage, collect_evidence]
+
+  # Scope dimensions used to filter evidence rows/vectors per role.
+  scope_filters:
+    enterprise: {}                       # no restriction
+    vertical: {field: vertical, source: user_assignments}
+    function: {field: function, source: user_assignments}
+    application: {field: application, source: user_assignments}
+    control: {field: control, source: user_assignments}
+    assigned: {field: application, source: auditor_assignments}

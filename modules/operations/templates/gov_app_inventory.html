@@ -1,0 +1,40 @@
+<!DOCTYPE html><html><head><title>Application Inventory</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fff}.ecs-kpi .n{font-size:1.4rem;font-weight:700}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<div class="d-flex justify-content-between align-items-center mb-1">
+<h1 class="ecs-workspace-title h5 mb-0">Application Inventory</h1>
+<a class="btn btn-primary btn-sm" href="/mvp/platform/onboarding?role={{ role }}&user={{ user }}">+ Onboard Application</a>
+</div>
+<p class="small text-muted mb-2">Single source of truth for the application portfolio — ownership, criticality, frameworks in scope, and live evidence counts from the repository.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not inv.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ inv.error }}</div>{% endif %}
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Applications</div><div class="n">{{ inv.total or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Critical</div><div class="n text-danger">{{ inv.by_criticality.Critical or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">High</div><div class="n text-warning">{{ inv.by_criticality.High or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Active</div><div class="n text-success">{{ inv.by_status.Active or 0 }}</div></div></div>
+</div>
+
+<table class="table table-sm table-hover bg-white align-middle">
+<thead><tr><th>Application</th><th>Owner</th><th>Business Unit</th><th>Criticality</th><th>Environment</th><th>Frameworks</th><th class="text-end">Evidence</th><th>Status</th></tr></thead>
+<tbody>
+{% for a in inv.applications %}
+<tr>
+<td><a href="/mvp/platform/application/{{ a.slug }}?role={{ role }}&user={{ user }}"><strong>{{ a.name }}</strong></a><div class="small text-muted">{{ a.slug }}</div></td>
+<td class="small">{{ a.owner or '—' }}</td>
+<td class="small">{{ a.business_unit or '—' }}</td>
+<td>{% set c=a.criticality %}<span class="badge bg-{{ 'danger' if c=='Critical' else 'warning' if c=='High' else 'info' if c=='Medium' else 'secondary' }}">{{ c }}</span></td>
+<td class="small">{{ a.environment }}</td>
+<td class="small">{{ a.frameworks or '—' }}</td>
+<td class="text-end"><span class="badge bg-{{ 'success' if a.evidence_count else 'secondary' }}">{{ a.evidence_count }}</span></td>
+<td class="small">{{ a.lifecycle_status }}</td>
+</tr>
+{% else %}<tr><td colspan="8" class="text-muted small text-center py-3">No applications onboarded yet.</td></tr>{% endfor %}
+</tbody>
+</table>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

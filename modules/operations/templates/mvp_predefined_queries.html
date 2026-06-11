@@ -81,7 +81,7 @@
 <td class="small">{{ r.last_execution }}</td>
 <td class="text-nowrap">
 <a href="/mvp/predefined-queries/detail?control_id={{ r.control_id|urlencode }}&role={{ role }}&user={{ user|urlencode }}" class="btn btn-outline-primary btn-sm">View</a>
-{% if r.technology == 'PostgreSQL' and r.predefined %}
+{% if r.live_execution_enabled %}
 <form method="post" action="/mvp/predefined-queries/run" class="d-inline">
 <input type="hidden" name="control_id" value="{{ r.control_id }}">
 <input type="hidden" name="role" value="{{ role }}">
@@ -90,7 +90,7 @@
 <button type="submit" class="btn btn-outline-success btn-sm">Run Query</button>
 </form>
 {% elif r.predefined %}
-<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Execution enabled for PostgreSQL only">Run Query</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Live execution not enabled for this control">Run Query</button>
 {% endif %}
 </td>
 </tr>

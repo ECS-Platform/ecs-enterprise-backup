@@ -53,6 +53,23 @@ ALLOWED_POSTGRESQL_QUERIES: frozenset[str] = frozenset({
     "select * from pg_stat_replication;",
 })
 
+LIVE_CONTROL_IDS: frozenset[str] = frozenset({
+    "DB-001",
+    "DB-002",
+    "DB-003",
+    "OS-001",
+    "OS-002",
+    "APP-001",
+    "APP-002",
+    "APPSEC-001",
+    "APPSEC-002",
+})
+
+SONAR_CONTROL_MODES: dict[str, str] = {
+    "APP-001": "projects",
+    "APP-002": "issues",
+}
+
 _controls: list[dict[str, Any]] = []
 _validation_report: dict[str, Any] = {}
 _loaded = False
@@ -341,6 +358,10 @@ def _normalize_query_allowlist(query: str) -> str:
     return q
 
 
+def is_live_execution_enabled(control: dict[str, Any]) -> bool:
+    return bool(control.get("predefined")) and control.get("control_id") in LIVE_CONTROL_IDS
+
+
 def is_postgresql_execution_enabled(control: dict[str, Any]) -> bool:
     if not control.get("predefined"):
         return False
@@ -432,6 +453,8 @@ def get_predefined_queries_dashboard(
         sort_dir=sort_dir,
     )
     page_data = paginate(filtered, page=page, per_page=per_page)
+    for item in page_data["items"]:
+        item["live_execution_enabled"] = is_live_execution_enabled(item)
 
     predefined_rows = [r for r in get_all_controls() if r.get("predefined")]
     manual_rows = [r for r in get_all_controls() if not r.get("predefined")]
@@ -499,11 +522,11 @@ def prepare_execution(control_id: str, user: str) -> dict[str, Any]:
             "error_type": "unsupported_technology",
         }
 
-    execution_enabled = technology == "PostgreSQL" and is_postgresql_execution_enabled(control)
+    execution_enabled = is_live_execution_enabled(control)
     return {
         "ok": True,
         "execution_enabled": execution_enabled,
-        "message": "PostgreSQL execution enabled" if execution_enabled else "Execution not enabled for this technology",
+        "message": "Live demo execution enabled" if execution_enabled else "Execution not enabled for this control",
         "control_id": control_id,
         "technology": technology,
         "connector": type(connector).__name__,
@@ -626,4 +649,80 @@ def run_postgresql_query(control_id: str, user: str) -> dict[str, Any]:
         "output": result.output,
         "duration_ms": result.duration_ms,
         "evidence_id": evidence.evidence_id,
+    }
+
+
+def _run_connector_query(control: dict[str, Any], user: str, technology: str, query: str, connector) -> dict[str, Any]:
+    from modules.operations.engines.connector_common import complete_connector_execution
+    from modules.operations.engines.query_connectors import ConnectorResult
+
+    if not connector.connect():
+        err = getattr(connector, "_last_error", "") or "Connection failed"
+        return complete_connector_execution(
+            control,
+            user,
+            technology,
+            query,
+            ConnectorResult(success=False, error_message=err),
+            connect_error=err,
+        )
+    try:
+        result = connector.execute(query)
+    finally:
+        connector.disconnect()
+    return complete_connector_execution(control, user, technology, query, result)
+
+
+def run_predefined_query(control_id: str, user: str) -> dict[str, Any]:
+    """Dispatch live execution by control ID and technology."""
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+    if not is_live_execution_enabled(control):
+        return {
+            "ok": False,
+            "error": "Live execution is not enabled for this control",
+            "error_type": "unsupported_control",
+        }
+
+    technology = control.get("technology") or ""
+    if technology == "PostgreSQL":
+        return run_postgresql_query(control_id, user)
+
+    query = (control.get("query") or "").strip()
+
+    if technology == "Linux":
+        from modules.operations.engines.linux_connector import (
+            LINUX_CONTROL_COMMANDS,
+            LinuxConnector,
+            get_linux_config,
+        )
+
+        command = LINUX_CONTROL_COMMANDS.get(control_id, query)
+        connector = LinuxConnector(**get_linux_config())
+        return _run_connector_query(control, user, technology, command, connector)
+
+    if technology == "SonarQube":
+        from modules.operations.engines.sonarqube_connector import SonarQubeConnector, get_sonarqube_config
+
+        mode = SONAR_CONTROL_MODES.get(control_id, query)
+        connector = SonarQubeConnector(**get_sonarqube_config())
+        return _run_connector_query(control, user, technology, mode, connector)
+
+    if technology == "Trivy":
+        from modules.operations.engines.trivy_connector import TrivyConnector, get_trivy_config
+
+        connector = TrivyConnector(**get_trivy_config())
+        return _run_connector_query(control, user, technology, query or "trivy image", connector)
+
+    if technology == "GitLeaks":
+        from modules.operations.engines.gitleaks_connector import GitLeaksConnector, get_gitleaks_config
+
+        connector = GitLeaksConnector(**get_gitleaks_config())
+        return _run_connector_query(control, user, technology, query or "gitleaks detect", connector)
+
+    return {
+        "ok": False,
+        "error": f"Live execution is not enabled for technology: {technology}",
+        "error_type": "unsupported_technology",
     }

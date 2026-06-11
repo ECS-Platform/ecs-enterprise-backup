@@ -35,7 +35,7 @@
 <div class="card border-0 shadow-sm">
 <div class="card-body py-3">
 <h6 class="small text-muted text-uppercase mb-2">Execution</h6>
-{% if control.technology == 'PostgreSQL' and control.predefined and execution_prep.execution_enabled %}
+{% if control.predefined and execution_prep.execution_enabled %}
 <form method="post" action="/mvp/predefined-queries/run" class="mb-2">
 <input type="hidden" name="control_id" value="{{ control.control_id }}">
 <input type="hidden" name="role" value="{{ role }}">
@@ -43,10 +43,10 @@
 <input type="hidden" name="return_to" value="detail">
 <button type="submit" class="btn btn-primary btn-sm w-100">Run Query</button>
 </form>
-<p class="small text-muted mb-0">Live PostgreSQL execution against postgres-demo (ecs_demo).</p>
+<p class="small text-muted mb-0">Live demo execution via {{ control.technology }} connector.</p>
 {% else %}
-<button type="button" class="btn btn-primary btn-sm w-100 mb-2" disabled title="{% if control.technology != 'PostgreSQL' %}Execution not enabled for this technology{% else %}Execution not available{% endif %}">Run Query</button>
-<p class="small text-muted mb-0">{% if control.technology == 'PostgreSQL' %}PostgreSQL demo execution unavailable for this control.{% else %}Live execution is enabled for PostgreSQL demo queries only.{% endif %}</p>
+<button type="button" class="btn btn-primary btn-sm w-100 mb-2" disabled title="Live execution not enabled for this control">Run Query</button>
+<p class="small text-muted mb-0">Live execution is enabled only for selected demo controls.</p>
 {% endif %}
 {% if execution_prep and not execution_prep.ok %}
 <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">{{ execution_prep.error }}</div>

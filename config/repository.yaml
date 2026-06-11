@@ -1,0 +1,28 @@
+# ECS Evidence Repository (PostgreSQL) configuration
+
+repository:
+  backend: ${ECS_REPO_BACKEND:-postgres}   # postgres (system of record)
+  postgres:
+    host: ${ECS_REPO_PG_HOST:-postgres}
+    port: ${ECS_REPO_PG_PORT:-5432}
+    database: ${ECS_REPO_PG_DATABASE:-ecs_repository}
+    user: ${ECS_REPO_PG_USER:-ecs_user}
+    password_env: ECS_REPO_PG_PASSWORD
+    schema: ${ECS_REPO_PG_SCHEMA:-public}
+    min_pool: ${ECS_REPO_PG_MIN_POOL:-1}
+    max_pool: ${ECS_REPO_PG_MAX_POOL:-10}
+    statement_timeout_sec: ${ECS_REPO_PG_TIMEOUT:-30}
+
+  # Object storage for raw evidence artifacts (files, scan reports, attachments)
+  object_store:
+    enabled: ${ECS_OBJECT_STORE_ENABLED:-true}
+    provider: minio        # minio | s3
+    endpoint: ${MINIO_ENDPOINT:-minio:9000}
+    bucket: ${MINIO_BUCKET:-ecs-evidence}
+    access_key_env: MINIO_ACCESS_KEY
+    secret_key_env: MINIO_SECRET_KEY
+    secure: ${MINIO_SECURE:-false}
+
+  audit:
+    enabled: true
+    log_evidence_access: true

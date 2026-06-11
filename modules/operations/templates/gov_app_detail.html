@@ -1,0 +1,29 @@
+<!DOCTYPE html><html><head><title>Application Detail</title>{% include "partials/mvp_styles.html" %}</head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+{% set app = detail.application %}
+<div class="d-flex justify-content-between align-items-center mb-1">
+<h1 class="ecs-workspace-title h5 mb-0">{{ app.name if app else slug }}</h1>
+<a class="btn btn-outline-secondary btn-sm" href="/mvp/platform/inventory?role={{ role }}&user={{ user }}">← Inventory</a>
+</div>
+{% if not detail.ok %}<div class="alert alert-warning py-2 px-3 small">{{ detail.error }}</div>{% endif %}
+{% if app %}
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="card"><div class="card-body py-2"><div class="text-muted small">Owner</div><div>{{ app.owner or '—' }}</div></div></div></div>
+<div class="col-md-3"><div class="card"><div class="card-body py-2"><div class="text-muted small">Criticality</div><div>{{ app.criticality }}</div></div></div></div>
+<div class="col-md-3"><div class="card"><div class="card-body py-2"><div class="text-muted small">Environment</div><div>{{ app.environment }}</div></div></div></div>
+<div class="col-md-3"><div class="card"><div class="card-body py-2"><div class="text-muted small">Evidence</div><div>{{ detail.evidence_count }}</div></div></div></div>
+</div>
+<p class="small"><strong>Frameworks in scope:</strong> {% for f in detail.frameworks %}<span class="badge bg-info me-1">{{ f }}</span>{% else %}<span class="text-muted">none</span>{% endfor %}</p>
+<p class="small text-muted">{{ app.description or '' }}</p>
+{% endif %}
+<h2 class="h6 mt-2">Collected Evidence</h2>
+<table class="table table-sm bg-white"><thead><tr><th>Source</th><th>Type</th><th>Title</th><th>Collected</th></tr></thead><tbody>
+{% for e in detail.evidence %}
+<tr><td class="small">{{ e.source_system }}</td><td class="small">{{ e.object_type }}</td><td class="small">{{ e.title }}</td><td class="small text-muted">{{ e.collected_timestamp }}</td></tr>
+{% else %}<tr><td colspan="4" class="text-muted small">No evidence collected for this application yet.</td></tr>{% endfor %}
+</tbody></table>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>
