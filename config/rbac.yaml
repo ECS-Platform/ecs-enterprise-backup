@@ -35,9 +35,9 @@ rbac:
       scope: control
       can: [read_evidence, read_lineage]
     auditor:
-      description: Read-only access to permitted evidence only.
-      scope: assigned
-      can: [read_evidence, read_lineage, export_evidence]
+      description: Read-only oversight across the enterprise (audit function).
+      scope: enterprise
+      can: [read_evidence, read_lineage, export_evidence, read_analytics, read_framework]
     application_owner:
       description: Evidence for assigned applications only.
       scope: application

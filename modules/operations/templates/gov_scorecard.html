@@ -1,0 +1,65 @@
+<!DOCTYPE html><html><head><title>{{ data.title or 'Scorecard' }}</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:12px;background:#fff}.ecs-kpi .n{font-size:1.6rem;font-weight:800}
+.ecs-kpi.hl{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb33}
+.bar{height:8px;border-radius:4px;background:#e5e7eb;overflow:hidden}.bar>span{display:block;height:100%}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<div class="d-flex justify-content-between align-items-center mb-1">
+<h1 class="ecs-workspace-title h5 mb-0">{{ data.title or 'Executive Scorecard' }}</h1>
+<div class="btn-group btn-group-sm" role="group">
+{% set roles = [('cio','CIO'),('vertical_head','Vertical Head'),('auditor','Auditor'),('owner','App Owner')] %}
+{% for rid, rlabel in roles %}
+<a class="btn btn-outline-secondary {{ 'active' if data.role==rid }}" href="/mvp/platform/scorecard?role={{ rid }}&user={{ user }}">{{ rlabel }}</a>
+{% endfor %}
+</div>
+</div>
+<p class="small text-muted mb-2">{{ data.subtitle }}</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
+
+{% set k = data.kpis %}
+{% set f = data.focus or [] %}
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi {{ 'hl' if 'applications' in f }}"><div class="text-muted small">Onboarded Applications</div><div class="n">{{ k.applications or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi {{ 'hl' if 'evidence_collected' in f }}"><div class="text-muted small">Evidence Collected</div><div class="n">{{ k.evidence_collected or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi {{ 'hl' if 'evidence_reuse' in f }}"><div class="text-muted small">Evidence Reuse</div><div class="n text-primary">{{ k.framework_reuse_ratio or 0 }}×</div><div class="small text-muted">{{ k.framework_ops_saved or 0 }} ops saved</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi {{ 'hl' if 'compliance_score' in f }}"><div class="text-muted small">Compliance Score</div><div class="n text-{{ 'success' if k.compliance_band=='Ready' else 'warning' if k.compliance_band=='At Risk' else 'danger' }}">{{ k.compliance_score or 0 }}%</div><div class="small text-muted">{{ k.compliance_band }}</div></div></div>
+</div>
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi {{ 'hl' if 'framework_coverage' in f }}"><div class="text-muted small">Framework Coverage</div><div class="n">{{ k.framework_coverage_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Control Coverage</div><div class="n">{{ k.control_coverage_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi {{ 'hl' if 'open_observations' in f }}"><div class="text-muted small">Open Observations</div><div class="n text-warning">{{ k.open_observations or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi {{ 'hl' if 'rejected_evidence' in f }}"><div class="text-muted small">Rejected Evidence</div><div class="n text-danger">{{ k.rejected_evidence or 0 }}</div></div></div>
+</div>
+
+<div class="row">
+<div class="col-md-6">
+<h2 class="h6">Framework Coverage</h2>
+<table class="table table-sm bg-white align-middle"><thead><tr><th>Framework</th><th style="width:45%">Coverage</th><th class="text-end">Covered / Expected</th></tr></thead><tbody>
+{% for fw in data.frameworks %}
+<tr><td class="small">{{ fw.framework_code }}</td><td><div class="bar"><span style="width:{{ fw.coverage_pct }}%;background:{{ '#16a34a' if fw.coverage_pct>=80 else '#f59e0b' if fw.coverage_pct>=50 else '#dc2626' }}"></span></div></td><td class="text-end small">{{ fw.covered_controls }} / {{ fw.expected_controls }}</td></tr>
+{% else %}<tr><td colspan="3" class="text-muted small">No frameworks.</td></tr>{% endfor %}
+</tbody></table>
+<h2 class="h6 mt-2">Portfolio by Criticality</h2>
+<table class="table table-sm bg-white"><tbody>
+{% for kk, vv in data.by_criticality.items() %}<tr><td class="small">{{ kk }}</td><td class="text-end small">{{ vv }}</td></tr>{% endfor %}
+</tbody></table>
+</div>
+<div class="col-md-6">
+<h2 class="h6">Readiness by Application</h2>
+<table class="table table-sm bg-white align-middle"><thead><tr><th>Application</th><th class="text-end">Score</th><th>Band</th></tr></thead><tbody>
+{% for a in data.per_app %}
+<tr><td class="small">{{ a.application }}</td><td class="text-end small">{{ a.score }}%</td><td><span class="badge bg-{{ 'success' if a.band=='Ready' else 'warning' if a.band=='At Risk' else 'danger' }}">{{ a.band }}</span></td></tr>
+{% else %}<tr><td colspan="3" class="text-muted small">No data.</td></tr>{% endfor %}
+</tbody></table>
+<h2 class="h6 mt-2">Evidence Lifecycle</h2>
+<table class="table table-sm bg-white"><tbody>
+{% for kk, vv in data.lifecycle.items() %}<tr><td class="small">{{ kk }}</td><td class="text-end small">{{ vv }}</td></tr>
+{% else %}<tr><td class="small text-muted">No lifecycle data.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+</div>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

@@ -35,6 +35,17 @@ CREATE TABLE IF NOT EXISTS control_catalog (
     description     TEXT
 );
 
+-- Control <-> framework crosswalk (many-to-many). This is what makes evidence
+-- REUSE measurable: a single control (and therefore a single evidence item
+-- mapped to it) satisfies a requirement in many frameworks simultaneously.
+CREATE TABLE IF NOT EXISTS control_framework_crosswalk (
+    control_id      TEXT NOT NULL,
+    framework_code  TEXT NOT NULL,
+    requirement_ref TEXT,                          -- e.g. "CC8.1", "A.14.2.1", "6.3"
+    PRIMARY KEY (control_id, framework_code)
+);
+CREATE INDEX IF NOT EXISTS idx_crosswalk_fw ON control_framework_crosswalk (framework_code);
+
 -- Evidence lifecycle / review state (one row per evidence_uid).
 CREATE TABLE IF NOT EXISTS evidence_reviews (
     evidence_uid    TEXT PRIMARY KEY,

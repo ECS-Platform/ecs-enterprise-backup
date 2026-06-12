@@ -120,6 +120,22 @@ async def ecs_lifespan(application: FastAPI):
     except Exception as exc:  # noqa: BLE001
         ecs_logging.info("ECSPlatform", f"Evidence repository init skipped: {exc}")
 
+    # LLM-RAG startup validation (non-fatal): report whether Gemini is configured
+    # and reachable, plus how much of the repository is indexed. Secrets never logged.
+    try:
+        from ecs_platform.rag import rag_status
+
+        st = rag_status()
+        if st.get("provider_configured"):
+            ecs_logging.info("ECSPlatform",
+                             f"LLM-RAG ready: provider={st['provider']} model={st['model']} "
+                             f"vector_chunks={st['vector_count']} indexed={st['indexed_pct']}%")
+        else:
+            ecs_logging.info("ECSPlatform",
+                             "LLM-RAG disabled: GEMINI_API_KEY not set (assistant uses deterministic fallback)")
+    except Exception as exc:  # noqa: BLE001
+        ecs_logging.info("ECSPlatform", f"LLM-RAG status check skipped: {exc}")
+
     mark_startup_complete()
     log_platform_ready(host="127.0.0.1", port=8000)
     yield

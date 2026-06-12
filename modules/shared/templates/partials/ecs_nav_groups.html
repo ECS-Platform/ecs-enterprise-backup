@@ -6,7 +6,7 @@
 {% set ops_open = nav_module in ['scheduler','upload','integrations','onboarding','integrations_hub','ai_ops_assistant','predefined_queries','integration_health','evidence_explorer'] %}
 {% set gov_open = nav_module in ['audit_prep','evidence_health','reuse','lifecycle','completeness','comparison','search','evidence_approval'] %}
 {% set grc_open = nav_module in ['risk_register','exceptions_td','cmdb','regulatory_mapping','executive_heatmaps','correlation','governance_analytics','exception_governance'] %}
-{% set evgov_open = nav_module in ['gov_onboarding','gov_inventory','gov_reuse','gov_control_coverage','gov_framework_coverage','gov_scheduler','gov_lifecycle','gov_audit_readiness','gov_exec_summary','gov_assistant'] %}
+{% set evgov_open = nav_module in ['gov_scorecard','gov_onboarding','gov_inventory','gov_reuse','gov_control_coverage','gov_framework_coverage','gov_scheduler','gov_lifecycle','gov_audit_readiness','gov_exec_summary','gov_assistant','ai_assistant'] %}
 {% set ai_sdlc_open = nav_module in ['ai_governance', 'sdlc_gates', 'ai_registry'] %}
 
 <nav class="ecs-nav-groups" aria-label="ECS command center">
@@ -106,6 +106,7 @@
 </button>
 <div id="nav-evgov" class="collapse{% if evgov_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
+<a href="/mvp/platform/scorecard{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'gov_scorecard' %} is-active{% endif %}">Role Scorecard ●</a>
 <a href="/mvp/platform/executive-summary{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'gov_exec_summary' %} is-active{% endif %}">Executive Summary ●</a>
 <a href="/mvp/platform/audit-readiness{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'gov_audit_readiness' %} is-active{% endif %}">Audit Readiness</a>
 <a href="/mvp/platform/onboarding{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'gov_onboarding' %} is-active{% endif %}">Application Onboarding</a>
@@ -116,6 +117,7 @@
 <a href="/mvp/platform/evidence-lifecycle{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'gov_lifecycle' %} is-active{% endif %}">Evidence Lifecycle</a>
 <a href="/mvp/platform/scheduler{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'gov_scheduler' %} is-active{% endif %}">Collection Scheduler</a>
 <a href="/mvp/platform/assistant{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'gov_assistant' %} is-active{% endif %}">AI Assistant</a>
+<a href="/mvp/ai-assistant{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'ai_assistant' %} is-active{% endif %}">AI Assistant (Chat)</a>
 </div>
 </div>
 </div>

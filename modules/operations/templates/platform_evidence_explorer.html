@@ -20,7 +20,7 @@
 <div class="mb-2">
 <span class="small text-muted me-1">Quick filter by source:</span>
 <a href="?role={{ role }}&user={{ user }}" class="btn btn-sm py-0 {% if not selected.source_system %}btn-secondary{% else %}btn-outline-secondary{% endif %}">All</a>
-{% for src in ["gitea","github","jira","confluence","figma","sonarqube","jenkins"] %}
+{% for src in ["gitea","github","jira","confluence","figma","teams","sharepoint","sonarqube","jenkins"] %}
 <a href="?role={{ role }}&user={{ user }}&source_system={{ src }}" class="btn btn-sm py-0 {% if selected.source_system == src %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ src }}</a>
 {% endfor %}
 </div>

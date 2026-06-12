@@ -54,8 +54,22 @@ services:
       FIGMA_URL: ${FIGMA_URL:-https://api.figma.com}
       FIGMA_TOKEN: ${FIGMA_TOKEN:-}
       FIGMA_TEAM_IDS: ${FIGMA_TEAM_IDS:-}
-      # LLM provider/keys are injected from the host environment (never hardcoded)
-      ECS_LLM_PROVIDER: ${ECS_LLM_PROVIDER:-gemini}
+      # ---- Microsoft 365 (Teams + SharePoint via Graph, shared app registration) ----
+      ECS_TEAMS_ENABLED: ${ECS_TEAMS_ENABLED:-false}
+      ECS_SHAREPOINT_ENABLED: ${ECS_SHAREPOINT_ENABLED:-false}
+      MS_GRAPH_URL: ${MS_GRAPH_URL:-https://graph.microsoft.com/v1.0}
+      MS_TENANT_ID: ${MS_TENANT_ID:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      SHAREPOINT_SITE_ID: ${SHAREPOINT_SITE_ID:-}
+      # LLM provider/keys are injected from the host environment (never hardcoded).
+      # Default provider is local Ollama (qwen3:8b); switch with ECS_LLM_PROVIDER=gemini.
+      ECS_LLM_PROVIDER: ${ECS_LLM_PROVIDER:-ollama}
+      ECS_LLM_MODEL: ${ECS_LLM_MODEL:-}
+      ECS_EMBEDDING_MODEL: ${ECS_EMBEDDING_MODEL:-}
+      ECS_VECTOR_DIM: ${ECS_VECTOR_DIM:-768}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -75,6 +89,10 @@ services:
       - postgres-demo
       - postgres
       - pgvector
+    # Reach a host-local Ollama daemon (qwen3:8b) from inside the container.
+    # Required on Linux; a no-op on Docker Desktop where this is auto-provided.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   postgres-demo:

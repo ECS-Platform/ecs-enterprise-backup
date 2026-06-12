@@ -10,12 +10,56 @@
 {% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
 
 <div class="row g-2 mb-3">
-<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Reuse Rate</div><div class="n text-primary">{{ data.reuse_pct or 0 }}%</div></div></div>
-<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Collection Ops Saved</div><div class="n text-success">{{ data.reuse_savings or 0 }}</div></div></div>
-<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Control Mappings</div><div class="n">{{ data.control_links or 0 }}</div></div></div>
-<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Correlation Chains</div><div class="n">{{ data.correlation_chains or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Cross-Framework Reuse</div><div class="n text-primary">{{ data.framework_reuse_ratio or 0 }}×</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Framework Obligations Met</div><div class="n">{{ data.framework_obligations or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Collection Ops Saved</div><div class="n text-success">{{ data.framework_ops_saved or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Reusable Evidence</div><div class="n">{{ data.crosswalked_evidence or 0 }}</div></div></div>
 </div>
-<p class="small text-muted">Reuse ratio {{ data.reuse_ratio or 0 }}× — each mapped evidence item satisfies on average {{ data.reuse_ratio or 0 }} controls. {{ data.multi_control_evidence or 0 }} items satisfy more than one control; {{ data.shared_artifacts or 0 }} artifacts are shared across applications.</p>
+<p class="small text-muted">Each reusable evidence item satisfies obligations in <strong>{{ data.framework_reuse_ratio or 0 }}</strong> frameworks on average. {{ data.crosswalked_evidence or 0 }} collected items satisfy {{ data.framework_obligations or 0 }} framework obligations — <strong>collect once, reuse {{ data.framework_ops_saved or 0 }}× more</strong>. (Control-level: reuse rate {{ data.reuse_pct or 0 }}%, {{ data.multi_control_evidence or 0 }} multi-control items, {{ data.correlation_chains or 0 }} CI/CD chains.)</p>
+
+{% if demos and demos.ok %}
+<h2 class="h6 mt-3">One Evidence Item → Multiple Frameworks <span class="small text-muted">(collect once, reuse everywhere)</span></h2>
+<p class="small text-muted mb-2">Up to <strong>{{ demos.max_fanout }}</strong> frameworks satisfied by a single collected artifact. Below: real evidence per framework, each tagged with every framework the same item also covers.</p>
+<ul class="nav nav-pills mb-2" role="tablist">
+{% for fw in demos.frameworks %}
+<li class="nav-item"><button class="nav-link {{ 'active' if loop.first }}" data-bs-toggle="pill" data-bs-target="#tab-{{ loop.index }}" type="button">{{ fw }} <span class="badge bg-light text-dark">{{ demos.coverage_counts[fw] }}</span></button></li>
+{% endfor %}
+</ul>
+<div class="tab-content">
+{% for fw in demos.frameworks %}
+<div class="tab-pane fade {{ 'show active' if loop.first }}" id="tab-{{ loop.index }}">
+<table class="table table-sm bg-white align-middle"><thead><tr><th>Evidence</th><th>Source</th><th>Application</th><th>Also satisfies</th></tr></thead><tbody>
+{% for e in demos.demos[fw] %}
+<tr>
+<td class="small"><strong>{{ e.title }}</strong></td>
+<td class="small">{{ e.source_system }} / {{ e.object_type }}</td>
+<td class="small">{{ e.application or '—' }}</td>
+<td>{% for f in e.frameworks %}<span class="badge bg-{{ 'primary' if f==fw else 'light text-dark' }} me-1">{{ f }} <span class="text-muted">{{ e.framework_refs[f] }}</span></span>{% endfor %}</td>
+</tr>
+{% else %}<tr><td colspan="4" class="text-muted small">No evidence currently satisfies {{ fw }}.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if matrix and matrix.ok %}
+<h2 class="h6 mt-3">Control × Framework Crosswalk</h2>
+<p class="small text-muted mb-1">How each control maps to framework requirements. Controls with collected evidence (Evidence &gt; 0) propagate coverage to every mapped framework.</p>
+<div class="table-responsive"><table class="table table-sm table-bordered bg-white small align-middle">
+<thead><tr><th>Control</th><th class="text-end">Evidence</th>{% for fw in matrix.frameworks %}<th class="text-center">{{ fw }}</th>{% endfor %}</tr></thead>
+<tbody>
+{% for c in matrix.controls %}
+<tr>
+<td><strong>{{ c.control_id }}</strong><div class="text-muted" style="font-size:.7rem">{{ c.name }}</div></td>
+<td class="text-end"><span class="badge bg-{{ 'success' if c.evidence_count else 'secondary' }}">{{ c.evidence_count }}</span></td>
+{% for fw in matrix.frameworks %}
+<td class="text-center">{% if c.refs.get(fw) %}<span class="badge bg-{{ 'success' if c.evidence_count else 'light text-dark' }}">{{ c.refs[fw] }}</span>{% else %}<span class="text-muted">·</span>{% endif %}</td>
+{% endfor %}
+</tr>
+{% endfor %}
+</tbody></table></div>
+{% endif %}
 
 <div class="row">
 <div class="col-md-6">

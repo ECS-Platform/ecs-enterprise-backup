@@ -8,11 +8,19 @@ require them, so importing this module never breaks the app.
 from __future__ import annotations
 
 import json
+import re
 import urllib.request
 from abc import ABC, abstractmethod
 from typing import Any
 
 from ecs_platform.config import load_llm_config, resolve_secret
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_think(text: str) -> str:
+    """Remove qwen/deepseek-style <think>...</think> reasoning blocks from output."""
+    return _THINK_RE.sub("", text or "").strip()
 
 
 class LLMError(RuntimeError):
@@ -146,11 +154,57 @@ class ClaudeProvider(LLMProvider):
         raise LLMError("Claude provider does not offer embeddings; configure a separate embedding provider")
 
 
+class OllamaProvider(LLMProvider):
+    """Local Ollama via its REST API (no API key required).
+
+    Uses POST /api/chat for generation and POST /api/embeddings for embeddings.
+    Endpoint defaults to host.docker.internal so the dockerized ECS app reaches an
+    Ollama daemon running on the host. Credential-optional: 'configured' is true
+    whenever a base URL is set (Ollama needs no key)."""
+
+    def _base(self) -> str:
+        return self.provider_cfg.get("base_url", "http://host.docker.internal:11434").rstrip("/")
+
+    def api_key(self) -> str:  # Ollama is keyless
+        return ""
+
+    def configured(self) -> bool:
+        return bool(self._base())
+
+    def generate(self, prompt: str, *, system: str = "") -> str:
+        messages = ([{"role": "system", "content": system}] if system else []) + [
+            {"role": "user", "content": prompt}]
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": self.temperature, "num_predict": self.max_tokens},
+        }
+        data = self._post_json(f"{self._base()}/api/chat", payload, {})
+        content = (data.get("message", {}) or {}).get("content", "")
+        if not content:
+            raise LLMError(f"Unexpected Ollama response: {data}")
+        return _strip_think(content)
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        model = self.embedding_model or self.model
+        out: list[list[float]] = []
+        for text in texts:
+            data = self._post_json(f"{self._base()}/api/embeddings",
+                                   {"model": model, "prompt": text}, {})
+            vec = data.get("embedding", [])
+            if not vec:
+                raise LLMError(f"Ollama embeddings returned empty vector (model={model})")
+            out.append(vec)
+        return out
+
+
 _PROVIDERS = {
     "gemini": GeminiProvider,
     "openai": OpenAIProvider,
     "azure_openai": AzureOpenAIProvider,
     "claude": ClaudeProvider,
+    "ollama": OllamaProvider,
 }
 
 

@@ -22,6 +22,34 @@ _LIFECYCLE = ("Onboarding", "Active", "Decommissioned")
 _REVIEW_STATES = ("Collected", "UnderReview", "Approved", "Rejected", "Expired")
 _FREQ_HOURS = {"Hourly": 1, "Daily": 24, "Weekly": 168, "Monthly": 720}
 
+# Frameworks ECS reports reuse across (CIO-demo scope).
+REUSE_FRAMEWORKS = ("SOC2", "ISO27001", "PCI-DSS", "RBI-CSF", "AI-SDLC")
+
+# Industry-standard control -> framework crosswalk. Reference/standards data
+# (NOT evidence): one control satisfies a requirement in many frameworks, which
+# is what makes a single collected evidence item reusable across frameworks.
+# control_id -> {framework_code: requirement_ref}
+CONTROL_CROSSWALK: dict[str, dict[str, str]] = {
+    "change-management": {
+        "SOC2": "CC8.1", "ISO27001": "A.12.1.2", "PCI-DSS": "6.5",
+        "RBI-CSF": "BCSF-CR", "AI-SDLC": "AISDLC-CHG"},
+    "code-review": {
+        "SOC2": "CC8.1", "ISO27001": "A.14.2.1", "PCI-DSS": "6.3.2",
+        "RBI-CSF": "BCSF-SDLC", "AI-SDLC": "AISDLC-REV"},
+    "ci-cd": {
+        "SOC2": "CC8.1", "ISO27001": "A.12.1.2", "PCI-DSS": "6.5",
+        "RBI-CSF": "BCSF-DEP", "AI-SDLC": "AISDLC-PIPE"},
+    "secure-sdlc": {
+        "SOC2": "CC7.1", "ISO27001": "A.14.2.1", "PCI-DSS": "6.3",
+        "RBI-CSF": "BCSF-SDLC", "AI-SDLC": "AISDLC-SEC"},
+    "code-quality": {
+        "SOC2": "CC8.1", "ISO27001": "A.14.2.8", "PCI-DSS": "6.3.1",
+        "RBI-CSF": "BCSF-QA", "AI-SDLC": "AISDLC-QA"},
+    "vulnerability-management": {
+        "SOC2": "CC7.1", "ISO27001": "A.12.6.1", "PCI-DSS": "11.3",
+        "RBI-CSF": "BCSF-VA", "AI-SDLC": "AISDLC-VULN"},
+}
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -50,11 +78,32 @@ def init_governance_schema() -> dict[str, Any]:
         with _Repo() as repo:
             with repo.connect().cursor() as cur:
                 cur.execute(sql)
+                # Seed the control->framework crosswalk (idempotent reference data).
+                for control_id, fws in CONTROL_CROSSWALK.items():
+                    for fw, ref in fws.items():
+                        cur.execute(
+                            "INSERT INTO control_framework_crosswalk (control_id, framework_code, requirement_ref) "
+                            "VALUES (%s,%s,%s) ON CONFLICT (control_id, framework_code) "
+                            "DO UPDATE SET requirement_ref = EXCLUDED.requirement_ref",
+                            (control_id, fw, ref))
         return {"ok": True}
     except RepositoryError as exc:
         return {"ok": False, "error": str(exc)}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": str(exc)}
+
+
+def _control_frameworks(cur) -> dict[str, set[str]]:
+    """control_id -> set(framework_code), unioning crosswalk + catalog primary fw."""
+    mapping: dict[str, set[str]] = {}
+    cur.execute("SELECT control_id, framework_code FROM control_framework_crosswalk")
+    for cid, fw in cur.fetchall():
+        mapping.setdefault(cid, set()).add(fw)
+    cur.execute("SELECT control_id, framework_code FROM control_catalog "
+                "WHERE framework_code IS NOT NULL AND framework_code <> ''")
+    for cid, fw in cur.fetchall():
+        mapping.setdefault(cid, set()).add(fw)
+    return mapping
 
 
 def _rows(cur) -> list[dict[str, Any]]:
@@ -183,19 +232,47 @@ def evidence_reuse() -> dict[str, Any]:
                 "SELECT count(*) FROM (SELECT content_hash FROM evidence "
                 "GROUP BY content_hash HAVING count(DISTINCT application) > 1) t")
             shared_artifacts = cur.fetchone()[0]
+            # cross-framework reuse via the crosswalk: evidence -> control -> many frameworks
             cur.execute(
-                "SELECT framework_code, count(*) c FROM evidence_framework_map GROUP BY 1 ORDER BY 2 DESC")
+                """
+                SELECT cfw.framework_code, count(DISTINCT m.evidence_id) c
+                FROM control_framework_crosswalk cfw
+                JOIN evidence_control_map m ON m.control_id = cfw.control_id
+                GROUP BY 1 ORDER BY 2 DESC
+                """)
             by_framework = _rows(cur)
+            # framework-obligations satisfied = evidence x distinct frameworks each maps to
+            cur.execute(
+                """
+                SELECT count(*) FROM (
+                    SELECT m.evidence_id
+                    FROM evidence_control_map m
+                    JOIN control_framework_crosswalk cfw ON cfw.control_id = m.control_id
+                    GROUP BY m.evidence_id, cfw.framework_code
+                ) t
+                """)
+            framework_obligations = cur.fetchone()[0]
+            cur.execute(
+                "SELECT count(DISTINCT m.evidence_id) FROM evidence_control_map m "
+                "WHERE m.control_id IN (SELECT control_id FROM control_framework_crosswalk)")
+            crosswalked_evidence = cur.fetchone()[0]
         reuse_ratio = round(total_links / mapped, 2) if mapped else 0.0
         # reuse rate: share of control links beyond first unique = saved collection effort
         saved = max(0, total_links - mapped)
         reuse_pct = round(100 * saved / total_links, 1) if total_links else 0.0
+        # cross-framework reuse: obligations satisfied vs. evidence items collected
+        framework_reuse_ratio = round(framework_obligations / crosswalked_evidence, 2) if crosswalked_evidence else 0.0
+        framework_ops_saved = max(0, framework_obligations - crosswalked_evidence)
         return to_jsonable({
             "ok": True, "total_evidence": total, "control_links": total_links,
             "evidence_with_controls": mapped, "multi_control_evidence": multi_control,
             "reuse_ratio": reuse_ratio, "reuse_savings": saved, "reuse_pct": reuse_pct,
             "correlation_chains": chains, "chain_members": chain_members,
             "shared_artifacts": shared_artifacts,
+            "framework_obligations": framework_obligations,
+            "crosswalked_evidence": crosswalked_evidence,
+            "framework_reuse_ratio": framework_reuse_ratio,
+            "framework_ops_saved": framework_ops_saved,
             "by_control": by_control, "by_framework": by_framework,
         })
     except RepositoryError as exc:
@@ -244,39 +321,112 @@ def control_coverage() -> dict[str, Any]:
 # 5. Framework coverage
 # --------------------------------------------------------------------------
 def framework_coverage() -> dict[str, Any]:
-    """Coverage per framework, rolled up through the control catalog taxonomy.
+    """Coverage per framework, rolled up through the control->framework crosswalk.
 
-    Evidence is attributed to a framework via control_catalog.framework_code (a
-    single clean taxonomy) rather than the connectors' raw sub-codes, so the
-    dashboard shows SOC2/ISO27001/PCI-DSS/RBI-CSF rather than CC7/CC8/A.14.
+    A control covered by evidence contributes to EVERY framework it is crosswalked
+    to, so a single SonarQube/Gitea evidence item can lift SOC2, ISO27001, PCI-DSS,
+    RBI-CSF and AI-SDLC coverage at once. The dashboard reports the clean framework
+    taxonomy (SOC2/ISO27001/PCI-DSS/RBI-CSF/AI-SDLC), not raw connector sub-codes.
     """
     try:
         with _Repo() as repo, repo.connect().cursor() as cur:
+            ctrl_fw = _control_frameworks(cur)
+            cur.execute("SELECT DISTINCT control_id FROM evidence_control_map")
+            covered_controls = {r[0] for r in cur.fetchall()}
             cur.execute(
                 """
-                SELECT cc.framework_code,
-                       count(DISTINCT cc.control_id) AS expected,
-                       count(DISTINCT cc.control_id) FILTER (WHERE m.evidence_id IS NOT NULL) AS covered,
-                       count(DISTINCT m.evidence_id) AS evidence_count
-                FROM control_catalog cc
-                LEFT JOIN evidence_control_map m ON m.control_id = cc.control_id
-                WHERE cc.framework_code IS NOT NULL AND cc.framework_code <> ''
-                GROUP BY cc.framework_code
-                ORDER BY cc.framework_code
+                SELECT cfw.framework_code, count(DISTINCT m.evidence_id) AS evidence_count
+                FROM control_framework_crosswalk cfw
+                JOIN evidence_control_map m ON m.control_id = cfw.control_id
+                GROUP BY cfw.framework_code
                 """)
-            data = _rows(cur)
+            ev_by_fw = {r["framework_code"]: int(r["evidence_count"] or 0) for r in _rows(cur)}
+        # expected/covered control sets per framework
+        per_fw_expected: dict[str, set[str]] = {}
+        per_fw_covered: dict[str, set[str]] = {}
+        for cid, fws in ctrl_fw.items():
+            for fw in fws:
+                per_fw_expected.setdefault(fw, set()).add(cid)
+                if cid in covered_controls:
+                    per_fw_covered.setdefault(fw, set()).add(cid)
         rows = []
-        for r in data:
-            exp = int(r["expected"] or 0)
-            cov = int(r["covered"] or 0)
+        for fw in sorted(per_fw_expected):
+            exp = len(per_fw_expected.get(fw, set()))
+            cov = len(per_fw_covered.get(fw, set()))
             pct = round(100 * cov / exp, 1) if exp else 0.0
-            rows.append({"framework_code": r["framework_code"], "expected_controls": exp,
-                         "covered_controls": cov, "evidence_count": int(r["evidence_count"] or 0),
-                         "coverage_pct": pct})
+            rows.append({"framework_code": fw, "expected_controls": exp, "covered_controls": cov,
+                         "evidence_count": ev_by_fw.get(fw, 0), "coverage_pct": pct})
         overall = round(sum(r["coverage_pct"] for r in rows) / len(rows), 1) if rows else 0.0
         return to_jsonable({"ok": True, "frameworks": rows, "overall_pct": overall})
     except RepositoryError as exc:
         return {"ok": False, "error": str(exc), "frameworks": []}
+
+
+def crosswalk_matrix() -> dict[str, Any]:
+    """The control x framework reuse matrix + per-control evidence counts."""
+    try:
+        with _Repo() as repo, repo.connect().cursor() as cur:
+            cur.execute(
+                "SELECT control_id, framework_code, requirement_ref FROM control_framework_crosswalk")
+            triples = _rows(cur)
+            cur.execute(
+                "SELECT control_id, count(DISTINCT evidence_id) c FROM evidence_control_map GROUP BY 1")
+            ev_counts = {r["control_id"]: int(r["c"]) for r in _rows(cur)}
+            cur.execute("SELECT control_id, name FROM control_catalog")
+            names = {r["control_id"]: r["name"] for r in _rows(cur)}
+        frameworks = sorted({t["framework_code"] for t in triples})
+        controls: dict[str, dict[str, Any]] = {}
+        for t in triples:
+            cid = t["control_id"]
+            row = controls.setdefault(cid, {"control_id": cid, "name": names.get(cid, cid),
+                                            "evidence_count": ev_counts.get(cid, 0), "refs": {}})
+            row["refs"][t["framework_code"]] = t["requirement_ref"]
+        ordered = sorted(controls.values(), key=lambda r: (-r["evidence_count"], r["control_id"]))
+        return to_jsonable({"ok": True, "frameworks": frameworks, "controls": ordered})
+    except RepositoryError as exc:
+        return {"ok": False, "error": str(exc), "frameworks": [], "controls": []}
+
+
+def reuse_demonstrations(per_framework: int = 4) -> dict[str, Any]:
+    """For each in-scope framework, real evidence items that satisfy it, each
+    annotated with EVERY other framework the same evidence also satisfies — the
+    concrete "collect once, reuse everywhere" demonstration."""
+    try:
+        with _Repo() as repo, repo.connect().cursor() as cur:
+            cur.execute(
+                """
+                SELECT e.evidence_uid, e.source_system, e.object_type, e.title, e.application,
+                       array_agg(DISTINCT m.control_id) AS controls
+                FROM evidence e JOIN evidence_control_map m ON m.evidence_id = e.id
+                WHERE m.control_id IN (SELECT control_id FROM control_framework_crosswalk)
+                GROUP BY e.id
+                ORDER BY e.collected_timestamp DESC
+                """)
+            ev = _rows(cur)
+        # attach framework fan-out per evidence
+        items = []
+        max_fanout = 0
+        for r in ev:
+            fws: dict[str, str] = {}
+            for cid in r["controls"]:
+                for fw, ref in CONTROL_CROSSWALK.get(cid, {}).items():
+                    fws.setdefault(fw, ref)
+            max_fanout = max(max_fanout, len(fws))
+            items.append({**r, "frameworks": sorted(fws), "framework_refs": fws,
+                          "fanout": len(fws)})
+        demos: dict[str, list[dict[str, Any]]] = {}
+        for fw in REUSE_FRAMEWORKS:
+            matches = [it for it in items if fw in it["frameworks"]]
+            matches.sort(key=lambda it: -it["fanout"])
+            demos[fw] = matches[:per_framework]
+        coverage_counts = {fw: sum(1 for it in items if fw in it["frameworks"]) for fw in REUSE_FRAMEWORKS}
+        return to_jsonable({
+            "ok": True, "frameworks": list(REUSE_FRAMEWORKS), "demos": demos,
+            "reusable_evidence": len(items), "max_fanout": max_fanout,
+            "coverage_counts": coverage_counts,
+        })
+    except RepositoryError as exc:
+        return {"ok": False, "error": str(exc), "demos": {}}
 
 
 # --------------------------------------------------------------------------
@@ -467,6 +617,67 @@ def executive_summary() -> dict[str, Any]:
         "readiness_band": ready.get("band", "Unknown"),
         "frameworks": fw.get("frameworks", []),
         "top_apps": (ready.get("per_app") or [])[:6],
+    })
+
+
+# --------------------------------------------------------------------------
+# Executive scorecard (role-aware: CIO / Vertical Head / Auditor / App Owner)
+# --------------------------------------------------------------------------
+_ROLE_PRESETS = {
+    "cio": {"title": "CIO Dashboard",
+            "subtitle": "Enterprise compliance posture, risk and audit readiness at a glance.",
+            "focus": ["compliance_score", "framework_coverage", "applications", "evidence_reuse"]},
+    "vertical_head": {"title": "Vertical Head Dashboard",
+            "subtitle": "Portfolio health and readiness across the business vertical's applications.",
+            "focus": ["applications", "compliance_score", "open_observations", "framework_coverage"]},
+    "auditor": {"title": "Auditor Dashboard",
+            "subtitle": "Evidence quality, lifecycle state, and audit readiness for sign-off.",
+            "focus": ["open_observations", "rejected_evidence", "evidence_collected", "compliance_score"]},
+    "owner": {"title": "Application Owner Dashboard",
+            "subtitle": "Your applications' evidence, reuse and outstanding compliance actions.",
+            "focus": ["evidence_collected", "evidence_reuse", "open_observations", "rejected_evidence"]},
+}
+
+
+def governance_scorecard(role: str = "cio") -> dict[str, Any]:
+    """Single role-aware management scorecard with the CIO-demo KPI set."""
+    preset = _ROLE_PRESETS.get(role, _ROLE_PRESETS["cio"])
+    inv = list_applications()
+    cov = control_coverage()
+    fw = framework_coverage()
+    reuse = evidence_reuse()
+    life = evidence_lifecycle()
+    ready = audit_readiness()
+    try:
+        with _Repo() as repo:
+            counts = repo.counts()
+    except RepositoryError as exc:
+        return {"ok": False, "error": str(exc), "role": role, **preset}
+
+    lc = life.get("counts", {}) if life.get("ok") else {}
+    open_obs = int(lc.get("Collected", 0)) + int(lc.get("UnderReview", 0))
+    rejected = int(lc.get("Rejected", 0))
+    return to_jsonable({
+        "ok": True, "role": role, "title": preset["title"], "subtitle": preset["subtitle"],
+        "focus": preset["focus"],
+        "kpis": {
+            "applications": inv.get("total", 0),
+            "evidence_collected": counts.get("total", 0),
+            "evidence_reuse_pct": reuse.get("reuse_pct", 0.0),
+            "framework_reuse_ratio": reuse.get("framework_reuse_ratio", 0.0),
+            "framework_ops_saved": reuse.get("framework_ops_saved", 0),
+            "framework_coverage_pct": fw.get("overall_pct", 0.0),
+            "control_coverage_pct": cov.get("coverage_pct", 0.0),
+            "open_observations": open_obs,
+            "rejected_evidence": rejected,
+            "compliance_score": ready.get("score", 0.0),
+            "compliance_band": ready.get("band", "Unknown"),
+        },
+        "by_criticality": inv.get("by_criticality", {}),
+        "by_source": counts.get("by_source", {}),
+        "frameworks": fw.get("frameworks", []),
+        "lifecycle": lc,
+        "per_app": ready.get("per_app", []),
     })
 
 

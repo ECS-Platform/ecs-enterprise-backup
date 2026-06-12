@@ -2,14 +2,21 @@
 # Provider is selected here; switching providers requires no code change.
 
 llm:
-  provider: ${ECS_LLM_PROVIDER:-gemini}   # gemini | openai | azure_openai | claude
-  model: ${ECS_LLM_MODEL:-gemini-2.5-pro}
-  embedding_model: ${ECS_EMBEDDING_MODEL:-text-embedding-004}
+  # provider: ollama (local) | gemini | openai | azure_openai | claude
+  # Switch back to Gemini any time with ECS_LLM_PROVIDER=gemini (impl kept intact).
+  provider: ${ECS_LLM_PROVIDER:-ollama}
+  model: ${ECS_LLM_MODEL:-qwen3:8b}
+  embedding_model: ${ECS_EMBEDDING_MODEL:-nomic-embed-text}
   temperature: ${ECS_LLM_TEMPERATURE:-0.1}
   max_output_tokens: ${ECS_LLM_MAX_TOKENS:-2048}
-  request_timeout_sec: ${ECS_LLM_TIMEOUT:-60}
+  request_timeout_sec: ${ECS_LLM_TIMEOUT:-120}
 
   providers:
+    ollama:
+      # Keyless local daemon. From the dockerized app, reach the host via
+      # host.docker.internal; override with OLLAMA_URL for a remote/in-cluster daemon.
+      base_url: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      model: ${OLLAMA_MODEL:-qwen3:8b}
     gemini:
       api_key_env: GEMINI_API_KEY
       base_url: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}

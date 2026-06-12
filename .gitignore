@@ -27,3 +27,8 @@ modules/enterprise_grc/reports/ECS_Validation_Report.json
 
 # Logs
 *.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example

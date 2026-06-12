@@ -85,11 +85,22 @@ def register_governance_routes(app, templates):
     # ---------------------------------------------------------------- 3. Evidence reuse
     @app.get("/mvp/platform/evidence-reuse", response_class=HTMLResponse)
     def gov_reuse(request: Request, role: str = "compliance_head", user: str = "Compliance", notice: str = ""):
-        from ecs_platform.governance import evidence_reuse
+        from ecs_platform.governance import crosswalk_matrix, evidence_reuse, reuse_demonstrations
 
         data = evidence_reuse()
-        ctx = _ctx(request, role, user, "gov_reuse", notice, data=data)
+        matrix = crosswalk_matrix()
+        demos = reuse_demonstrations()
+        ctx = _ctx(request, role, user, "gov_reuse", notice, data=data, matrix=matrix, demos=demos)
         return templates.TemplateResponse(request=request, name="gov_evidence_reuse.html", context=ctx)
+
+    # ---------------------------------------------------------------- Phase 2: role scorecard
+    @app.get("/mvp/platform/scorecard", response_class=HTMLResponse)
+    def gov_scorecard(request: Request, role: str = "cio", user: str = "CIO", notice: str = ""):
+        from ecs_platform.governance import governance_scorecard
+
+        data = governance_scorecard(role)
+        ctx = _ctx(request, role, user, "gov_scorecard", notice, data=data)
+        return templates.TemplateResponse(request=request, name="gov_scorecard.html", context=ctx)
 
     # ---------------------------------------------------------------- 4. Control coverage
     @app.get("/mvp/platform/control-coverage", response_class=HTMLResponse)
@@ -169,15 +180,87 @@ def register_governance_routes(app, templates):
         ctx = _ctx(request, role, user, "gov_exec_summary", notice, data=data)
         return templates.TemplateResponse(request=request, name="gov_executive_summary.html", context=ctx)
 
-    # ---------------------------------------------------------------- 10. Assistant
+    # ---------------------------------------------------------------- 10. Assistant (LLM-RAG)
     @app.get("/mvp/platform/assistant", response_class=HTMLResponse)
     def gov_assistant(request: Request, role: str = "cio", user: str = "CIO",
                       q: str = "", notice: str = ""):
         from ecs_platform.governance import governance_qa
+        from ecs_platform.rag import EXAMPLE_QUERIES, answer as rag_answer, rag_status
 
-        answer = governance_qa(q) if q else None
-        ctx = _ctx(request, role, user, "gov_assistant", notice, q=q, answer=answer)
+        status = rag_status()
+        answer = None
+        if q:
+            res = rag_answer(q, role=role, user=user)
+            # Fall back to the deterministic keyword assistant for the prose answer
+            # when no LLM key is configured, but keep RAG citations/diagnostics.
+            if res.get("mode") in ("fallback", "error") or not res.get("grounded"):
+                kw = governance_qa(q)
+                res["answer"] = kw.get("answer", res.get("answer", ""))
+                res.setdefault("fallback_used", True)
+            answer = res
+        ctx = _ctx(request, role, user, "gov_assistant", notice, q=q, answer=answer,
+                   status=status, examples=EXAMPLE_QUERIES)
         return templates.TemplateResponse(request=request, name="gov_assistant.html", context=ctx)
+
+    @app.post("/mvp/platform/assistant/reindex")
+    def gov_assistant_reindex(role: str = Form("cio"), user: str = Form("CIO")):
+        from ecs_platform.rag import reindex_evidence
+
+        res = reindex_evidence()
+        notice = (f"Indexed {res.get('chunks_indexed', 0)} chunks from {res.get('evidence', 0)} evidence "
+                  f"records + {res.get('governance_docs', 0)} governance docs."
+                  if res.get("ok") else f"Re-index failed: {res.get('error')}")
+        return _redirect("/mvp/ai-assistant", role, user, notice)
+
+    # ---------------------------------------------------------------- AI Assistant (dedicated page)
+    def _filter_options():
+        """Application + framework filter dropdown options from the live repository."""
+        apps: list[str] = []
+        fws: list[str] = []
+        try:
+            from ecs_platform.governance import REUSE_FRAMEWORKS
+
+            fws = list(REUSE_FRAMEWORKS)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            from ecs_platform.repository import EvidenceRepository
+
+            with EvidenceRepository() as repo:
+                apps = repo.distinct_values().get("applications", [])
+        except Exception:  # noqa: BLE001
+            pass
+        return apps, fws
+
+    @app.get("/mvp/ai-assistant", response_class=HTMLResponse)
+    def ai_assistant(request: Request, role: str = "cio", user: str = "CIO", q: str = "",
+                     application: str = "", framework: str = "", notice: str = ""):
+        from ecs_platform.governance import governance_qa
+        from ecs_platform.rag import EXAMPLE_QUERIES, answer as rag_answer, rag_status
+
+        status = rag_status()
+        apps, fws = _filter_options()
+        answer = None
+        if q:
+            res = rag_answer(q, role=role, user=user, application=application, framework=framework)
+            if res.get("mode") in ("fallback", "error") or not res.get("grounded"):
+                res["answer"] = governance_qa(q).get("answer", res.get("answer", ""))
+                res.setdefault("fallback_used", True)
+            answer = res
+        ctx = _ctx(request, role, user, "ai_assistant", notice, q=q, answer=answer, status=status,
+                   examples=EXAMPLE_QUERIES, apps=apps, fw_options=fws,
+                   selected={"application": application, "framework": framework})
+        return templates.TemplateResponse(request=request, name="ai_assistant.html", context=ctx)
+
+    @app.post("/mvp/ai-assistant/reindex")
+    def ai_assistant_reindex(role: str = Form("cio"), user: str = Form("CIO")):
+        from ecs_platform.rag import reindex_evidence
+
+        res = reindex_evidence()
+        notice = (f"Indexed {res.get('chunks_indexed', 0)} chunks from {res.get('evidence', 0)} evidence "
+                  f"records + {res.get('governance_docs', 0)} governance docs."
+                  if res.get("ok") else f"Re-index failed: {res.get('error')}")
+        return _redirect("/mvp/ai-assistant", role, user, notice)
 
     # ---------------------------------------------------------------- JSON APIs
     @app.get("/api/platform/inventory")
@@ -189,6 +272,21 @@ def register_governance_routes(app, templates):
     def api_reuse():
         from ecs_platform.governance import evidence_reuse
         return JSONResponse(evidence_reuse())
+
+    @app.get("/api/platform/reuse-demonstrations")
+    def api_reuse_demos():
+        from ecs_platform.governance import reuse_demonstrations
+        return JSONResponse(reuse_demonstrations())
+
+    @app.get("/api/platform/crosswalk")
+    def api_crosswalk():
+        from ecs_platform.governance import crosswalk_matrix
+        return JSONResponse(crosswalk_matrix())
+
+    @app.get("/api/platform/scorecard")
+    def api_scorecard(role: str = "cio"):
+        from ecs_platform.governance import governance_scorecard
+        return JSONResponse(governance_scorecard(role))
 
     @app.get("/api/platform/control-coverage")
     def api_control_coverage():
@@ -211,6 +309,29 @@ def register_governance_routes(app, templates):
         return JSONResponse(executive_summary())
 
     @app.get("/api/platform/assistant")
-    def api_assistant(q: str = ""):
+    def api_assistant(q: str = "", role: str = "cio", user: str = "User",
+                      application: str = "", framework: str = ""):
         from ecs_platform.governance import governance_qa
-        return JSONResponse(governance_qa(q))
+        from ecs_platform.rag import answer as rag_answer
+
+        if not q:
+            return JSONResponse({"ok": False, "error": "q is required"}, status_code=400)
+        res = rag_answer(q, role=role, user=user, application=application, framework=framework)
+        if res.get("mode") in ("fallback", "error") or not res.get("grounded"):
+            res["keyword_answer"] = governance_qa(q).get("answer", "")
+        return JSONResponse(res)
+
+    @app.get("/api/platform/rag/status")
+    def api_rag_status():
+        from ecs_platform.rag import rag_status
+        return JSONResponse(rag_status())
+
+    @app.get("/api/platform/rag/gemini")
+    def api_rag_gemini():
+        from ecs_platform.rag import gemini_connectivity
+        return JSONResponse(gemini_connectivity())
+
+    @app.post("/api/platform/rag/reindex")
+    def api_rag_reindex():
+        from ecs_platform.rag import reindex_evidence
+        return JSONResponse(reindex_evidence())

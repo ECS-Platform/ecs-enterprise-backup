@@ -52,6 +52,18 @@ class PgVectorStore(VectorStore):
                 """)
             cur.execute(
                 f"CREATE INDEX IF NOT EXISTS idx_{self._table}_uid ON {self._table} (evidence_uid)")
+            # If the embedding model changed dimension (e.g. provider switch), the
+            # existing column type won't match. Detect and rebuild empty/mismatched.
+            cur.execute(
+                "SELECT a.atttypmod FROM pg_attribute a "
+                "JOIN pg_class c ON c.oid = a.attrelid "
+                "WHERE c.relname = %s AND a.attname = 'embedding'", (self._table,))
+            row = cur.fetchone()
+            current_dim = int(row[0]) if row and row[0] and row[0] > 0 else self._dim
+            if current_dim != self._dim:
+                cur.execute(f"SELECT count(*) FROM {self._table}")
+                if int(cur.fetchone()[0]) == 0:
+                    cur.execute(f"ALTER TABLE {self._table} ALTER COLUMN embedding TYPE vector({self._dim})")
 
     def upsert(self, chunks: list[Chunk]) -> int:
         import json

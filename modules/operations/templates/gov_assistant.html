@@ -1,33 +1,70 @@
-<!DOCTYPE html><html><head><title>AI Assistant</title>{% include "partials/mvp_styles.html" %}</head>
+<!DOCTYPE html><html><head><title>AI Assistant</title>{% include "partials/mvp_styles.html" %}
+<style>.cite{border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;margin-bottom:6px}
+.cite .ref{font-weight:700;color:#2563eb}.mono{font-family:ui-monospace,monospace;font-size:.72rem}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.up{background:#16a34a}.down{background:#9ca3af}</style></head>
 <body class="bg-light"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
-<h1 class="ecs-workspace-title h5 mb-1">AI Assistant <span class="badge bg-info">repository-aware</span></h1>
-<p class="small text-muted mb-2">Ask about audit readiness, control or framework coverage, evidence reuse, and the application portfolio. Answers are grounded in live evidence-repository data (no hallucination); when an LLM key is configured the same context feeds RAG generation.</p>
+<h1 class="ecs-workspace-title h5 mb-1">ECS AI Assistant <span class="badge bg-info">LLM-RAG · Gemini</span></h1>
+<p class="small text-muted mb-2">Grounded retrieval-augmented answers over the live evidence repository. Pipeline: RBAC filter → evidence retrieval → reuse &amp; framework mapping → context assembly → Gemini → cited response. The model answers only from retrieved, RBAC-scoped evidence.</p>
 
-<form method="get" action="/mvp/platform/assistant" class="mb-3">
+{# ---- RAG stack status ---- #}
+<div class="card mb-2"><div class="card-body py-2 small d-flex flex-wrap gap-3 align-items-center">
+<span><span class="dot {{ 'up' if status.provider_configured else 'down' }}"></span>Provider: <strong>{{ status.provider or 'gemini' }}</strong> ({{ status.model or 'n/a' }})</span>
+<span><span class="dot {{ 'up' if status.vector_ready else 'down' }}"></span>Vector index: <strong>{{ status.vector_count }}</strong> chunks · {{ status.indexed_pct }}% of {{ status.evidence_count }} evidence</span>
+<span class="badge bg-{{ 'success' if status.ready else 'secondary' }}">{{ 'RAG ready' if status.ready else 'Key required' }}</span>
+<form method="post" action="/mvp/platform/assistant/reindex" class="ms-auto d-inline">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-outline-primary btn-sm py-0" {{ 'disabled' if not status.provider_configured }}>Re-index Evidence</button>
+</form>
+</div></div>
+{% if not status.provider_configured %}
+<div class="alert alert-warning py-2 px-3 small mb-2">Set <code>GEMINI_API_KEY</code> in the host environment (or <code>.env</code>) and restart the <code>ecs</code> service to enable Gemini generation. Until then, answers fall back to the deterministic repository assistant; retrieval, RBAC, and framework citations still work.</div>
+{% endif %}
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+
+<form method="get" action="/mvp/platform/assistant" class="mb-2">
 <input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
 <div class="input-group">
-<input class="form-control" name="q" value="{{ q }}" placeholder="e.g. Are we audit ready? What is our control coverage? How much evidence reuse do we have?">
+<input class="form-control" name="q" value="{{ q }}" placeholder="Ask about evidence, reuse, coverage, readiness…">
 <button class="btn btn-primary" type="submit">Ask</button>
 </div>
 </form>
-
-<div class="mb-3 small">Try:
-{% for s in ["Are we audit ready?", "What is our control coverage?", "Show framework coverage", "How much evidence reuse?", "Application portfolio summary"] %}
+<div class="mb-3 small">Examples:
+{% for s in examples %}
 <a class="badge bg-light text-dark" href="/mvp/platform/assistant?role={{ role }}&user={{ user }}&q={{ s|urlencode }}">{{ s }}</a>
 {% endfor %}
 </div>
 
 {% if answer %}
-<div class="card"><div class="card-body">
-<div class="text-muted small mb-1">Q: {{ q }}</div>
-{% if answer.ok %}
-<p class="mb-1"><strong>{{ answer.answer }}</strong></p>
-{% else %}
-<p class="text-danger mb-1">{{ answer.answer or answer.error }}</p>
-{% endif %}
+<div class="card mb-2"><div class="card-body">
+<div class="text-muted small mb-1">Q: {{ q }}
+<span class="badge bg-{{ 'success' if answer.mode=='rag' else 'secondary' }} ms-1">{{ answer.mode }}</span>
+{% if answer.retrieval_mode %}<span class="badge bg-light text-dark">retrieval: {{ answer.retrieval_mode }}</span>{% endif %}
+{% if answer.rbac %}<span class="badge bg-light text-dark">rbac: {{ answer.rbac.rbac_role }}{% if answer.rbac.scope_filter %} (scoped){% else %} (enterprise){% endif %}</span>{% endif %}
+</div>
+<p class="mb-1" style="white-space:pre-wrap">{{ answer.answer }}</p>
+{% if answer.fallback_used %}<div class="small text-muted">↳ deterministic fallback (no LLM key); citations below are live.</div>{% endif %}
 </div></div>
+
+{% if answer.facts %}
+<h2 class="h6">Grounding Facts</h2>
+<ul class="small">{% for f in answer.facts %}<li>{{ f }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if answer.citations %}
+<h2 class="h6">Cited Evidence ({{ answer.citations|length }})</h2>
+{% for c in answer.citations %}
+<div class="cite">
+<span class="ref">[{{ c.ref }}]</span> <strong>{{ c.title }}</strong>
+<span class="badge bg-light text-dark">{{ c.source_system }}/{{ c.object_type }}</span>
+{% if c.application %}<span class="badge bg-light text-dark">{{ c.application }}</span>{% endif %}
+<span class="badge bg-{{ 'success' if c.review_status=='Approved' else 'danger' if c.review_status=='Rejected' else 'warning' if c.review_status=='UnderReview' else 'secondary' }}">{{ c.review_status }}</span>
+<div class="mono text-muted">uid={{ c.evidence_uid }} · collected={{ c.collected_timestamp }}</div>
+<div class="small">Frameworks: {% for fw in c.frameworks %}<span class="badge bg-info me-1">{{ fw }} {{ c.framework_refs[fw] }}</span>{% else %}<span class="text-muted">none</span>{% endfor %}</div>
+</div>
+{% endfor %}
+{% endif %}
 {% endif %}
 </div></div></div>
 {% include "partials/mvp_scripts.html" ignore missing %}
