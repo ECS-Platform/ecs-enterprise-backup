@@ -51,3 +51,100 @@ rbac:
     application: {field: application, source: user_assignments}
     control: {field: control, source: user_assignments}
     assigned: {field: application, source: auditor_assignments}
+
+# ===========================================================================
+# Phase 2 — Step 1: Canonical permission catalog (ADDITIVE, NOT YET ENFORCED).
+#
+# This block is the single source of truth for the future consolidated
+# PolicyEngine (app/auth/authz.py). It is intentionally separate from the legacy
+# `rbac:` block above so that nothing currently reading `rbac.roles` /
+# `rbac.scope_filters` changes behavior. No route, dashboard, or API consumes
+# `rbac_catalog` yet — enforcement is wired in later, separately-approved steps.
+# ===========================================================================
+rbac_catalog:
+  version: 1
+  default_role: application_owner
+
+  # ---- Permission catalog: verb.resource identifiers ----------------------
+  permissions:
+    evidence.read:        Read evidence records
+    evidence.collect:     Trigger evidence collection
+    evidence.upload:      Upload or replace evidence
+    evidence.submit:      Submit evidence to auditor review
+    evidence.review:      Review evidence (auditor)
+    evidence.approve:     Approve evidence
+    evidence.reject:      Reject evidence
+    evidence.export:      Export evidence / reports
+    observation.close:    Close an observation
+    observation.reupload: Request evidence re-upload
+    exception.raise:      Raise a governance exception
+    exception.approve:    Approve / reject an exception
+    framework.read:       Read framework / control library
+    framework.manage:     Import / manage frameworks
+    framework.review:     Review framework onboarding
+    connector.sync:       Run a connector sync
+    analytics.read:       Read analytics / dashboards
+    security.read:        Read security findings
+    lineage.read:         Read evidence lineage
+    rag.read:             Query the AI assistant
+    rag.admin:            Reindex / warm the RAG store
+    admin.all:            Full platform administration
+
+  # ---- Dashboard (page) identifiers used by require_page() -----------------
+  pages:
+    dashboard.cio:        CIO executive dashboard
+    dashboard.auditor:    Auditor dashboard
+    dashboard.compliance: Compliance dashboard
+    dashboard.security:   Security dashboard
+    dashboard.owner:      Application Owner dashboard
+    dashboard.vertical:   Vertical Head dashboard
+    dashboard.functional: Functional Head dashboard
+
+  # ---- Role -> permissions. Mirrors the legacy `rbac.roles.can` intent but
+  #      expressed in the canonical verb.resource vocabulary. "*" = all. -----
+  roles:
+    system_admin:
+      permissions: ["*"]
+      pages: ["*"]
+    cio:
+      permissions: [evidence.read, evidence.export, analytics.read, lineage.read,
+                    framework.read, rag.read, exception.raise, exception.approve]
+      pages: [dashboard.cio]
+    auditor:
+      permissions: [evidence.read, evidence.review, evidence.approve, evidence.reject,
+                    evidence.export, observation.close, observation.reupload,
+                    analytics.read, framework.read, framework.review, lineage.read,
+                    rag.read, exception.approve]
+      pages: [dashboard.auditor]
+    application_owner:
+      permissions: [evidence.read, evidence.collect, evidence.upload, evidence.submit,
+                    lineage.read, rag.read, exception.raise]
+      pages: [dashboard.owner]
+    compliance_officer:
+      permissions: [evidence.read, evidence.export, analytics.read, framework.read,
+                    framework.manage, lineage.read, rag.read, exception.raise]
+      pages: [dashboard.compliance]
+    security_officer:
+      permissions: [evidence.read, security.read, analytics.read, lineage.read, rag.read]
+      pages: [dashboard.security]
+    vertical_head:
+      permissions: [evidence.read, evidence.export, analytics.read, lineage.read, rag.read]
+      pages: [dashboard.vertical]
+    functional_head:
+      permissions: [evidence.read, evidence.export, analytics.read, lineage.read, rag.read]
+      pages: [dashboard.functional]
+    control_owner:
+      permissions: [evidence.read, evidence.collect, lineage.read, rag.read]
+      pages: []
+
+  # ---- Scope dimension per role (mirrors legacy scope) --------------------
+  role_scope:
+    system_admin: enterprise
+    cio: enterprise
+    auditor: enterprise
+    compliance_officer: enterprise
+    security_officer: enterprise
+    vertical_head: vertical
+    functional_head: function
+    application_owner: application
+    control_owner: control
