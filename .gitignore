@@ -36,3 +36,8 @@ modules/enterprise_grc/reports/ECS_Validation_Report.json
 # Connector tokens (kept local only; never commit live credentials)
 demo-data/.gitea_token
 demo-data/*.token
+
+# Database backups (contain sensitive evidence/audit data; never commit)
+backups/
+*.dump
+*.dump.sha256

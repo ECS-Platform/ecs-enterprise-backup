@@ -1,0 +1,103 @@
+# ECS Evidence Sufficiency Engine — configuration (Phase 5.2-A).
+#
+# READ-ONLY scoring engine. Deterministic, no LLM. This file defines the policy
+# the engine uses to score evidence. Changing these values changes scores only;
+# it never changes workflow, dashboards, RBAC, auth, or RAG behavior.
+#
+# The engine is DISABLED by default. When disabled, calculate_evidence_score()
+# returns a neutral, clearly-marked "disabled" result and performs no scoring.
+
+sufficiency:
+  # Master feature flag. Default FALSE. Env override: SUFFICIENCY_ENGINE_ENABLED.
+  enabled: ${SUFFICIENCY_ENGINE_ENABLED:-false}
+
+  # ---- Dimension weights (must sum to 1.0; engine renormalizes defensively) ----
+  weights:
+    completeness:   0.30
+    freshness:      0.25
+    traceability:   0.20
+    coverage:       0.15
+    review:         0.10
+
+  # ---- Score bands (mirror governance.audit_readiness thresholds) -------------
+  bands:
+    ready_min:    80    # >= ready_min  -> "Ready"
+    at_risk_min:  55    # >= at_risk_min and < ready_min -> "At Risk"; else "Not Ready"
+
+  # ---- Freshness policy -------------------------------------------------------
+  # Max age (in days) before an evidence artifact of a given object_type is "Stale".
+  # Fresh   : age < 50% of max_age
+  # Aging   : 50% <= age <= 100% of max_age
+  # Stale   : age > max_age (but not formally Expired)
+  # Expired : evidence_reviews.valid_until < now  (always overrides the bands)
+  freshness:
+    default_max_age_days: 90
+    max_age_days_by_type:
+      quality_gate:        30
+      security_hotspot:    30
+      test_result:         14
+      ci_build:            14
+      ci_job:              14
+      cloud_finding:       30
+      pull_request:        90
+      commit:              90
+      branch_protection:   180
+      release:             180
+      repository:          365
+      document:            365
+      page:                365
+      policy:              365
+    # Score (0-100) awarded per freshness band.
+    band_scores:
+      fresh:    100
+      aging:     70
+      stale:     30
+      expired:    0
+      unknown:   50    # no usable timestamp -> neutral, not punitive
+
+  # ---- Completeness policy ----------------------------------------------------
+  # Fields required on every evidence item (non-empty). Each missing field reduces
+  # the completeness score proportionally.
+  completeness:
+    base_required_fields:
+      - title
+      - content
+      - owner
+      - url
+    # At least one control mapping is required for completeness.
+    require_control_mapping: true
+    # Per-object_type required metadata keys (presence checked; non-empty).
+    required_metadata_by_type:
+      pull_request:      [merged, approvals]
+      quality_gate:      [alert_status]
+      test_result:       [passCount, failCount]
+      branch_protection: [protected]
+      cloud_finding:     [severity, status]
+
+  # ---- Traceability policy ----------------------------------------------------
+  # Each present signal contributes its weight (relative) to the traceability score.
+  traceability:
+    signals:
+      has_owner:           0.20
+      has_url:             0.20
+      has_control_mapping: 0.30
+      has_lineage:         0.20
+      has_source_ref:      0.10   # source_system + source_object_id present
+
+  # ---- Review confidence policy ----------------------------------------------
+  # Score (0-100) by evidence_reviews.status.
+  review:
+    status_scores:
+      Approved:    100
+      UnderReview:  50
+      Collected:    40
+      Rejected:      0
+      Expired:       0
+    unknown_status_score: 30   # no review row -> low-but-nonzero
+
+  # ---- Coverage policy --------------------------------------------------------
+  # Framework coverage: score scales with the number of distinct frameworks the
+  # evidence's controls map to (via crosswalk), capped at target_frameworks.
+  coverage:
+    target_frameworks: 3       # mapping to >= this many frameworks -> full score
+    no_mapping_score:  0
