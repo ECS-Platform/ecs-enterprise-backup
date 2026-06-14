@@ -58,17 +58,44 @@ def _seed(key: str, lo: int, hi: int) -> int:
     return lo + (h % (hi - lo + 1))
 
 
+def _framework_delegate(capability: str, role: str):
+    """PolicyEngine LEGACY-COMPAT verdict for a framework capability, or None to
+    use legacy. Gated by the same RBAC_DELEGATION_ENABLED kill switch (default
+    FALSE). Never raises — any error returns None so the caller falls back to
+    the verbatim legacy logic. Bug-for-bug parity with the legacy predicate.
+    """
+    from modules.shared.services.role_permissions import _delegation_enabled
+
+    if not _delegation_enabled():
+        return None
+    try:
+        from app.auth.authz import get_policy_engine
+
+        return bool(get_policy_engine().can_legacy(role, capability))
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def can_manage_framework_onboarding(role: str) -> bool:
+    d = _framework_delegate("can_manage_framework_onboarding", role)
+    if d is not None:
+        return d
     from modules.shared.services.role_permissions import normalize_role
     return normalize_role(role) in {"cio", "compliance_head", "enterprise_admin", "admin"}
 
 
 def can_review_framework_onboarding(role: str) -> bool:
+    d = _framework_delegate("can_review_framework_onboarding", role)
+    if d is not None:
+        return d
     from modules.shared.services.role_permissions import normalize_role
     return normalize_role(role) in {"auditor", "enterprise_admin", "admin", "cio", "compliance_head"}
 
 
 def can_reuse_evidence_decision(role: str) -> bool:
+    d = _framework_delegate("can_reuse_evidence_decision", role)
+    if d is not None:
+        return d
     from modules.shared.services.role_permissions import normalize_role
     return normalize_role(role) in {"owner", "auditor", "cio", "compliance_head", "enterprise_admin", "admin"}
 

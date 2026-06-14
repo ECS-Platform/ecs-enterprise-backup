@@ -49,6 +49,15 @@ def _load_catalog() -> dict[str, Any]:
         raise AuthzError(f"unable to load rbac_catalog: {exc}") from exc
 
 
+def _load_legacy_catalog() -> dict[str, Any]:
+    try:
+        from ecs_platform.config import load_rbac_config
+
+        return (load_rbac_config() or {}).get("rbac_legacy_compat", {}) or {}
+    except Exception:  # noqa: BLE001 - legacy compat is optional
+        return {}
+
+
 class PolicyEngine:
     """Single authorization engine over the canonical catalog.
 
@@ -58,8 +67,10 @@ class PolicyEngine:
     are not attached to any route in this step.
     """
 
-    def __init__(self, catalog: dict[str, Any] | None = None) -> None:
+    def __init__(self, catalog: dict[str, Any] | None = None,
+                 legacy_catalog: dict[str, Any] | None = None) -> None:
         self._catalog = catalog if catalog is not None else _load_catalog()
+        self._catalog_legacy = legacy_catalog if legacy_catalog is not None else _load_legacy_catalog()
 
     # ---- catalog accessors -------------------------------------------------
     @property
@@ -90,6 +101,35 @@ class PolicyEngine:
     def can_view_page(self, role: str, page: str) -> bool:
         pages = self.role_pages(role)
         return "*" in pages or page in pages
+
+    # ---- legacy compatibility (Phase 2 Step 2A) ----------------------------
+    @property
+    def _legacy(self) -> dict[str, Any]:
+        return self._catalog_legacy
+
+    def _legacy_normalize(self, role: str | None) -> str:
+        """Reproduce role_permissions.normalize_role() EXACTLY (quirks included)."""
+        lc = self._legacy
+        default = lc.get("default_role", "owner")
+        r = (role or default)
+        r = str(r).strip().lower()
+        if r == "":
+            r = default
+        aliases = lc.get("aliases", {}) or {}
+        return aliases.get(r, r)
+
+    def can_legacy(self, role: str, capability: str) -> bool:
+        """Bug-for-bug compatible permission check used by the Step 2A shims.
+
+        Returns the same boolean the historical predicate produced, by testing
+        the legacy-normalized role against the legacy capability role set encoded
+        in rbac.yaml [rbac_legacy_compat]. This intentionally preserves legacy
+        flaws; corrections are deferred to the RBAC Rationalization phase."""
+        caps = (self._legacy.get("capabilities", {}) or {})
+        allowed = caps.get(capability)
+        if allowed is None:
+            raise AuthzError(f"unknown legacy capability: {capability}")
+        return self._legacy_normalize(role) in set(allowed)
 
     def scope_for(self, role: str) -> str:
         scopes = self._catalog.get("role_scope", {}) or {}

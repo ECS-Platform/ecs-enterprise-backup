@@ -148,3 +148,48 @@ rbac_catalog:
     functional_head: function
     application_owner: application
     control_owner: control
+
+# ===========================================================================
+# Phase 2 — Step 2A: LEGACY COMPATIBILITY catalog (BUG-FOR-BUG MIRROR).
+#
+# This block exists ONLY so the compatibility shims can delegate to the
+# PolicyEngine while producing results byte-for-byte identical to the historical
+# role_permissions.py / framework_onboarding_engine.py predicates. It deliberately
+# reproduces legacy behavior, INCLUDING known flaws and inconsistencies (see
+# docs/ECS_RBAC_LEGACY_FLAWS.md). It is NOT the target model — the canonical
+# `rbac_catalog` above is. These flaws are corrected in a later RBAC
+# Rationalization phase, never here.
+#
+# Semantics: each capability lists the LEGACY-NORMALIZED role names that the
+# original predicate accepted. `aliases` reproduces legacy normalize_role()
+# (note: distinct from the canonical alias map). `default_role` reproduces the
+# legacy `(role or "owner")` fallback. Unknown roles are normalized to
+# themselves (legacy returns them unchanged), so they match only if listed.
+# ===========================================================================
+rbac_legacy_compat:
+  version: 1
+  # Reproduces role_permissions.normalize_role() EXACTLY (its quirks included).
+  default_role: owner
+  aliases:
+    compliance_officer: compliance_head
+    security_officer: compliance_head
+    operations_owner: owner
+    ai_governance_owner: cio
+    ai_sdlc_owner: owner
+    framework_owner: compliance_head
+
+  # capability -> exact set of legacy-normalized roles the predicate accepted.
+  capabilities:
+    can_upload_evidence: [owner]
+    can_submit_to_auditor: [owner]
+    can_review_evidence: [auditor, enterprise_admin]
+    can_export_reports: [owner, auditor, cio, vertical_head, compliance_head, enterprise_admin]
+    can_manage_frameworks: [cio, compliance_head, enterprise_admin, admin]
+    can_assign_owner: [owner, auditor, compliance_head, enterprise_admin]
+    can_escalate: [owner, auditor, cio, vertical_head, compliance_head, enterprise_admin]
+    can_request_reupload: [auditor]
+    can_raise_exception: [owner, auditor, compliance_head, cio, vertical_head, enterprise_admin]
+    # Engine D (framework onboarding)
+    can_manage_framework_onboarding: [cio, compliance_head, enterprise_admin, admin]
+    can_review_framework_onboarding: [auditor, enterprise_admin, admin, cio, compliance_head]
+    can_reuse_evidence_decision: [owner, auditor, cio, compliance_head, enterprise_admin, admin]
