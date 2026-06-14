@@ -136,3 +136,19 @@ CREATE TABLE IF NOT EXISTS observations (
 );
 CREATE INDEX IF NOT EXISTS idx_observations_app    ON observations (application_id);
 CREATE INDEX IF NOT EXISTS idx_observations_status ON observations (status);
+
+-- Phase 4 Step 3: durable observation persistence (ADDITIVE ONLY).
+-- Promote observations to a first-class durable entity. Every column is added
+-- idempotently and is nullable (or has a default) so the Step 1 table, existing
+-- rows, and insert_observation() callers are unaffected.
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS framework         TEXT;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS control_id        TEXT;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS severity          TEXT;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS updated_by        TEXT;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS closed_by         TEXT;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS closed_at         TIMESTAMPTZ;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS due_date          TEXT;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS remediation_plan  TEXT;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS comments          JSONB NOT NULL DEFAULT '[]'::jsonb;
+CREATE INDEX IF NOT EXISTS idx_observations_control   ON observations (control_id);
+CREATE INDEX IF NOT EXISTS idx_observations_framework ON observations (framework);

@@ -120,6 +120,19 @@ async def ecs_lifespan(application: FastAPI):
     except Exception as exc:  # noqa: BLE001
         ecs_logging.info("ECSPlatform", f"Evidence repository init skipped: {exc}")
 
+    # Phase 4 Step 3: durable observation hydration (flag-gated, best-effort).
+    # Reloads persisted observations into in-memory state so the lifecycle survives
+    # restart without any dashboard change. No-op when OBSERVATIONS_DURABLE_ENABLED
+    # is off; never blocks startup.
+    try:
+        from app.observations.store import durable_observations_enabled, hydrate_into_memory
+
+        if durable_observations_enabled():
+            n = hydrate_into_memory()
+            ecs_logging.info("ECSPlatform", f"Durable observations hydrated: {n} record(s)")
+    except Exception as exc:  # noqa: BLE001
+        ecs_logging.info("ECSPlatform", f"Observation hydration skipped: {exc}")
+
     # LLM-RAG startup validation (non-fatal): report whether Gemini is configured
     # and reachable, plus how much of the repository is indexed. Secrets never logged.
     try:
@@ -641,6 +654,10 @@ def evidence_review_close_observation(
             "closed_at": ts,
             "detail": "Manually closed by auditor",
         }
+        from app.observations.store import persist_close
+
+        persist_close(observation_id, closed_by=user, role=role,
+                      detail={"framework": framework_name, "control": control_name})
         closed.append(observation_id)
     obs = observation_id or (closed[0] if closed else "")
     body = f"Observation {obs} closed successfully." if obs else "Observation closed."
@@ -1311,6 +1328,17 @@ def workflow_leadership_review(
             fallback_actor=user, fallback_role=role,
             before_state={"status": "Closed"}, after_state={"status": "Open"},
             detail={"framework": framework_name, "control": control_name, "action": action})
+        from app.observations.store import durable_observations_enabled, persist_reopen
+        from modules.shared.services.evidence_workflow_engine import observation_id_for
+
+        if durable_observations_enabled():
+            _oid = observation_id_for(framework_name, control_name)
+            # Keep durable + in-memory consistent on reopen (memory previously left
+            # the closure record in place; we only change this when durability is on).
+            if _oid in ecs_state.closed_observations:
+                del ecs_state.closed_observations[_oid]
+            persist_reopen(_oid, reopened_by=user, role=role,
+                           detail={"framework": framework_name, "control": control_name})
         return RedirectResponse(url=f"{base}&notice={quote('Observation sent back to App Owner.')}", status_code=303)
     if action == "escalate_governance":
         ecs_state.escalated_controls[key] = {

@@ -171,6 +171,142 @@ class EvidenceRepository:
                 (observation_id, application_id or None, title, description or None,
                  status, owner or None, created_by or None))
 
+    # ---- observations: durable persistence (Phase 4 Step 3) ----
+    _OBS_COLS = (
+        "observation_id, application_id, framework, control_id, title, description, "
+        "severity, status, owner, due_date, remediation_plan, comments, "
+        "created_by, created_at, updated_by, updated_at, closed_by, closed_at"
+    )
+
+    def upsert_observation(self, observation_id: str, *, title: str = "",
+                           application_id: str = "", framework: str = "",
+                           control_id: str = "", description: str = "",
+                           severity: str = "", status: str = "Open", owner: str = "",
+                           due_date: str = "", remediation_plan: str = "",
+                           comments: list[Any] | None = None,
+                           created_by: str = "", updated_by: str = "") -> None:
+        """Create the observation if missing, else update its mutable fields.
+
+        Idempotent and safe to re-run (the basis for migration). created_by /
+        created_at are preserved on update; updated_at is always bumped. Pass
+        title only on create — on update an empty title keeps the existing one."""
+        with self.connect().cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO observations
+                  (observation_id, application_id, framework, control_id, title,
+                   description, severity, status, owner, due_date, remediation_plan,
+                   comments, created_by, updated_by, updated_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
+                ON CONFLICT (observation_id) DO UPDATE SET
+                  application_id   = COALESCE(NULLIF(EXCLUDED.application_id, ''), observations.application_id),
+                  framework        = COALESCE(NULLIF(EXCLUDED.framework, ''), observations.framework),
+                  control_id       = COALESCE(NULLIF(EXCLUDED.control_id, ''), observations.control_id),
+                  title            = COALESCE(NULLIF(EXCLUDED.title, ''), observations.title),
+                  description      = COALESCE(NULLIF(EXCLUDED.description, ''), observations.description),
+                  severity         = COALESCE(NULLIF(EXCLUDED.severity, ''), observations.severity),
+                  status           = EXCLUDED.status,
+                  owner            = COALESCE(NULLIF(EXCLUDED.owner, ''), observations.owner),
+                  due_date         = COALESCE(NULLIF(EXCLUDED.due_date, ''), observations.due_date),
+                  remediation_plan = COALESCE(NULLIF(EXCLUDED.remediation_plan, ''), observations.remediation_plan),
+                  comments         = EXCLUDED.comments,
+                  updated_by       = COALESCE(NULLIF(EXCLUDED.updated_by, ''), observations.updated_by),
+                  updated_at       = now()
+                """,
+                (observation_id, application_id or None, framework or None,
+                 control_id or None, title or observation_id, description or None,
+                 severity or None, status, owner or None, due_date or None,
+                 remediation_plan or None, json.dumps(comments or []),
+                 created_by or None, updated_by or created_by or None))
+
+    def update_observation(self, observation_id: str, **fields: Any) -> None:
+        """Patch mutable observation fields. Only supplied keys are updated."""
+        allowed = {"application_id", "framework", "control_id", "title", "description",
+                   "severity", "status", "owner", "due_date", "remediation_plan",
+                   "comments", "updated_by", "closed_by", "closed_at"}
+        sets, params = [], []
+        for key, val in fields.items():
+            if key not in allowed:
+                continue
+            if key == "comments":
+                sets.append("comments = %s"); params.append(json.dumps(val or []))
+            else:
+                sets.append(f"{key} = %s"); params.append(val)
+        if not sets:
+            return
+        sets.append("updated_at = now()")
+        params.append(observation_id)
+        with self.connect().cursor() as cur:
+            cur.execute(
+                f"UPDATE observations SET {', '.join(sets)} WHERE observation_id = %s", params)
+
+    def close_observation(self, observation_id: str, *, closed_by: str = "",
+                          status: str = "Closed") -> None:
+        """Mark an observation closed (sets closed_by/closed_at)."""
+        with self.connect().cursor() as cur:
+            cur.execute(
+                "UPDATE observations SET status = %s, closed_by = %s, closed_at = now(), "
+                "updated_by = %s, updated_at = now() WHERE observation_id = %s",
+                (status, closed_by or None, closed_by or None, observation_id))
+
+    def reopen_observation(self, observation_id: str, *, reopened_by: str = "",
+                           status: str = "Open") -> None:
+        """Reopen a previously-closed observation (clears closure fields)."""
+        with self.connect().cursor() as cur:
+            cur.execute(
+                "UPDATE observations SET status = %s, closed_by = NULL, closed_at = NULL, "
+                "updated_by = %s, updated_at = now() WHERE observation_id = %s",
+                (status, reopened_by or None, observation_id))
+
+    def get_observation(self, observation_id: str) -> dict[str, Any] | None:
+        with self.connect().cursor() as cur:
+            cur.execute(
+                f"SELECT {self._OBS_COLS} FROM observations WHERE observation_id = %s",
+                (observation_id,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            return dict(zip([c[0] for c in cur.description], row))
+
+    def list_observations(self, *, status: str | None = None,
+                          application_id: str | None = None,
+                          framework: str | None = None,
+                          limit: int = 1000) -> list[dict[str, Any]]:
+        clauses, params = [], []
+        if status:
+            clauses.append("status = %s"); params.append(status)
+        if application_id:
+            clauses.append("application_id = %s"); params.append(application_id)
+        if framework:
+            clauses.append("framework = %s"); params.append(framework)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.append(limit)
+        with self.connect().cursor() as cur:
+            cur.execute(
+                f"SELECT {self._OBS_COLS} FROM observations {where} "
+                f"ORDER BY created_at DESC LIMIT %s", params)
+            cols = [c[0] for c in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def search_observations(self, term: str, *, limit: int = 200) -> list[dict[str, Any]]:
+        like = f"%{term}%"
+        with self.connect().cursor() as cur:
+            cur.execute(
+                f"SELECT {self._OBS_COLS} FROM observations "
+                "WHERE observation_id ILIKE %s OR title ILIKE %s OR description ILIKE %s "
+                "OR control_id ILIKE %s OR application_id ILIKE %s "
+                "ORDER BY created_at DESC LIMIT %s",
+                (like, like, like, like, like, limit))
+            cols = [c[0] for c in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def observation_counts(self) -> dict[str, int]:
+        with self.connect().cursor() as cur:
+            cur.execute("SELECT status, count(*) FROM observations GROUP BY status")
+            by_status = {r[0]: r[1] for r in cur.fetchall()}
+        total = sum(by_status.values())
+        return {"total": total, "by_status": by_status}
+
     # ---- reads ----
     def search_evidence(self, *, application: str | None = None, source_system: str | None = None,
                         object_type: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
