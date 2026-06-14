@@ -89,6 +89,36 @@ def register_platform_routes(app, templates):
         return RedirectResponse(url=f"/mvp/integration-health?role={role}&user={quote(user)}&notice={quote(notice)}",
                                 status_code=303)
 
+    # ---- Orchestration probes (Kubernetes / Docker / load-balancer) ----
+    @app.get("/healthz")
+    def healthz():
+        """Liveness probe: process is up and serving. Intentionally does no I/O
+        so a slow/unreachable dependency never restarts a healthy container."""
+        return JSONResponse({"status": "ok"})
+
+    @app.get("/readyz")
+    def readyz():
+        """Readiness probe: app can serve traffic that needs the evidence repo.
+        Returns 200 when the PostgreSQL repository is reachable, else 503. Kept
+        lightweight (single connectivity check, no heavy queries or LLM calls)."""
+        repo_ok = False
+        detail = ""
+        try:
+            from ecs_platform.repository import EvidenceRepository
+
+            with EvidenceRepository() as repo:
+                with repo.connect().cursor() as cur:
+                    cur.execute("SELECT 1")
+                    cur.fetchone()
+            repo_ok = True
+        except Exception as exc:  # noqa: BLE001 - readiness must never raise
+            detail = str(exc)[:200]
+        status = 200 if repo_ok else 503
+        return JSONResponse(
+            {"status": "ready" if repo_ok else "not-ready", "repository_ok": repo_ok, "detail": detail},
+            status_code=status,
+        )
+
     # ---- JSON APIs ----
     @app.get("/api/platform/health")
     def api_platform_health():
