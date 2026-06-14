@@ -1,0 +1,31 @@
+* c1c24bd (HEAD -> cursor/predefined-queries-module, tag: ecs-before-ollama, origin/cursor/predefined-queries-module) Milestone: Jira integration, governance dashboards, evidence reuse, RAG foundation
+* 70c3fe7 ECS governance and ingestion enhancements
+* d7fbaff Add ECS Predefined Queries module with PostgreSQL execution
+* f0ce401 Fix false psycopg2 dependency check in PostgreSQL connector.
+* ff7c4e0 Enable PostgreSQL demo execution and mount Excel library in Docker.
+* f88e16c Add centralized Predefined Queries module loaded from the Excel control library.
+* 7fb3e71 (main) Fix Scheduler drilldown and history mapping
+* c94dd5f Integrate CRD with framework control library
+* 9b2ac63 (tag: ecs-clean-baseline-june8) Ignore ECS runtime generated files
+* eca5eb3 Add gitignore and remove cache artifacts
+* 0363d83 (old-origin/main, old-origin/ecs-june3-backup, old-origin/HEAD) Backup snapshot before CIO/App Owner dashboard refactoring
+* 06e735e (tag: ecs-module-refactor-stable, tag: ecs-modular-verified) 1 uncommited
+* 93fac98 Document ECS module migration validation and rollback procedures.
+* 65d1d2f Update validation and defect reports
+* 0b29018 ECS module refactor and AI SDLC enhancements
+* eff35c3 Refactor ECS into module-oriented folders with backward-compatible shims.
+*   18f8f79 Merge remote GitHub repository
+|\  
+| * 907a993 V18
+| * 010be3d Initial commit
+* 62440c4 Pre-module-refactor checkpoint
+* 15fa0ed AI SDLC Control Tower checkpoint
+* 676c066 Add AI & SDLC Governance module and enterprise GRC demo upgrades.
+* 6973230 Add ECS architecture baseline and handover document
+* 064d3d7 Stable ECS backup before AI governance extension
+* 6523f1a Initial ECS enterprise backup
+* 55b4fa9 stable ecs framework build
+* b9e4db4 r
+* eadf966 r
+* a3de41a Fix typos in commit messages for clarity and consistency
+* d2c1ea5 commit

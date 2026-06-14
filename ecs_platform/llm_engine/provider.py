@@ -165,6 +165,11 @@ class OllamaProvider(LLMProvider):
     def _base(self) -> str:
         return self.provider_cfg.get("base_url", "http://host.docker.internal:11434").rstrip("/")
 
+    def _keep_alive(self) -> str:
+        # Keep the model resident to avoid repeated cold starts. Configurable via
+        # ECS_OLLAMA_KEEP_ALIVE (e.g. "30m", "-1" for forever, "0" to unload).
+        return str(self.provider_cfg.get("keep_alive", self.cfg.get("keep_alive", "30m")))
+
     def api_key(self) -> str:  # Ollama is keyless
         return ""
 
@@ -178,6 +183,7 @@ class OllamaProvider(LLMProvider):
             "model": self.model,
             "messages": messages,
             "stream": False,
+            "keep_alive": self._keep_alive(),
             "options": {"temperature": self.temperature, "num_predict": self.max_tokens},
         }
         data = self._post_json(f"{self._base()}/api/chat", payload, {})
@@ -191,12 +197,34 @@ class OllamaProvider(LLMProvider):
         out: list[list[float]] = []
         for text in texts:
             data = self._post_json(f"{self._base()}/api/embeddings",
-                                   {"model": model, "prompt": text}, {})
+                                   {"model": model, "prompt": text,
+                                    "keep_alive": self._keep_alive()}, {})
             vec = data.get("embedding", [])
             if not vec:
                 raise LLMError(f"Ollama embeddings returned empty vector (model={model})")
             out.append(vec)
         return out
+
+    def warm(self) -> dict[str, Any]:
+        """Load generation + embedding models into memory (resident via keep_alive).
+
+        Sends a tiny request to each so the first real query isn't a cold start.
+        Never raises; returns a status dict."""
+        status: dict[str, Any] = {"chat_warm": False, "embed_warm": False, "detail": ""}
+        try:
+            self._post_json(f"{self._base()}/api/chat",
+                            {"model": self.model, "messages": [{"role": "user", "content": "ok"}],
+                             "stream": False, "keep_alive": self._keep_alive(),
+                             "options": {"num_predict": 1}}, {})
+            status["chat_warm"] = True
+        except Exception as exc:  # noqa: BLE001
+            status["detail"] = f"chat warm failed: {exc}"
+        try:
+            self.embed(["warm"])
+            status["embed_warm"] = True
+        except Exception as exc:  # noqa: BLE001
+            status["detail"] += f"; embed warm failed: {exc}"
+        return status
 
 
 _PROVIDERS = {

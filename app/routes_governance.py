@@ -331,6 +331,16 @@ def register_governance_routes(app, templates):
         from ecs_platform.rag import gemini_connectivity
         return JSONResponse(gemini_connectivity())
 
+    @app.get("/api/platform/rag/llm")
+    def api_rag_llm():
+        from ecs_platform.rag import llm_connectivity
+        return JSONResponse(llm_connectivity())
+
+    @app.post("/api/platform/rag/warm")
+    def api_rag_warm():
+        from ecs_platform.rag import warm_models
+        return JSONResponse(warm_models())
+
     @app.post("/api/platform/rag/reindex")
     def api_rag_reindex():
         from ecs_platform.rag import reindex_evidence

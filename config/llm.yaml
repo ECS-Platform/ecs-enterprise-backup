@@ -9,7 +9,9 @@ llm:
   embedding_model: ${ECS_EMBEDDING_MODEL:-nomic-embed-text}
   temperature: ${ECS_LLM_TEMPERATURE:-0.1}
   max_output_tokens: ${ECS_LLM_MAX_TOKENS:-2048}
-  request_timeout_sec: ${ECS_LLM_TIMEOUT:-120}
+  request_timeout_sec: ${ECS_LLM_TIMEOUT:-180}
+  # Keep local models resident between requests (Ollama). "-1" = forever, "0" = unload.
+  keep_alive: ${ECS_OLLAMA_KEEP_ALIVE:-30m}
 
   providers:
     ollama:

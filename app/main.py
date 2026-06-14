@@ -130,9 +130,15 @@ async def ecs_lifespan(application: FastAPI):
             ecs_logging.info("ECSPlatform",
                              f"LLM-RAG ready: provider={st['provider']} model={st['model']} "
                              f"vector_chunks={st['vector_count']} indexed={st['indexed_pct']}%")
+            # Warm local models in the background so the first query isn't a cold start.
+            import threading
+
+            from ecs_platform.rag import warm_models
+
+            threading.Thread(target=warm_models, daemon=True).start()
         else:
             ecs_logging.info("ECSPlatform",
-                             "LLM-RAG disabled: GEMINI_API_KEY not set (assistant uses deterministic fallback)")
+                             "LLM-RAG disabled: provider not configured (assistant uses deterministic fallback)")
     except Exception as exc:  # noqa: BLE001
         ecs_logging.info("ECSPlatform", f"LLM-RAG status check skipped: {exc}")
 

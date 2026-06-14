@@ -34,6 +34,36 @@ from ecs_platform.repository import EvidenceRepository, RepositoryError
 # Exact refusal message when retrieval yields nothing (anti-hallucination contract).
 NO_EVIDENCE_MESSAGE = "No evidence found in ECS repository."
 
+
+def _logger():
+    """Return a best-effort structured logger; falls back to a no-op print wrapper."""
+    try:
+        from modules.shared.services import ecs_logging
+
+        return lambda where, msg: ecs_logging.info(where, msg)
+    except Exception:  # noqa: BLE001
+        return lambda where, msg: None
+
+
+def warm_models() -> dict[str, Any]:
+    """Warm the local LLM (generation + embedding) so first query isn't a cold start.
+
+    No-op for cloud providers that don't implement warm(). Never raises."""
+    try:
+        from ecs_platform.llm_engine.provider import get_provider
+
+        provider = get_provider()
+        if not provider.configured():
+            return {"ok": False, "detail": "provider not configured"}
+        warm = getattr(provider, "warm", None)
+        if not callable(warm):
+            return {"ok": True, "detail": "provider has no warm step (cloud)"}
+        status = warm()
+        status["ok"] = bool(status.get("chat_warm") or status.get("embed_warm"))
+        return status
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "detail": f"warm failed: {exc}"}
+
 # ECS UI role -> rbac.yaml role.
 _ROLE_ALIASES = {
     "cio": "cio",
@@ -186,25 +216,29 @@ def _governance_documents() -> list[dict[str, Any]]:
                     "metadata": {"source_system": "governance", "object_type": "observation",
                                  "application": app or ""}})
 
-            # lineage edges (evidence_relationships)
+            # lineage edges (evidence_relationships). Use the lineage row id in the
+            # uid: parent_uid can be NULL (root/ingest edges) and the same pair can
+            # appear under different operations, which collides on parent->child alone.
             cur.execute(
                 """
-                SELECT e.evidence_uid, l.parent_uid, l.operation, e.application
+                SELECT l.id, e.evidence_uid, l.parent_uid, l.operation, e.application
                 FROM evidence_lineage l JOIN evidence e ON e.id = l.evidence_id
                 """)
-            for child, parent, op, app in cur.fetchall():
+            for lid, child, parent, op, app in cur.fetchall():
                 docs.append({
-                    "uid": f"lineage:{parent}->{child}",
-                    "text": f"Evidence relationship: {parent} -> {child} via {op} (app {app}).",
+                    "uid": f"lineage:{lid}",
+                    "text": f"Evidence relationship: {parent or 'root'} -> {child} via {op} (app {app}).",
                     "metadata": {"source_system": "governance", "object_type": "relationship",
                                  "application": app or ""}})
 
-            # audit history
+            # audit history (use row id in the uid to guarantee unique chunk_ids;
+            # action+resource+timestamp can collide for same-second events)
             cur.execute(
-                "SELECT actor, role, action, resource, created_at FROM audit_log ORDER BY created_at DESC LIMIT 500")
-            for actor, role, action, resource, ts in cur.fetchall():
+                "SELECT id, actor, role, action, resource, created_at FROM audit_log "
+                "ORDER BY created_at DESC LIMIT 500")
+            for aid, actor, role, action, resource, ts in cur.fetchall():
                 docs.append({
-                    "uid": f"audit:{action}:{resource}:{ts}",
+                    "uid": f"audit:{aid}",
                     "text": f"Audit event at {ts}: {actor} ({role}) performed {action} on {resource}.",
                     "metadata": {"source_system": "governance", "object_type": "audit", "application": ""}})
     except (RepositoryError, Exception):  # noqa: BLE001 - governance tables optional
@@ -212,34 +246,72 @@ def _governance_documents() -> list[dict[str, Any]]:
     return docs
 
 
-def reindex_evidence(limit: int = 5000) -> dict[str, Any]:
-    """Embed all repository evidence + governance docs into pgvector (needs GEMINI_API_KEY).
+def _existing_chunk_hashes(store) -> dict[str, str]:
+    """Map chunk_id -> stored content_hash for incremental reindex. Empty on any error."""
+    try:
+        with store._connect().cursor() as cur:  # noqa: SLF001
+            cur.execute(f"SELECT chunk_id, metadata->>'content_hash' FROM {store._table}")  # noqa: SLF001
+            return {row[0]: (row[1] or "") for row in cur.fetchall()}
+    except Exception:  # noqa: BLE001
+        return {}
 
-    Indexes: evidence, evidence_relationships, governance observations, application
-    inventory, framework mappings, audit history. Idempotent — pgvector upserts on
-    chunk_id, so re-running only refreshes. No new evidence is created."""
+
+def reindex_evidence(limit: int = 5000, *, incremental: bool = True) -> dict[str, Any]:
+    """Embed repository evidence + governance/framework docs into pgvector via the
+    configured local provider (Ollama / nomic-embed-text).
+
+    Sources indexed: Evidence Repository, Governance Controls, Framework Library
+    (crosswalk), application inventory, relationships, reviews/observations, audit.
+
+    Incremental: each chunk carries a content_hash; chunks whose text is unchanged
+    are skipped (duplicate prevention). pgvector upserts on chunk_id so re-runs are
+    idempotent. No new evidence is created — read-only over the repository."""
+    import hashlib
+    import time as _t
+
+    from ecs_platform.repository import EvidenceRepository as _Rep
+
+    log = _logger()
+    started = _t.time()
+    report: dict[str, Any] = {
+        "ok": False, "provider": "", "model": "", "embedding_model": "",
+        "evidence": 0, "governance_docs": 0, "candidate_chunks": 0,
+        "embedded_chunks": 0, "skipped_unchanged": 0, "vector_count": 0,
+        "errors": [], "elapsed_sec": 0.0,
+    }
     try:
         from ecs_platform.config import load_vectorstore_config
         from ecs_platform.llm_engine.provider import get_provider
         from ecs_platform.vectorstore import Chunk, chunk_text, get_vector_store
 
         provider = get_provider()
+        report["provider"] = type(provider).__name__.replace("Provider", "").lower()
+        report["model"] = provider.model
+        report["embedding_model"] = provider.embedding_model
         if not provider.configured():
-            return {"ok": False, "error": "GEMINI_API_KEY not set; cannot embed."}
+            report["errors"].append("LLM provider not configured; cannot embed.")
+            return report
 
         chunk_cfg = (load_vectorstore_config().get("vectorstore", {}) or {}).get("chunking", {})
         size = int(chunk_cfg.get("chunk_size", 1000))
         overlap = int(chunk_cfg.get("chunk_overlap", 150))
 
-        with EvidenceRepository() as repo:
+        with _Rep() as repo:
             rows = repo.search_evidence(limit=limit)
             full = [repo.evidence_by_uid(r["evidence_uid"]) for r in rows]
 
         store = get_vector_store()
         store.init_store()
+        existing = _existing_chunk_hashes(store) if incremental else {}
+        log("ECSPlatform", f"RAG reindex start: {len([f for f in full if f])} evidence, "
+                           f"provider={report['provider']}/{report['model']}, incremental={incremental}")
 
-        chunks: list[Chunk] = []
-        # 1. evidence records
+        # Build candidate chunks (evidence + governance/framework docs) with hashes.
+        def _hash(t: str) -> str:
+            return hashlib.sha256(t.encode("utf-8")).hexdigest()[:16]
+
+        candidates: list[tuple[Chunk, str]] = []  # (chunk-without-embedding, text)
+
         ev_count = 0
         for item in full:
             if not item:
@@ -248,30 +320,68 @@ def reindex_evidence(limit: int = 5000) -> dict[str, Any]:
             uid = item["evidence_uid"]
             text = f"{item.get('title', '')}\n{item.get('content', '')}".strip()
             pieces = chunk_text(text, chunk_size=size, overlap=overlap) or [item.get("title", "")]
-            embeddings = provider.embed(pieces)
-            meta = {"source_system": item.get("source_system"),
-                    "object_type": item.get("object_type"),
-                    "application": item.get("application"),
-                    "doc_kind": "evidence"}
-            for idx, (piece, emb) in enumerate(zip(pieces, embeddings)):
-                chunks.append(Chunk(chunk_id=f"{uid}:{idx}", evidence_uid=uid, text=piece,
-                                    embedding=emb, metadata=meta))
+            for idx, piece in enumerate(pieces):
+                meta = {"source_system": item.get("source_system"),
+                        "object_type": item.get("object_type"),
+                        "application": item.get("application"),
+                        "doc_kind": "evidence", "content_hash": _hash(piece)}
+                candidates.append((Chunk(chunk_id=f"{uid}:{idx}", evidence_uid=uid,
+                                         text=piece, metadata=meta), piece))
+        report["evidence"] = ev_count
 
-        # 2. governance / relationships / inventory / frameworks / audit documents
         gov_docs = _governance_documents()
+        report["governance_docs"] = len(gov_docs)
         for doc in gov_docs:
-            emb = provider.embed([doc["text"]])[0]
             meta = dict(doc["metadata"]); meta["doc_kind"] = "governance"
-            chunks.append(Chunk(chunk_id=f"{doc['uid']}:0", evidence_uid=doc["uid"],
-                                text=doc["text"], embedding=emb, metadata=meta))
+            meta["content_hash"] = _hash(doc["text"])
+            candidates.append((Chunk(chunk_id=f"{doc['uid']}:0", evidence_uid=doc["uid"],
+                                     text=doc["text"], metadata=meta), doc["text"]))
 
-        indexed = store.upsert(chunks) if chunks else 0
-        return {"ok": True, "evidence": ev_count, "governance_docs": len(gov_docs),
-                "chunks_indexed": indexed}
+        report["candidate_chunks"] = len(candidates)
+
+        # Incremental filter: skip chunks whose hash already matches what's stored.
+        to_embed = [(c, t) for (c, t) in candidates
+                    if not (incremental and existing.get(c.chunk_id) == c.metadata["content_hash"])]
+        report["skipped_unchanged"] = len(candidates) - len(to_embed)
+
+        # Embed + upsert in batches with progress logging and per-batch error capture.
+        batch, embedded = 50, 0
+        out_chunks: list[Chunk] = []
+        for i in range(0, len(to_embed), batch):
+            window = to_embed[i:i + batch]
+            try:
+                vecs = provider.embed([t for (_c, t) in window])
+                for (c, _t2), v in zip(window, vecs):
+                    c.embedding = v
+                    out_chunks.append(c)
+                embedded += len(window)
+                log("ECSPlatform", f"RAG reindex progress: {embedded}/{len(to_embed)} chunks embedded")
+            except Exception as exc:  # noqa: BLE001 - continue past a bad batch
+                report["errors"].append(f"batch {i//batch}: {exc}")
+
+        if out_chunks:
+            store.upsert(out_chunks)
+        report["embedded_chunks"] = embedded
+
+        # Final vector count straight from the store.
+        try:
+            with store._connect().cursor() as cur:  # noqa: SLF001
+                cur.execute(f"SELECT count(*) FROM {store._table}")  # noqa: SLF001
+                report["vector_count"] = int(cur.fetchone()[0])
+        except Exception:  # noqa: BLE001
+            pass
+
+        report["ok"] = True
+        report["elapsed_sec"] = round(_t.time() - started, 1)
+        log("ECSPlatform", f"RAG reindex done: embedded={embedded} skipped={report['skipped_unchanged']} "
+                           f"vector_count={report['vector_count']} in {report['elapsed_sec']}s")
+        return report
     except RepositoryError as exc:
-        return {"ok": False, "error": str(exc)}
+        report["errors"].append(str(exc))
+        return report
     except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": str(exc)}
+        report["errors"].append(str(exc))
+        return report
 
 
 # ------------------------------------------------------------------ pipeline steps
