@@ -366,6 +366,12 @@ def dashboard(
     response: str = "",
     notice: str = "",
 ):
+    from app.auth.scope import apply_scope
+
+    # Phase 2 Step 3: scope-filter the owner work queue to the principal's assigned
+    # applications (flag-gated; pass-through when off or for enterprise roles).
+    owner_queue = build_owner_work_queue() if role == "owner" else []
+    owner_queue = apply_scope(request, owner_queue, fallback_role=role)
     ctx = {
         "frameworks": frameworks.keys(),
         "scheduler_data": scheduler_data,
@@ -374,7 +380,7 @@ def dashboard(
         "response": response,
         "notice": notice,
         "rejected_controls": rejected_controls,
-        "owner_work_queue": build_owner_work_queue() if role == "owner" else [],
+        "owner_work_queue": owner_queue,
         "auditor_review_queue": build_auditor_review_queue() if role == "auditor" else [],
         "closed_observations_queue": build_closed_observations_queue() if role == "auditor" else [],
         "work_queue_summary": work_queue_summary(),

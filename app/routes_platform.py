@@ -149,8 +149,15 @@ def register_platform_routes(app, templates):
         return JSONResponse(sync_connector(connector, actor=user, role=role))
 
     @app.get("/api/platform/evidence")
-    def api_platform_evidence(application: str = "", source_system: str = "", object_type: str = ""):
+    def api_platform_evidence(request: Request, application: str = "", source_system: str = "",
+                              object_type: str = ""):
+        from app.auth.scope import apply_scope
         from ecs_platform.ingestion import list_evidence
 
-        return JSONResponse(list_evidence(application=application, source_system=source_system,
-                                          object_type=object_type))
+        rows = list_evidence(application=application, source_system=source_system,
+                             object_type=object_type)
+        # Phase 2 Step 3: scope-filter result rows to the principal's assignments
+        # (flag-gated; pass-through when off / enterprise). Response schema unchanged.
+        if isinstance(rows, list):
+            rows = apply_scope(request, rows)
+        return JSONResponse(rows)

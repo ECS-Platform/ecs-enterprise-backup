@@ -34,6 +34,14 @@ from app.auth.page_guard import (
     guard_page,
     page_enforcement_enabled,
 )
+from app.auth.scope import (
+    apply_scope,
+    resolve_assignments,
+    resolve_scope,
+    scope_filter,
+    scope_filtering_enabled,
+    scope_sql,
+)
 
 __all__ = [
     "AuthenticatedUser",
@@ -53,4 +61,11 @@ __all__ = [
     "guard_page",
     "can_view_page",
     "page_enforcement_enabled",
+    # Phase 2 Step 3 — data scope filtering.
+    "resolve_scope",
+    "resolve_assignments",
+    "scope_filter",
+    "apply_scope",
+    "scope_sql",
+    "scope_filtering_enabled",
 ]
