@@ -79,6 +79,7 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "exception_governance": "/mvp/exception-governance",
         "ai_ops_assistant": "/mvp/ai-ops-assistant",
         "predefined_queries": "/mvp/predefined-queries",
+        "roi": "/mvp/roi",
     }
     base = paths.get(module, "/dashboard")
     return RedirectResponse(url=f"{base}?role={role}&user={user}&notice={quote(notice)}", status_code=303)
@@ -261,6 +262,19 @@ def register_mvp_routes(app, templates):
         ctx = _base_ctx(role, user, page_module="reports")
         ctx["report"] = report
         return templates.TemplateResponse(request, "mvp_ecs_report.html", ctx)
+
+    @app.get("/mvp/roi", response_class=HTMLResponse)
+    def mvp_roi_center(request: Request, role: str = "cio", user: str = "cio@bank.com", response: str = "", notice: str = ""):
+        """Executive ROI & Value Realization Center (deterministic, read-only)."""
+        from app.roi import build_roi_center, roi_enabled
+
+        ctx = _base_ctx(role, user, response, notice, page_module="roi")
+        ctx["nav_module"] = "roi"
+        ctx["roi_enabled"] = roi_enabled()
+        # force=True so the page renders fully in demos even before the flag is set;
+        # the master flag still controls nav visibility / availability messaging.
+        ctx["roi"] = build_roi_center(force=True)
+        return templates.TemplateResponse(request, "mvp_roi_center.html", ctx)
 
     @app.get("/mvp/ai-ops-assistant/summary/{mode}", response_class=HTMLResponse)
     def mvp_ai_ops_summary(request: Request, mode: str, scenario: str = "net_banking", role: str = "cio", user: str = "cio@bank.com"):

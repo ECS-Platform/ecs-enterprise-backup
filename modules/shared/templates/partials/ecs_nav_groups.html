@@ -1,7 +1,7 @@
 {# Grouped enterprise navigation — Executive, Frameworks, Operations, Governance, GRC #}
 {% from "partials/nav_badge.html" import nav_badge %}
 {% set q = '?role=' ~ role ~ '&user=' ~ user %}
-{% set exec_open = nav_module in ['enterprise','pan_india','reports','trends','demo_overview'] or nav_active in ['main_dashboard','role_dashboard'] %}
+{% set exec_open = nav_module in ['roi','enterprise','pan_india','reports','trends','demo_overview'] or nav_active in ['main_dashboard','role_dashboard'] %}
 {% set fw_open = framework_name is defined or nav_module in ['framework_admin', 'framework_loader'] %}
 {% set ops_open = nav_module in ['scheduler','upload','integrations','onboarding','integrations_hub','ai_ops_assistant','predefined_queries','integration_health','evidence_explorer'] %}
 {% set gov_open = nav_module in ['audit_prep','evidence_health','reuse','lifecycle','completeness','comparison','search','evidence_approval'] %}
@@ -18,6 +18,7 @@
 </button>
 <div id="nav-exec" class="collapse{% if exec_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
+<a href="/mvp/roi{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-roi{% if nav_module == 'roi' %} is-active{% endif %}" title="Executive ROI &amp; Value Realization Center">★ ROI &amp; Value Realization</a>
 {% if role == "owner" or role == "auditor" %}
 <a href="/dashboard{{ q }}" class="ecs-sidebar-btn{% if nav_active == 'main_dashboard' %} is-active{% endif %}" title="{% if role == 'owner' %}{{ nav_counters.global_tooltips.owner_pending if nav_counters is defined and nav_counters.global_tooltips is defined else '' }}{% else %}{{ nav_counters.global_tooltips.auditor_pending if nav_counters is defined and nav_counters.global_tooltips is defined else '' }}{% endif %}">Main Dashboard {{ nav_badge(nav_counters.global.owner_pending if role == 'owner' and nav_counters is defined else (nav_counters.global.auditor_pending if nav_counters is defined else 0), nav_counters.global_tooltips.owner_pending if role == 'owner' and nav_counters is defined and nav_counters.global_tooltips is defined else (nav_counters.global_tooltips.auditor_pending if nav_counters is defined and nav_counters.global_tooltips is defined else '')) }}</a>
 {% elif role == "cio" %}
