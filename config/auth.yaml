@@ -1,0 +1,66 @@
+# ECS Authentication configuration (Phase 1 — Authentication Foundation).
+#
+# All sensitive / tenant-specific values resolve from environment variables at
+# load time (see ecs_platform/config/loader.py). No secrets are stored here.
+#
+# This file configures AUTHENTICATION ONLY. It does not make authorization
+# decisions — RBAC remains the responsibility of later phases.
+
+auth:
+  # Master switch. When false, the authentication middleware is installed but
+  # passes every request through (legacy behaviour). Default ON so production is
+  # secure-by-default; local development uses dev_mode below.
+  enabled: ${ECS_AUTH_ENABLED:-true}
+
+  # Active provider key. Pluggable — see app/auth/providers.py registry.
+  #   azure_ad | oidc | dev
+  provider: ${ECS_AUTH_PROVIDER:-azure_ad}
+
+  # JWT validation behaviour (shared by azure_ad and oidc providers).
+  jwt:
+    # Accepted token audiences (comma-separated). Tokens whose `aud` is not in
+    # this list are rejected.
+    allowed_audiences: ${ECS_AUTH_ALLOWED_AUDIENCES:-}
+    # Clock skew tolerance (seconds) for exp/nbf validation.
+    leeway_seconds: ${ECS_AUTH_LEEWAY_SECONDS:-60}
+    # Claim names used to build the user context. Azure AD defaults shown.
+    claims:
+      user_id: ${ECS_AUTH_CLAIM_USER_ID:-oid}
+      username: ${ECS_AUTH_CLAIM_USERNAME:-preferred_username}
+      display_name: ${ECS_AUTH_CLAIM_DISPLAY_NAME:-name}
+      email: ${ECS_AUTH_CLAIM_EMAIL:-email}
+      roles: ${ECS_AUTH_CLAIM_ROLES:-roles}
+      groups: ${ECS_AUTH_CLAIM_GROUPS:-groups}
+
+  # Azure Active Directory (primary target IdP).
+  azure_ad:
+    tenant_id: ${ECS_AZURE_TENANT_ID:-}
+    client_id: ${ECS_AZURE_CLIENT_ID:-}
+    # Issuer + JWKS are derived from tenant_id when left blank, but can be
+    # overridden for sovereign / national clouds.
+    issuer: ${ECS_AZURE_ISSUER:-}
+    jwks_uri: ${ECS_AZURE_JWKS_URI:-}
+
+  # Generic OIDC provider (future IdPs: Okta, Keycloak, ForgeRock, etc.).
+  oidc:
+    issuer: ${ECS_OIDC_ISSUER:-}
+    jwks_uri: ${ECS_OIDC_JWKS_URI:-}
+    client_id: ${ECS_OIDC_CLIENT_ID:-}
+
+  # Local development bypass. MUST be explicitly enabled and is DISABLED by
+  # default. When on, requests are authenticated as the static principal below
+  # so engineers can run ECS without a live IdP. Never enable in production.
+  dev_mode:
+    enabled: ${ECS_AUTH_DEV_MODE:-false}
+    principal:
+      user_id: ${ECS_AUTH_DEV_USER_ID:-dev-user}
+      username: ${ECS_AUTH_DEV_USERNAME:-developer}
+      display_name: ${ECS_AUTH_DEV_DISPLAY_NAME:-Local Developer}
+      email: ${ECS_AUTH_DEV_EMAIL:-developer@localhost}
+      # Comma-separated. Used by later RBAC phases; auth only carries them.
+      roles: ${ECS_AUTH_DEV_ROLES:-admin}
+      groups: ${ECS_AUTH_DEV_GROUPS:-}
+
+  # Paths that never require authentication (login UI, static assets, probes).
+  # Anything not matched here requires a valid identity when auth is enabled.
+  public_paths: ${ECS_AUTH_PUBLIC_PATHS:-/,/login,/healthz,/readyz,/static,/static/ecs,/favicon.ico}

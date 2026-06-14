@@ -6,3 +6,5 @@ openpyxl
 psycopg2-binary
 # ECS platform foundation
 pyyaml
+# Authentication foundation (Phase 1: Azure AD / OIDC / JWT validation)
+pyjwt[crypto]

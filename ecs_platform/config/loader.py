@@ -133,6 +133,10 @@ def load_vectorstore_config() -> dict[str, Any]:
     return load_config("vectorstore")
 
 
+def load_auth_config() -> dict[str, Any]:
+    return load_config("auth")
+
+
 def resolve_secret(env_var: str) -> str:
     """Read a secret strictly from the environment. Never logged."""
     return os.environ.get(env_var, "")

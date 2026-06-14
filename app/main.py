@@ -150,6 +150,26 @@ async def ecs_lifespan(application: FastAPI):
 app = FastAPI(title="ECS Consolidated Demo V13", lifespan=ecs_lifespan)
 app.mount("/static/ecs", StaticFiles(directory="modules/shared/static"), name="ecs_static")
 
+# ---- Phase 1: Authentication foundation (Azure AD / OIDC / JWT) ----
+# Installs central auth middleware (pass-through when auth is disabled in config)
+# and maps authentication failures to proper HTTP responses. No authorization
+# (RBAC) decisions are made here.
+from app.auth import register_authentication
+from app.auth.errors import AuthenticationError as _AuthError
+from fastapi.responses import JSONResponse as _JSONResponse
+
+register_authentication(app)
+
+
+@app.exception_handler(_AuthError)
+async def _auth_exception_handler(request: Request, exc: _AuthError):
+    headers = {"WWW-Authenticate": "Bearer"} if exc.http_status == 401 else {}
+    return _JSONResponse(
+        {"error": "unauthorized", "reason": exc.reason, "detail": exc.detail},
+        status_code=exc.http_status,
+        headers=headers,
+    )
+
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
 _template_dirs = [
