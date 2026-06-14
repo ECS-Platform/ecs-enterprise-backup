@@ -609,6 +609,7 @@ def evidence_review_page(
 
 @app.post("/evidence/review/close-observation")
 def evidence_review_close_observation(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -644,6 +645,14 @@ def evidence_review_close_observation(
     obs = observation_id or (closed[0] if closed else "")
     body = f"Observation {obs} closed successfully." if obs else "Observation closed."
     tp = toast_payload("approved", framework=framework_name, control=control_name, observation_id=obs, detail=body)
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "observation.close", resource=obs or key,
+        fallback_actor=user, fallback_role=role,
+        before_state={"status": "Open"}, after_state={"status": "Closed"},
+        detail={"framework": framework_name, "control": control_name,
+                "observation_id": obs})
     return _review_redirect(
         framework_name, role, user, body, control_name, evidence_id,
         toast="approved", obs_id=obs or tp["observation_id"],
@@ -666,6 +675,7 @@ def _review_redirect(framework_name: str, role: str, user: str, notice: str, con
 
 @app.post("/evidence/review/submit")
 def evidence_review_submit(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -678,6 +688,7 @@ def evidence_review_submit(
     if deny:
         return deny
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
     if key in approved_controls:
         return _review_redirect(framework_name, role, user, "Cannot resubmit: observation is closed.", control_name, evidence_id)
     was_rejected = key in rejected_controls
@@ -716,11 +727,20 @@ def evidence_review_submit(
     notice = "Resubmitted to Auditor for review." if was_rejected else "Submitted To Auditor — Pending Auditor Review."
     tp = toast_payload("submitted", framework=framework_name, control=control_name)
     record_transition(key, "submitted", user, role, tp["body"])
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "evidence.submit", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Pending Auditor Review"},
+        detail={"framework": framework_name, "control": control_name,
+                "evidence_id": evidence_id, "resubmission": was_rejected})
     return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="submitted", obs_id=tp["observation_id"])
 
 
 @app.post("/evidence/review/approve")
 def evidence_review_approve(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -733,6 +753,7 @@ def evidence_review_approve(
     if deny:
         return deny
     return approve(
+        request,
         control_name=control_name,
         framework_name=framework_name,
         role=role,
@@ -744,6 +765,7 @@ def evidence_review_approve(
 
 @app.post("/evidence/review/reject")
 def evidence_review_reject(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -757,6 +779,7 @@ def evidence_review_reject(
     if deny:
         return deny
     return reject(
+        request,
         control_name=control_name,
         framework_name=framework_name,
         role=role,
@@ -950,6 +973,7 @@ def evidence_review_reevaluate(
 
 @app.post("/submit")
 def submit(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
@@ -962,6 +986,7 @@ def submit(
     if deny:
         return deny
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
     if key in approved_controls:
         notice = "Cannot resubmit: observation is closed and auditor approved."
         return _workflow_redirect(role, user, framework_name, return_to, notice)
@@ -1001,11 +1026,20 @@ def submit(
     notice = f"Evidence resubmitted for {control_name}." if was_rejected else f"Submitted {control_name} to auditor review."
     tp = toast_payload("submitted", framework=framework_name, control=control_name)
     record_transition(key, "submitted", user, role, tp["body"])
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "evidence.submit", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Pending Auditor Review"},
+        detail={"framework": framework_name, "control": control_name,
+                "resubmission": was_rejected})
     return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="submitted", obs_id=tp["observation_id"])
 
 
 @app.post("/approve")
 def approve(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
@@ -1019,6 +1053,7 @@ def approve(
     if deny:
         return deny
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
     from datetime import datetime, timezone
 
     approved_controls[key] = {
@@ -1045,6 +1080,14 @@ def approve(
         tp["body"] = f"Observation {closed[0]} closed successfully."
         tp["observation_id"] = closed[0]
     record_transition(key, "approved", user, role, tp["body"])
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "evidence.approve", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Auditor Approved"},
+        detail={"framework": framework_name, "control": control_name,
+                "observation_id": tp.get("observation_id", "")})
     if return_to == "review" and evidence_id:
         return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="approved", obs_id=tp["observation_id"])
     return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="approved", obs_id=tp["observation_id"])
@@ -1052,6 +1095,7 @@ def approve(
 
 @app.post("/reject")
 def reject(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
@@ -1067,6 +1111,7 @@ def reject(
         return deny
     reason = reject_reason.strip()
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
 
     if not reason:
         return _workflow_redirect(role, user, framework_name, return_to, "Reject reason is required.")
@@ -1088,6 +1133,14 @@ def reject(
 
     tp = toast_payload("rejected", framework=framework_name, control=control_name, detail=reason[:120])
     record_transition(key, "rejected", user, role, reason)
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "evidence.reject", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Rejected"},
+        detail={"framework": framework_name, "control": control_name,
+                "reason": reason[:240]})
     if return_to == "review" and evidence_id:
         return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="rejected", obs_id=tp["observation_id"])
     return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="rejected", obs_id=tp["observation_id"])
@@ -1149,17 +1202,26 @@ def workflow_upload_version(
 
 @app.post("/workflow/escalate")
 def workflow_escalate(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
     user: str = Form(...),
 ):
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
     ecs_state.escalated_controls[key] = {
         "escalated_by": user,
         "reason": "Escalated to compliance leadership for high-risk review.",
     }
     log_event("Observation Escalated", user, framework_name, control_name, "Marked high-risk escalation")
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "observation.escalate", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Escalated"},
+        detail={"framework": framework_name, "control": control_name})
     return _workflow_redirect(role, user, "", "dashboard", f"Escalated {control_name} to leadership queue.")
 
 
@@ -1189,12 +1251,14 @@ def workflow_clarify(
 
 @app.post("/workflow/close")
 def workflow_close(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
     user: str = Form(...),
 ):
     return approve(
+        request,
         control_name=control_name,
         framework_name=framework_name,
         role=role,
@@ -1205,6 +1269,7 @@ def workflow_close(
 
 @app.post("/workflow/leadership/review")
 def workflow_leadership_review(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
@@ -1222,6 +1287,7 @@ def workflow_leadership_review(
 
     if action in ("approve_closure", "approve"):
         return approve(
+            request,
             control_name=control_name,
             framework_name=framework_name,
             role=role,
@@ -1238,6 +1304,13 @@ def workflow_leadership_review(
         if key in ecs_state.escalated_controls:
             del ecs_state.escalated_controls[key]
         log_event("Leadership Send Back", user, framework_name, control_name, action)
+        from app.audit.workflow import audit_workflow_action
+
+        audit_workflow_action(
+            request, "observation.reopen", resource=key,
+            fallback_actor=user, fallback_role=role,
+            before_state={"status": "Closed"}, after_state={"status": "Open"},
+            detail={"framework": framework_name, "control": control_name, "action": action})
         return RedirectResponse(url=f"{base}&notice={quote('Observation sent back to App Owner.')}", status_code=303)
     if action == "escalate_governance":
         ecs_state.escalated_controls[key] = {
