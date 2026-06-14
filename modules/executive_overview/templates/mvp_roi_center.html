@@ -20,7 +20,7 @@
 <div class="roi-header d-flex flex-wrap align-items-center gap-2">
   <div>
     <h1 class="roi-title">ROI &amp; Value Realization</h1>
-    <p class="roi-subtitle">How ECS converts compliance work into measurable business value — {{ roi.bank_applications }} applications · {{ roi.vapt_applications }} VAPT in scope</p>
+    <p class="roi-subtitle"><span data-roi-bind="scenario_label">{{ roi.scenario_label }}</span> scenario — <span data-roi-bind="bank_applications">{{ roi.bank_applications }}</span> applications · {{ roi.vapt_applications }} VAPT in scope</p>
   </div>
   <div class="roi-controls ms-auto d-flex align-items-center gap-2">
     <div class="roi-toggle" data-roi-mode-toggle role="tablist" aria-label="ROI mode">
@@ -31,8 +31,340 @@
   </div>
 </div>
 
+{# ============================ SCENARIO TOGGLE ============================== #}
+<div class="roi-scenario-bar" data-roi-scenario-bar>
+  <span class="roi-scenario-label">Scenario</span>
+  <div class="roi-scenario-toggle" role="tablist" aria-label="ROI scenario">
+    {% for name in roi.scenario_names %}
+    <button class="roi-scenario-btn {% if name == roi.active_scenario %}is-active{% endif %}"
+            data-roi-scenario="{{ name }}" type="button" role="tab"
+            aria-selected="{{ 'true' if name == roi.active_scenario else 'false' }}">
+      {{ roi.scenario_labels[name] }}
+    </button>
+    {% endfor %}
+  </div>
+  <span class="roi-scenario-hint">Conservative / Expected / Aggressive — every slide recomputes.</span>
+</div>
+
+{# ===================================================================== #}
+{# ============= BOARDROOM ROI MOVIE — 6 APPROVED SLIDES ============== #}
+{# 16:9, no-scroll, one slide = one message, manual nav (no autoplay).  #}
+{# Every value is sourced from the approved ROI business case.          #}
+{# ===================================================================== #}
+{% set deck = roi.deck if roi.deck is defined else {} %}
+{% if deck.rows %}
+{% set last = deck.rows[-1] %}
+{% set chart = deck.chart %}
+<div class="roi-deck" data-roi-deck>
+  <div class="roi-deck-stage" data-roi-deck-stage>
+
+    {# SLIDE 1 — THE PROBLEM #}
+    <section class="roi-slide is-active" data-deck-slide="1" data-deck-title="The Problem">
+      <div class="roi-slide-kicker">The Problem</div>
+      <h2 class="roi-slide-h">Audits Run on <span class="roi-bad">Email, Spreadsheets &amp; Manual Follow-Ups</span></h2>
+      <p class="roi-slide-sub">Evidence is collected again for every framework — slow, costly, repeated.</p>
+    </section>
+
+    {# SLIDE 2 — THE ECS SHIFT #}
+    <section class="roi-slide" data-deck-slide="2" data-deck-title="The ECS Shift">
+      <div class="roi-slide-kicker">The ECS Shift</div>
+      <h2 class="roi-slide-h">Collect Evidence <span class="roi-accent">Once</span>, Reuse <span class="roi-accent">Everywhere</span></h2>
+      <p class="roi-slide-sub">One control library powers every framework, automatically.</p>
+    </section>
+
+    {# SLIDE 3 — ANNUAL VALUE CREATION (3 KPIs) #}
+    <section class="roi-slide roi-slide-hero" data-deck-slide="3" data-deck-title="Annual Value Creation">
+      <div class="roi-slide-kicker">Annual Value Creation</div>
+      <h2 class="roi-slide-h">Value Compounds Every Year</h2>
+      <div class="roi-slide-3up">
+        <div class="roi-big"><div class="roi-big-v" data-deck-bind="per_50_apps_display">{{ deck.per_50_apps_display }}</div><div class="roi-big-l">Year-1 Savings</div></div>
+        <div class="roi-big roi-big-pos"><div class="roi-big-v" data-deck-bind="gross_benefit_display">{{ deck.gross_benefit_display }}</div><div class="roi-big-l">5-Year Gross Benefit</div></div>
+        <div class="roi-big roi-big-gold"><div class="roi-big-v" data-deck-bind="payback">{{ deck.payback }}</div><div class="roi-big-l">Payback Achieved</div></div>
+      </div>
+    </section>
+
+    {# SLIDE 4 — VALUE GROWTH OVER TIME (BAR CHART) #}
+    <section class="roi-slide roi-slide-chart" data-deck-slide="4" data-deck-title="Value Growth Over Time">
+      <div class="roi-slide-kicker">Value Growth Over Time</div>
+      <h2 class="roi-slide-h">Net Benefit by Year <span class="roi-chart-unit">(₹ Cr)</span></h2>
+      <div class="roi-chart" data-deck-chart>
+        {% for i in range(chart.labels|length) %}
+        <div class="roi-bar-col" data-bar-col="{{ i }}">
+          <div class="roi-bar-val" data-bar-val>{{ chart.net_display[i] }}</div>
+          <div class="roi-bar-track">
+            <div class="roi-bar-fill" data-bar-fill style="height: {{ (chart.net[i] / chart.max_net * 100)|round(1) }}%"></div>
+          </div>
+          <div class="roi-bar-x" data-bar-x>{{ chart.labels[i] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    {# SLIDE 5 — SCALE-UP STORY #}
+    <section class="roi-slide" data-deck-slide="5" data-deck-title="Scale-Up Story">
+      <div class="roi-slide-kicker">Scale-Up Story</div>
+      <h2 class="roi-slide-h">More Applications, <span class="roi-accent">More Value</span></h2>
+      <div class="roi-scaleup" data-deck-scaleup>
+        {% for s in deck.scaleup %}
+        <div class="roi-scaleup-step is-shown" data-scaleup-step="{{ loop.index0 }}">
+          <span class="roi-scaleup-apps">{{ s.applications }} Apps</span>
+          <span class="roi-scaleup-arr">→</span>
+          <span class="roi-scaleup-val">{{ s.annual_savings_display }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    {# SLIDE 6 — EXECUTIVE SUMMARY (hero net benefit + 3 KPIs) #}
+    <section class="roi-slide roi-slide-summary" data-deck-slide="6" data-deck-title="Executive Summary">
+      <div class="roi-slide-kicker">Executive Summary</div>
+      <div class="roi-hero-number"><span data-deck-bind="net_benefit_display">{{ deck.net_benefit_display }}</span></div>
+      <div class="roi-hero-label">5-Year Net Benefit</div>
+      <div class="roi-slide-3up roi-slide-3up-sm">
+        <div class="roi-big"><div class="roi-big-v" data-deck-bind="applications_covered">{{ deck.applications_covered }}</div><div class="roi-big-l">Applications Covered</div></div>
+        <div class="roi-big roi-big-pos"><div class="roi-big-v" data-deck-bind="gross_benefit_display">{{ deck.gross_benefit_display }}</div><div class="roi-big-l">5-Year Gross Benefit</div></div>
+        <div class="roi-big roi-big-gold"><div class="roi-big-v" data-deck-bind="payback">{{ deck.payback }}</div><div class="roi-big-l">Payback</div></div>
+      </div>
+    </section>
+
+    {# SLIDE 7 — APPROVAL RECOMMENDATION #}
+    <section class="roi-slide roi-slide-approve" data-deck-slide="7" data-deck-title="Approval Recommendation">
+      <div class="roi-slide-kicker">Recommendation</div>
+      <h2 class="roi-slide-h">Approve Enterprise Roll-Out of <span class="roi-accent">ECS</span></h2>
+      <div class="roi-approve-line">
+        <span class="roi-approve-pill">Payback in <b data-deck-bind="payback">{{ deck.payback }}</b></span>
+        <span class="roi-approve-pill roi-approve-pill-gold"><b data-deck-bind="net_benefit_display">{{ deck.net_benefit_display }}</b> 5-Year Net Benefit</span>
+      </div>
+    </section>
+
+  </div>{# /roi-deck-stage #}
+
+  {# ---- deck nav (manual by default; no autoplay) ---- #}
+  <div class="roi-deck-nav">
+    <button class="roi-deck-btn" data-deck-prev type="button" aria-label="Previous slide">‹ Previous</button>
+    <div class="roi-deck-dots" data-deck-dots></div>
+    <span class="roi-deck-count"><b data-deck-current>1</b> / 7</span>
+    <button class="roi-deck-btn" data-deck-next type="button" aria-label="Next slide">Next ›</button>
+    <button class="roi-deck-btn" data-deck-present type="button" aria-label="Presentation mode">⛶ Present</button>
+    <button class="roi-deck-btn roi-deck-exit" data-deck-exit type="button" hidden>✕ Exit</button>
+    <button class="roi-deck-btn roi-deck-appendix-toggle" data-deck-appendix type="button">Appendix / Details ▾</button>
+  </div>
+</div>{# /roi-deck #}
+{% endif %}
+
+{# ===================================================================== #}
+{# ===================== APPENDIX / DETAILS (hidden) ================== #}
+{# All detailed analytics live here; not part of the board presentation. #}
+{# ===================================================================== #}
+<div class="roi-appendix" data-roi-appendix hidden>
+<div class="roi-appendix-head"><h2>Appendix / Details</h2><p>Supporting analytics — not shown during the executive presentation.</p></div>
+
+{# ---- 5-Year Value Realization (detail table moved out of the deck) ---- #}
+{% if deck.rows %}
+<div class="roi-appendix-table-wrap">
+  <h3 class="roi-appendix-h3">Five-Year Value Realization — {{ deck.scenario|capitalize }} Scenario</h3>
+  <table class="roi-deck-table" data-deck-table>
+    <thead><tr><th>Year</th><th>Apps</th><th>Annual</th><th>Cum. Savings</th><th>Cum. Cost</th><th>Net Benefit</th></tr></thead>
+    <tbody>
+      {% for r in deck.rows %}
+      <tr {% if loop.last %}class="roi-deck-tr-total"{% endif %}>
+        <td>{{ r.label }}</td><td>{{ r.applications }}</td>
+        <td>{{ r.annual_savings_display }}</td>
+        <td>{{ r.cumulative_savings_display }}</td>
+        <td>{{ r.cumulative_cost_display }}</td>
+        <td class="roi-deck-net">{{ r.net_benefit_display }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{# ===================================================================== #}
+{# ============ EXECUTIVE BUSINESS CASE (workbook: ROI.xlsx) =========== #}
+{# ===================================================================== #}
+{% set wb = roi.wb if roi.wb is defined else {} %}
+{% if wb.available %}
+<div class="roi-exec" data-roi-exec>
+
+  {# ---- TIER 1 — board headline KPIs ---- #}
+  <div class="roi-tier roi-tier1">
+    <div class="roi-tier-label">Executive Scorecard</div>
+    <div class="roi-tier1-grid">
+      {% for k in wb.kpi_tiers.tier1 %}
+      <div class="roi-kpi1" style="--d:{{ loop.index0 * 0.08 }}s">
+        <div class="roi-kpi1-val">{{ k.value }}</div>
+        <div class="roi-kpi1-lbl">{{ k.label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ---- EXECUTIVE SUMMARY (six headline metrics) ---- #}
+  {% if wb.executive_summary %}
+  <div class="roi-tier roi-execsum">
+    <div class="roi-tier-label">Executive Summary</div>
+    <div class="roi-execsum-grid">
+      {% for k in wb.executive_summary %}
+      <div class="roi-execsum-cell"><div class="roi-execsum-val">{{ k.value }}</div><div class="roi-execsum-lbl">{{ k.label }}</div></div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ---- TIER 2 — operating value ---- #}
+  <div class="roi-tier roi-tier2">
+    <div class="roi-tier-label">Value Realization</div>
+    <div class="roi-tier2-grid">
+      {% for k in wb.kpi_tiers.tier2 %}
+      <div class="roi-kpi2"><div class="roi-kpi2-val">{{ k.value }}</div><div class="roi-kpi2-lbl">{{ k.label }}</div></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ---- 1. FRAMEWORK COVERAGE (sequential entrance) ---- #}
+  <section class="roi-exec-screen">
+    <h2 class="roi-exec-h">1 · Framework Coverage</h2>
+    <div class="roi-coverage-summary">
+      <div class="roi-cov-stat"><b>{{ wb.totals.total_frameworks }}</b><span>Frameworks Covered</span></div>
+      <div class="roi-cov-stat"><b>{{ wb.totals.total_observations_display }}</b><span>Total Observations</span></div>
+      <div class="roi-cov-stat"><b>{{ wb.totals.total_emails_display }}</b><span>Emails Avoided</span></div>
+      <div class="roi-cov-stat roi-cov-money"><b>{{ wb.totals.total_annual_display }}</b><span>Total Annual Value</span></div>
+    </div>
+    <div class="roi-cov-chips" data-roi-cov-chips>
+      {% for name in wb.all_framework_names %}
+      <span class="roi-cov-chip" style="--d:{{ loop.index0 * 0.12 }}s">{{ name }}</span>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ---- 2. WHERE VALUE COMES FROM (Top 5 + grouped) ---- #}
+  <section class="roi-exec-screen">
+    <h2 class="roi-exec-h">2 · Where Value Comes From</h2>
+    <div class="roi-vcf-grid">
+      {% for f in wb.top_frameworks %}
+      <div class="roi-vcf-card" style="--d:{{ loop.index0 * 0.1 }}s">
+        <div class="roi-vcf-rank">#{{ loop.index }}</div>
+        <div class="roi-vcf-name">{{ f.name }}</div>
+        <div class="roi-vcf-val">{{ f.annual_saving_display }}</div>
+        <div class="roi-vcf-bar"><span style="--w:{{ f.contribution_pct }}%"></span></div>
+        <div class="roi-vcf-pct">{{ f.contribution_pct }}% of value</div>
+      </div>
+      {% endfor %}
+      <div class="roi-vcf-card roi-vcf-grouped">
+        <div class="roi-vcf-rank">∑</div>
+        <div class="roi-vcf-name">{{ wb.grouped_frameworks.label }}</div>
+        <div class="roi-vcf-val">{{ wb.grouped_frameworks.annual_saving_display }}</div>
+        <div class="roi-vcf-bar"><span style="--w:{{ wb.grouped_frameworks.contribution_pct }}%"></span></div>
+        <div class="roi-vcf-pct">{{ wb.grouped_frameworks.contribution_pct }}% of value</div>
+      </div>
+    </div>
+    {# framework contribution split (VAPT / PCI DSS / remaining) #}
+    <div class="roi-contrib-split" aria-label="Framework contribution split">
+      <div class="roi-contrib-seg roi-contrib-vapt" style="--w:{{ wb.contribution.vapt_pct }}%"><span>VAPT {{ wb.contribution.vapt_pct }}%</span></div>
+      <div class="roi-contrib-seg roi-contrib-pci" style="--w:{{ wb.contribution.pci_pct }}%"><span>PCI DSS {{ wb.contribution.pci_pct }}%</span></div>
+      <div class="roi-contrib-seg roi-contrib-rest" style="--w:{{ wb.contribution.remaining_pct }}%"><span>{{ wb.contribution.remaining_label }} {{ wb.contribution.remaining_pct }}%</span></div>
+    </div>
+  </section>
+
+  {# ---- 3-8 condensed value pillars ---- #}
+  <section class="roi-exec-screen">
+    <h2 class="roi-exec-h">3–8 · From Automation to Annual Value</h2>
+    <div class="roi-pillar-grid">
+      <div class="roi-pillar-card"><div class="roi-pillar-k">Evidence Automation</div><div class="roi-pillar-v">{{ wb.scaled.observations_display }}</div><div class="roi-pillar-s">observations automated</div></div>
+      <div class="roi-pillar-card"><div class="roi-pillar-k">Observation Reduction</div><div class="roi-pillar-v">65%</div><div class="roi-pillar-s">closure acceleration</div></div>
+      <div class="roi-pillar-card"><div class="roi-pillar-k">Audit Readiness</div><div class="roi-pillar-v">{{ wb.kpi_tiers.tier2[4].value }}</div><div class="roi-pillar-s">readiness score</div></div>
+      <div class="roi-pillar-card"><div class="roi-pillar-k">Productivity Gains</div><div class="roi-pillar-v">{{ wb.scaled.hours_display }}</div><div class="roi-pillar-s">hours saved · {{ wb.scaled.fte_equivalent }} FTE</div></div>
+      <div class="roi-pillar-card roi-pillar-money"><div class="roi-pillar-k">Cost Avoidance</div><div class="roi-pillar-v">{{ wb.scaled.annual_display }}</div><div class="roi-pillar-s">per year</div></div>
+      <div class="roi-pillar-card roi-pillar-money"><div class="roi-pillar-k">Annual Value</div><div class="roi-pillar-v">{{ wb.scaled.annual_display }}</div><div class="roi-pillar-s">at {{ wb.target_applications }} apps</div></div>
+    </div>
+  </section>
+
+  {# ---- 9. MULTI-YEAR VALUE (workbook Executive_Dashboard) ---- #}
+  <section class="roi-exec-screen">
+    <h2 class="roi-exec-h">9 · Multi-Year Value</h2>
+    {% set ymax = wb.years|map(attribute='cumulative_savings_cr')|max if wb.years else 1 %}
+    <div class="roi-trend">
+      {% for y in wb.years %}
+      <div class="roi-trend-col">
+        <div class="roi-trend-bars">
+          <div class="roi-trend-bar roi-trend-save" style="--h:{{ ((y.cumulative_savings_cr / ymax * 100)|round|int) if ymax else 4 }}%; --d:{{ loop.index0 * 0.12 }}s" title="Cumulative savings {{ y.cumulative_savings_display }}"></div>
+          <div class="roi-trend-bar roi-trend-cost" style="--h:{{ ((y.cumulative_cost_cr / ymax * 100)|round|int) if ymax else 2 }}%; --d:{{ loop.index0 * 0.12 + 0.05 }}s" title="Cumulative cost ₹{{ y.cumulative_cost_cr }} Cr"></div>
+        </div>
+        <div class="roi-trend-net">{{ y.net_benefit_display }}<small>net</small></div>
+        <div class="roi-trend-x">{{ y.label }}<br><small>{{ y.applications }} apps</small></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="roi-trend-legend"><span class="roi-lg-save">Cumulative Savings</span><span class="roi-lg-cost">Cumulative Cost</span></div>
+  </section>
+
+  {# ---- 10. ROI & PAYBACK ---- #}
+  <section class="roi-exec-screen">
+    <h2 class="roi-exec-h">10 · ROI &amp; Payback</h2>
+    <div class="roi-payback-banner">
+      <div class="roi-pb-cell"><div class="roi-pb-v">{{ wb.totals.three_year_display }}</div><div class="roi-pb-l">3-Year Value</div></div>
+      <div class="roi-pb-cell roi-pb-hero"><div class="roi-pb-v">{{ wb.kpi_tiers.tier1[5].value }}</div><div class="roi-pb-l">Payback</div></div>
+      <div class="roi-pb-cell"><div class="roi-pb-v">{{ wb.totals.total_annual_display }}</div><div class="roi-pb-l">Workbook Annual Value</div></div>
+      <div class="roi-pb-cell"><div class="roi-pb-v">{{ wb.totals.fte_equivalent }}</div><div class="roi-pb-l">FTE Equivalent</div></div>
+    </div>
+  </section>
+
+  {# ---- VALUE REALIZATION TRACEABILITY ---- #}
+  <section class="roi-exec-screen">
+    <h2 class="roi-exec-h">Value Realization Traceability</h2>
+    <div class="roi-trace">
+      {% for t in wb.traceability %}
+      <div class="roi-trace-node" style="--d:{{ loop.index0 * 0.08 }}s">
+        <div class="roi-trace-step">{{ t.step }}</div>
+        <div class="roi-trace-val">{{ t.value }}</div>
+      </div>
+      {% if not loop.last %}<div class="roi-trace-arrow">→</div>{% endif %}
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ---- BOARD VIEW ---- #}
+  <section class="roi-exec-screen">
+    <h2 class="roi-exec-h">Board View</h2>
+    <div class="roi-board-grid">
+      {% for b in wb.board %}
+      <div class="roi-board-card" style="--d:{{ loop.index0 * 0.06 }}s">
+        <div class="roi-board-t">{{ b.title }}</div>
+        <div class="roi-board-b">{{ b.body }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ---- TIER 3 — supporting (email demoted here) ---- #}
+  <div class="roi-tier roi-tier3">
+    <div class="roi-tier-label">Supporting Efficiency (secondary)</div>
+    <div class="roi-tier3-grid">
+      {% for k in wb.kpi_tiers.tier3 %}
+      <div class="roi-kpi3"><span class="roi-kpi3-lbl">{{ k.label }}</span><span class="roi-kpi3-val">{{ k.value }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ---- STORAGE SAVINGS (supporting) ---- #}
+  {% if wb.storage %}
+  <details class="roi-storage">
+    <summary>Infrastructure &amp; Storage Savings — {{ wb.totals.storage_total_display }}/yr</summary>
+    <table class="roi-fw-table">
+      <thead><tr><th>Area</th><th>Volume</th><th>Reduction</th><th>Annual Saving</th></tr></thead>
+      <tbody>
+        {% for s in wb.storage %}<tr><td class="roi-fw-td-name">{{ s.area }}</td><td>{{ s.volume }}</td><td>{{ s.reduction }}</td><td class="roi-fw-td-money">{{ s.annual_saving_display }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+
+</div>{# /roi-exec #}
+{% endif %}
+
 {# ============================ LIVE EVENT TICKER ============================ #}
-<div class="roi-ticker" aria-label="ROI impact events">
+<div class="roi-ticker roi-secondary" aria-label="ROI impact events">
   <span class="roi-ticker-label">ROI Impact Events</span>
   <div class="roi-ticker-track" data-roi-ticker>
     {% for ev in roi.impact_events %}
@@ -75,6 +407,13 @@
       <div class="roi-counter roi-counter-red"><div class="roi-counter-val" data-count="{{ bw[1].without_ecs }}" data-suffix=" days">0</div><div class="roi-counter-lbl">Avg Observation Ageing</div></div>
       <div class="roi-counter roi-counter-red"><div class="roi-counter-val" data-count="{{ bw[3].without_ecs }}" data-suffix=" hrs">0</div><div class="roi-counter-lbl">Manual Effort</div></div>
     </div>
+    <ul class="roi-narrative roi-narrative-red">
+      <li>Manual evidence collection</li>
+      <li>Observation aging</li>
+      <li>Endless email chains</li>
+      <li>Duplicate submissions</li>
+      <li>Heavy auditor dependency</li>
+    </ul>
     <p class="roi-screen-note">Manual, email-driven, slow, and impossible to audit at scale.</p>
   </div>
 </section>
@@ -94,6 +433,13 @@
       <div class="roi-pillar" style="--d:.6s"><span>Reuse</span></div>
       <div class="roi-pillar" style="--d:.9s"><span>Observation</span></div>
     </div>
+    <ul class="roi-narrative roi-narrative-green">
+      <li>Evidence reuse</li>
+      <li>Automated workflows</li>
+      <li>Faster closure</li>
+      <li>Reduced manual effort</li>
+      <li>Improved audit readiness</li>
+    </ul>
     <p class="roi-screen-note">Centralized evidence, automated workflow, reuse, and observation tracking — lighting up.</p>
   </div>
 </section>
@@ -212,14 +558,17 @@
     <div class="roi-screen-kicker">Screen 10 / 10</div>
     <h2 class="roi-screen-h">Executive <span class="roi-accent">Summary</span></h2>
     <div class="roi-summary-grid">
-      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ roi.bank_applications }}">0</div><div class="roi-summary-lbl">Applications (potential)</div></div>
-      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ roi.reuse_value.reuse_count }}">0</div><div class="roi-summary-lbl">Evidence Reused</div></div>
-      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ roi.observation_value.observations_closed }}">0</div><div class="roi-summary-lbl">Observations Closed</div></div>
-      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ bank.hours_saved }}">0</div><div class="roi-summary-lbl">Hours Saved</div></div>
-      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ bank.fte_equivalent }}">0</div><div class="roi-summary-lbl">FTE Saved</div></div>
-      <div class="roi-summary-cell roi-summary-money"><div class="roi-summary-val" data-money="{{ bank.cost_savings }}">{{ cur }}0</div><div class="roi-summary-lbl">Money Saved</div></div>
-      <div class="roi-summary-cell roi-summary-hero"><div class="roi-summary-val" data-money="{{ proj.total_cost_savings }}">{{ cur }}0</div><div class="roi-summary-lbl">Projected 5-Year Value</div></div>
+      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ roi.bank_applications }}" data-roi-bind="bank_applications">0</div><div class="roi-summary-lbl">Applications (potential)</div></div>
+      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ roi.reuse_value.reuse_count }}" data-roi-bind="reuse_value.reuse_count">0</div><div class="roi-summary-lbl">Evidence Reused</div></div>
+      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ roi.observation_value.observations_closed }}" data-roi-bind="observation_value.observations_closed">0</div><div class="roi-summary-lbl">Observations Closed</div></div>
+      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ bank.hours_saved }}" data-roi-bind="bank_result.hours_saved">0</div><div class="roi-summary-lbl">Hours Saved</div></div>
+      <div class="roi-summary-cell"><div class="roi-summary-val" data-count="{{ bank.fte_equivalent }}" data-roi-bind="bank_result.fte_equivalent">0</div><div class="roi-summary-lbl">FTE Saved</div></div>
+      <div class="roi-summary-cell roi-summary-money"><div class="roi-summary-val" data-money="{{ bank.cost_savings }}" data-roi-bind="bank_result.cost_savings" data-roi-bind-fmt="money">{{ cur }}0</div><div class="roi-summary-lbl">Money Saved</div></div>
+      <div class="roi-summary-cell roi-summary-hero"><div class="roi-summary-val" data-money="{{ proj.total_cost_savings }}" data-roi-bind="projection.total_cost_savings" data-roi-bind-fmt="money">{{ cur }}0</div><div class="roi-summary-lbl">Projected 5-Year Value</div></div>
     </div>
+    <ul class="roi-narrative roi-narrative-center roi-narrative-gold">
+      <li>Strong ROI</li><li>Hard-rupee savings</li><li>Productivity uplift</li><li>Measurable risk reduction</li>
+    </ul>
     <p class="roi-screen-note roi-cta">ECS pays for itself many times over — and the value compounds as we expand bank-wide.</p>
   </div>
 </section>
@@ -240,7 +589,7 @@
 {% if roi.executive_takeaways and roi.executive_takeaways.cards %}
 <div class="roi-takeaways">
   <h3 class="roi-detail-h">Executive Takeaways</h3>
-  <div class="roi-takeaway-grid">
+  <div class="roi-takeaway-grid" data-roi-region="takeaways">
     {% for t in roi.executive_takeaways.cards %}
     <div class="roi-takeaway-card" style="--d:{{ loop.index0 * 0.08 }}s">
       <div class="roi-takeaway-title">{{ t.title }}</div>
@@ -249,6 +598,73 @@
     </div>
     {% endfor %}
   </div>
+</div>
+{% endif %}
+
+{# ===================== VALUE DRIVER BREAKDOWN ============================= #}
+{% set vd = roi.value_drivers %}
+{% if vd and vd.drivers %}
+<div class="roi-drivers">
+  <h3 class="roi-detail-h">Executive Value Drivers — What Creates the ROI</h3>
+  <div class="roi-driver-grid" data-roi-region="drivers">
+    {% for d in vd.drivers %}
+    <div class="roi-driver-card" style="--d:{{ loop.index0 * 0.08 }}s">
+      <div class="roi-driver-top">
+        <span class="roi-driver-name">{{ d.name }}</span>
+        <span class="roi-driver-trend roi-trend-{{ d.trend }}">{{ '▲' if d.trend == 'up' else ('▼' if d.trend == 'down' else '—') }}</span>
+      </div>
+      <div class="roi-driver-bar"><span class="roi-driver-fill" style="--w:{{ d.contribution_pct }}%"></span></div>
+      <div class="roi-driver-pct">{{ d.contribution_pct }}%</div>
+      <ul class="roi-driver-stats">
+        <li><span>Hours saved</span><b>{{ d.hours_saved|round|int }}</b></li>
+        <li class="roi-detail-money"><span>Cost saved</span><b>{{ d.cost_saved_display }}</b></li>
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="roi-screen-note">Total value across all drivers: <b data-roi-bind="value_drivers.total_display">{{ vd.total_display }}</b></p>
+</div>
+{% endif %}
+
+{# ===================== PAYBACK ANALYSIS =================================== #}
+{% set pb = roi.payback %}
+{% if pb %}
+<div class="roi-payback">
+  <h3 class="roi-detail-h">Payback Analysis</h3>
+  <div class="roi-payback-grid" data-roi-region="payback">
+    <div class="roi-payback-card"><div class="roi-payback-lbl">Investment Cost</div><div class="roi-payback-val">{{ pb.investment_display }}</div></div>
+    <div class="roi-payback-card"><div class="roi-payback-lbl">Annual Savings</div><div class="roi-payback-val">{{ pb.annual_savings_display }}</div></div>
+    <div class="roi-payback-card roi-payback-hero"><div class="roi-payback-lbl">Payback Period</div><div class="roi-payback-val">{{ pb.payback_months }} <small>months</small></div></div>
+    {% for h in pb.horizons %}
+    <div class="roi-payback-card"><div class="roi-payback-lbl">{{ h.years }}-Year Net Value</div><div class="roi-payback-val">{{ h.net_value_display }}</div></div>
+    {% endfor %}
+  </div>
+  <p class="roi-screen-note">Net value = (annual savings − run cost) × years − investment. All inputs configurable in <code>roi.yaml</code>.</p>
+</div>
+{% endif %}
+
+{# ===================== TEAM INVESTMENT VIEW (optional) ==================== #}
+{% set iv = roi.investment_view %}
+{% if iv and iv.workstreams %}
+<div class="roi-invest">
+  <h3 class="roi-detail-h">Team Investment vs Value Generated</h3>
+  <div class="roi-invest-summary" data-roi-region="invest-summary">
+    <div class="roi-invest-pill"><span>Total Investment</span><b>{{ iv.total_investment_display }}</b></div>
+    <div class="roi-invest-pill"><span>Headcount</span><b>{{ iv.total_headcount }}</b></div>
+    <div class="roi-invest-pill roi-invest-pill-hero"><span>Value Generated</span><b>{{ iv.value_generated_display }}</b></div>
+    <div class="roi-invest-pill roi-invest-pill-mult"><span>Return Multiple</span><b>{{ iv.value_multiple }}×</b></div>
+  </div>
+  <div class="table-responsive">
+  <table class="roi-fw-table" data-roi-region="invest-table">
+    <thead><tr><th>Workstream</th><th>Headcount</th><th>Annual Investment</th></tr></thead>
+    <tbody>
+    {% for w in iv.workstreams %}
+      <tr><td class="roi-fw-td-name">{{ w.name }}</td><td>{{ w.headcount }}</td><td class="roi-fw-td-money">{{ w.annual_cost_display }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="roi-screen-note">Headcount &amp; investment are illustrative and fully configurable; no team sizes are hardcoded.</p>
 </div>
 {% endif %}
 
@@ -283,7 +699,7 @@
 <div class="roi-waterfall-wrap">
   <h3 class="roi-detail-h">ROI Waterfall — How Total Value Builds Up</h3>
   {% set wmax = wf.total or 1 %}
-  <div class="roi-waterfall" aria-label="ROI waterfall">
+  <div class="roi-waterfall" aria-label="ROI waterfall" data-roi-region="waterfall">
     {% for s in wf.steps %}
     <div class="roi-wf-col {% if s.is_total %}roi-wf-total{% endif %}">
       <div class="roi-wf-bar" style="--h:{{ ((s.value / wmax * 100)|round|int) if wmax else 4 }}%; --d:{{ loop.index0 * 0.12 }}s" title="{{ s.label }}: {{ s.value_display }}">
@@ -320,6 +736,23 @@
 </div>
 {% endif %}
 
+{# ===================== FRAMEWORK RANKING ================================== #}
+{% if roi.framework_ranking %}
+<div class="roi-fw-ranking">
+  <h3 class="roi-detail-h">Framework Value Ranking</h3>
+  <div class="roi-rank-row" data-roi-region="ranking">
+    {% for r in roi.framework_ranking[:3] %}
+    <div class="roi-rank-card {% if r.is_top %}roi-rank-top{% endif %}" style="--d:{{ loop.index0 * 0.1 }}s">
+      <div class="roi-rank-badge">#{{ r.rank }}</div>
+      <div class="roi-rank-name">{{ r.name }}</div>
+      <div class="roi-rank-cost">{{ r.cost_saved_display }}</div>
+      <div class="roi-rank-sub">{{ r.roi_contribution_pct }}% of framework value{% if r.is_top %} · Highest value framework{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {# ===================== FRAMEWORK-WISE ROI ANALYTICS ======================= #}
 {% if roi.framework_roi %}
 <div class="roi-fw-analytics">
@@ -331,7 +764,7 @@
       <th>Evidence Reused</th><th>Emails Avoided</th><th>Hours Saved</th>
       <th>Cost Saved</th><th>ROI %</th><th>ROI Contribution</th>
     </tr></thead>
-    <tbody>
+    <tbody data-roi-region="fw-table">
     {% for f in roi.framework_roi %}
       <tr>
         <td class="roi-fw-td-name">{{ f.name }}</td>
@@ -405,6 +838,8 @@
     </div>
   </div>
 </div>
+
+</div>{# /roi-appendix #}
 
 {% endif %}
 

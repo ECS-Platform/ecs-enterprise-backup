@@ -34,7 +34,16 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 
 def page_enforcement_enabled() -> bool:
-    """Feature flag. Default FALSE: no page is gated (legacy behavior)."""
+    """Feature flag. Default FALSE: no page is gated (legacy behavior).
+
+    Global DEMO_MODE forces this OFF so every navigable page loads token-free.
+    """
+    try:
+        from app.auth.demo import demo_mode
+        if demo_mode():
+            return False
+    except Exception:  # noqa: BLE001 - never let the demo check harden into a guard
+        pass
     return str(os.environ.get("RBAC_PAGE_ENFORCEMENT_ENABLED", "")).strip().lower() in {
         "1", "true", "yes", "on",
     }

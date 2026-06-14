@@ -158,6 +158,11 @@ class Assumptions:
 
     frameworks: list = field(default_factory=list)
 
+    # scenario context (set by for_scenario; defaults represent the baseline)
+    active_scenario: str = "expected"
+    scenario_label: str = "Expected"
+    adoption_pct: float = 1.0
+
     @classmethod
     def load(cls) -> "Assumptions":
         merged = _merge(_DEFAULTS, _load_block())
@@ -202,3 +207,61 @@ class Assumptions:
         """Derive ₹/app from the ₹4.5 Cr-per-25-apps anchor."""
         per_25 = self.baseline_savings_per_25_apps_cr * self.crore
         return per_25 / 25.0 if 25 else 0.0
+
+    # -- scenario support (additive) ---------------------------------------- #
+    def scenario_names(self) -> list[str]:
+        scn = self.raw.get("scenarios", {}) if isinstance(self.raw, dict) else {}
+        return list(scn.keys()) or ["conservative", "expected", "aggressive"]
+
+    def default_scenario(self) -> str:
+        name = (self.raw.get("default_scenario") if isinstance(self.raw, dict) else None)
+        names = self.scenario_names()
+        return name if name in names else ("expected" if "expected" in names else names[0])
+
+    def for_scenario(self, scenario: str | None) -> "Assumptions":
+        """Return a NEW Assumptions with the named scenario's overrides applied.
+
+        Non-destructive: the receiver is unchanged. Unknown scenario -> default.
+        Never raises.
+        """
+        try:
+            scn_all = self.raw.get("scenarios", {}) if isinstance(self.raw, dict) else {}
+            name = scenario if scenario in scn_all else self.default_scenario()
+            override = scn_all.get(name, {}) if isinstance(scn_all, dict) else {}
+            if not isinstance(override, dict):
+                override = {}
+
+            import copy
+            inst = copy.deepcopy(self)
+            inst.active_scenario = name
+            inst.scenario_label = str(override.get("label", name.title()))
+
+            # Adoption + target applications drive the "in scope" universe.
+            adoption = _num(override.get("adoption_pct"), 1.0)
+            target = override.get("target_applications")
+            if target is not None:
+                base_apps = int(_num(target, self.applications_in_bank))
+            else:
+                base_apps = self.applications_in_bank
+            inst.applications_in_bank = max(0, int(round(base_apps * adoption)))
+            inst.adoption_pct = adoption
+
+            # Scalar overrides (only when present).
+            for attr in ("observations_per_application", "emails_per_observation",
+                         "email_reduction_pct", "evidence_reuse_factor",
+                         "observation_prevention_pct", "closure_acceleration_pct",
+                         "audit_effort_reduction_pct",
+                         "framework_onboarding_reduction_pct"):
+                if attr in override:
+                    setattr(inst, attr, _num(override.get(attr), getattr(self, attr)))
+
+            # Framework subset for the scenario (filter the configured list).
+            fw_names = override.get("frameworks")
+            if isinstance(fw_names, list) and fw_names:
+                wanted = {str(x).lower() for x in fw_names}
+                filtered = [f for f in self.frameworks
+                            if str(f.get("name", "")).lower() in wanted]
+                inst.frameworks = filtered or self.frameworks
+            return inst
+        except Exception:  # noqa: BLE001
+            return self

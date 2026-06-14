@@ -911,7 +911,7 @@ def test_aging_to_dict(a):
 
 def test_rollout_milestones(a):
     sim = roi.rollout_simulator(a)
-    assert [p.applications for p in sim.points] == [25, 100, 250, 500, 905]
+    assert [p.applications for p in sim.points] == [25, 100, 250, 500, 605, 905]
 
 def test_rollout_custom_steps(a):
     sim = roi.rollout_simulator(a, steps=[10, 50])
@@ -954,7 +954,8 @@ def test_rollout_to_dict(a):
 
 def test_takeaways_card_count(a):
     tk = roi.executive_takeaways(a)
-    assert len(tk.cards) == 6
+    # Final executive pass adds FTE, payback period and risk reduction cards.
+    assert len(tk.cards) == 9
 
 def test_takeaways_keys(a):
     keys = {c.key for c in roi.executive_takeaways(a).cards}
@@ -988,7 +989,7 @@ def test_takeaways_five_year(a):
 
 def test_takeaways_to_dict(a):
     d = roi.executive_takeaways(a).to_dict()
-    assert "cards" in d and len(d["cards"]) == 6
+    assert "cards" in d and len(d["cards"]) == 9
 
 
 # =========================================================================== #
@@ -1007,11 +1008,12 @@ def test_center_waterfall_total_display():
 
 def test_center_rollout_points():
     c = roi.build_roi_center(force=True)
-    assert len(c["rollout_simulator"]["points"]) == 5
+    # Milestones now include the 605 VAPT anchor.
+    assert len(c["rollout_simulator"]["points"]) == 6
 
 def test_center_takeaways_cards():
     c = roi.build_roi_center(force=True)
-    assert len(c["executive_takeaways"]["cards"]) == 6
+    assert len(c["executive_takeaways"]["cards"]) == 9
 
 def test_center_final_pass_serializable():
     import json
@@ -1046,3 +1048,438 @@ def test_final_pass_exports():
                  "executive_takeaways", "Waterfall", "AgingReduction",
                  "RolloutSimulator", "ExecutiveTakeaways"):
         assert hasattr(roi, name)
+
+
+# =========================================================================== #
+# Executive enhancement pass — scenario profiles, value drivers, payback,
+# framework ranking, team investment view, scenario-aware orchestrator.
+#
+# These tests inject scenario/workstream config directly onto Assumptions.raw so
+# they exercise the real merge/calculation logic without requiring PyYAML at
+# test time, AND separately cover the no-config fallback behavior.
+# =========================================================================== #
+
+from app.roi.widgets import (  # noqa: E402
+    framework_ranking,
+    investment_view,
+    payback_analysis,
+    value_drivers,
+)
+from app.roi.models import (  # noqa: E402
+    FrameworkRank,
+    InvestmentView,
+    PaybackAnalysis,
+    ValueDriverBreakdown,
+)
+
+_SCENARIO_CFG = {
+    "default_scenario": "expected",
+    "scenarios": {
+        "conservative": {
+            "label": "Conservative", "adoption_pct": 0.30,
+            "target_applications": 600, "frameworks": ["VAPT"],
+            "observations_per_application": 1.5, "email_reduction_pct": 0.50,
+            "evidence_reuse_factor": 1.3, "observation_prevention_pct": 0.25,
+            "closure_acceleration_pct": 0.40, "audit_effort_reduction_pct": 0.40,
+            "framework_onboarding_reduction_pct": 0.50,
+        },
+        "expected": {
+            "label": "Expected", "adoption_pct": 1.0,
+            "target_applications": 605, "frameworks": ["VAPT"],
+            "observations_per_application": 2.5, "emails_per_observation": 7,
+            "email_reduction_pct": 0.65, "evidence_reuse_factor": 2.0,
+            "observation_prevention_pct": 0.50, "closure_acceleration_pct": 0.65,
+            "audit_effort_reduction_pct": 0.55,
+            "framework_onboarding_reduction_pct": 0.70,
+        },
+        "aggressive": {
+            "label": "Aggressive", "adoption_pct": 1.0,
+            "target_applications": 905,
+            "frameworks": ["VAPT", "RBI", "ISO27001", "PCI-DSS", "SWIFT",
+                           "AI Governance"],
+            "observations_per_application": 2.5, "email_reduction_pct": 0.85,
+            "evidence_reuse_factor": 5.0, "observation_prevention_pct": 0.60,
+            "closure_acceleration_pct": 0.80, "audit_effort_reduction_pct": 0.65,
+            "framework_onboarding_reduction_pct": 0.80,
+        },
+    },
+    "value_drivers": {
+        "evidence_reuse": 0.40, "observation_prevention": 0.25,
+        "closure_acceleration": 0.15, "auditor_productivity": 0.10,
+        "email_reduction": 0.05, "framework_automation": 0.05,
+    },
+    "payback": {
+        "implementation_cost": 80_000_000, "annual_run_cost": 20_000_000,
+        "horizons_years": [3, 5, 10],
+    },
+    "workstreams": [
+        {"name": "Core Platform", "headcount": 6, "annual_cost": 18_000_000},
+        {"name": "Integrations", "headcount": 4, "annual_cost": 11_000_000},
+        {"name": "AI & Evidence Intelligence", "headcount": 4,
+         "annual_cost": 13_000_000},
+        {"name": "DevOps & Platform", "headcount": 3, "annual_cost": 9_000_000},
+        {"name": "Operations & Reliability", "headcount": 3,
+         "annual_cost": 8_000_000},
+        {"name": "Database & Data Platform", "headcount": 2,
+         "annual_cost": 6_000_000},
+        {"name": "Program Governance", "headcount": 2, "annual_cost": 7_000_000},
+    ],
+}
+
+
+@pytest.fixture
+def acfg():
+    """Assumptions with the executive enhancement config blocks injected."""
+    inst = Assumptions.load()
+    raw = dict(inst.raw or {})
+    raw.update(_SCENARIO_CFG)
+    inst.raw = raw
+    return inst
+
+
+# ---- scenario discovery ---------------------------------------------------- #
+
+def test_scenario_names_from_config(acfg):
+    assert acfg.scenario_names() == ["conservative", "expected", "aggressive"]
+
+def test_scenario_names_fallback(a):
+    # No config -> deterministic default trio.
+    assert set(a.scenario_names()) == {"conservative", "expected", "aggressive"}
+
+def test_default_scenario_is_expected(acfg):
+    assert acfg.default_scenario() == "expected"
+
+def test_default_scenario_fallback(a):
+    assert a.default_scenario() == "expected"
+
+
+# ---- for_scenario: conservative ------------------------------------------- #
+
+def test_conservative_label(acfg):
+    assert acfg.for_scenario("conservative").scenario_label == "Conservative"
+
+def test_conservative_adoption_applied(acfg):
+    # 600 universe * 30% adoption = 180 apps.
+    assert acfg.for_scenario("conservative").applications_in_bank == 180
+
+def test_conservative_single_framework(acfg):
+    fws = acfg.for_scenario("conservative").frameworks
+    assert [f["name"] for f in fws] == ["VAPT"]
+
+def test_conservative_obs_per_app(acfg):
+    assert acfg.for_scenario("conservative").observations_per_application == 1.5
+
+def test_conservative_active_scenario_set(acfg):
+    assert acfg.for_scenario("conservative").active_scenario == "conservative"
+
+
+# ---- for_scenario: expected ----------------------------------------------- #
+
+def test_expected_apps(acfg):
+    assert acfg.for_scenario("expected").applications_in_bank == 605
+
+def test_expected_label(acfg):
+    assert acfg.for_scenario("expected").scenario_label == "Expected"
+
+def test_expected_single_framework(acfg):
+    assert [f["name"] for f in acfg.for_scenario("expected").frameworks] == ["VAPT"]
+
+def test_expected_reuse_factor(acfg):
+    assert acfg.for_scenario("expected").evidence_reuse_factor == 2.0
+
+
+# ---- for_scenario: aggressive --------------------------------------------- #
+
+def test_aggressive_apps(acfg):
+    assert acfg.for_scenario("aggressive").applications_in_bank == 905
+
+def test_aggressive_multi_framework(acfg):
+    fws = acfg.for_scenario("aggressive").frameworks
+    assert len(fws) >= 2
+
+def test_aggressive_reuse_highest(acfg):
+    assert acfg.for_scenario("aggressive").evidence_reuse_factor == 5.0
+
+
+# ---- for_scenario safety --------------------------------------------------- #
+
+def test_for_scenario_unknown_returns_default(acfg):
+    # Unknown name -> default (expected) profile.
+    assert acfg.for_scenario("nope").active_scenario == "expected"
+
+def test_for_scenario_non_destructive(acfg):
+    before = acfg.applications_in_bank
+    acfg.for_scenario("conservative")
+    assert acfg.applications_in_bank == before
+
+def test_for_scenario_returns_new_instance(acfg):
+    assert acfg.for_scenario("expected") is not acfg
+
+def test_for_scenario_never_raises():
+    bad = Assumptions()
+    bad.raw = None  # type: ignore[assignment]
+    assert isinstance(bad.for_scenario("expected"), Assumptions)
+
+
+# ---- scenario monotonicity: aggressive >= expected >= conservative -------- #
+
+def test_scenario_ordering_apps(acfg):
+    c = acfg.for_scenario("conservative").applications_in_bank
+    e = acfg.for_scenario("expected").applications_in_bank
+    g = acfg.for_scenario("aggressive").applications_in_bank
+    assert c < e < g
+
+def test_scenario_ordering_cost(acfg):
+    def cost(name):
+        adj = acfg.for_scenario(name)
+        return calculate_projected(adj.applications_in_bank, adj).cost_savings
+    assert cost("conservative") <= cost("expected") <= cost("aggressive")
+
+def test_scenario_ordering_waterfall_total(acfg):
+    def total(name):
+        adj = acfg.for_scenario(name)
+        return roi.build_waterfall(adj).total
+    assert total("conservative") <= total("expected") <= total("aggressive")
+
+
+# ---- value drivers --------------------------------------------------------- #
+
+def test_value_drivers_six(acfg):
+    vd = value_drivers(acfg.for_scenario("expected"))
+    assert isinstance(vd, ValueDriverBreakdown)
+    assert len(vd.drivers) == 6
+
+def test_value_drivers_weights_sum_100(acfg):
+    vd = value_drivers(acfg.for_scenario("expected"))
+    total = sum(d.contribution_pct for d in vd.drivers)
+    assert total == pytest.approx(100.0, abs=0.5)
+
+def test_value_drivers_top_is_evidence_reuse(acfg):
+    vd = value_drivers(acfg.for_scenario("expected"))
+    assert vd.drivers[0].name == "Evidence Reuse"
+    assert vd.drivers[0].contribution_pct == pytest.approx(40.0, abs=0.5)
+
+def test_value_drivers_cost_sums_to_total(acfg):
+    vd = value_drivers(acfg.for_scenario("expected"))
+    assert sum(d.cost_saved for d in vd.drivers) == pytest.approx(vd.total_cost, rel=0.01)
+
+def test_value_drivers_display_inr(acfg):
+    vd = value_drivers(acfg.for_scenario("expected"))
+    assert vd.total_display.startswith("₹")
+    assert all(d.cost_saved_display.startswith("₹") for d in vd.drivers)
+
+def test_value_drivers_trend_conservative_flat(acfg):
+    vd = value_drivers(acfg.for_scenario("conservative"))
+    assert all(d.trend == "flat" for d in vd.drivers)
+
+def test_value_drivers_failsafe():
+    assert isinstance(value_drivers(Assumptions()), ValueDriverBreakdown)
+
+def test_value_drivers_to_dict(acfg):
+    d = value_drivers(acfg.for_scenario("expected")).to_dict()
+    assert "drivers" in d and "total_display" in d
+
+
+# ---- payback analysis ------------------------------------------------------ #
+
+def test_payback_type(acfg):
+    assert isinstance(payback_analysis(acfg.for_scenario("expected")), PaybackAnalysis)
+
+def test_payback_investment_from_config(acfg):
+    pb = payback_analysis(acfg.for_scenario("expected"))
+    assert pb.investment_cost == 80_000_000
+
+def test_payback_net_annual(acfg):
+    pb = payback_analysis(acfg.for_scenario("expected"))
+    assert pb.net_annual_savings == pytest.approx(pb.annual_savings - pb.annual_run_cost)
+
+def test_payback_months_positive(acfg):
+    pb = payback_analysis(acfg.for_scenario("expected"))
+    assert pb.payback_months > 0
+
+def test_payback_horizons_three(acfg):
+    pb = payback_analysis(acfg.for_scenario("expected"))
+    assert [h.years for h in pb.horizons] == [3, 5, 10]
+
+def test_payback_horizon_growth(acfg):
+    pb = payback_analysis(acfg.for_scenario("expected"))
+    vals = [h.net_value for h in pb.horizons]
+    assert vals == sorted(vals)
+
+def test_payback_formula(acfg):
+    pb = payback_analysis(acfg.for_scenario("expected"))
+    h3 = next(h for h in pb.horizons if h.years == 3)
+    expected = pb.net_annual_savings * 3 - pb.investment_cost
+    assert h3.net_value == pytest.approx(expected, rel=0.01)
+
+def test_payback_displays_inr(acfg):
+    pb = payback_analysis(acfg.for_scenario("expected"))
+    assert pb.investment_display.startswith("₹")
+    assert pb.annual_savings_display.startswith("₹")
+
+def test_payback_failsafe():
+    assert isinstance(payback_analysis(Assumptions()), PaybackAnalysis)
+
+def test_payback_scenario_orders(acfg):
+    def months(name):
+        return payback_analysis(acfg.for_scenario(name)).payback_months
+    # Higher savings -> faster payback (fewer months).
+    assert months("aggressive") <= months("expected")
+
+def test_payback_to_dict(acfg):
+    d = payback_analysis(acfg.for_scenario("expected")).to_dict()
+    assert "horizons" in d and len(d["horizons"]) == 3
+
+
+# ---- framework ranking ----------------------------------------------------- #
+
+def test_framework_ranking_sorted_desc(acfg):
+    rk = framework_ranking(acfg.for_scenario("aggressive"))
+    costs = [r.cost_saved for r in rk]
+    assert costs == sorted(costs, reverse=True)
+
+def test_framework_ranking_numbers(acfg):
+    rk = framework_ranking(acfg.for_scenario("aggressive"))
+    assert [r.rank for r in rk] == list(range(1, len(rk) + 1))
+
+def test_framework_ranking_top_flag(acfg):
+    rk = framework_ranking(acfg.for_scenario("aggressive"))
+    assert rk[0].is_top is True
+    assert all(not r.is_top for r in rk[1:])
+
+def test_framework_ranking_is_rank_type(acfg):
+    rk = framework_ranking(acfg.for_scenario("aggressive"))
+    assert all(isinstance(r, FrameworkRank) for r in rk)
+
+def test_framework_ranking_display_inr(acfg):
+    rk = framework_ranking(acfg.for_scenario("aggressive"))
+    assert all(r.cost_saved_display.startswith("₹") for r in rk)
+
+def test_framework_ranking_failsafe():
+    bad = Assumptions()
+    bad.frameworks = []
+    assert framework_ranking(bad) == []
+
+
+# ---- team investment view -------------------------------------------------- #
+
+def test_investment_view_workstream_count(acfg):
+    iv = investment_view(acfg.for_scenario("expected"))
+    assert len(iv.workstreams) == 7
+
+def test_investment_view_total_headcount(acfg):
+    iv = investment_view(acfg.for_scenario("expected"))
+    assert iv.total_headcount == 6 + 4 + 4 + 3 + 3 + 2 + 2
+
+def test_investment_view_total_investment(acfg):
+    iv = investment_view(acfg.for_scenario("expected"))
+    assert iv.total_investment == pytest.approx(
+        sum(w["annual_cost"] for w in _SCENARIO_CFG["workstreams"]))
+
+def test_investment_view_value_multiple(acfg):
+    iv = investment_view(acfg.for_scenario("expected"))
+    assert iv.value_multiple > 0
+
+def test_investment_view_displays(acfg):
+    iv = investment_view(acfg.for_scenario("expected"))
+    assert iv.total_investment_display.startswith("₹")
+    assert iv.value_generated_display.startswith("₹")
+
+def test_investment_view_program_governance_present(acfg):
+    iv = investment_view(acfg.for_scenario("expected"))
+    assert any(w.name == "Program Governance" for w in iv.workstreams)
+
+def test_investment_view_no_config_empty(a):
+    # No workstreams in raw -> empty (optional panel hidden).
+    iv = investment_view(a)
+    assert isinstance(iv, InvestmentView)
+    assert iv.workstreams == []
+
+def test_investment_view_to_dict(acfg):
+    d = investment_view(acfg.for_scenario("expected")).to_dict()
+    assert "workstreams" in d and "value_multiple" in d
+
+
+# ---- scenario-aware orchestrator ------------------------------------------ #
+
+def test_center_emits_all_scenarios():
+    c = roi.build_roi_center(force=True)
+    assert set(c["scenario_names"]) == {"conservative", "expected", "aggressive"}
+    for n in c["scenario_names"]:
+        assert n in c["scenarios"]
+
+def test_center_active_scenario_default():
+    c = roi.build_roi_center(force=True)
+    assert c["active_scenario"] == "expected"
+
+def test_center_active_scenario_override():
+    c = roi.build_roi_center(force=True, scenario="conservative")
+    assert c["active_scenario"] == "conservative"
+
+def test_center_unknown_scenario_falls_back():
+    c = roi.build_roi_center(force=True, scenario="bogus")
+    assert c["active_scenario"] == "expected"
+
+def test_center_top_level_matches_active():
+    c = roi.build_roi_center(force=True, scenario="aggressive")
+    assert c["bank_applications"] == c["scenarios"]["aggressive"]["bank_applications"]
+
+def test_center_has_new_view_keys():
+    c = roi.build_roi_center(force=True)
+    for k in ("value_drivers", "payback", "framework_ranking", "investment_view"):
+        assert k in c
+
+def test_center_scenario_labels_map():
+    c = roi.build_roi_center(force=True)
+    assert set(c["scenario_labels"].keys()) == set(c["scenario_names"])
+
+def test_center_scenario_payloads_complete():
+    c = roi.build_roi_center(force=True)
+    for n in c["scenario_names"]:
+        s = c["scenarios"][n]
+        for k in ("waterfall", "payback", "value_drivers", "framework_ranking",
+                  "rollout_simulator", "executive_takeaways"):
+            assert k in s
+
+def test_center_serializable_full():
+    import json
+    json.dumps(roi.build_roi_center(force=True))
+
+def test_build_scenario_payload_direct(acfg):
+    payload = roi.build_scenario_payload(acfg.for_scenario("expected"))
+    assert payload["scenario"] == "expected"
+    assert payload["bank_applications"] == 605
+
+def test_center_disabled_flag(monkeypatch):
+    monkeypatch.setenv("ROI_CENTER_ENABLED", "false")
+    c = roi.build_roi_center()
+    assert c["enabled"] is False
+
+def test_center_back_compat_scenario_key():
+    # The legacy "scenario" key still holds the projected/actual comparison.
+    c = roi.build_roi_center(force=True)
+    assert "projected" in c["scenario"] and "actual" in c["scenario"]
+
+def test_center_waterfall_total_per_scenario():
+    c = roi.build_roi_center(force=True)
+    for n in c["scenario_names"]:
+        assert c["scenarios"][n]["waterfall"]["total_display"].startswith("₹")
+
+
+# ---- enhancement exports --------------------------------------------------- #
+
+def test_enhancement_exports():
+    for name in ("value_drivers", "payback_analysis", "framework_ranking",
+                 "investment_view", "build_scenario_payload",
+                 "ValueDriverBreakdown", "PaybackAnalysis", "FrameworkRank",
+                 "InvestmentView", "Workstream"):
+        assert hasattr(roi, name)
+
+
+def test_waterfall_total_equals_sum_of_drivers(acfg):
+    # The waterfall's non-total steps should sum to its TOTAL step (cumulative).
+    wf = roi.build_waterfall(acfg.for_scenario("expected"))
+    parts = [s.value for s in wf.steps if not s.is_total]
+    total_step = next((s.value for s in wf.steps if s.is_total), None)
+    if total_step is not None and parts:
+        assert sum(parts) == pytest.approx(total_step, rel=0.05)

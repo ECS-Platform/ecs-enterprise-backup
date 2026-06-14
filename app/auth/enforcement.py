@@ -35,7 +35,16 @@ from app.auth.roles import DEFAULT_ROLE, normalize_role
 
 
 def rbac_enforcement_enabled() -> bool:
-    """Feature flag. Default FALSE: authorization uses caller-supplied role."""
+    """Feature flag. Default FALSE: authorization uses caller-supplied role.
+
+    Global DEMO_MODE forces this OFF so RBAC never blocks a demo.
+    """
+    try:
+        from app.auth.demo import demo_mode
+        if demo_mode():
+            return False
+    except Exception:  # noqa: BLE001
+        pass
     return str(os.environ.get("RBAC_ENFORCEMENT_ENABLED", "")).strip().lower() in {
         "1", "true", "yes", "on",
     }

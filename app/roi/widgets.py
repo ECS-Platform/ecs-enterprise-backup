@@ -20,16 +20,23 @@ from app.roi.models import (
     AuditorValue,
     EmailValue,
     ExecutiveTakeaways,
+    FrameworkRank,
     FrameworkRoi,
+    InvestmentView,
     ObservationValue,
+    PaybackAnalysis,
+    PaybackHorizon,
     ReuseValue,
     RoiEvent,
     RolloutPoint,
     RolloutSimulator,
     TakeawayCard,
+    ValueDriver,
+    ValueDriverBreakdown,
     Waterfall,
     WaterfallStep,
     WithoutVsWith,
+    Workstream,
     format_inr,
 )
 
@@ -339,7 +346,7 @@ def rollout_simulator(a: Assumptions, *, steps: list[int] | None = None) -> Roll
         if isinstance(a.raw, dict):
             cfg_steps = (a.raw.get("rollout", {}) or {}).get("milestones")
         milestones = [int(x) for x in (steps or cfg_steps or
-                                       [25, 100, 250, 500, a.applications_in_bank])]
+                                       [25, 100, 250, 500, 605, a.applications_in_bank])]
         points: list[RolloutPoint] = []
         for apps in milestones:
             res = calculate_projected(apps, a)
@@ -400,6 +407,158 @@ def executive_takeaways(a: Assumptions) -> ExecutiveTakeaways:
         cards.append(TakeawayCard(
             key="five_year_value", title="Projected 5-Year Value",
             value=proj.total_display, sub="cumulative across rollout"))
+        # Section 8 additions: FTE, payback, risk reduction.
+        cards.append(TakeawayCard(
+            key="fte_saved", title="FTE Equivalent Saved",
+            value=str(bank.fte_equivalent), sub="annual productivity"))
+        pb = payback_analysis(a)
+        cards.append(TakeawayCard(
+            key="payback_period", title="Payback Period",
+            value=f"{pb.payback_months} months", sub="to recover investment"))
+        cards.append(TakeawayCard(
+            key="risk_reduction", title="Risk Reduction",
+            value=f"{bank.risk_reduction_pct}%", sub="coverage uplift"))
         return ExecutiveTakeaways(cards=cards)
     except Exception:  # noqa: BLE001
         return ExecutiveTakeaways()
+
+
+# --------------------------------------------------------------------------- #
+# Section 2 — Value driver breakdown
+# --------------------------------------------------------------------------- #
+
+_DRIVER_LABELS = [
+    ("evidence_reuse", "Evidence Reuse"),
+    ("observation_prevention", "Observation Prevention"),
+    ("closure_acceleration", "Faster Observation Closure"),
+    ("auditor_productivity", "Auditor Productivity"),
+    ("email_reduction", "Email Reduction"),
+    ("framework_automation", "Framework Automation"),
+]
+_DRIVER_DEFAULT_WEIGHTS = {
+    "evidence_reuse": 0.40, "observation_prevention": 0.25,
+    "closure_acceleration": 0.15, "auditor_productivity": 0.10,
+    "email_reduction": 0.05, "framework_automation": 0.05,
+}
+
+
+def value_drivers(a: Assumptions, *, applications: int | None = None) -> ValueDriverBreakdown:
+    """Decompose total ECS value by lever using configurable weights. Never raises."""
+    try:
+        from app.roi.calculations import calculate_projected
+        apps = a.applications_in_bank if applications is None else int(applications)
+        total_cost = calculate_projected(apps, a).cost_savings
+        total_hours = 0.0
+        weights_cfg = (a.raw.get("value_drivers", {}) if isinstance(a.raw, dict) else {}) \
+            or _DRIVER_DEFAULT_WEIGHTS
+        # Normalize weights.
+        wsum = sum(float(weights_cfg.get(k, 0)) for k, _ in _DRIVER_LABELS) or 1.0
+        drivers: list[ValueDriver] = []
+        for key, label in _DRIVER_LABELS:
+            w = float(weights_cfg.get(key, _DRIVER_DEFAULT_WEIGHTS.get(key, 0))) / wsum
+            cost = total_cost * w
+            hours = cost / a.cost_per_hour if a.cost_per_hour else 0.0
+            total_hours += hours
+            drivers.append(ValueDriver(
+                name=label, weight_pct=round(w * 100, 1),
+                hours_saved=round(hours, 0), cost_saved=round(cost, 0),
+                contribution_pct=round(w * 100, 1),
+                trend="up" if a.active_scenario != "conservative" else "flat",
+                cost_saved_display=_inr(a, cost)))
+        return ValueDriverBreakdown(
+            drivers=drivers, total_cost=round(total_cost, 0),
+            total_hours=round(total_hours, 0), total_display=_inr(a, total_cost))
+    except Exception:  # noqa: BLE001
+        return ValueDriverBreakdown()
+
+
+# --------------------------------------------------------------------------- #
+# Section 4 — Payback analysis
+# --------------------------------------------------------------------------- #
+
+def payback_analysis(a: Assumptions, *, applications: int | None = None) -> PaybackAnalysis:
+    """Investment vs savings payback + multi-year net value. Never raises."""
+    try:
+        from app.roi.calculations import calculate_projected
+        cfg = (a.raw.get("payback", {}) if isinstance(a.raw, dict) else {}) or {}
+        invest = float(cfg.get("implementation_cost", 80_000_000))
+        run = float(cfg.get("annual_run_cost", 20_000_000))
+        horizons_years = list(cfg.get("horizons_years", [3, 5, 10]))
+
+        apps = a.applications_in_bank if applications is None else int(applications)
+        annual_savings = calculate_projected(apps, a).cost_savings
+        net_annual = annual_savings - run
+        payback_months = (invest / net_annual * 12.0) if net_annual > 0 else 0.0
+
+        horizons: list[PaybackHorizon] = []
+        for yrs in horizons_years:
+            net = net_annual * yrs - invest
+            horizons.append(PaybackHorizon(
+                years=int(yrs), net_value=round(net, 0),
+                net_value_display=_inr(a, net)))
+
+        return PaybackAnalysis(
+            investment_cost=round(invest, 0), annual_savings=round(annual_savings, 0),
+            annual_run_cost=round(run, 0), net_annual_savings=round(net_annual, 0),
+            payback_months=round(payback_months, 1), horizons=horizons,
+            investment_display=_inr(a, invest),
+            annual_savings_display=_inr(a, annual_savings))
+    except Exception:  # noqa: BLE001
+        return PaybackAnalysis()
+
+
+# --------------------------------------------------------------------------- #
+# Section 7 — Framework ranking
+# --------------------------------------------------------------------------- #
+
+def framework_ranking(a: Assumptions) -> list[FrameworkRank]:
+    """Rank frameworks by value contribution (highest first). Never raises."""
+    try:
+        fws = sorted(framework_roi(a), key=lambda f: f.cost_saved, reverse=True)
+        out: list[FrameworkRank] = []
+        for i, f in enumerate(fws, start=1):
+            out.append(FrameworkRank(
+                rank=i, name=f.name, cost_saved=f.cost_saved,
+                roi_contribution_pct=f.roi_contribution_pct,
+                cost_saved_display=f.cost_saved_display, is_top=(i == 1)))
+        return out
+    except Exception:  # noqa: BLE001
+        return []
+
+
+# --------------------------------------------------------------------------- #
+# Section 9 — Team / investment view
+# --------------------------------------------------------------------------- #
+
+def investment_view(a: Assumptions, *, applications: int | None = None) -> InvestmentView:
+    """Implementation workstreams vs value generated. Never raises.
+
+    Headcount/cost come from config (NO hardcoded team size in UI).
+    """
+    try:
+        from app.roi.calculations import calculate_projected
+        cfg = (a.raw.get("workstreams", []) if isinstance(a.raw, dict) else []) or []
+        streams: list[Workstream] = []
+        total_hc = 0
+        total_inv = 0.0
+        for ws in cfg:
+            if not isinstance(ws, dict):
+                continue
+            hc = int(ws.get("headcount", 0) or 0)
+            cost = float(ws.get("annual_cost", 0) or 0)
+            total_hc += hc
+            total_inv += cost
+            streams.append(Workstream(
+                name=str(ws.get("name", "")), headcount=hc, annual_cost=round(cost, 0),
+                annual_cost_display=_inr(a, cost)))
+        apps = a.applications_in_bank if applications is None else int(applications)
+        value = calculate_projected(apps, a).cost_savings
+        multiple = (value / total_inv) if total_inv else 0.0
+        return InvestmentView(
+            workstreams=streams, total_headcount=total_hc,
+            total_investment=round(total_inv, 0), value_generated=round(value, 0),
+            value_multiple=round(multiple, 1),
+            total_investment_display=_inr(a, total_inv),
+            value_generated_display=_inr(a, value))
+    except Exception:  # noqa: BLE001
+        return InvestmentView()

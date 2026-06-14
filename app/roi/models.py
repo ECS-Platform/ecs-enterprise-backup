@@ -419,3 +419,130 @@ class ExecutiveTakeaways:
 
     def to_dict(self) -> dict[str, Any]:
         return {"cards": [c.to_dict() for c in self.cards]}
+
+
+# --------------------------------------------------------------------------- #
+# Section 2 — Value driver breakdown
+# --------------------------------------------------------------------------- #
+
+@dataclass
+class ValueDriver:
+    name: str = ""
+    weight_pct: float = 0.0
+    hours_saved: float = 0.0
+    cost_saved: float = 0.0
+    contribution_pct: float = 0.0
+    trend: str = "up"            # up | flat | down (deterministic, vs lower scenario)
+    cost_saved_display: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "weight_pct": self.weight_pct,
+                "hours_saved": self.hours_saved, "cost_saved": self.cost_saved,
+                "contribution_pct": self.contribution_pct, "trend": self.trend,
+                "cost_saved_display": self.cost_saved_display}
+
+
+@dataclass
+class ValueDriverBreakdown:
+    drivers: list[ValueDriver] = field(default_factory=list)
+    total_cost: float = 0.0
+    total_hours: float = 0.0
+    total_display: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"drivers": [d.to_dict() for d in self.drivers],
+                "total_cost": self.total_cost, "total_hours": self.total_hours,
+                "total_display": self.total_display}
+
+
+# --------------------------------------------------------------------------- #
+# Section 4 — Payback analysis
+# --------------------------------------------------------------------------- #
+
+@dataclass
+class PaybackHorizon:
+    years: int = 0
+    net_value: float = 0.0
+    net_value_display: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"years": self.years, "net_value": self.net_value,
+                "net_value_display": self.net_value_display}
+
+
+@dataclass
+class PaybackAnalysis:
+    investment_cost: float = 0.0
+    annual_savings: float = 0.0
+    annual_run_cost: float = 0.0
+    net_annual_savings: float = 0.0
+    payback_months: float = 0.0
+    horizons: list[PaybackHorizon] = field(default_factory=list)
+    investment_display: str = ""
+    annual_savings_display: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"investment_cost": self.investment_cost,
+                "annual_savings": self.annual_savings,
+                "annual_run_cost": self.annual_run_cost,
+                "net_annual_savings": self.net_annual_savings,
+                "payback_months": self.payback_months,
+                "horizons": [h.to_dict() for h in self.horizons],
+                "investment_display": self.investment_display,
+                "annual_savings_display": self.annual_savings_display}
+
+
+# --------------------------------------------------------------------------- #
+# Section 7 — Framework ranking
+# --------------------------------------------------------------------------- #
+
+@dataclass
+class FrameworkRank:
+    rank: int = 0
+    name: str = ""
+    cost_saved: float = 0.0
+    roi_contribution_pct: float = 0.0
+    cost_saved_display: str = ""
+    is_top: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rank": self.rank, "name": self.name, "cost_saved": self.cost_saved,
+                "roi_contribution_pct": self.roi_contribution_pct,
+                "cost_saved_display": self.cost_saved_display, "is_top": self.is_top}
+
+
+# --------------------------------------------------------------------------- #
+# Section 9 — Team / investment view
+# --------------------------------------------------------------------------- #
+
+@dataclass
+class Workstream:
+    name: str = ""
+    headcount: int = 0
+    annual_cost: float = 0.0
+    annual_cost_display: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "headcount": self.headcount,
+                "annual_cost": self.annual_cost,
+                "annual_cost_display": self.annual_cost_display}
+
+
+@dataclass
+class InvestmentView:
+    workstreams: list[Workstream] = field(default_factory=list)
+    total_headcount: int = 0
+    total_investment: float = 0.0
+    value_generated: float = 0.0
+    value_multiple: float = 0.0
+    total_investment_display: str = ""
+    value_generated_display: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"workstreams": [w.to_dict() for w in self.workstreams],
+                "total_headcount": self.total_headcount,
+                "total_investment": self.total_investment,
+                "value_generated": self.value_generated,
+                "value_multiple": self.value_multiple,
+                "total_investment_display": self.total_investment_display,
+                "value_generated_display": self.value_generated_display}

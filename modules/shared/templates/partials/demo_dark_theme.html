@@ -1,0 +1,58 @@
+<style>
+/* =========================================================================
+   EXECUTIVE DEMO DARK THEME (DEMO_MODE only)
+   One unified executive command center. Applies to the CONTENT area; the
+   existing dark left navigation is preserved. Production (DEMO_MODE off)
+   never loads this file.
+   Palette: bg #0B1220 · cards #111827 · panels #1E293B · text #F8FAFC /
+   #CBD5E1 · accent #38BDF8 · positive #22C55E · ROI #F59E0B
+   ========================================================================= */
+:root{
+  --demo-bg:#0B1220; --demo-card:#111827; --demo-panel:#1E293B;
+  --demo-text:#F8FAFC; --demo-text2:#CBD5E1; --demo-accent:#38BDF8;
+  --demo-pos:#22C55E; --demo-roi:#F59E0B; --demo-border:#243044;
+}
+/* page + workspace surfaces */
+body.bg-light, body.ecs-cap-roi, body{ background:var(--demo-bg)!important; color:var(--demo-text); }
+.ecs-workspace-main, .roi-main, .container-fluid, main, .ecs-content,
+.ecs-workspace, .content, .page-content{ background:var(--demo-bg)!important; color:var(--demo-text); }
+/* kill washed-out light surfaces */
+.bg-light, .bg-white, .card.bg-white, .bg-body, .bg-body-tertiary{
+  background:var(--demo-card)!important; color:var(--demo-text)!important; }
+/* cards / panels */
+.card, .panel, .ecs-card, .widget, .kpi-card, .dashboard-card, .tile,
+.box, .surface{ background:var(--demo-card)!important; color:var(--demo-text)!important;
+  border-color:var(--demo-border)!important; box-shadow:0 8px 26px rgba(0,0,0,.35); }
+.card-header, .panel-header, .modal-content, .list-group-item, .accordion-item,
+.accordion-button{ background:var(--demo-panel)!important; color:var(--demo-text)!important;
+  border-color:var(--demo-border)!important; }
+/* text */
+h1,h2,h3,h4,h5,h6, .h1,.h2,.h3,.h4,.h5,.h6{ color:var(--demo-text)!important; }
+p, span, li, dd, dt, label, small, .text-muted, .text-secondary, .lead{
+  color:var(--demo-text2)!important; }
+.text-dark, .text-body, .text-black{ color:var(--demo-text)!important; }
+a{ color:var(--demo-accent); }
+a:hover{ color:#7dd3fc; }
+/* tables */
+.table, table{ color:var(--demo-text)!important; border-color:var(--demo-border)!important; }
+.table thead th, thead th{ background:var(--demo-panel)!important; color:var(--demo-text)!important;
+  border-color:var(--demo-border)!important; }
+.table td, .table th, td, th{ border-color:var(--demo-border)!important; }
+.table-striped>tbody>tr:nth-of-type(odd)>*{ background:rgba(255,255,255,.03)!important; color:var(--demo-text2)!important; }
+.table-hover>tbody>tr:hover>*{ background:rgba(56,189,248,.08)!important; }
+/* inputs */
+.form-control, .form-select, input, select, textarea{
+  background:var(--demo-panel)!important; color:var(--demo-text)!important; border-color:var(--demo-border)!important; }
+.form-control::placeholder{ color:#7c8aa3!important; }
+/* accent / value colors */
+.text-primary, .accent, .ecs-accent{ color:var(--demo-accent)!important; }
+.text-success, .positive, .value-positive{ color:var(--demo-pos)!important; }
+.text-warning, .roi-value, .value-roi{ color:var(--demo-roi)!important; }
+.badge.bg-light, .badge.bg-secondary{ background:var(--demo-panel)!important; color:var(--demo-text)!important; }
+/* buttons keep contrast */
+.btn-light, .btn-outline-secondary{ background:var(--demo-panel)!important; color:var(--demo-text)!important; border-color:var(--demo-border)!important; }
+/* borders / dividers */
+hr, .border, .border-top, .border-bottom{ border-color:var(--demo-border)!important; }
+/* ROI deck carries its own dark executive palette; keep its shadow on dark page */
+.roi-deck-stage{ box-shadow:0 18px 50px rgba(0,0,0,.5); }
+</style>

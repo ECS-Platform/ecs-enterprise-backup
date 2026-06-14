@@ -44,6 +44,12 @@ def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_m
     ctx.update(enterprise_widgets_context(role, page_module=page_module, user=user, analytics_filters=analytics_filters))
     ctx["module_view"] = ctx.get("module_view") or {}
     ctx["reuse_metrics"] = REUSE_METRICS
+    # Executive demo dark theme activates only when the global DEMO_MODE flag is on.
+    try:
+        from app.auth.demo import demo_mode
+        ctx["demo_mode"] = demo_mode()
+    except Exception:  # noqa: BLE001
+        ctx["demo_mode"] = False
     return ctx
 
 
@@ -264,7 +270,7 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_ecs_report.html", ctx)
 
     @app.get("/mvp/roi", response_class=HTMLResponse)
-    def mvp_roi_center(request: Request, role: str = "cio", user: str = "cio@bank.com", response: str = "", notice: str = ""):
+    def mvp_roi_center(request: Request, role: str = "cio", user: str = "cio@bank.com", response: str = "", notice: str = "", scenario: str = ""):
         """Executive ROI & Value Realization Center (deterministic, read-only)."""
         from app.roi import build_roi_center, roi_enabled
 
@@ -273,7 +279,9 @@ def register_mvp_routes(app, templates):
         ctx["roi_enabled"] = roi_enabled()
         # force=True so the page renders fully in demos even before the flag is set;
         # the master flag still controls nav visibility / availability messaging.
-        ctx["roi"] = build_roi_center(force=True)
+        # Scenario chooses which model is active on initial render; all three are
+        # also emitted in the payload so the UI toggle can switch instantly.
+        ctx["roi"] = build_roi_center(force=True, scenario=(scenario or None))
         return templates.TemplateResponse(request, "mvp_roi_center.html", ctx)
 
     @app.get("/mvp/ai-ops-assistant/summary/{mode}", response_class=HTMLResponse)

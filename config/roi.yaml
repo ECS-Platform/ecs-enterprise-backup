@@ -46,6 +46,93 @@ roi:
     # Implementation/run cost used as the ROI denominator (₹ per onboarded app/yr).
     cost_per_app_per_year: 60000
 
+  # ---- Executive scenario profiles ----------------------------------------- #
+  # Each scenario overrides a subset of assumptions/efficiency. The engine merges
+  # the active scenario's overrides on top of the baseline assumptions above, so
+  # ALL calculations, projections, charts, waterfall, framework ROI, summaries and
+  # takeaways recompute when the scenario changes. Default = expected.
+  default_scenario: expected
+  scenarios:
+    conservative:
+      label: "Conservative"
+      adoption_pct: 0.30                 # only 30% of in-scope apps onboarded
+      target_applications: 600           # VAPT-only universe
+      frameworks: ["VAPT"]
+      observations_per_application: 1.5
+      email_reduction_pct: 0.50
+      evidence_reuse_factor: 1.3         # ~30% reuse uplift
+      observation_prevention_pct: 0.25
+      closure_acceleration_pct: 0.40
+      audit_effort_reduction_pct: 0.40
+      framework_onboarding_reduction_pct: 0.50
+    expected:
+      label: "Expected"
+      adoption_pct: 1.0
+      target_applications: 605           # VAPT applications (recommended)
+      frameworks: ["VAPT"]
+      observations_per_application: 2.5
+      emails_per_observation: 7
+      email_reduction_pct: 0.65
+      evidence_reuse_factor: 2.0         # ~50% reuse
+      observation_prevention_pct: 0.50
+      closure_acceleration_pct: 0.65
+      audit_effort_reduction_pct: 0.55
+      framework_onboarding_reduction_pct: 0.70
+    aggressive:
+      label: "Aggressive"
+      adoption_pct: 1.0
+      target_applications: 905           # full bank, multi-framework
+      frameworks: ["VAPT", "RBI", "ISO27001", "PCI-DSS", "SWIFT", "AI Governance"]
+      observations_per_application: 2.5
+      email_reduction_pct: 0.85
+      evidence_reuse_factor: 5.0         # high reuse across frameworks
+      observation_prevention_pct: 0.60
+      closure_acceleration_pct: 0.80
+      audit_effort_reduction_pct: 0.65
+      framework_onboarding_reduction_pct: 0.80
+
+  # ---- Value driver weighting (Section 2) ---------------------------------- #
+  # Relative contribution of each lever to total ECS value (configurable).
+  value_drivers:
+    evidence_reuse: 0.40
+    observation_prevention: 0.25
+    closure_acceleration: 0.15
+    auditor_productivity: 0.10
+    email_reduction: 0.05
+    framework_automation: 0.05
+
+  # ---- Payback analysis (Section 4) ---------------------------------------- #
+  payback:
+    # Total implementation/program investment (₹). Configurable.
+    implementation_cost: 80000000        # ₹8 Cr program investment
+    annual_run_cost: 20000000            # ₹2 Cr/yr run cost
+    horizons_years: [3, 5, 10]
+
+  # ---- Team / investment workstreams (Section 9) --------------------------- #
+  # Investment is illustrative & configurable; NO hardcoded team sizes in UI.
+  workstreams:
+    - name: "Core Platform"
+      headcount: 6
+      annual_cost: 18000000
+    - name: "Integrations"
+      headcount: 4
+      annual_cost: 11000000
+    - name: "AI & Evidence Intelligence"
+      headcount: 4
+      annual_cost: 13000000
+    - name: "DevOps & Platform"
+      headcount: 3
+      annual_cost: 9000000
+    - name: "Operations & Reliability"
+      headcount: 3
+      annual_cost: 8000000
+    - name: "Database & Data Platform"
+      headcount: 2
+      annual_cost: 6000000
+    - name: "Program Governance"
+      headcount: 2
+      annual_cost: 7000000
+
   # ---- Observation aging (final executive pass) ---------------------------- #
   aging:
     before_closure_days: 45   # avg observation closure days before ECS
@@ -53,7 +140,7 @@ roi:
 
   # ---- Enterprise rollout simulator milestones ----------------------------- #
   rollout:
-    milestones: [25, 100, 250, 500, 905]
+    milestones: [25, 100, 250, 500, 605, 905]
 
   # ---- Risk reduction model ------------------------------------------------ #
   risk:

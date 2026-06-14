@@ -182,7 +182,8 @@ def list_applications() -> dict[str, Any]:
         return to_jsonable({"ok": True, "applications": apps, "total": len(apps),
                             "by_criticality": by_crit, "by_status": by_status})
     except RepositoryError as exc:
-        return {"ok": False, "error": str(exc), "applications": []}
+        return {"ok": False, "error": str(exc), "applications": [],
+                "total": 0, "by_criticality": {}, "by_status": {}}
 
 
 def application_detail(slug: str) -> dict[str, Any]:
@@ -600,7 +601,8 @@ def executive_summary() -> dict[str, Any]:
         with _Repo() as repo:
             counts = repo.counts()
     except RepositoryError as exc:
-        return {"ok": False, "error": str(exc)}
+        return {"ok": False, "error": str(exc),
+                "by_criticality": {}, "by_source": {}, "frameworks": [], "top_apps": []}
     return to_jsonable({
         "ok": True,
         "applications": inv.get("total", 0),
@@ -652,7 +654,9 @@ def governance_scorecard(role: str = "cio") -> dict[str, Any]:
         with _Repo() as repo:
             counts = repo.counts()
     except RepositoryError as exc:
-        return {"ok": False, "error": str(exc), "role": role, **preset}
+        return {"ok": False, "error": str(exc), "role": role, **preset,
+                "kpis": {}, "frameworks": [], "by_criticality": {},
+                "per_app": [], "lifecycle": {}}
 
     lc = life.get("counts", {}) if life.get("ok") else {}
     open_obs = int(lc.get("Collected", 0)) + int(lc.get("UnderReview", 0))
