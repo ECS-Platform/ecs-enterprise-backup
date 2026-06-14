@@ -1,0 +1,123 @@
+# ECS Evidence Intelligence Foundation — configuration (Phase 5.4).
+#
+# DETERMINISTIC, NON-LLM. This file defines the policy for the evidence
+# intelligence engines (versioning, lineage, sufficiency V2 aggregation, closure
+# readiness, reuse scoring, change detection, query). Changing these values
+# changes assessment OUTPUT only; it never changes evidence/observation/workflow/
+# RBAC/audit/dashboard/RAG behavior.
+#
+# Every engine is DISABLED by default. When disabled each returns a neutral,
+# clearly-marked "disabled" result and performs no work. No DB writes, no schema
+# changes, no LLM/embeddings/vector/RAG.
+
+evidence_intel:
+  # ---- Feature flags (default false). Env overrides win. ---------------------
+  versioning_enabled:        ${EVIDENCE_VERSIONING_ENABLED:-false}
+  lineage_enabled:           ${EVIDENCE_LINEAGE_ENABLED:-false}
+  # Sufficiency V2 intentionally REUSES the Phase 5.2-A flag (no V2 flag):
+  sufficiency_enabled:       ${SUFFICIENCY_ENGINE_ENABLED:-false}
+  observation_readiness_enabled: ${OBSERVATION_READINESS_ENABLED:-false}
+  reuse_scoring_enabled:     ${EVIDENCE_REUSE_SCORING_ENABLED:-false}
+  change_detection_enabled:  ${EVIDENCE_CHANGE_DETECTION_ENABLED:-false}
+  query_enabled:             ${EVIDENCE_QUERY_ENABLED:-false}
+
+  # ---- Sufficiency V2 (aggregation over per-item 5.2-A scores) ---------------
+  sufficiency:
+    # Weights for the aggregate observation/control sufficiency score.
+    weights:
+      item_quality:       0.35   # mean per-item score from 5.2-A engine
+      evidence_count:     0.15   # enough distinct evidence items
+      mandatory_types:    0.20   # all mandatory evidence types present
+      approval_state:     0.15   # proportion approved
+      recency:            0.15   # proportion fresh (non-expired)
+    bands:
+      green_min: 80
+      amber_min: 55
+    # Minimum distinct evidence items expected for full evidence_count score.
+    target_evidence_count: 3
+    # Mandatory evidence types by framework (lowercased object_type / category).
+    mandatory_types_by_framework:
+      pci-dss:    [policy, quality_gate, test_result]
+      iso27001:   [policy, document]
+      rbi-csf:    [policy, document, quality_gate]
+      soc2:       [pull_request, quality_gate]
+      default:    [policy]
+
+  # ---- Observation closure readiness ----------------------------------------
+  readiness:
+    weights:
+      evidence_present:       0.25
+      evidence_approved:      0.25
+      remediation_attached:   0.15
+      observation_age:        0.10   # younger / within-SLA = better
+      control_coverage:       0.15
+      unresolved_dependencies: 0.10
+    bands:
+      ready_min:        80   # >= -> Ready
+      nearly_ready_min: 55   # >= and < ready_min -> Nearly Ready; else Not Ready
+    # Observation age scoring: full score if within target days, 0 beyond max.
+    age_target_days: 30
+    age_max_days:    120
+
+  # ---- Reuse scoring --------------------------------------------------------
+  reuse:
+    weights:
+      framework_overlap:  0.25
+      control_overlap:    0.25
+      type_match:         0.15
+      age:                0.15   # fresher candidate = more reusable
+      status:             0.10   # collected/approved = more reusable
+      approval_history:   0.10
+    bands:
+      high_min:   70   # >= -> High Reuse
+      medium_min: 40   # >= and < high_min -> Medium Reuse; else Low Reuse
+    age_target_days: 90
+    age_max_days:    365
+
+  # ---- Change detection thresholds ------------------------------------------
+  change:
+    # Each detected change contributes a severity weight; the max class wins,
+    # and accumulated weight escalates the overall class.
+    field_severity:
+      content_hash:    major
+      approval_status: major
+      control_mapping: moderate
+      framework_mapping: moderate
+      owner:           moderate
+      metadata:        minor
+      title:           minor
+      url:             minor
+    # Number of moderate changes that escalate to major.
+    moderate_to_major_count: 3
+
+  # ---- Query engine ---------------------------------------------------------
+  query:
+    max_results: 1000
+    # Fields allowed as filters (deterministic, exact/`in` match, case-insensitive).
+    filterable_fields:
+      - framework
+      - application
+      - observation
+      - status
+      - approval_status
+      - owner
+      - control
+      - object_type
+      - evidence_type
+      - source_system
+      - year
+      - audit_year
+      - upload_date
+    # Fields allowed for aggregation grouping.
+    groupable_fields:
+      - framework
+      - application
+      - observation
+      - status
+      - approval_status
+      - owner
+      - control
+      - object_type
+      - evidence_type
+      - year
+      - audit_year
