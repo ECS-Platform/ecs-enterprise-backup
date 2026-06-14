@@ -15,6 +15,7 @@ functionality is preserved exactly until an operator turns auth on.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -24,6 +25,20 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.auth import events
 from app.auth.context import AuthenticatedUser
 from app.auth.errors import AuthenticationError
+
+# DEMO MODE (POC only, default OFF). When DEMO_MODE=true the middleware lets the
+# demo surfaces through WITHOUT tokens, regardless of config-loading/startup order
+# or ECS_AUTH_ENABLED. Read from the environment per-request so it cannot be
+# defeated by config caching. NOT for production. All auth code is preserved.
+_DEMO_PUBLIC_PREFIXES = ("/dashboard", "/mvp")
+
+
+def _demo_mode() -> bool:
+    return str(os.environ.get("DEMO_MODE", "")).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_demo_public(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in _DEMO_PUBLIC_PREFIXES)
 
 
 def _load_auth_cfg() -> dict[str, Any]:
@@ -79,6 +94,12 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
+        # DEMO MODE (default OFF): allow the demo surfaces without tokens. Checked
+        # before provider logic so it works even if auth.enabled stays true.
+        if _demo_mode() and _is_demo_public(path):
+            request.state.principal = None
+            return await call_next(request)
+
         if _is_public(path, self._public):
             request.state.principal = None
             return await call_next(request)
