@@ -109,6 +109,11 @@ def chat_redirect(role: str, user: str, response: str, framework_name: str = "")
 def register_mvp_routes(app, templates):
     @app.get("/dashboard/vertical-head", response_class=HTMLResponse)
     def vertical_head_dashboard(request: Request, role: str = "vertical_head", user: str = "VerticalHead", response: str = ""):
+        from app.auth.page_guard import guard_page
+        deny = guard_page(request, "dashboard.vertical", fallback_role=role, user=user,
+                          home=f"/dashboard?role={role}&user={user}", page_label="Vertical Head dashboard")
+        if deny:
+            return deny
         ctx = _base_ctx(role, user, response)
         ctx["analytics"] = ecs_state.build_evidence_analytics()
         ctx["enterprise"] = enterprise_dashboard()
@@ -117,6 +122,14 @@ def register_mvp_routes(app, templates):
 
     @app.get("/dashboard/compliance-head", response_class=HTMLResponse)
     def compliance_head_dashboard(request: Request, role: str = "compliance_head", user: str = "ComplianceHead", response: str = ""):
+        from app.auth.page_guard import guard_page
+        # Shared landing page: compliance officers and security officers both use it
+        # (login routes security_officer here). Any-of avoids an RBAC catalog change.
+        deny = guard_page(request, ["dashboard.compliance", "dashboard.security"],
+                          fallback_role=role, user=user,
+                          home=f"/dashboard?role={role}&user={user}", page_label="Compliance dashboard")
+        if deny:
+            return deny
         ctx = _base_ctx(role, user, response)
         ctx["analytics"] = ecs_state.build_evidence_analytics()
         ctx["completeness"] = completeness_report()
@@ -125,6 +138,11 @@ def register_mvp_routes(app, templates):
 
     @app.get("/dashboard/functional-head", response_class=HTMLResponse)
     def functional_head_dashboard(request: Request, role: str = "functional_head", user: str = "FunctionalHead", response: str = ""):
+        from app.auth.page_guard import guard_page
+        deny = guard_page(request, "dashboard.functional", fallback_role=role, user=user,
+                          home=f"/dashboard?role={role}&user={user}", page_label="Functional Head dashboard")
+        if deny:
+            return deny
         ctx = _base_ctx(role, user, response)
         ctx["analytics"] = ecs_state.build_evidence_analytics()
         ctx["enterprise"] = enterprise_dashboard()

@@ -29,6 +29,11 @@ from app.auth.mutation_guard import (
     guard_mutation,
     mutation_enforcement_enabled,
 )
+from app.auth.page_guard import (
+    can_view_page,
+    guard_page,
+    page_enforcement_enabled,
+)
 
 __all__ = [
     "AuthenticatedUser",
@@ -44,4 +49,8 @@ __all__ = [
     # Phase 2 Step 2D-critical — critical-mutation authorization guard.
     "guard_mutation",
     "mutation_enforcement_enabled",
+    # Phase 2 Step 2C — dashboard / page authorization guard.
+    "guard_page",
+    "can_view_page",
+    "page_enforcement_enabled",
 ]

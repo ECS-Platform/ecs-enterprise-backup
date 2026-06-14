@@ -343,6 +343,21 @@ def logout():
     return RedirectResponse("/", status_code=303)
 
 
+@app.get("/access-denied", response_class=HTMLResponse)
+def access_denied(page: str = "", role: str = "", user: str = "", home: str = "/"):
+    """Lightweight, reusable access-denied page (Phase 2 Step 2C).
+
+    Rendered when page authorization denies a browser request. Standalone HTML so it
+    never depends on a role-specific template context."""
+    from app.auth.page_guard import _access_denied_html
+
+    reason = f"Role '{role or 'unknown'}' is not authorized for '{page or 'this page'}'."
+    return HTMLResponse(
+        _access_denied_html(user=user, role=role, page=page, reason=reason, home=home or "/"),
+        status_code=403,
+    )
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
     request: Request,
@@ -378,6 +393,12 @@ def cio_dashboard(
     user: str = "CIO",
     response: str = "",
 ):
+    from app.auth.page_guard import guard_page
+
+    deny = guard_page(request, "dashboard.cio", fallback_role=role, user=user,
+                      home=f"/dashboard?role={role}&user={user}", page_label="CIO dashboard")
+    if deny:
+        return deny
     from modules.executive_overview.engines.demo_metrics import display_framework_maturity
 
     analytics = build_evidence_analytics()
