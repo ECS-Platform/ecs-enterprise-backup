@@ -179,6 +179,16 @@ def can_request_reupload(role: str) -> bool:
     return is_auditor(role)
 
 
+def can_admin_platform(role: str) -> bool:
+    """Phase 2 Step 2D-critical: platform administration (connector sync, RAG
+    reindex/warm). New capability (no prior predicate) restricted to administrators.
+    Mirrors the rbac_legacy_compat set so the delegated and fallback paths agree."""
+    d = _delegate("can_admin_platform", role)
+    if d is not None:
+        return d
+    return normalize_role(role) in {"system_admin", "enterprise_admin", "admin"}
+
+
 def action_allowed(role: str, action: str) -> bool:
     action = (action or "").lower().replace("-", "_")
     r = normalize_role(role)

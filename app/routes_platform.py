@@ -59,10 +59,15 @@ def register_platform_routes(app, templates):
         return templates.TemplateResponse(request=request, name="platform_evidence_explorer.html", context=ctx)
 
     @app.post("/mvp/platform/sync/{connector}")
-    def platform_sync(connector: str, role: str = Form("admin"), user: str = Form("Admin"),
+    def platform_sync(connector: str, request: Request, role: str = Form("admin"), user: str = Form("Admin"),
                       redirect: str = Form("/mvp/integration-health")):
+        from app.auth.mutation_guard import guard_mutation
         from ecs_platform.ingestion import sync_connector
 
+        deny = guard_mutation(request, "can_admin_platform", fallback_role=role,
+                              deny_redirect_to=redirect, role=role, user=user)
+        if deny:
+            return deny
         if connector not in _valid_connectors():
             notice = f"Unknown connector: {connector}"
         else:
@@ -79,9 +84,14 @@ def register_platform_routes(app, templates):
                                 status_code=303)
 
     @app.post("/mvp/platform/sync-all")
-    def platform_sync_all(role: str = Form("admin"), user: str = Form("Admin")):
+    def platform_sync_all(request: Request, role: str = Form("admin"), user: str = Form("Admin")):
+        from app.auth.mutation_guard import guard_mutation
         from ecs_platform.ingestion import sync_all
 
+        deny = guard_mutation(request, "can_admin_platform", fallback_role=role,
+                              deny_redirect_to="/mvp/integration-health", role=role, user=user)
+        if deny:
+            return deny
         results = sync_all(actor=user, role=role)
         ok = sum(1 for r in results if r.get("ok"))
         total = sum(r.get("persisted", 0) for r in results)
@@ -127,9 +137,13 @@ def register_platform_routes(app, templates):
         return JSONResponse(health_overview())
 
     @app.post("/api/platform/sync/{connector}")
-    def api_platform_sync(connector: str, user: str = "system", role: str = "admin"):
+    def api_platform_sync(connector: str, request: Request, user: str = "system", role: str = "admin"):
+        from app.auth.mutation_guard import guard_mutation
         from ecs_platform.ingestion import sync_connector
 
+        deny = guard_mutation(request, "can_admin_platform", fallback_role=role, response="json")
+        if deny:
+            return deny
         if connector not in _valid_connectors():
             return JSONResponse({"ok": False, "error": f"unknown connector: {connector}"}, status_code=400)
         return JSONResponse(sync_connector(connector, actor=user, role=role))

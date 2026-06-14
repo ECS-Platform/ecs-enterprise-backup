@@ -203,9 +203,14 @@ def register_governance_routes(app, templates):
         return templates.TemplateResponse(request=request, name="gov_assistant.html", context=ctx)
 
     @app.post("/mvp/platform/assistant/reindex")
-    def gov_assistant_reindex(role: str = Form("cio"), user: str = Form("CIO")):
+    def gov_assistant_reindex(request: Request, role: str = Form("cio"), user: str = Form("CIO")):
+        from app.auth.mutation_guard import guard_mutation
         from ecs_platform.rag import reindex_evidence
 
+        deny = guard_mutation(request, "can_admin_platform", fallback_role=role,
+                              deny_redirect_to="/mvp/ai-assistant", role=role, user=user)
+        if deny:
+            return deny
         res = reindex_evidence()
         notice = (f"Indexed {res.get('chunks_indexed', 0)} chunks from {res.get('evidence', 0)} evidence "
                   f"records + {res.get('governance_docs', 0)} governance docs."
@@ -253,9 +258,14 @@ def register_governance_routes(app, templates):
         return templates.TemplateResponse(request=request, name="ai_assistant.html", context=ctx)
 
     @app.post("/mvp/ai-assistant/reindex")
-    def ai_assistant_reindex(role: str = Form("cio"), user: str = Form("CIO")):
+    def ai_assistant_reindex(request: Request, role: str = Form("cio"), user: str = Form("CIO")):
+        from app.auth.mutation_guard import guard_mutation
         from ecs_platform.rag import reindex_evidence
 
+        deny = guard_mutation(request, "can_admin_platform", fallback_role=role,
+                              deny_redirect_to="/mvp/ai-assistant", role=role, user=user)
+        if deny:
+            return deny
         res = reindex_evidence()
         notice = (f"Indexed {res.get('chunks_indexed', 0)} chunks from {res.get('evidence', 0)} evidence "
                   f"records + {res.get('governance_docs', 0)} governance docs."
@@ -337,11 +347,21 @@ def register_governance_routes(app, templates):
         return JSONResponse(llm_connectivity())
 
     @app.post("/api/platform/rag/warm")
-    def api_rag_warm():
+    def api_rag_warm(request: Request):
+        from app.auth.mutation_guard import guard_mutation
+
+        deny = guard_mutation(request, "can_admin_platform", response="json")
+        if deny:
+            return deny
         from ecs_platform.rag import warm_models
         return JSONResponse(warm_models())
 
     @app.post("/api/platform/rag/reindex")
-    def api_rag_reindex():
+    def api_rag_reindex(request: Request):
+        from app.auth.mutation_guard import guard_mutation
+
+        deny = guard_mutation(request, "can_admin_platform", response="json")
+        if deny:
+            return deny
         from ecs_platform.rag import reindex_evidence
         return JSONResponse(reindex_evidence())

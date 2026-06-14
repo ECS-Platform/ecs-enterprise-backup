@@ -193,3 +193,10 @@ rbac_legacy_compat:
     can_manage_framework_onboarding: [cio, compliance_head, enterprise_admin, admin]
     can_review_framework_onboarding: [auditor, enterprise_admin, admin, cio, compliance_head]
     can_reuse_evidence_decision: [owner, auditor, cio, compliance_head, enterprise_admin, admin]
+    # Phase 2 Step 2D-critical — platform administration (connector sync, RAG
+    # reindex/warm). Restricted to administrators (system_admin / enterprise_admin
+    # / admin). This is a NEW capability with no prior predicate, so there is no
+    # legacy behavior to preserve; it only takes effect when mutation enforcement
+    # is enabled. NOTE: legacy normalization maps system_admin -> system_admin, so
+    # all three admin spellings are listed for the legacy-compat path.
+    can_admin_platform: [system_admin, enterprise_admin, admin]

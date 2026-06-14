@@ -875,6 +875,7 @@ def evidence_review_request_reupload(
 
 @app.post("/evidence/review/reject-internal")
 def evidence_review_reject_internal(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -882,6 +883,12 @@ def evidence_review_reject_internal(
     user: str = Form(...),
     reject_reason: str = Form(...),
 ):
+    from app.auth.mutation_guard import guard_mutation
+
+    deny = guard_mutation(request, "can_upload_evidence", fallback_role=role,
+                          deny_redirect_to=f"/framework/{framework_name}", role=role, user=user)
+    if deny:
+        return deny
     from datetime import datetime, timezone
 
     reason = reject_reason.strip()
@@ -1225,6 +1232,12 @@ def workflow_escalate(
     role: str = Form(...),
     user: str = Form(...),
 ):
+    from app.auth.mutation_guard import guard_mutation
+
+    deny = guard_mutation(request, "can_escalate", fallback_role=role,
+                          deny_redirect_to="/dashboard", role=role, user=user)
+    if deny:
+        return deny
     key = control_key(framework_name, control_name)
     _audit_before = {"status": control_status(framework_name, control_name)}
     ecs_state.escalated_controls[key] = {
@@ -1312,6 +1325,12 @@ def workflow_leadership_review(
             return_to="dashboard",
         )
     if action == "send_back" or action == "reopen":
+        from app.auth.mutation_guard import guard_mutation
+
+        deny = guard_mutation(request, "can_escalate", fallback_role=role,
+                              deny_redirect_to=base, role=role, user=user)
+        if deny:
+            return deny
         rejected_controls[key] = {
             "reason": f"{role} requested remediation — sent back for App Owner action.",
             "rejected_by": user,
@@ -1341,6 +1360,12 @@ def workflow_leadership_review(
                            detail={"framework": framework_name, "control": control_name})
         return RedirectResponse(url=f"{base}&notice={quote('Observation sent back to App Owner.')}", status_code=303)
     if action == "escalate_governance":
+        from app.auth.mutation_guard import guard_mutation
+
+        deny = guard_mutation(request, "can_escalate", fallback_role=role,
+                              deny_redirect_to=base, role=role, user=user)
+        if deny:
+            return deny
         ecs_state.escalated_controls[key] = {
             "escalated_by": user,
             "reason": "Escalated to enterprise governance board by CIO.",

@@ -484,23 +484,33 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/onboarding/simulate")
     async def api_onboarding_simulate(request: Request):
+        from app.auth.mutation_guard import guard_mutation
         from modules.operations.engines.onboarding_engine import simulate_onboarding
 
         try:
             payload = await request.json()
         except Exception:
             payload = {}
+        deny = guard_mutation(request, "can_manage_framework_onboarding",
+                              fallback_role=payload.get("role", "cio"), response="json")
+        if deny:
+            return deny
         result = simulate_onboarding(payload)
         return JSONResponse(result)
 
     @app.post("/api/onboarding/export")
     async def api_onboarding_export(request: Request):
+        from app.auth.mutation_guard import guard_mutation
         from modules.operations.engines.onboarding_engine import export_onboarding_summary, simulate_onboarding
 
         try:
             payload = await request.json()
         except Exception:
             payload = {}
+        deny = guard_mutation(request, "can_manage_framework_onboarding",
+                              fallback_role=payload.get("role", "cio"), response="json")
+        if deny:
+            return deny
         result = payload.get("result") or simulate_onboarding(payload)
         app_name = result.get("metadata", {}).get("application_name", "application")
         safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in app_name)
@@ -863,17 +873,27 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/framework-onboarding/lifecycle")
     async def api_framework_onboarding_lifecycle(request: Request):
+        from app.auth.mutation_guard import guard_mutation
         from modules.frameworks.engines.framework_onboarding_engine import advance_lifecycle
 
         body = await request.json()
+        deny = guard_mutation(request, "can_manage_framework_onboarding",
+                              fallback_role=body.get("role", "cio"), response="json")
+        if deny:
+            return deny
         msg = advance_lifecycle(body.get("framework_id", ""), body.get("action", ""), body.get("user", "User"), body.get("role", "cio"))
         return JSONResponse({"ok": True, "message": msg})
 
     @app.post("/api/framework-onboarding/reuse-decision")
     async def api_framework_reuse_decision(request: Request):
+        from app.auth.mutation_guard import guard_mutation
         from modules.frameworks.engines.framework_onboarding_engine import apply_evidence_reuse
 
         body = await request.json()
+        deny = guard_mutation(request, "can_reuse_evidence_decision",
+                              fallback_role=body.get("role", "owner"), response="json")
+        if deny:
+            return deny
         msg = apply_evidence_reuse(
             body.get("framework_id", ""), body.get("control_id", ""),
             body.get("decision", "reuse"), body.get("user", "User"), body.get("role", "owner"),
@@ -1178,6 +1198,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/mvp/workflow/assign-owner")
     def workflow_assign_owner_post(
+        request: Request,
         role: str = Form(...),
         user: str = Form(...),
         framework: str = Form(""),
@@ -1190,7 +1211,14 @@ def register_mvp_routes(app, templates):
         comments: str = Form(""),
         return_module: str = Form("audit_prep"),
     ):
+        from app.auth.mutation_guard import guard_mutation
         from modules.governance.engines.operational_workflows import _return_url, process_assign_owner
+
+        deny = guard_mutation(request, "can_assign_owner", fallback_role=role,
+                              deny_redirect_to=_return_url(role, user, return_module),
+                              role=role, user=user)
+        if deny:
+            return deny
 
         notice = process_assign_owner(
             framework=framework,

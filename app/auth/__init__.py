@@ -25,6 +25,10 @@ from app.auth.enforcement import (
 )
 from app.auth.errors import AuthenticationError
 from app.auth.middleware import register_authentication
+from app.auth.mutation_guard import (
+    guard_mutation,
+    mutation_enforcement_enabled,
+)
 
 __all__ = [
     "AuthenticatedUser",
@@ -32,9 +36,12 @@ __all__ = [
     "current_principal",
     "get_current_principal",
     "register_authentication",
-    # Phase 2 Step 2B — RBAC enforcement foundation (not wired to routes yet).
+    # Phase 2 Step 2B — RBAC enforcement foundation.
     "resolve_effective_role",
     "enforce_permission",
     "enforce_page",
     "rbac_enforcement_enabled",
+    # Phase 2 Step 2D-critical — critical-mutation authorization guard.
+    "guard_mutation",
+    "mutation_enforcement_enabled",
 ]
