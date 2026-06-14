@@ -1,0 +1,29 @@
+"""ECS authentication foundation (Phase 1).
+
+Pluggable enterprise authentication (Azure AD / OIDC / JWT) that establishes a
+trusted, server-validated user identity. This package handles AUTHENTICATION
+ONLY — it never makes authorization (RBAC) decisions. Roles/groups carried on
+the authenticated principal are passed through for later RBAC phases.
+
+Public surface:
+    AuthenticatedUser          - the user-context model
+    get_current_principal      - FastAPI dependency returning the current user
+    AuthenticationError        - raised on auth failures (mapped to 401/403)
+    register_authentication    - install middleware on the FastAPI app
+"""
+
+from app.auth.context import (
+    AuthenticatedUser,
+    current_principal,
+    get_current_principal,
+)
+from app.auth.errors import AuthenticationError
+from app.auth.middleware import register_authentication
+
+__all__ = [
+    "AuthenticatedUser",
+    "AuthenticationError",
+    "current_principal",
+    "get_current_principal",
+    "register_authentication",
+]
