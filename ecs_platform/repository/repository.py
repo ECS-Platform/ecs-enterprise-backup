@@ -132,11 +132,44 @@ class EvidenceRepository:
                  summary.get("collected", 0), summary.get("error")))
 
     def record_audit(self, actor: str, action: str, *, role: str = "", resource: str = "",
-                     detail: dict[str, Any] | None = None) -> None:
+                     detail: dict[str, Any] | None = None,
+                     before_state: dict[str, Any] | None = None,
+                     after_state: dict[str, Any] | None = None,
+                     request_id: str = "", auth_source: str = "",
+                     prev_hash: str = "") -> None:
+        """Insert one audit row.
+
+        Phase 4 Step 1: before_state/after_state/request_id/auth_source/prev_hash
+        are OPTIONAL and default to empty, so existing callers (which pass none of
+        them) behave exactly as before. The extra columns are written as NULL when
+        not supplied."""
         with self.connect().cursor() as cur:
             cur.execute(
-                "INSERT INTO audit_log (actor, role, action, resource, detail) VALUES (%s,%s,%s,%s,%s)",
-                (actor, role, action, resource, json.dumps(detail or {})))
+                "INSERT INTO audit_log "
+                "(actor, role, action, resource, detail, "
+                " before_state, after_state, request_id, auth_source, prev_hash) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (actor, role, action, resource, json.dumps(detail or {}),
+                 json.dumps(before_state) if before_state is not None else None,
+                 json.dumps(after_state) if after_state is not None else None,
+                 request_id or None, auth_source or None, prev_hash or None))
+
+    def insert_observation(self, observation_id: str, *, title: str, application_id: str = "",
+                           description: str = "", status: str = "Open", owner: str = "",
+                           created_by: str = "") -> None:
+        """Insert (or no-op upsert) a durable observation row.
+
+        Phase 4 Step 1: durable storage only — NOT wired into the observation
+        workflow yet (which still uses in-memory state). Idempotent on
+        observation_id so re-runs are safe."""
+        with self.connect().cursor() as cur:
+            cur.execute(
+                "INSERT INTO observations "
+                "(observation_id, application_id, title, description, status, owner, created_by) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s) "
+                "ON CONFLICT (observation_id) DO NOTHING",
+                (observation_id, application_id or None, title, description or None,
+                 status, owner or None, created_by or None))
 
     # ---- reads ----
     def search_evidence(self, *, application: str | None = None, source_system: str | None = None,

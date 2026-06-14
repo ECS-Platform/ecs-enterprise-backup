@@ -107,3 +107,32 @@ CREATE TABLE IF NOT EXISTS audit_log (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log (actor);
+
+-- Phase 4 Step 1: durable audit foundation (ADDITIVE ONLY).
+-- New columns are nullable and added idempotently so existing rows and existing
+-- callers are unaffected. No existing column is changed.
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS before_state JSONB;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS after_state  JSONB;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS request_id   VARCHAR(64);
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS auth_source  VARCHAR(32);
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS prev_hash    VARCHAR(128);
+CREATE INDEX IF NOT EXISTS idx_audit_request ON audit_log (request_id);
+CREATE INDEX IF NOT EXISTS idx_audit_action  ON audit_log (action);
+
+-- Phase 4 Step 1: durable observation storage. Created but NOT yet wired into
+-- the observation workflow (which still uses in-memory state). Designed to carry
+-- future audit history via the audit_log linkage (resource = observation_id).
+CREATE TABLE IF NOT EXISTS observations (
+    id              BIGSERIAL PRIMARY KEY,
+    observation_id  TEXT UNIQUE NOT NULL,
+    application_id  TEXT,
+    title           TEXT NOT NULL,
+    description     TEXT,
+    status          TEXT NOT NULL DEFAULT 'Open',
+    owner           TEXT,
+    created_by      TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_observations_app    ON observations (application_id);
+CREATE INDEX IF NOT EXISTS idx_observations_status ON observations (status);
