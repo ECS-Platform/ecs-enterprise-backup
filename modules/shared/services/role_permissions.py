@@ -2,10 +2,16 @@
 
 Phase 2 Step 2A: these capability predicates can DELEGATE to the consolidated
 PolicyEngine (app/auth/authz.py) instead of their legacy set-membership logic.
-Delegation is gated by the RBAC_DELEGATION_ENABLED kill switch (default FALSE),
+Delegation is gated by the ECS_RBAC_DELEGATION_ENABLED kill switch (default FALSE),
 so runtime behavior is unchanged until explicitly enabled. Every legacy body is
 preserved verbatim as the default path; a differential parity test asserts that
 legacy_result == delegated_result for every role and capability.
+
+Phase 2 Step 2B: RBAC_ENFORCEMENT_ENABLED (default FALSE) ALSO activates the same
+parity-equivalent engine-backed decision path here. The enforcement foundation
+(app/auth/enforcement.py) additionally derives the effective role from the
+authenticated principal at the route layer; these predicates keep their (role) ->
+bool contract unchanged.
 """
 
 from __future__ import annotations
@@ -20,9 +26,22 @@ from fastapi.responses import RedirectResponse
 # Phase 2 Step 2A — delegation kill switch.
 #   Default FALSE: every predicate uses its legacy body (no behavior change).
 #   Set ECS_RBAC_DELEGATION_ENABLED=true to route through the PolicyEngine.
+#
+# Phase 2 Step 2B — enforcement foundation.
+#   RBAC_ENFORCEMENT_ENABLED also routes these predicates through the SAME
+#   parity-tested PolicyEngine legacy-compat path, so enabling enforcement implies
+#   the engine-backed decision logic for a given role. The decision is identical to
+#   legacy for any fixed role (parity-tested); enforcement changes WHERE the role
+#   comes from at the route layer (app/auth/enforcement.resolve_effective_role),
+#   not the per-role verdict here. Signatures and return values are unchanged.
 # ---------------------------------------------------------------------------
 def _delegation_enabled() -> bool:
-    return str(os.environ.get("ECS_RBAC_DELEGATION_ENABLED", "")).strip().lower() in {
+    if str(os.environ.get("ECS_RBAC_DELEGATION_ENABLED", "")).strip().lower() in {
+        "1", "true", "yes", "on",
+    }:
+        return True
+    # Step 2B: enforcement implies engine-backed (parity-equivalent) decisions.
+    return str(os.environ.get("RBAC_ENFORCEMENT_ENABLED", "")).strip().lower() in {
         "1", "true", "yes", "on",
     }
 
@@ -30,10 +49,10 @@ def _delegation_enabled() -> bool:
 def _delegate(capability: str, role: str):
     """Return the PolicyEngine verdict for a capability, or None to use legacy.
 
-    Step 2A delegates through the engine's LEGACY-COMPAT path (can_legacy), which
-    is byte-for-byte identical to the historical predicate (parity-tested). None
-    is returned whenever delegation is disabled or the engine cannot answer, so
-    the caller falls back to the verbatim legacy logic. Never raises.
+    Delegates through the engine's LEGACY-COMPAT path (can_legacy), which is
+    byte-for-byte identical to the historical predicate (parity-tested). None is
+    returned whenever delegation/enforcement is disabled or the engine cannot
+    answer, so the caller falls back to the verbatim legacy logic. Never raises.
     """
     if not _delegation_enabled():
         return None

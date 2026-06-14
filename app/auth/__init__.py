@@ -17,6 +17,12 @@ from app.auth.context import (
     current_principal,
     get_current_principal,
 )
+from app.auth.enforcement import (
+    enforce_page,
+    enforce_permission,
+    rbac_enforcement_enabled,
+    resolve_effective_role,
+)
 from app.auth.errors import AuthenticationError
 from app.auth.middleware import register_authentication
 
@@ -26,4 +32,9 @@ __all__ = [
     "current_principal",
     "get_current_principal",
     "register_authentication",
+    # Phase 2 Step 2B — RBAC enforcement foundation (not wired to routes yet).
+    "resolve_effective_role",
+    "enforce_permission",
+    "enforce_page",
+    "rbac_enforcement_enabled",
 ]
