@@ -53,8 +53,56 @@ def fmt_cr(cr: float) -> str:
     return f"\u20b9{_trim(float(cr or 0))} Cr"
 
 
+def fmt_cr_exec(cr: float) -> str:
+    """Executive Crore format: ₹X.XX Cr (2 dp), but 1 dp for values >= 100.
+
+    Examples: 0.06468 -> ₹0.06 Cr, 2.255 -> ₹2.26 Cr, 143.08 -> ₹143.1 Cr.
+    """
+    v = float(cr or 0)
+    dp = 1 if abs(v) >= 100 else 2
+    return f"\u20b9{_round_half_up(v, dp):.{dp}f} Cr"
+
+
+def fmt_k(n: float) -> str:
+    """Executive large-number format with K/M suffix and one decimal.
+
+    Examples: 45438 -> 45.4K, 90000 -> 90K, 180000 -> 180K, 9554 -> 9.6K.
+    """
+    v = float(n or 0)
+    sign = "-" if v < 0 else ""
+    v = abs(v)
+    if v >= 1_000_000:
+        return f"{sign}{_k_trim(v / 1_000_000)}M"
+    if v >= 1_000:
+        return f"{sign}{_k_trim(v / 1_000)}K"
+    return f"{sign}{int(round(v)):,}"
+
+
+def fmt_fte(n: float) -> str:
+    """FTE format with one decimal: 22.72 -> 22.7."""
+    return f"{_round_half_up(float(n or 0), 1):.1f}"
+
+
+def fmt_label_1dp(n: float) -> str:
+    """Bar-chart label rounded to one decimal: 143.08 -> 143.1, 88.60 -> 88.6."""
+    return f"{_round_half_up(float(n or 0), 1):.1f}"
+
+
 def fmt_num(n: float) -> str:
     return f"{int(round(float(n or 0))):,}"
+
+
+def _round_half_up(x: float, dp: int) -> float:
+    """Round half away from zero (so 2.255 -> 2.26, not banker's rounding)."""
+    from decimal import Decimal, ROUND_HALF_UP
+    q = Decimal(1).scaleb(-dp)  # 10^-dp
+    return float(Decimal(str(x)).quantize(q, rounding=ROUND_HALF_UP))
+
+
+def _k_trim(x: float) -> str:
+    """One-decimal trim that drops a trailing .0 (90.0 -> 90, 45.4 -> 45.4)."""
+    r = _round_half_up(x, 1)
+    return f"{r:g}" if r == int(r) else f"{r:.1f}"
 
 
 def _trim(x: float) -> str:
@@ -633,36 +681,80 @@ _BOARD_MODEL_EXPECTED = [
 # model and OPEX assumptions never change.
 _BOARD_ECS_COST = [4.0, 2.0, 2.2, 2.2, 2.2]
 
-# Approved per-framework value realization (Slide 1). EXACT values, used verbatim.
+# ---------------------------------------------------------------------------
+# ROI v2 — latest workbook values (4-slide executive storyboard). Verbatim.
+# ---------------------------------------------------------------------------
+
+# Slide 1 — FY25-26 actual live value realization.  name, app_count, annual_cr
+_BOARD_LIVE = [
+    ("VAPT", 600, 0.56),
+    ("PCI DSS", 98, 0.06468),
+    ("DPSC", 58, 0.21228),
+    ("CSITE", 600, 0.09),
+    ("ITPP", 902, 2.255),
+    ("ITDRM", 900, 1.17),
+    ("MBSS", 600, 0.60),
+    ("ASST", 900, 3.3525),
+    ("IS Audit", 900, 2.70),
+    ("Internal Audit", 162, 0.0157),
+    ("TPRE", 300, 0.075),
+    ("TPRM", 300, 0.075),
+    ("Prisma Alerts", 600, 0.30),
+    ("Cloud Security Reviews", 600, 0.30),
+    ("OS Baselining", 827, 2.481),
+    ("DB Baselining", 486, 1.458),
+    ("Middleware Baselining", 521, 1.563),
+]
+_BOARD_LIVE_TOTAL_CR = 17.27          # approved headline total (₹ Cr)
+_BOARD_LIVE_APPS = 9554               # approved headline application count
+_BOARD_LIVE_HIGHLIGHT = {"ASST", "IS Audit", "OS Baselining", "ITPP",
+                         "Middleware Baselining"}
+
+# Slide 2 — Framework master (25-application model). EXACT values, used verbatim.
 #   name, applications, obs_per_app, total_obs, emails_saved, hours_saved, annual_cr
 _BOARD_FRAMEWORKS = [
-    ("VAPT", 25, 1500, 37500, 200000, 16667, 1.67),
-    ("PCI DSS", 25, 500, 12500, 96000, 8000, 0.80),
-    ("DPSC", 25, 450, 11250, 84000, 7000, 0.70),
-    ("CSITE", 25, 400, 10000, 72000, 6000, 0.60),
-    ("ITPP", 25, 250, 6250, 48000, 4000, 0.40),
-    ("ITDRM", 25, 250, 6250, 48000, 4000, 0.40),
-    ("MBSS", 25, 300, 7500, 60000, 5000, 0.50),
-    ("ASST", 25, 350, 8750, 72000, 6000, 0.60),
-    ("IS Audit", 25, 400, 10000, 72000, 6000, 0.60),
-    ("Internal Audit", 25, 350, 8750, 60000, 5000, 0.50),
-    ("TPRE", 25, 200, 5000, 36000, 3000, 0.30),
-    ("TPRM", 25, 200, 5000, 36000, 3000, 0.30),
-    ("Prisma Alerts", 25, 300, 7500, 48000, 4000, 0.40),
-    ("Cloud Security Reviews", 25, 250, 6250, 48000, 4000, 0.40),
-    ("OS Baselining", 25, 150, 3750, 36000, 3000, 0.30),
-    ("DB Baselining", 25, 125, 3125, 30000, 2500, 0.25),
-    ("Middleware Baselining", 25, 125, 3125, 30000, 2500, 0.25),
+    ("VAPT", 25, 1500, 37500, 180000, 15000, 1.50),
+    ("PCI DSS", 25, 500, 12500, 45000, 3750, 0.38),
+    ("DPSC", 25, 450, 11250, 40500, 3375, 0.34),
+    ("CSITE", 25, 400, 10000, 36000, 3000, 0.30),
+    ("ITPP", 25, 250, 6250, 18750, 1563, 0.16),
+    ("ITDRM", 25, 500, 6250, 18750, 1563, 0.16),
+    ("MBSS", 25, 300, 7500, 22500, 1875, 0.19),
+    ("ASST", 25, 350, 8750, 26250, 2188, 0.22),
+    ("IS Audit", 25, 400, 10000, 36000, 3000, 0.30),
+    ("Internal Audit", 25, 350, 8750, 26250, 2188, 0.22),
+    ("TPRE", 25, 200, 5000, 15000, 1250, 0.13),
+    ("TPRM", 25, 200, 5000, 15000, 1250, 0.13),
+    ("Prisma Alerts", 25, 300, 7500, 22500, 1875, 0.19),
+    ("Cloud Security Reviews", 25, 250, 6250, 18750, 1563, 0.16),
+    ("OS Baselining", 25, 150, 3750, 9000, 750, 0.08),
+    ("DB Baselining", 25, 125, 3125, 7500, 625, 0.06),
+    ("Middleware Baselining", 25, 125, 3125, 7500, 625, 0.06),
 ]
+_BOARD_MASTER_APPS = 25               # approved headline
+_BOARD_MASTER_HOURS = 45438           # approved headline (hours saved)
+_BOARD_MASTER_TOTAL_CR = 4.54         # approved headline total (₹ Cr)
 
-# Approved FTE productivity model (Slide 2). EXACT values, used verbatim.
+# Slide 3 — FTE productivity model (25-app). EXACT values, used verbatim.
 _BOARD_FTE = {
-    "hours_saved": 90000,
+    "hours_saved": 45438,
     "cost_per_hour": 1000,
-    "annual_savings_cr": 9.0,
+    "annual_savings_cr": 4.54,
     "avg_salary_lakh": 20,
-    "fte_equivalent": 45,
+    "fte_equivalent": 22.72,
 }
+
+# Slide 4 — Executive value dashboard (7-year scale-up). EXACT values, verbatim.
+#   apps, annual_savings_cr, ecs_cost_cr, net_benefit_cr
+_BOARD_DASHBOARD = [
+    (25,  4.54,   4.0, 0.54),
+    (100, 18.16,  2.0, 16.16),
+    (200, 36.32,  2.2, 34.12),
+    (400, 72.64,  2.2, 70.44),
+    (500, 90.80,  2.2, 88.60),
+    (400, 72.64,  2.2, 70.44),
+    (800, 145.28, 2.2, 143.08),
+]
 
 # Approved board scenarios — EXACT values (₹ Crore). Conservative = Expected -20%,
 # Aggressive = Expected +20%, applied to BOTH applications and net benefit. These
@@ -678,108 +770,141 @@ _BOARD_SCENARIOS = {
 }
 
 
-def build_board_deck(scenario: str = "expected") -> dict[str, Any]:
-    """Boardroom 5-year deck model for the named scenario. Pure & never raises.
+# Scenario value-realization factors. Applied ONLY to value metrics (savings, net
+# benefit, hours, emails, FTE). Application/framework counts, ECS cost and OPEX are
+# never scaled. Expected = 100% (workbook baseline).
+_SCENARIO_FACTORS = {"conservative": 0.80, "expected": 1.0, "aggressive": 1.20}
+_SCENARIO_COLORS = {"conservative": "#F59E0B", "expected": "#38BDF8",
+                    "aggressive": "#22C55E"}
+_SCENARIO_LABELS = {"conservative": "Conservative", "expected": "Expected",
+                    "aggressive": "Aggressive"}
 
-    Scenario-specific applications and net benefit use the approved EXACT values
-    (Conservative = Expected-20%, Aggressive = Expected+20%). ECS cost (OPEX) is
-    identical across scenarios; cumulative savings are reconstructed as
-    net + cumulative cost so the table stays internally consistent.
+
+def build_board_deck(scenario: str = "expected") -> dict[str, Any]:
+    """ROI v2 — 4-slide executive deck model. Pure & never raises.
+
+    Value-realization metrics scale by the scenario factor (Conservative 0.80,
+    Expected 1.00, Aggressive 1.20). Application counts, framework counts, ECS cost
+    and OPEX are NOT scaled. Slide 4's ECS cost / OPEX therefore stay constant
+    across scenarios while annual savings & net benefit move with the factor.
     """
     try:
-        scn = scenario if scenario in _BOARD_SCENARIOS else "expected"
-        apps_curve = _BOARD_SCENARIOS[scn]["apps"]
-        net_curve = _BOARD_SCENARIOS[scn]["net"]
+        scn = scenario if scenario in _SCENARIO_FACTORS else "expected"
+        f = _SCENARIO_FACTORS[scn]
+        # Dashboard fiscal-year labels (FY26 = Year 1 … FY32 = Year 7).
+        fy_labels = [f"FY{26 + i}" for i in range(len(_BOARD_DASHBOARD))]
         rows: list[dict[str, Any]] = []
-        cum_cost = 0.0
-        prev_cum_sav = 0.0
-        for idx, apps in enumerate(apps_curve):
+        for idx, (apps, a_sav, a_cost, net) in enumerate(_BOARD_DASHBOARD):
             yr = idx + 1
-            a_cost = _BOARD_ECS_COST[idx]
-            cum_cost = round(cum_cost + a_cost, 2)
-            net = round(net_curve[idx], 2)
-            # cumulative savings implied by net + cumulative cost; annual = delta.
-            cum_sav = round(net + cum_cost, 2)
-            a_sav = round(cum_sav - prev_cum_sav, 2)
-            prev_cum_sav = cum_sav
+            a_sav_s = round(a_sav * f, 2)       # annual savings scale
+            net_s = round(net * f, 2)           # net benefit scales
             rows.append({
-                "year": yr, "label": f"Year {yr}", "applications": apps,
-                "annual_savings_cr": a_sav, "cumulative_savings_cr": cum_sav,
-                "ecs_cost_cr": a_cost, "cumulative_cost_cr": cum_cost,
-                "net_benefit_cr": net,
-                "annual_savings_display": fmt_cr(a_sav),
-                "cumulative_savings_display": fmt_cr(cum_sav),
-                "ecs_cost_display": fmt_cr(a_cost),
-                "cumulative_cost_display": fmt_cr(cum_cost),
-                "net_benefit_display": fmt_cr(net),
+                "year": yr, "label": fy_labels[idx], "applications": apps,
+                "applications_display": fmt_k(apps),
+                "annual_savings_cr": a_sav_s, "ecs_cost_cr": a_cost,
+                "net_benefit_cr": net_s,
+                "annual_savings_display": fmt_cr_exec(a_sav_s),
+                "ecs_cost_display": fmt_cr_exec(a_cost),
+                "net_benefit_display": fmt_cr_exec(net_s),
             })
         last = rows[-1]
-        first = rows[0]
-        # Per-50-apps benefit headline (Year-1 annual saving anchors the unit story).
-        per50 = first["annual_savings_cr"]
-        steady_cost = rows[-1]["ecs_cost_cr"]
-        payback = "Year 1" if first["net_benefit_cr"] >= 0 else "Year 2"
+        steady_cost = last["ecs_cost_cr"]
         return {
             "scenario": scn,
+            "scenario_label": _SCENARIO_LABELS[scn],
+            "scenario_color": _SCENARIO_COLORS[scn],
+            "scenario_factor": f,
             "rows": rows,
-            "year1_cost_display": fmt_cr(first["ecs_cost_cr"]),
-            "steady_cost_display": fmt_cr(steady_cost),
-            "per_50_apps_display": fmt_cr(per50),
+            "steady_cost_display": fmt_cr_exec(steady_cost),
             "applications_covered": last["applications"],
-            "gross_benefit_cr": last["cumulative_savings_cr"],
-            "gross_benefit_display": fmt_cr(last["cumulative_savings_cr"]),
-            "total_cost_cr": last["cumulative_cost_cr"],
-            "total_cost_display": fmt_cr(last["cumulative_cost_cr"]),
             "net_benefit_cr": last["net_benefit_cr"],
-            "net_benefit_display": fmt_cr(last["net_benefit_cr"]),
-            "payback": payback,
-            "scaleup": [{"applications": r["applications"],
-                         "annual_savings_display": r["annual_savings_display"]}
-                        for r in rows],
-            # Chart series for the "Value Growth Over Time" bar chart slide.
+            "net_benefit_display": fmt_cr_exec(last["net_benefit_cr"]),
+            "payback": "Year 1",
+            # Net-benefit bar chart series (slide 4). Labels rounded to 1 dp;
+            # underlying `net` values are unchanged (charts retain original values).
             "chart": {
-                "labels": [f"Year {r['year']}" for r in rows],
+                "labels": fy_labels,
                 "net": [r["net_benefit_cr"] for r in rows],
-                "net_display": [r["net_benefit_display"] for r in rows],
+                "net_display": [fmt_label_1dp(r["net_benefit_cr"]) for r in rows],
                 "apps": [r["applications"] for r in rows],
                 "max_net": max((r["net_benefit_cr"] for r in rows), default=1),
             },
-            # Slide 1 — per-framework value realization (fixed, scenario-independent).
-            "frameworks": _build_framework_block(),
-            # Slide 2 — FTE productivity realization (fixed).
-            "fte": _build_fte_block(),
+            # Slide 1 — FY25-26 live value realization.
+            "live": _build_live_block(f),
+            # Slide 2 — framework master (25-app model).
+            "frameworks": _build_framework_block(f),
+            # Slide 3 — FTE productivity realization.
+            "fte": _build_fte_block(f),
         }
     except Exception as exc:  # noqa: BLE001 - fail safe
         return {"scenario": scenario, "rows": [], "note": f"board error: {type(exc).__name__}"}
 
 
-def _build_framework_block() -> dict[str, Any]:
-    """Per-framework value realization table + KPIs + horizontal bar chart series."""
+def _build_live_block(factor: float = 1.0) -> dict[str, Any]:
+    """Slide 1 — FY25-26 actual live value realization: KPIs + horizontal chart.
+
+    Per-framework annual saving and the headline total scale by ``factor``;
+    application counts and framework counts do not.
+    """
+    rows = [
+        {"name": n, "applications": apps,
+         "annual_saving_cr": round(cr * factor, 4),
+         "applications_display": fmt_num(apps),
+         "annual_saving_display": fmt_cr_exec(cr * factor),
+         "highlight": n in _BOARD_LIVE_HIGHLIGHT}
+        for (n, apps, cr) in _BOARD_LIVE
+    ]
+    chart_rows = sorted(rows, key=lambda r: r["annual_saving_cr"], reverse=True)
+    max_cr = max((r["annual_saving_cr"] for r in rows), default=1)
+    return {
+        "rows": rows,
+        "kpis": {
+            "frameworks": len(rows),
+            "applications": _BOARD_LIVE_APPS,
+            "applications_display": fmt_k(_BOARD_LIVE_APPS),
+            "annual_savings_cr": round(_BOARD_LIVE_TOTAL_CR * factor, 2),
+            "annual_savings_display": fmt_cr_exec(_BOARD_LIVE_TOTAL_CR * factor),
+        },
+        "chart": {
+            "rows": [{"name": r["name"], "value": r["annual_saving_cr"],
+                      "display": r["annual_saving_display"],
+                      "highlight": r["highlight"],
+                      "pct": round(r["annual_saving_cr"] / max_cr * 100, 1)}
+                     for r in chart_rows],
+            "max": max_cr,
+        },
+    }
+
+
+def _build_framework_block(factor: float = 1.0) -> dict[str, Any]:
+    """Per-framework value realization table + KPIs + horizontal bar chart series.
+
+    Value metrics (emails saved, hours saved, annual saving) scale by ``factor``;
+    application counts, observations/app and total observations do not.
+    """
     rows = [
         {"name": n, "applications": apps, "obs_per_app": opa,
-         "total_observations": tot, "emails_saved": em, "hours_saved": hrs,
-         "annual_saving_cr": cr,
+         "total_observations": tot,
+         "emails_saved": round(em * factor), "hours_saved": round(hrs * factor),
+         "annual_saving_cr": round(cr * factor, 4),
          "obs_per_app_display": fmt_num(opa),
-         "total_observations_display": fmt_num(tot),
-         "emails_saved_display": fmt_num(em),
-         "hours_saved_display": fmt_num(hrs),
-         "annual_saving_display": fmt_cr(cr)}
+         "total_observations_display": fmt_k(tot),
+         "emails_saved_display": fmt_k(em * factor),
+         "hours_saved_display": fmt_k(hrs * factor),
+         "annual_saving_display": fmt_cr_exec(cr * factor)}
         for (n, apps, opa, tot, em, hrs, cr) in _BOARD_FRAMEWORKS
     ]
     chart_rows = sorted(rows, key=lambda r: r["annual_saving_cr"], reverse=True)
     max_cr = max((r["annual_saving_cr"] for r in rows), default=1)
-    # Executive summary KPIs — approved round figures (used verbatim, not summed).
+    # Executive callout figures — approved 25-application headline (scaled).
     return {
         "rows": rows,
         "kpis": {
-            "frameworks_covered": 17,
-            "applications_covered": 25,
-            "hours_saved": 90000,
-            "hours_saved_display": fmt_num(90000),
-            "emails_saved": 1070000,
-            "emails_saved_display": "1.07M",
-            "annual_savings_cr": 9.0,
-            "annual_savings_display": fmt_cr(9.0),
+            "applications": _BOARD_MASTER_APPS,
+            "hours_saved": round(_BOARD_MASTER_HOURS * factor),
+            "hours_saved_display": fmt_k(_BOARD_MASTER_HOURS * factor),
+            "annual_savings_cr": round(_BOARD_MASTER_TOTAL_CR * factor, 2),
+            "annual_savings_display": fmt_cr_exec(_BOARD_MASTER_TOTAL_CR * factor),
         },
         "chart": {
             "rows": [{"name": r["name"], "value": r["annual_saving_cr"],
@@ -791,30 +916,36 @@ def _build_framework_block() -> dict[str, Any]:
     }
 
 
-def _build_fte_block() -> dict[str, Any]:
-    """FTE productivity realization KPIs + comparison + simple bar chart."""
+def _build_fte_block(factor: float = 1.0) -> dict[str, Any]:
+    """FTE productivity realization KPIs + comparison + simple bar chart.
+
+    Hours saved, annual saving and FTE equivalent scale by ``factor``; cost-per-hour
+    and average salary (rate assumptions) do not.
+    """
     f = _BOARD_FTE
+    hours = round(f["hours_saved"] * factor)
+    annual = round(f["annual_savings_cr"] * factor, 2)
+    fte_val = f["fte_equivalent"] * factor
+    fte_disp = fmt_fte(fte_val)
     return {
-        "hours_saved": f["hours_saved"],
-        "hours_saved_display": fmt_num(f["hours_saved"]),
+        "hours_saved": hours,
+        "hours_saved_display": fmt_k(hours),
         "cost_per_hour": f["cost_per_hour"],
         "cost_per_hour_display": f"\u20b9{f['cost_per_hour']:,}",
-        "annual_savings_cr": f["annual_savings_cr"],
-        "annual_savings_display": fmt_cr(f["annual_savings_cr"]),
+        "annual_savings_cr": annual,
+        "annual_savings_display": fmt_cr_exec(annual),
         "avg_salary_lakh": f["avg_salary_lakh"],
         "avg_salary_display": f"\u20b9{f['avg_salary_lakh']} Lakh",
-        "fte_equivalent": f["fte_equivalent"],
-        "without_ecs_fte": f["fte_equivalent"],
+        "fte_equivalent": fte_disp,
+        "without_ecs_fte": fte_disp,
         "with_ecs_fte": 0,
         "statement": (f"ECS returns the equivalent productivity of "
-                      f"{f['fte_equivalent']} full-time employees annually."),
+                      f"{fte_disp} full-time employees annually."),
         # Normalised simple bar chart (three indexed metrics on one scale).
         "chart": [
-            {"label": "Hours Saved", "display": fmt_num(f["hours_saved"]), "pct": 100.0},
-            {"label": "FTE Equivalent", "display": str(f["fte_equivalent"]),
-             "pct": 50.0},
-            {"label": "Annual Savings", "display": fmt_cr(f["annual_savings_cr"]),
-             "pct": 75.0},
+            {"label": "Hours Saved", "display": fmt_k(hours), "pct": 100.0},
+            {"label": "FTE Equivalent", "display": fte_disp, "pct": 50.0},
+            {"label": "Annual Savings", "display": fmt_cr_exec(annual), "pct": 75.0},
         ],
     }
 

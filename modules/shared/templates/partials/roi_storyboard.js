@@ -298,7 +298,7 @@
     });
   }
 
-  /* ---------- boardroom deck (3 slides, manual nav, NO autoplay) ---------- */
+  /* ---------- boardroom deck (4 slides, manual nav, NO autoplay) ---------- */
   (function(){
     var deck = root.querySelector('[data-roi-deck]');
     if(!deck) return;
@@ -367,61 +367,152 @@
       });
     }
 
-    // scenario toggle re-renders the Executive Value Dashboard (slide 3).
-    // Slides 1 (Framework) & 2 (FTE) are fixed/scenario-independent.
+    // ---- scenario switching: re-render all 4 slides from the selected deck ----
+    // Conservative (0.80) / Expected (1.00) / Aggressive (1.20). Value metrics
+    // scale; application/framework counts, ECS cost and OPEX stay constant.
+    function esc(s){ return String(s==null?'':s); }
     function applyDeckScenario(name){
       var scn = DATA.scenarios && DATA.scenarios[name];
-      var d = scn ? scn.deck : (DATA.deck||{});
+      var d = scn ? scn.deck : null;
       if(!d || !d.rows) return;
-      var rows = d.rows;
-      // dashboard 5-year table
-      var dash = deck.querySelector('.roi-dash-table tbody');
-      if(dash){
-        function rowHTML(label, getter, cls){
-          var h='<td>'+label+'</td>';
-          rows.forEach(function(r){ h+='<td class="num'+(cls?(' '+cls):'')+'">'+getter(r)+'</td>'; });
-          return h;
+
+      // ---- scenario badge (color + label + factor) ----
+      var badge = root.querySelector('[data-roi-scenario-badge]');
+      if(badge){
+        if(d.scenario_color) badge.style.setProperty('--scn-color', d.scenario_color);
+        badge.setAttribute('data-scn', d.scenario||name);
+        var bl=badge.querySelector('[data-roi-scenario-badge-label]');
+        if(bl) bl.textContent = d.scenario_label || name;
+        var bf=badge.querySelector('[data-roi-scenario-badge-factor]');
+        if(bf && d.scenario_factor!=null) bf.textContent = Math.round(d.scenario_factor*100)+'%';
+      }
+
+      // ---- SLIDE 1: FY25-26 live (KPIs + highlighted horizontal chart) ----
+      var live = d.live || {};
+      var s1 = deck.querySelector('.roi-slide-live');
+      if(s1 && live.kpis){
+        var k1 = s1.querySelectorAll('.roi-kpi .roi-kpi-v');
+        if(k1.length>=3){
+          k1[0].textContent = live.kpis.frameworks;
+          k1[1].textContent = live.kpis.applications_display;
+          k1[2].textContent = live.kpis.annual_savings_display;
         }
-        dash.innerHTML='';
-        var defs=[
-          ['Applications',function(r){return r.applications;},''],
-          ['Annual Savings (Cr)',function(r){return r.annual_savings_cr;},''],
-          ['Cumulative Savings (Cr)',function(r){return r.cumulative_savings_cr;},''],
-          ['ECS Cost (Cr)',function(r){return r.ecs_cost_cr;},''],
-          ['Cumulative Cost (Cr)',function(r){return r.cumulative_cost_cr;},''],
-          ['Net Benefit (Cr)',function(r){return r.net_benefit_cr;},'roi-cell-gold'],
-          ['Payback Status',function(){return 'Achieved';},'roi-cell-ok']
-        ];
-        defs.forEach(function(dd){ var tr=document.createElement('tr'); tr.innerHTML=rowHTML(dd[0],dd[1],dd[2]); dash.appendChild(tr); });
-        // refresh dashboard header (year columns are stable but rebuild defensively)
-        var head = deck.querySelector('.roi-dash-table thead tr');
-        if(head){ var hh='<th>Metric</th>'; rows.forEach(function(r){ hh+='<th class="num">Year '+r.year+'</th>'; }); head.innerHTML=hh; }
+        var lhost = s1.querySelector('.roi-hbar-live');
+        if(lhost && live.chart && live.chart.rows){
+          lhost.innerHTML='';
+          live.chart.rows.forEach(function(c){
+            var row=document.createElement('div');
+            row.className='roi-hbar-row'+(c.highlight?' is-highlight':'');
+            row.innerHTML='<div class="roi-hbar-lbl">'+esc(c.name)+'</div>'+
+              '<div class="roi-hbar-track"><div class="roi-hbar-fill" style="width:'+c.pct+'%"></div></div>'+
+              '<div class="roi-hbar-val">'+esc(c.display)+'</div>';
+            lhost.appendChild(row);
+          });
+        }
       }
-      // dashboard net-benefit bar chart
-      var chartEl = deck.querySelector('.roi-dash-chart .roi-chart');
-      if(chartEl && d.chart){
-        var c=d.chart, maxn=c.max_net||1;
-        chartEl.innerHTML='';
-        c.labels.forEach(function(lab,k){
-          var col=document.createElement('div'); col.className='roi-bar-col';
-          var pct=Math.round(c.net[k]/maxn*1000)/10;
-          col.innerHTML='<div class="roi-bar-val">'+c.net[k]+'</div>'+
-            '<div class="roi-bar-track"><div class="roi-bar-fill" style="height:'+pct+'%"></div></div>'+
-            '<div class="roi-bar-x">'+lab+'</div>';
-          chartEl.appendChild(col);
-        });
+
+      // ---- SLIDE 2: framework master (table + chart + bottom callout) ----
+      var fw = d.frameworks || {};
+      var s2 = deck.querySelector('.roi-slide-fw');
+      if(s2 && fw.rows){
+        var tb = s2.querySelector('.roi-fw-table tbody');
+        if(tb){
+          tb.innerHTML='';
+          fw.rows.forEach(function(r){
+            var tr=document.createElement('tr');
+            tr.innerHTML='<td>'+esc(r.name)+'</td><td class="num">'+r.applications+'</td>'+
+              '<td class="num">'+esc(r.obs_per_app_display)+'</td>'+
+              '<td class="num">'+esc(r.total_observations_display)+'</td>'+
+              '<td class="num">'+esc(r.emails_saved_display)+'</td>'+
+              '<td class="num">'+esc(r.hours_saved_display)+'</td>'+
+              '<td class="num roi-cell-gold">'+esc(r.annual_saving_display)+'</td>';
+            tb.appendChild(tr);
+          });
+        }
+        var fwc = s2.querySelector('.roi-fw-chart .roi-hbar');
+        if(fwc && fw.chart && fw.chart.rows){
+          fwc.innerHTML='';
+          fw.chart.rows.forEach(function(c){
+            var row=document.createElement('div'); row.className='roi-hbar-row';
+            row.innerHTML='<div class="roi-hbar-lbl">'+esc(c.name)+'</div>'+
+              '<div class="roi-hbar-track"><div class="roi-hbar-fill" style="width:'+c.pct+'%"></div></div>'+
+              '<div class="roi-hbar-val">'+esc(c.display)+'</div>';
+            fwc.appendChild(row);
+          });
+        }
+        if(fw.kpis){
+          var c2 = s2.querySelectorAll('.roi-callout-sm .roi-callout-item b');
+          if(c2.length>=3){
+            c2[0].textContent = fw.kpis.applications;
+            c2[1].textContent = fw.kpis.hours_saved_display;
+            c2[2].textContent = fw.kpis.annual_savings_display;
+          }
+        }
       }
-      // dashboard callout banner
-      var last = rows[rows.length-1];
-      var cApps = deck.querySelector('.roi-dash-callout .roi-callout-item:nth-child(1) b');
-      var cNet  = deck.querySelector('.roi-dash-callout .roi-callout-gold b');
-      var cOpex = deck.querySelector('.roi-dash-callout .roi-callout-item:nth-child(4) b');
-      if(cApps) cApps.textContent = last.applications;
-      if(cNet)  cNet.textContent  = last.net_benefit_display;
-      if(cOpex) cOpex.textContent = d.steady_cost_display||cOpex.textContent;
+
+      // ---- SLIDE 3: FTE (KPIs + comparison + chart + banner) ----
+      var fte = d.fte || {};
+      var s3 = deck.querySelector('.roi-slide-fte');
+      if(s3){
+        var k3 = s3.querySelectorAll('.roi-kpi .roi-kpi-v');
+        if(k3.length>=3){
+          k3[0].textContent = fte.hours_saved_display;
+          k3[1].textContent = fte.annual_savings_display;
+          k3[2].textContent = fte.fte_equivalent;
+        }
+        var without = s3.querySelector('.roi-fte-bad .roi-fte-side-v');
+        if(without) without.textContent = fte.without_ecs_fte;
+        var fchart = s3.querySelectorAll('.roi-fte-chart .roi-bar-val');
+        if(fchart.length && fte.chart){
+          fte.chart.forEach(function(b,k){ if(fchart[k]) fchart[k].textContent=b.display; });
+        }
+        var stmt = s3.querySelector('.roi-fte-statement');
+        if(stmt) stmt.textContent = fte.statement;
+      }
+
+      // ---- SLIDE 4: executive dashboard (table + net-benefit chart + callout) ----
+      var s4 = deck.querySelector('.roi-slide-dash');
+      if(s4){
+        var dt = s4.querySelector('.roi-dash-table tbody');
+        if(dt){
+          function dashRow(label, get, cls){
+            var h='<td>'+label+'</td>';
+            d.rows.forEach(function(r){ h+='<td class="num'+(cls?(' '+cls):'')+'">'+esc(get(r))+'</td>'; });
+            return h;
+          }
+          dt.innerHTML='';
+          var defs=[
+            ['Applications',function(r){return r.applications;},''],
+            ['Annual Savings',function(r){return r.annual_savings_display;},''],
+            ['ECS Cost',function(r){return r.ecs_cost_display;},''],
+            ['Net Benefit',function(r){return r.net_benefit_display;},'roi-cell-gold']
+          ];
+          defs.forEach(function(dd){ var tr=document.createElement('tr'); tr.innerHTML=dashRow(dd[0],dd[1],dd[2]); dt.appendChild(tr); });
+        }
+        var ch = s4.querySelector('.roi-chart-7');
+        if(ch && d.chart){
+          var c=d.chart, maxn=c.max_net||1;
+          ch.innerHTML='';
+          c.labels.forEach(function(lab,k){
+            var col=document.createElement('div'); col.className='roi-bar-col';
+            var pct=Math.round(c.net[k]/maxn*1000)/10;
+            col.innerHTML='<div class="roi-bar-val">'+esc(c.net_display[k])+'</div>'+
+              '<div class="roi-bar-track"><div class="roi-bar-fill" style="height:'+pct+'%"></div></div>'+
+              '<div class="roi-bar-x">'+esc(lab)+'</div>';
+            ch.appendChild(col);
+          });
+        }
+        var co = s4.querySelectorAll('.roi-dash-callout .roi-callout-item b');
+        var lastRow = d.rows[d.rows.length-1];
+        if(co.length>=3){
+          co[0].textContent = lastRow.applications;
+          co[1].textContent = d.net_benefit_display;
+          co[2].textContent = d.steady_cost_display;
+        }
+      }
     }
-    var sbar = root.querySelector('[data-roi-scenario-bar]');
-    if(sbar){ sbar.addEventListener('click',function(e){ var b=e.target.closest('[data-roi-scenario]'); if(b) applyDeckScenario(b.getAttribute('data-roi-scenario')); }); }
+    var sbar2 = root.querySelector('[data-roi-scenario-bar]');
+    if(sbar2){ sbar2.addEventListener('click',function(e){ var b=e.target.closest('[data-roi-scenario]'); if(b) applyDeckScenario(b.getAttribute('data-roi-scenario')); }); }
 
     buildDeckDots();
     // optional deep-link: #slide=N opens slide N directly (presenter convenience)

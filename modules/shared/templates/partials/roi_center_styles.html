@@ -226,7 +226,17 @@
 .roi-scenario-btn{border:0;background:transparent;color:#cfe0f5;font-weight:700;font-size:.84rem;padding:7px 18px;border-radius:999px;cursor:pointer;transition:all .2s ease;}
 .roi-scenario-btn:hover{color:#fff;}
 .roi-scenario-btn.is-active{background:linear-gradient(90deg,var(--roi-accent),var(--roi-accent2));color:#0b1f3a;box-shadow:0 3px 10px rgba(0,0,0,.2);}
-.roi-scenario-hint{font-size:.72rem;opacity:.75;margin-left:auto;}
+.roi-scenario-hint{font-size:.72rem;opacity:.75;}
+/* active scenario badge — amber (Conservative) / blue (Expected) / green (Aggressive) */
+.roi-scenario-badge{display:inline-flex;align-items:center;gap:8px;margin-left:auto;
+  padding:6px 14px;border-radius:999px;font-size:.82rem;font-weight:800;color:#fff;
+  background:color-mix(in srgb, var(--scn-color) 22%, transparent);
+  border:1px solid var(--scn-color);box-shadow:0 0 14px color-mix(in srgb, var(--scn-color) 35%, transparent);}
+.roi-scenario-badge .roi-scenario-dot{width:10px;height:10px;border-radius:50%;
+  background:var(--scn-color);box-shadow:0 0 8px var(--scn-color);}
+.roi-scenario-badge b{color:#fff;}
+.roi-scenario-badge span[data-roi-scenario-badge-factor]{opacity:.85;font-weight:700;
+  padding-left:6px;border-left:1px solid color-mix(in srgb, var(--scn-color) 50%, transparent);}
 
 /* ---- narrative bullets ---- */
 .roi-narrative{list-style:none;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:0;margin:14px 0 6px;}
@@ -411,6 +421,25 @@ body.ecs-cap-roi{background:#EEF5FF!important;}
 
 /* executive KPI row */
 .roi-kpi-row{display:flex;gap:clamp(8px,1.3vw,16px);justify-content:center;width:100%;flex-wrap:nowrap;}
+/* max 3 KPI cards per row — wider cards, larger value type */
+.roi-kpi-row-3{gap:clamp(14px,2.2vw,36px);max-width:1040px;margin:0 auto;}
+.roi-kpi-row-3 .roi-kpi{padding:clamp(12px,2vh,24px) clamp(14px,1.6vw,26px);}
+.roi-kpi-row-3 .roi-kpi-v{font-size:clamp(1.6rem,3.4vw,2.9rem);}
+.roi-kpi-row-3 .roi-kpi-l{font-size:clamp(.66rem,1.1vw,.92rem);}
+
+/* SLIDE 1 — FY25-26 live: 3 KPI cards + full-width highlighted horizontal chart */
+.roi-slide-live{justify-content:flex-start;padding:2.6% 3.4%;gap:1.6vh;}
+.roi-live-chartwrap{width:100%;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+.roi-hbar-live{max-height:none;flex:1 1 auto;display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(3px,.7vh,9px) clamp(20px,3vw,52px);
+  align-content:center;overflow:hidden;}
+.roi-hbar-live .roi-hbar-row{grid-template-columns:130px 1fr 60px;}
+/* highlighted (top-value) frameworks visually stand out */
+.roi-hbar-row.is-highlight .roi-hbar-lbl{color:var(--exec-gold);font-weight:900;}
+.roi-hbar-row.is-highlight .roi-hbar-fill{background:linear-gradient(90deg,#F59E0B,#FBBF24);
+  box-shadow:0 0 16px rgba(245,158,11,.5);}
+.roi-hbar-row.is-highlight .roi-hbar-val{color:var(--exec-gold);font-weight:900;}
+.roi-hbar-row.is-highlight .roi-hbar-track{background:rgba(245,158,11,.10);}
 .roi-kpi{flex:1 1 0;background:var(--exec-card);border:1px solid #243049;border-top:3px solid var(--exec-accent);
   border-radius:14px;padding:clamp(8px,1.4vh,16px) clamp(8px,1vw,16px);text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.32);min-width:0;}
 .roi-kpi-v{font-size:clamp(1.1rem,2.4vw,2rem);font-weight:900;color:var(--exec-h);line-height:1;white-space:nowrap;}
@@ -427,7 +456,7 @@ body.ecs-cap-roi{background:#EEF5FF!important;}
 .roi-exec-table thead th,.roi-exec-table th{background:#1E293B!important;color:#F8FAFC!important;text-transform:uppercase;letter-spacing:.03em;
   font-weight:800!important;font-size:clamp(.56rem,.95vw,.8rem);position:sticky;top:0;z-index:2;}
 .roi-exec-table tbody td{background:var(--exec-card)!important;color:var(--exec-h)!important;}
-.roi-exec-table td.num,.roi-exec-table th.num{text-align:right;font-variant-numeric:tabular-nums;}
+.roi-exec-table td.num,.roi-exec-table th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .roi-exec-table tbody tr:nth-child(even) td{background:#162133!important;}
 .roi-exec-table tbody tr:hover td{background:rgba(56,189,248,.12)!important;color:var(--exec-h)!important;}
 .roi-cell-gold{color:var(--exec-gold)!important;font-weight:800;}
@@ -465,10 +494,15 @@ body.ecs-cap-roi{background:#EEF5FF!important;}
   border:1px solid #2b3a57;border-radius:14px;padding:clamp(10px,1.8vh,20px) clamp(16px,2.4vw,30px);
   font-size:clamp(1rem,2vw,1.6rem);font-weight:800;color:var(--exec-h);box-shadow:0 10px 30px rgba(0,0,0,.4);}
 
-/* slide 3: dashboard table + chart + callout */
-.roi-dash-split{display:grid;grid-template-columns:1.35fr 1fr;gap:clamp(12px,2vw,28px);width:100%;flex:1 1 auto;min-height:0;align-items:stretch;}
+/* slide 3/4: dashboard table + chart + callout */
+.roi-dash-split{display:grid;grid-template-columns:1.7fr 1fr;gap:clamp(12px,1.8vw,24px);width:100%;flex:1 1 auto;min-height:0;align-items:stretch;}
 .roi-dash-tablewrap{overflow:auto;max-height:44vh;border-radius:12px;}
-.roi-exec-table.roi-dash-table td:first-child,.roi-exec-table.roi-dash-table th:first-child{white-space:nowrap!important;font-weight:700;min-width:160px;width:160px;}
+/* compact dashboard table so all 8 columns (Metric + FY26-FY32) fit one screen */
+.roi-dash-table{font-size:clamp(.56rem,.92vw,.82rem)!important;}
+.roi-dash-table th,.roi-dash-table td{padding:clamp(3px,.7vh,8px) clamp(4px,.6vw,9px)!important;}
+.roi-exec-table.roi-dash-table td:first-child,.roi-exec-table.roi-dash-table th:first-child{white-space:nowrap!important;font-weight:700;min-width:120px;width:120px;}
+/* every dashboard cell stays on one line (FY columns + ₹ Cr values) */
+.roi-dash-table td,.roi-dash-table th{white-space:nowrap!important;}
 .roi-dash-chart{display:flex;flex-direction:column;min-height:0;}
 .roi-dash-chart .roi-chart{width:100%;height:auto;flex:1 1 auto;margin-top:0;gap:clamp(8px,2vw,28px);}
 /* slide 3 callout — the strongest visual element: centered, very large type */
@@ -488,6 +522,15 @@ body.ecs-cap-roi{background:#EEF5FF!important;}
   text-transform:uppercase;letter-spacing:.06em;font-weight:800;margin-top:1vh;}
 .roi-callout-gold b{color:var(--exec-gold);text-shadow:0 0 26px rgba(245,158,11,.35);}
 .roi-callout-ok b{color:var(--exec-pos);text-shadow:0 0 26px rgba(34,197,94,.3);}
+/* compact callout (slide 2 bottom strip) */
+.roi-dash-callout.roi-callout-sm{padding:clamp(8px,1.4vh,16px) clamp(14px,2vw,28px);gap:clamp(10px,2vw,32px);}
+.roi-callout-sm .roi-callout-item b{font-size:clamp(1.1rem,2.6vw,2rem);}
+.roi-callout-sm .roi-callout-item span{font-size:clamp(.58rem,1vw,.82rem);margin-top:.5vh;}
+/* 7-column net-benefit chart — tighter bars so all 7 years fit one screen */
+.roi-chart-7{gap:clamp(5px,1vw,16px)!important;}
+.roi-chart-7 .roi-bar-fill{width:clamp(22px,4.5vw,64px);}
+.roi-chart-7 .roi-bar-val{font-size:clamp(.78rem,1.5vw,1.3rem);}
+.roi-chart-7 .roi-bar-x{font-size:clamp(.62rem,1.1vw,.95rem);}
 @media (max-width:900px){
   .roi-fw-split,.roi-fte-mid,.roi-dash-split{grid-template-columns:1fr;}
   .roi-kpi-row{flex-wrap:wrap;}
