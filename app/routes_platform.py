@@ -50,10 +50,16 @@ def register_platform_routes(app, templates):
         from ecs_platform.ingestion import list_evidence
 
         data = list_evidence(application=application, source_system=source_system, object_type=object_type)
+        # Provide the FULL dataset for live client-side filtering (chips + dropdowns
+        # + Filter button) so visible rows, counters and relationships update without
+        # a page reload and filters survive navigation (persisted in sessionStorage).
+        full = list_evidence(limit=100000)
         ctx = {
             "request": request, "role": role, "user": user, "notice": notice,
             "frameworks": _frameworks(), "nav_module": "evidence_explorer",
             "data": data,
+            "all_rows": full.get("rows", []),
+            "all_correlations": full.get("correlations", []),
             "selected": {"application": application, "source_system": source_system, "object_type": object_type},
         }
         return templates.TemplateResponse(request=request, name="platform_evidence_explorer.html", context=ctx)

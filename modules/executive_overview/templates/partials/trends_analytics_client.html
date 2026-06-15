@@ -272,16 +272,10 @@
     if (init) {
       try { renderIntel(JSON.parse(init.textContent || '{}')); } catch (e) {}
     }
-    document.addEventListener('click', function(e){
-      var el = e.target.closest('[data-ecs-universal-chart],[data-ecs-universal-row],[data-ecs-universal-kpi]');
-      if (!el) return;
-      var c = Number(el.getAttribute('data-ecs-universal-count') || '0');
-      if (c !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-      var title = el.getAttribute('data-ecs-universal-element') || el.getAttribute('data-ecs-universal-label') || 'Detail';
-      showNoDetails(title);
-    }, true);
+    // Note: zero-count chart/row/kpi clicks are intentionally NOT short-circuited.
+    // The global drilldown engine guarantees a populated modal (deterministic demo
+    // data) for every metric, so we let all clicks flow through to it rather than
+    // showing a "No details available" dead-end.
   });
 })();
 </script>

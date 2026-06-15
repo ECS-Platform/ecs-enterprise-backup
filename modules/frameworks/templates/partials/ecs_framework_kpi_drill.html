@@ -320,7 +320,7 @@
     var modalEl = document.getElementById('ecsFrameworkKpiDrillModal');
     if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
     var fwEmptyState = '<div class="text-center py-4"><div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128202;</div>' +
-      '<p class="mb-0 text-muted">Demo data unavailable for this widget</p></div>';
+      '<p class="mb-0 text-muted">Loading representative ECS records\u2026</p></div>';
     fetch(url).then(function(r){ return r.json(); }).then(function(j){
       if (!j || (!j.ok && !(j.rows && j.rows.length))) { showModal(title, fwEmptyState); return; }
       lastFetchKind = url.indexOf('/api/framework/workflow-drill') >= 0 ? 'workflow' : 'other';

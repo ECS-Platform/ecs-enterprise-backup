@@ -39,7 +39,7 @@ def _fallback_body(*, scope: str, page: str, metric: str, label: str, count: int
     body: dict[str, Any] = {
         "ok": True,
         "title": f"{title} — {page.replace('_', ' ').title()}" if page else title,
-        "note": "Demo data unavailable for this widget — showing representative ECS records.",
+        "note": "Showing representative ECS demo records for this widget.",
         "rows": rows,
         "columns": UNIVERSAL_COLUMNS,
         "trace_count": parse_display_count(count),

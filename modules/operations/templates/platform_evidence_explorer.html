@@ -6,72 +6,197 @@
 .ecs-ee-commit { background:#dbeafe; color:#1e40af; } .ecs-ee-build { background:#fef3c7; color:#92400e; } .ecs-ee-sonar { background:#dcfce7; color:#166534; }
 .ecs-ee-arrow { color:#9ca3af; margin:0 4px; }
 .ecs-ee-mono { font-family:ui-monospace,monospace; font-size:0.72rem; }
+.ecs-ee-chip { cursor:pointer; }
+.ecs-ee-chip.active { background:#2563eb !important; color:#fff !important; border-color:#2563eb !important; }
+#eeRel { max-height:260px; overflow-y:auto; }
+th[data-sort]{ cursor:pointer; white-space:nowrap; }
+th[data-sort]:after{ content:'\2195'; opacity:.35; margin-left:4px; font-size:.7rem; }
 </style></head>
 <body class="bg-light"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
 <h1 class="ecs-workspace-title h5">Evidence Explorer</h1>
-<p class="small text-muted mb-2">Collected evidence across SaaS connectors (GitHub, Jira, Confluence, Figma, Teams, SharePoint, SonarQube, Jenkins) with CI/CD relationships (Commit → Build → Sonar Scan → Deploy).</p>
+<p class="small text-muted mb-2">Collected evidence across SaaS connectors (GitHub, Jira, Confluence, Figma, Teams, SharePoint, SonarQube, Jenkins, GitLab, ServiceNow) with CI/CD relationships (Commit → Build → Sonar Scan → Deploy).</p>
 {% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% if data.demo %}
-<div class="alert alert-info py-2 px-3 small mb-2"><strong>Demo dataset.</strong> Showing {{ data.counts.total if data.counts else (data.rows|length) }} deterministic evidence records across {{ data.filters.sources|length }} connectors — no database required.</div>
+<div class="alert alert-info py-2 px-3 small mb-2"><strong>Demo dataset.</strong> <span id="eeBannerCount">{{ all_rows|length }}</span> deterministic evidence records across {{ data.filters.sources|length }} connectors — no database required. Filters apply live (no reload).</div>
 {% endif %}
 
 <div class="mb-2">
 <span class="small text-muted me-1">Quick filter by source:</span>
-<a href="?role={{ role }}&user={{ user }}" class="btn btn-sm py-0 {% if not selected.source_system %}btn-secondary{% else %}btn-outline-secondary{% endif %}">All</a>
-{% for src in ["gitea","github","jira","confluence","figma","teams","sharepoint","sonarqube","jenkins"] %}
-<a href="?role={{ role }}&user={{ user }}&source_system={{ src }}" class="btn btn-sm py-0 {% if selected.source_system == src %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ src }}</a>
+<button type="button" class="btn btn-sm py-0 btn-secondary ecs-ee-chip active" data-src="">All</button>
+{% for src in data.filters.sources %}
+<button type="button" class="btn btn-sm py-0 btn-outline-primary ecs-ee-chip" data-src="{{ src }}">{{ src }}</button>
 {% endfor %}
 </div>
 
-<form method="get" class="row g-2 align-items-end mb-3">
-<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<div class="row g-2 align-items-end mb-2">
 <div class="col-md-3"><label class="form-label small mb-0">Source System</label>
-<select name="source_system" class="form-select form-select-sm"><option value="">All</option>
-{% for s in data.filters.sources %}<option value="{{ s }}"{% if selected.source_system == s %} selected{% endif %}>{{ s }}</option>{% endfor %}
+<select id="eeSource" class="form-select form-select-sm"><option value="">All</option>
+{% for s in data.filters.sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
 </select></div>
 <div class="col-md-3"><label class="form-label small mb-0">Object Type</label>
-<select name="object_type" class="form-select form-select-sm"><option value="">All</option>
-{% for t in data.filters.object_types %}<option value="{{ t }}"{% if selected.object_type == t %} selected{% endif %}>{{ t }}</option>{% endfor %}
+<select id="eeType" class="form-select form-select-sm"><option value="">All</option>
+{% for t in data.filters.object_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
 </select></div>
 <div class="col-md-3"><label class="form-label small mb-0">Application</label>
-<select name="application" class="form-select form-select-sm"><option value="">All</option>
-{% for a in data.filters.applications %}<option value="{{ a }}"{% if selected.application == a %} selected{% endif %}>{{ a }}</option>{% endfor %}
+<select id="eeApp" class="form-select form-select-sm"><option value="">All</option>
+{% for a in data.filters.applications %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
 </select></div>
-<div class="col-md-2"><button class="btn btn-primary btn-sm w-100" type="submit">Filter</button></div>
-</form>
-
-{% if data.correlations %}
-<h2 class="h6">Evidence Relationships</h2>
-{% for g in data.correlations %}
-<div class="ecs-ee-chain">
-<div class="small text-muted mb-1">{{ g.summary }}</div>
-{% for m in g.members %}
-<span class="ecs-ee-stage {% if m.type in ['commit','pull_request'] %}ecs-ee-commit{% elif m.type in ['ci_build','ci_job','test_result'] %}ecs-ee-build{% else %}ecs-ee-sonar{% endif %}">{{ m.source }}:{{ m.type }}</span>{% if not loop.last %}<span class="ecs-ee-arrow">→</span>{% endif %}
-{% endfor %}
+<div class="col-md-3"><label class="form-label small mb-0">Search</label>
+<input id="eeSearch" type="text" class="form-control form-control-sm" placeholder="Search title / ref…"></div>
 </div>
-{% endfor %}
-{% endif %}
+<div class="mb-3 d-flex gap-2 flex-wrap">
+<button id="eeFilter" class="btn btn-primary btn-sm" type="button">Filter</button>
+<button id="eeClear" class="btn btn-outline-secondary btn-sm" type="button">Clear</button>
+<button id="eeExportCsv" class="btn btn-outline-success btn-sm" type="button">Export CSV</button>
+<button id="eeExportXlsx" class="btn btn-outline-success btn-sm" type="button">Export XLSX</button>
+<button id="eeExportPdf" class="btn btn-outline-danger btn-sm" type="button">Export PDF</button>
+</div>
 
-<h2 class="h6 mt-3">Evidence ({{ data.rows|length }}{% if data.counts and data.counts.total %} of {{ data.counts.total }}{% endif %})</h2>
-<table class="table table-sm table-hover ecs-paginated-table ecs-compact-table">
-<thead><tr><th>Source</th><th>Type</th><th>Title</th><th>Application</th><th>Collected</th><th></th></tr></thead>
-<tbody>
-{% for r in data.rows %}
-<tr>
-<td><span class="badge bg-secondary">{{ r.source_system }}</span></td>
-<td class="small">{{ r.object_type }}</td>
-<td class="ecs-ee-title" title="{{ r.title }}">{{ r.title }}</td>
-<td class="small">{{ r.application }}</td>
-<td class="ecs-ee-mono">{{ r.collected_timestamp }}</td>
-<td>{% if r.url %}<a href="{{ r.url }}" target="_blank" class="small">open</a>{% endif %}</td>
-</tr>
-{% else %}
-<tr><td colspan="6" class="text-muted small">No evidence matches the current filters. <a href="?role={{ role }}&user={{ user }}">Clear filters</a> to see all records.</td></tr>
-{% endfor %}
-</tbody>
+<h2 class="h6">Evidence Relationships <span class="small text-muted">(<span id="eeRelCount">0</span>)</span></h2>
+<div id="eeRel"></div>
+
+<h2 class="h6 mt-3">Evidence (<span id="eeShown">0</span> of <span id="eeTotal">0</span>)</h2>
+<table class="table table-sm table-hover ecs-compact-table" id="eeTable">
+<thead><tr>
+<th data-sort="source_system">Source</th>
+<th data-sort="object_type">Type</th>
+<th data-sort="title">Title</th>
+<th data-sort="application">Application</th>
+<th data-sort="collected_timestamp">Collected</th>
+<th></th></tr></thead>
+<tbody id="eeBody"></tbody>
 </table>
+<div class="d-flex justify-content-between align-items-center small">
+<div>Rows per page:
+<select id="eePageSize" class="form-select form-select-sm d-inline-block" style="width:auto">
+<option>25</option><option selected>50</option><option>100</option><option>200</option></select></div>
+<div>
+<button id="eePrev" class="btn btn-sm btn-outline-secondary py-0">‹ Prev</button>
+<span class="mx-2">Page <span id="eePage">1</span> / <span id="eePages">1</span></span>
+<button id="eeNext" class="btn btn-sm btn-outline-secondary py-0">Next ›</button>
+</div>
+</div>
 </div></div></div>
+
+<script>
+window.ECS_EE_ROWS = {{ all_rows|tojson }};
+window.ECS_EE_REL  = {{ all_correlations|tojson }};
+(function(){
+  var ROWS = window.ECS_EE_ROWS || [], REL = window.ECS_EE_REL || [];
+  var KEY = "ecs_ee_filters_v1";
+  var state = {src:"", type:"", app:"", q:"", sort:"collected_timestamp", dir:-1, page:1, size:50};
+  try { var saved = JSON.parse(sessionStorage.getItem(KEY)||"{}"); Object.assign(state, saved); } catch(e){}
+
+  var $ = function(id){ return document.getElementById(id); };
+  function persist(){ try{ sessionStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+  function syncControls(){
+    $("eeSource").value=state.src; $("eeType").value=state.type; $("eeApp").value=state.app;
+    $("eeSearch").value=state.q; $("eePageSize").value=String(state.size);
+    document.querySelectorAll(".ecs-ee-chip").forEach(function(c){
+      c.classList.toggle("active", (c.getAttribute("data-src")||"")===state.src);
+      if((c.getAttribute("data-src")||"")===state.src){ c.classList.add("btn-secondary"); }
+    });
+  }
+
+  function filtered(){
+    var q = (state.q||"").toLowerCase();
+    var out = ROWS.filter(function(r){
+      if(state.src && r.source_system!==state.src) return false;
+      if(state.type && r.object_type!==state.type) return false;
+      if(state.app && r.application!==state.app) return false;
+      if(q){ var blob=((r.title||"")+" "+(r.reference||"")+" "+(r.application||"")+" "+(r.uid||"")).toLowerCase(); if(blob.indexOf(q)<0) return false; }
+      return true;
+    });
+    var k=state.sort, d=state.dir;
+    out.sort(function(a,b){ var x=(a[k]||""), y=(b[k]||""); return x<y?-d:(x>y?d:0); });
+    return out;
+  }
+
+  function relsFor(rows){
+    if(!state.src && !state.app && !state.type && !state.q) return REL;
+    var apps={}; rows.forEach(function(r){ apps[r.application]=1; });
+    return REL.filter(function(g){ return apps[g.application]; });
+  }
+
+  function render(){
+    var data = filtered();
+    var size = state.size, pages = Math.max(1, Math.ceil(data.length/size));
+    if(state.page>pages) state.page=pages;
+    var start=(state.page-1)*size, slice=data.slice(start, start+size);
+    var body=$("eeBody"); body.innerHTML="";
+    if(!slice.length){
+      body.innerHTML='<tr><td colspan="6" class="text-muted small">No evidence matches the current filters. <a href="#" id="eeClear2">Clear filters</a>.</td></tr>';
+    } else {
+      var html="";
+      slice.forEach(function(r){
+        html+='<tr><td><span class="badge bg-secondary">'+r.source_system+'</span></td>'+
+          '<td class="small">'+(r.object_type||"")+'</td>'+
+          '<td class="ecs-ee-title" title="'+(r.title||"")+'">'+(r.title||"")+'</td>'+
+          '<td class="small">'+(r.application||"")+'</td>'+
+          '<td class="ecs-ee-mono">'+(r.collected_timestamp||"")+'</td>'+
+          '<td>'+(r.url?'<a href="'+r.url+'" target="_blank" class="small">open</a>':'')+'</td></tr>';
+      });
+      body.innerHTML=html;
+    }
+    $("eeShown").textContent=data.length; $("eeTotal").textContent=ROWS.length;
+    $("eePage").textContent=state.page; $("eePages").textContent=pages;
+    var bc=$("eeBannerCount"); if(bc) bc.textContent=ROWS.length;
+
+    // relationships
+    var rels=relsFor(data), rel=$("eeRel"); $("eeRelCount").textContent=rels.length;
+    var rh="";
+    rels.slice(0,60).forEach(function(g){
+      rh+='<div class="ecs-ee-chain"><div class="small text-muted mb-1">'+(g.summary||"")+'</div>';
+      (g.members||[]).forEach(function(m,i){
+        var cls = (m.type==="pull_request"||m.type==="commit")?"ecs-ee-commit":((m.type==="ci_build"||m.type==="ci_job")?"ecs-ee-build":"ecs-ee-sonar");
+        rh+='<span class="ecs-ee-stage '+cls+'">'+m.source+':'+m.type+'</span>'+((i<(g.members.length-1))?'<span class="ecs-ee-arrow">→</span>':'');
+      });
+      rh+='</div>';
+    });
+    rel.innerHTML = rh || '<div class="text-muted small">No relationships for the current filter.</div>';
+    var c2=$("eeClear2"); if(c2) c2.onclick=function(e){e.preventDefault(); clearAll();};
+    persist();
+  }
+
+  function clearAll(){ state.src=state.type=state.app=state.q=""; state.page=1; syncControls(); render(); }
+
+  // events
+  document.querySelectorAll(".ecs-ee-chip").forEach(function(c){
+    c.addEventListener("click", function(){
+      document.querySelectorAll(".ecs-ee-chip").forEach(function(x){x.classList.remove("active");});
+      c.classList.add("active");
+      state.src=c.getAttribute("data-src")||""; $("eeSource").value=state.src; state.page=1; render();
+    });
+  });
+  $("eeFilter").addEventListener("click", function(){
+    state.src=$("eeSource").value; state.type=$("eeType").value; state.app=$("eeApp").value; state.q=$("eeSearch").value; state.page=1; render();
+  });
+  $("eeClear").addEventListener("click", clearAll);
+  $("eeSource").addEventListener("change", function(){ state.src=this.value; state.page=1; syncChips(); render(); });
+  $("eeType").addEventListener("change", function(){ state.type=this.value; state.page=1; render(); });
+  $("eeApp").addEventListener("change", function(){ state.app=this.value; state.page=1; render(); });
+  $("eeSearch").addEventListener("input", function(){ state.q=this.value; state.page=1; render(); });
+  $("eePageSize").addEventListener("change", function(){ state.size=parseInt(this.value,10)||50; state.page=1; render(); });
+  $("eePrev").addEventListener("click", function(){ if(state.page>1){state.page--; render();} });
+  $("eeNext").addEventListener("click", function(){ state.page++; render(); });
+  document.querySelectorAll("th[data-sort]").forEach(function(th){
+    th.addEventListener("click", function(){ var k=th.getAttribute("data-sort"); state.dir = (state.sort===k)? -state.dir : 1; state.sort=k; render(); });
+  });
+  function syncChips(){ document.querySelectorAll(".ecs-ee-chip").forEach(function(c){ c.classList.toggle("active",(c.getAttribute("data-src")||"")===state.src); }); }
+
+  // exports (current filtered set)
+  function exportRows(){ return filtered().map(function(r){ return {Source:r.source_system, Type:r.object_type, Title:r.title, Application:r.application, Reference:r.reference||r.uid, Collected:r.collected_timestamp}; }); }
+  function dl(name, text, mime){ var b=new Blob([text],{type:mime}); var a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+  function toCsv(rows){ if(!rows.length) return ""; var cols=Object.keys(rows[0]); var esc=function(v){ v=(v==null?"":String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }; return cols.join(",")+"\n"+rows.map(function(r){return cols.map(function(c){return esc(r[c]);}).join(",");}).join("\n"); }
+  $("eeExportCsv").addEventListener("click", function(){ dl("evidence_explorer.csv", toCsv(exportRows()), "text/csv"); });
+  $("eeExportXlsx").addEventListener("click", function(){ /* SpreadsheetML — opens in Excel */ var rows=exportRows(); var head=rows.length?Object.keys(rows[0]):[]; var x='<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Evidence"><Table>'; x+='<Row>'+head.map(function(h){return '<Cell><Data ss:Type="String">'+h+'</Data></Cell>';}).join("")+'</Row>'; rows.forEach(function(r){ x+='<Row>'+head.map(function(h){return '<Cell><Data ss:Type="String">'+String(r[h]==null?"":r[h]).replace(/[<&>]/g,"")+'</Data></Cell>';}).join("")+'</Row>'; }); x+='</Table></Worksheet></Workbook>'; dl("evidence_explorer.xls", x, "application/vnd.ms-excel"); });
+  $("eeExportPdf").addEventListener("click", function(){ var rows=exportRows(); var w=window.open("","_blank"); var head=rows.length?Object.keys(rows[0]):[]; var h='<h3>Evidence Explorer ('+rows.length+' rows)</h3><table border=1 cellspacing=0 cellpadding=4 style="border-collapse:collapse;font:12px sans-serif"><tr>'+head.map(function(c){return '<th>'+c+'</th>';}).join("")+'</tr>'; rows.slice(0,1000).forEach(function(r){ h+='<tr>'+head.map(function(c){return '<td>'+(r[c]==null?"":r[c])+'</td>';}).join("")+'</tr>'; }); h+='</table>'; w.document.write(h); w.document.close(); w.focus(); w.print(); });
+
+  syncControls(); render();
+})();
+</script>
 {% include "partials/mvp_scripts.html" ignore missing %}
 </body></html>
