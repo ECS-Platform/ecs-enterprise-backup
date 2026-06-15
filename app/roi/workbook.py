@@ -633,6 +633,37 @@ _BOARD_MODEL_EXPECTED = [
 # model and OPEX assumptions never change.
 _BOARD_ECS_COST = [4.0, 2.0, 2.2, 2.2, 2.2]
 
+# Approved per-framework value realization (Slide 1). EXACT values, used verbatim.
+#   name, applications, obs_per_app, total_obs, emails_saved, hours_saved, annual_cr
+_BOARD_FRAMEWORKS = [
+    ("VAPT", 25, 1500, 37500, 200000, 16667, 1.67),
+    ("PCI DSS", 25, 500, 12500, 96000, 8000, 0.80),
+    ("DPSC", 25, 450, 11250, 84000, 7000, 0.70),
+    ("CSITE", 25, 400, 10000, 72000, 6000, 0.60),
+    ("ITPP", 25, 250, 6250, 48000, 4000, 0.40),
+    ("ITDRM", 25, 250, 6250, 48000, 4000, 0.40),
+    ("MBSS", 25, 300, 7500, 60000, 5000, 0.50),
+    ("ASST", 25, 350, 8750, 72000, 6000, 0.60),
+    ("IS Audit", 25, 400, 10000, 72000, 6000, 0.60),
+    ("Internal Audit", 25, 350, 8750, 60000, 5000, 0.50),
+    ("TPRE", 25, 200, 5000, 36000, 3000, 0.30),
+    ("TPRM", 25, 200, 5000, 36000, 3000, 0.30),
+    ("Prisma Alerts", 25, 300, 7500, 48000, 4000, 0.40),
+    ("Cloud Security Reviews", 25, 250, 6250, 48000, 4000, 0.40),
+    ("OS Baselining", 25, 150, 3750, 36000, 3000, 0.30),
+    ("DB Baselining", 25, 125, 3125, 30000, 2500, 0.25),
+    ("Middleware Baselining", 25, 125, 3125, 30000, 2500, 0.25),
+]
+
+# Approved FTE productivity model (Slide 2). EXACT values, used verbatim.
+_BOARD_FTE = {
+    "hours_saved": 90000,
+    "cost_per_hour": 1000,
+    "annual_savings_cr": 9.0,
+    "avg_salary_lakh": 20,
+    "fte_equivalent": 45,
+}
+
 # Approved board scenarios — EXACT values (₹ Crore). Conservative = Expected -20%,
 # Aggressive = Expected +20%, applied to BOTH applications and net benefit. These
 # are used verbatim (not derived) so every slide is boardroom-deterministic.
@@ -713,9 +744,79 @@ def build_board_deck(scenario: str = "expected") -> dict[str, Any]:
                 "apps": [r["applications"] for r in rows],
                 "max_net": max((r["net_benefit_cr"] for r in rows), default=1),
             },
+            # Slide 1 — per-framework value realization (fixed, scenario-independent).
+            "frameworks": _build_framework_block(),
+            # Slide 2 — FTE productivity realization (fixed).
+            "fte": _build_fte_block(),
         }
     except Exception as exc:  # noqa: BLE001 - fail safe
         return {"scenario": scenario, "rows": [], "note": f"board error: {type(exc).__name__}"}
+
+
+def _build_framework_block() -> dict[str, Any]:
+    """Per-framework value realization table + KPIs + horizontal bar chart series."""
+    rows = [
+        {"name": n, "applications": apps, "obs_per_app": opa,
+         "total_observations": tot, "emails_saved": em, "hours_saved": hrs,
+         "annual_saving_cr": cr,
+         "obs_per_app_display": fmt_num(opa),
+         "total_observations_display": fmt_num(tot),
+         "emails_saved_display": fmt_num(em),
+         "hours_saved_display": fmt_num(hrs),
+         "annual_saving_display": fmt_cr(cr)}
+        for (n, apps, opa, tot, em, hrs, cr) in _BOARD_FRAMEWORKS
+    ]
+    chart_rows = sorted(rows, key=lambda r: r["annual_saving_cr"], reverse=True)
+    max_cr = max((r["annual_saving_cr"] for r in rows), default=1)
+    # Executive summary KPIs — approved round figures (used verbatim, not summed).
+    return {
+        "rows": rows,
+        "kpis": {
+            "frameworks_covered": 17,
+            "applications_covered": 25,
+            "hours_saved": 90000,
+            "hours_saved_display": fmt_num(90000),
+            "emails_saved": 1070000,
+            "emails_saved_display": "1.07M",
+            "annual_savings_cr": 9.0,
+            "annual_savings_display": fmt_cr(9.0),
+        },
+        "chart": {
+            "rows": [{"name": r["name"], "value": r["annual_saving_cr"],
+                      "display": r["annual_saving_display"],
+                      "pct": round(r["annual_saving_cr"] / max_cr * 100, 1)}
+                     for r in chart_rows],
+            "max": max_cr,
+        },
+    }
+
+
+def _build_fte_block() -> dict[str, Any]:
+    """FTE productivity realization KPIs + comparison + simple bar chart."""
+    f = _BOARD_FTE
+    return {
+        "hours_saved": f["hours_saved"],
+        "hours_saved_display": fmt_num(f["hours_saved"]),
+        "cost_per_hour": f["cost_per_hour"],
+        "cost_per_hour_display": f"\u20b9{f['cost_per_hour']:,}",
+        "annual_savings_cr": f["annual_savings_cr"],
+        "annual_savings_display": fmt_cr(f["annual_savings_cr"]),
+        "avg_salary_lakh": f["avg_salary_lakh"],
+        "avg_salary_display": f"\u20b9{f['avg_salary_lakh']} Lakh",
+        "fte_equivalent": f["fte_equivalent"],
+        "without_ecs_fte": f["fte_equivalent"],
+        "with_ecs_fte": 0,
+        "statement": (f"ECS returns the equivalent productivity of "
+                      f"{f['fte_equivalent']} full-time employees annually."),
+        # Normalised simple bar chart (three indexed metrics on one scale).
+        "chart": [
+            {"label": "Hours Saved", "display": fmt_num(f["hours_saved"]), "pct": 100.0},
+            {"label": "FTE Equivalent", "display": str(f["fte_equivalent"]),
+             "pct": 50.0},
+            {"label": "Annual Savings", "display": fmt_cr(f["annual_savings_cr"]),
+             "pct": 75.0},
+        ],
+    }
 
 
 def _board_blocks(model: WorkbookModel, scaled: dict[str, Any]) -> list[dict[str, str]]:

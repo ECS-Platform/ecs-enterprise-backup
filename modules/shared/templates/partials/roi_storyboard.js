@@ -298,7 +298,7 @@
     });
   }
 
-  /* ---------- boardroom deck (7 slides, manual nav, NO autoplay) ---------- */
+  /* ---------- boardroom deck (3 slides, manual nav, NO autoplay) ---------- */
   (function(){
     var deck = root.querySelector('[data-roi-deck]');
     if(!deck) return;
@@ -307,7 +307,6 @@
     var di = 0;
     var dotsWrap = deck.querySelector('[data-deck-dots]');
     var curEl = deck.querySelector('[data-deck-current]');
-    var SCALE_SLIDE = 5; // slide index (1-based) with step-through (Scale-Up Story)
 
     function buildDeckDots(){
       if(!dotsWrap) return; dotsWrap.innerHTML='';
@@ -322,29 +321,14 @@
       if(dotsWrap) Array.prototype.forEach.call(dotsWrap.children,function(d,k){ d.classList.toggle('is-active',k===di); });
       if(curEl) curEl.textContent = (di+1);
     }
-    // scale-up step state (slide 5 reveals rows on NEXT before advancing)
-    var scaleSteps = [], scaleIdx = 0;
-    function refreshScale(){
-      var slide = slides[SCALE_SLIDE-1]; if(!slide) return;
-      scaleSteps = Array.prototype.slice.call(slide.querySelectorAll('[data-scaleup-step]'));
-      scaleSteps.forEach(function(el,k){ el.classList.toggle('is-shown', k<=scaleIdx); });
-    }
     function showDeck(i){
       if(i<0) i=0; if(i>=slides.length) i=slides.length-1;
       di=i;
       slides.forEach(function(s,k){ s.classList.toggle('is-active',k===di); });
-      if(di===SCALE_SLIDE-1){ scaleIdx=0; refreshScale(); }
       updateDeckDots();
     }
-    function deckNext(){
-      // within scale-up slide, step rows first
-      if(di===SCALE_SLIDE-1 && scaleIdx < scaleSteps.length-1){ scaleIdx++; refreshScale(); return; }
-      showDeck(di+1);
-    }
-    function deckPrev(){
-      if(di===SCALE_SLIDE-1 && scaleIdx>0){ scaleIdx--; refreshScale(); return; }
-      showDeck(di-1);
-    }
+    function deckNext(){ showDeck(di+1); }
+    function deckPrev(){ showDeck(di-1); }
     function db(sel,fn){ var el=deck.querySelector(sel); if(el) el.addEventListener('click',fn); }
     db('[data-deck-next]',deckNext);
     db('[data-deck-prev]',deckPrev);
@@ -383,48 +367,66 @@
       });
     }
 
-    // scenario toggle re-renders deck headline values (data-deck-bind)
+    // scenario toggle re-renders the Executive Value Dashboard (slide 3).
+    // Slides 1 (Framework) & 2 (FTE) are fixed/scenario-independent.
     function applyDeckScenario(name){
       var scn = DATA.scenarios && DATA.scenarios[name];
       var d = scn ? scn.deck : (DATA.deck||{});
-      if(!d) return;
-      deck.querySelectorAll('[data-deck-bind]').forEach(function(el){
-        var key=el.getAttribute('data-deck-bind');
-        if(d[key]!==undefined && d[key]!==null) el.textContent=d[key];
-      });
-      // rebuild scale-up + trend text from scenario rows
-      var sw = deck.querySelector('[data-deck-scaleup]');
-      if(sw && d.scaleup){ sw.innerHTML=''; d.scaleup.forEach(function(s,k){
-        var st=document.createElement('div'); st.className='roi-scaleup-step'+(k===0?' is-shown':'');
-        st.setAttribute('data-scaleup-step',k);
-        st.innerHTML='<span class="roi-scaleup-apps">'+s.applications+' Applications</span><span class="roi-scaleup-arr">→</span><span class="roi-scaleup-val">'+s.annual_savings_display+'</span>';
-        sw.appendChild(st); }); scaleIdx=0; }
-      // value-growth bar chart (slide 4)
-      var chartEl = deck.querySelector('[data-deck-chart]');
+      if(!d || !d.rows) return;
+      var rows = d.rows;
+      // dashboard 5-year table
+      var dash = deck.querySelector('.roi-dash-table tbody');
+      if(dash){
+        function rowHTML(label, getter, cls){
+          var h='<td>'+label+'</td>';
+          rows.forEach(function(r){ h+='<td class="num'+(cls?(' '+cls):'')+'">'+getter(r)+'</td>'; });
+          return h;
+        }
+        dash.innerHTML='';
+        var defs=[
+          ['Applications',function(r){return r.applications;},''],
+          ['Annual Savings (Cr)',function(r){return r.annual_savings_cr;},''],
+          ['Cumulative Savings (Cr)',function(r){return r.cumulative_savings_cr;},''],
+          ['ECS Cost (Cr)',function(r){return r.ecs_cost_cr;},''],
+          ['Cumulative Cost (Cr)',function(r){return r.cumulative_cost_cr;},''],
+          ['Net Benefit (Cr)',function(r){return r.net_benefit_cr;},'roi-cell-gold'],
+          ['Payback Status',function(){return 'Achieved';},'roi-cell-ok']
+        ];
+        defs.forEach(function(dd){ var tr=document.createElement('tr'); tr.innerHTML=rowHTML(dd[0],dd[1],dd[2]); dash.appendChild(tr); });
+        // refresh dashboard header (year columns are stable but rebuild defensively)
+        var head = deck.querySelector('.roi-dash-table thead tr');
+        if(head){ var hh='<th>Metric</th>'; rows.forEach(function(r){ hh+='<th class="num">Year '+r.year+'</th>'; }); head.innerHTML=hh; }
+      }
+      // dashboard net-benefit bar chart
+      var chartEl = deck.querySelector('.roi-dash-chart .roi-chart');
       if(chartEl && d.chart){
         var c=d.chart, maxn=c.max_net||1;
         chartEl.innerHTML='';
         c.labels.forEach(function(lab,k){
-          var col=document.createElement('div'); col.className='roi-bar-col'; col.setAttribute('data-bar-col',k);
+          var col=document.createElement('div'); col.className='roi-bar-col';
           var pct=Math.round(c.net[k]/maxn*1000)/10;
-          col.innerHTML='<div class="roi-bar-val" data-bar-val>'+c.net_display[k]+'</div>'+
-            '<div class="roi-bar-track"><div class="roi-bar-fill" data-bar-fill style="height:'+pct+'%"></div></div>'+
-            '<div class="roi-bar-x" data-bar-x>'+lab+'</div>';
+          col.innerHTML='<div class="roi-bar-val">'+c.net[k]+'</div>'+
+            '<div class="roi-bar-track"><div class="roi-bar-fill" style="height:'+pct+'%"></div></div>'+
+            '<div class="roi-bar-x">'+lab+'</div>';
           chartEl.appendChild(col);
         });
       }
-      // five-year value realization table (appendix)
-      var tbl = deck.querySelector('[data-deck-table] tbody');
-      if(tbl && d.rows){ tbl.innerHTML=''; d.rows.forEach(function(r,k){
-        var tr=document.createElement('tr'); if(k===d.rows.length-1) tr.className='roi-deck-tr-total';
-        tr.innerHTML='<td>'+r.label+'</td><td>'+r.applications+'</td><td>'+r.annual_savings_display+'</td><td>'+r.cumulative_savings_display+'</td><td>'+r.cumulative_cost_display+'</td><td class="roi-deck-net">'+r.net_benefit_display+'</td>';
-        tbl.appendChild(tr); }); }
+      // dashboard callout banner
+      var last = rows[rows.length-1];
+      var cApps = deck.querySelector('.roi-dash-callout .roi-callout-item:nth-child(1) b');
+      var cNet  = deck.querySelector('.roi-dash-callout .roi-callout-gold b');
+      var cOpex = deck.querySelector('.roi-dash-callout .roi-callout-item:nth-child(4) b');
+      if(cApps) cApps.textContent = last.applications;
+      if(cNet)  cNet.textContent  = last.net_benefit_display;
+      if(cOpex) cOpex.textContent = d.steady_cost_display||cOpex.textContent;
     }
     var sbar = root.querySelector('[data-roi-scenario-bar]');
     if(sbar){ sbar.addEventListener('click',function(e){ var b=e.target.closest('[data-roi-scenario]'); if(b) applyDeckScenario(b.getAttribute('data-roi-scenario')); }); }
 
     buildDeckDots();
-    showDeck(0);       // manual; no autoplay timer started
+    // optional deep-link: #slide=N opens slide N directly (presenter convenience)
+    var m = /[#&]slide=(\d+)/.exec(window.location.hash||'');
+    showDeck(m ? (parseInt(m[1],10)-1) : 0);   // manual; no autoplay timer started
   })();
 
   /* ---------- init ---------- */

@@ -55,4 +55,81 @@ a:hover{ color:#7dd3fc; }
 hr, .border, .border-top, .border-bottom{ border-color:var(--demo-border)!important; }
 /* ROI deck carries its own dark executive palette; keep its shadow on dark page */
 .roi-deck-stage{ box-shadow:0 18px 50px rgba(0,0,0,.5); }
+
+/* =========================================================================
+   EXECUTIVE READABILITY PASS — exact palette (projector-grade contrast).
+   bg #0B1220 · panels #111827 · cards #1E293B · text #F8FAFC / #CBD5E1
+   muted #94A3B8 · accent #38BDF8 · positive #22C55E · warning #F59E0B
+   critical #EF4444. Overrides hardcoded light styles on the demo dashboards
+   (the .demo-* classes ship their own #fff backgrounds).
+   ========================================================================= */
+:root{ --demo-muted:#94A3B8; --demo-warn:#F59E0B; --demo-crit:#EF4444; }
+
+/* ---- KPI cards (top strip + module KPIs) ---- */
+.demo-kpi,
+.ecs-kpi-modern,
+.ecs-kpi-clickable,
+.demo-card,
+.demo-app-card,
+.lineage-card{
+  background:var(--demo-card)!important; border-color:var(--demo-border)!important;
+  color:var(--demo-text)!important; }
+.demo-kpi .v, .ecs-kpi-value, .demo-app-card .name, .lineage-card .ev-name{
+  color:var(--demo-text)!important; font-weight:700!important; }
+.demo-kpi .l, .ecs-kpi-label{
+  color:var(--demo-text2)!important; font-weight:500!important; }
+.demo-section-title{ color:var(--demo-text)!important; font-weight:700!important; }
+.demo-section-title .meta, .demo-app-card .meta, .lineage-card .text-muted{
+  color:var(--demo-muted)!important; }
+
+/* ---- CIO Executive Snapshot KPI cells ---- */
+.ecs-kpi-clickable .text-muted{ color:var(--demo-text2)!important; }
+.demo-card .border.rounded{ background:var(--demo-panel)!important;
+  border-color:var(--demo-border)!important; }
+/* keep tone-coloured metric values, just guarantee the neutral default is light */
+.demo-card .fw-bold{ color:var(--demo-text)!important; }
+.demo-card .text-danger, .fw-bold.text-danger{ color:var(--demo-crit)!important; }
+.demo-card .text-warning, .fw-bold.text-warning{ color:var(--demo-warn)!important; }
+.demo-card .text-success, .fw-bold.text-success{ color:var(--demo-pos)!important; }
+
+/* ---- Top Risk Applications + all demo tables ---- */
+.demo-table{ color:var(--demo-text2)!important; }
+.demo-table thead th{
+  background:var(--demo-panel)!important; color:var(--demo-text)!important;
+  border-bottom-color:rgba(255,255,255,.15)!important; }
+.demo-table td, .demo-table th{ border-bottom-color:rgba(255,255,255,.15)!important; }
+.demo-table td{ color:var(--demo-text2)!important; }
+.demo-table td strong, .demo-table .col-app strong, .demo-table .col-app{
+  color:var(--demo-text)!important; font-weight:700!important; }
+.demo-table tbody tr:hover{ background:rgba(56,189,248,.10)!important; }
+
+/* ---- Heatmap labels (light gray label column) ---- */
+.demo-heat-label{ background:var(--demo-panel)!important; color:var(--demo-text)!important; }
+.demo-heat-grid{ background:var(--demo-border)!important; }
+.demo-heat-header .demo-heat-cell{ background:var(--demo-card)!important; color:var(--demo-text)!important; }
+
+/* ---- App-card stat chips ---- */
+.demo-app-card .stats span{ background:var(--demo-panel)!important; color:var(--demo-text2)!important; }
+
+/* ---- Navigation tabs (Overview / Risk / Evidence / Compliance / Analytics) ---- */
+.ecs-persona-tabs, .nav-tabs{ border-bottom-color:rgba(255,255,255,.15)!important; }
+.ecs-persona-tabs .nav-link, .nav-tabs .nav-link{
+  color:var(--demo-text2)!important; background:transparent!important;
+  border-color:transparent!important; font-weight:600!important; }
+.ecs-persona-tabs .nav-link:hover, .nav-tabs .nav-link:hover{ color:var(--demo-text)!important; }
+.ecs-persona-tabs .nav-link.active, .nav-tabs .nav-link.active{
+  color:var(--demo-accent)!important; background:transparent!important;
+  border-color:transparent!important; border-bottom:2px solid var(--demo-accent)!important; }
+
+/* ---- Role badges (display name + role title chips) ---- */
+.ecs-user-chip, .ecs-role-chip{
+  background:var(--demo-card)!important; color:var(--demo-text)!important;
+  border:1px solid rgba(255,255,255,.15)!important; }
+
+/* ---- DEMO MODE pill stays high-contrast (already coloured) ---- */
+.ecs-exec-desc, .ecs-workspace-title{ color:var(--demo-text)!important; }
+.ecs-exec-desc.text-muted{ color:var(--demo-text2)!important; }
+
+/* ---- Generic guard: any leftover dark-on-light utility text on cards ---- */
+.demo-card .text-muted, .demo-card small.text-muted{ color:var(--demo-muted)!important; }
 </style>

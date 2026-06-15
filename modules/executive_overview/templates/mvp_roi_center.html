@@ -58,82 +58,136 @@
 <div class="roi-deck" data-roi-deck>
   <div class="roi-deck-stage" data-roi-deck-stage>
 
-    {# SLIDE 1 — THE PROBLEM #}
-    <section class="roi-slide is-active" data-deck-slide="1" data-deck-title="The Problem">
-      <div class="roi-slide-kicker">The Problem</div>
-      <h2 class="roi-slide-h">Audits Run on <span class="roi-bad">Email, Spreadsheets &amp; Manual Follow-Ups</span></h2>
-      <p class="roi-slide-sub">Evidence is collected again for every framework — slow, costly, repeated.</p>
-    </section>
+    {% set fw = deck.frameworks %}
+    {% set fte = deck.fte %}
 
-    {# SLIDE 2 — THE ECS SHIFT #}
-    <section class="roi-slide" data-deck-slide="2" data-deck-title="The ECS Shift">
-      <div class="roi-slide-kicker">The ECS Shift</div>
-      <h2 class="roi-slide-h">Collect Evidence <span class="roi-accent">Once</span>, Reuse <span class="roi-accent">Everywhere</span></h2>
-      <p class="roi-slide-sub">One control library powers every framework, automatically.</p>
-    </section>
-
-    {# SLIDE 3 — ANNUAL VALUE CREATION (3 KPIs) #}
-    <section class="roi-slide roi-slide-hero" data-deck-slide="3" data-deck-title="Annual Value Creation">
-      <div class="roi-slide-kicker">Annual Value Creation</div>
-      <h2 class="roi-slide-h">Value Compounds Every Year</h2>
-      <div class="roi-slide-3up">
-        <div class="roi-big"><div class="roi-big-v" data-deck-bind="per_50_apps_display">{{ deck.per_50_apps_display }}</div><div class="roi-big-l">Year-1 Savings</div></div>
-        <div class="roi-big roi-big-pos"><div class="roi-big-v" data-deck-bind="gross_benefit_display">{{ deck.gross_benefit_display }}</div><div class="roi-big-l">5-Year Gross Benefit</div></div>
-        <div class="roi-big roi-big-gold"><div class="roi-big-v" data-deck-bind="payback">{{ deck.payback }}</div><div class="roi-big-l">Payback Achieved</div></div>
+    {# SLIDE 1 — FRAMEWORK VALUE REALIZATION (KPIs + table + horizontal bar chart) #}
+    <section class="roi-slide is-active roi-slide-fw" data-deck-slide="1" data-deck-title="Framework Value Realization">
+      <h2 class="roi-slide-h">Framework Value Realization</h2>
+      <p class="roi-slide-sub">Annual savings generated through ECS evidence reuse and automation.</p>
+      <div class="roi-kpi-row">
+        <div class="roi-kpi"><div class="roi-kpi-v">{{ fw.kpis.frameworks_covered }}</div><div class="roi-kpi-l">Audit &amp; Compliance Frameworks Automated</div></div>
+        <div class="roi-kpi"><div class="roi-kpi-v">{{ fw.kpis.applications_covered }}</div><div class="roi-kpi-l">Applications Onboarded</div></div>
+        <div class="roi-kpi"><div class="roi-kpi-v">{{ fw.kpis.hours_saved_display }}</div><div class="roi-kpi-l">Hours Saved</div></div>
+        <div class="roi-kpi"><div class="roi-kpi-v">{{ fw.kpis.emails_saved_display }}</div><div class="roi-kpi-l">Emails Eliminated</div></div>
+        <div class="roi-kpi roi-kpi-gold"><div class="roi-kpi-v">{{ fw.kpis.annual_savings_display }}</div><div class="roi-kpi-l">Annual Savings</div></div>
       </div>
-    </section>
-
-    {# SLIDE 4 — VALUE GROWTH OVER TIME (BAR CHART) #}
-    <section class="roi-slide roi-slide-chart" data-deck-slide="4" data-deck-title="Value Growth Over Time">
-      <div class="roi-slide-kicker">Value Growth Over Time</div>
-      <h2 class="roi-slide-h">Net Benefit by Year <span class="roi-chart-unit">(₹ Cr)</span></h2>
-      <div class="roi-chart" data-deck-chart>
-        {% for i in range(chart.labels|length) %}
-        <div class="roi-bar-col" data-bar-col="{{ i }}">
-          <div class="roi-bar-val" data-bar-val>{{ chart.net_display[i] }}</div>
-          <div class="roi-bar-track">
-            <div class="roi-bar-fill" data-bar-fill style="height: {{ (chart.net[i] / chart.max_net * 100)|round(1) }}%"></div>
+      <div class="roi-fw-split">
+        <div class="roi-fw-tablewrap">
+          <table class="roi-exec-table roi-fw-table ecs-no-paginate">
+            <thead>
+              <tr>
+                <th>Framework</th><th class="num">Apps</th><th class="num">Obs/App</th>
+                <th class="num">Total Obs</th><th class="num">Emails Saved</th>
+                <th class="num">Hours Saved</th><th class="num">Annual (Cr)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in fw.rows %}
+              <tr>
+                <td>{{ r.name }}</td><td class="num">{{ r.applications }}</td>
+                <td class="num">{{ r.obs_per_app_display }}</td>
+                <td class="num">{{ r.total_observations_display }}</td>
+                <td class="num">{{ r.emails_saved_display }}</td>
+                <td class="num">{{ r.hours_saved_display }}</td>
+                <td class="num roi-cell-gold">{{ r.annual_saving_display }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="roi-fw-chart">
+          <div class="roi-hbar-title">Annual Savings by Framework <span class="roi-chart-unit">(₹ Cr)</span></div>
+          <div class="roi-hbar">
+            {% for c in fw.chart.rows %}
+            <div class="roi-hbar-row">
+              <div class="roi-hbar-lbl">{{ c.name }}</div>
+              <div class="roi-hbar-track"><div class="roi-hbar-fill" style="width: {{ c.pct }}%"></div></div>
+              <div class="roi-hbar-val">{{ c.display }}</div>
+            </div>
+            {% endfor %}
           </div>
-          <div class="roi-bar-x" data-bar-x>{{ chart.labels[i] }}</div>
         </div>
-        {% endfor %}
       </div>
     </section>
 
-    {# SLIDE 5 — SCALE-UP STORY #}
-    <section class="roi-slide" data-deck-slide="5" data-deck-title="Scale-Up Story">
-      <div class="roi-slide-kicker">Scale-Up Story</div>
-      <h2 class="roi-slide-h">More Applications, <span class="roi-accent">More Value</span></h2>
-      <div class="roi-scaleup" data-deck-scaleup>
-        {% for s in deck.scaleup %}
-        <div class="roi-scaleup-step is-shown" data-scaleup-step="{{ loop.index0 }}">
-          <span class="roi-scaleup-apps">{{ s.applications }} Apps</span>
-          <span class="roi-scaleup-arr">→</span>
-          <span class="roi-scaleup-val">{{ s.annual_savings_display }}</span>
+    {# SLIDE 2 — FTE PRODUCTIVITY REALIZATION (KPIs + comparison + statement + bar) #}
+    <section class="roi-slide roi-slide-fte" data-deck-slide="2" data-deck-title="FTE Productivity Realization">
+      <h2 class="roi-slide-h">FTE Productivity Realization</h2>
+      <p class="roi-slide-sub">Business capacity returned through ECS automation.</p>
+      <div class="roi-kpi-row">
+        <div class="roi-kpi"><div class="roi-kpi-v">{{ fte.hours_saved_display }}</div><div class="roi-kpi-l">Hours Saved</div></div>
+        <div class="roi-kpi"><div class="roi-kpi-v">{{ fte.cost_per_hour_display }}</div><div class="roi-kpi-l">Cost Per Hour</div></div>
+        <div class="roi-kpi roi-kpi-gold"><div class="roi-kpi-v">{{ fte.annual_savings_display }}</div><div class="roi-kpi-l">Annual Savings</div></div>
+        <div class="roi-kpi"><div class="roi-kpi-v">{{ fte.avg_salary_display }}</div><div class="roi-kpi-l">Average Salary</div></div>
+        <div class="roi-kpi roi-kpi-accent"><div class="roi-kpi-v">{{ fte.fte_equivalent }}</div><div class="roi-kpi-l">FTE Equivalent</div></div>
+      </div>
+      <div class="roi-fte-mid">
+        <div class="roi-fte-compare">
+          <div class="roi-fte-side roi-fte-bad">
+            <div class="roi-fte-side-h">Without ECS</div>
+            <div class="roi-fte-side-v">{{ fte.without_ecs_fte }}</div>
+            <div class="roi-fte-side-l">FTE Required</div>
+          </div>
+          <div class="roi-fte-vs">vs</div>
+          <div class="roi-fte-side roi-fte-good">
+            <div class="roi-fte-side-h">With ECS</div>
+            <div class="roi-fte-side-v">{{ fte.with_ecs_fte }}</div>
+            <div class="roi-fte-side-l">Additional FTE Required</div>
+          </div>
         </div>
-        {% endfor %}
+        <div class="roi-fte-chart">
+          {% for b in fte.chart %}
+          <div class="roi-bar-col">
+            <div class="roi-bar-val">{{ b.display }}</div>
+            <div class="roi-bar-track"><div class="roi-bar-fill" style="height: {{ b.pct }}%"></div></div>
+            <div class="roi-bar-x">{{ b.label }}</div>
+          </div>
+          {% endfor %}
+        </div>
       </div>
+      <div class="roi-fte-statement">{{ fte.statement }}</div>
     </section>
 
-    {# SLIDE 6 — EXECUTIVE SUMMARY (hero net benefit + 3 KPIs) #}
-    <section class="roi-slide roi-slide-summary" data-deck-slide="6" data-deck-title="Executive Summary">
-      <div class="roi-slide-kicker">Executive Summary</div>
-      <div class="roi-hero-number"><span data-deck-bind="net_benefit_display">{{ deck.net_benefit_display }}</span></div>
-      <div class="roi-hero-label">5-Year Net Benefit</div>
-      <div class="roi-slide-3up roi-slide-3up-sm">
-        <div class="roi-big"><div class="roi-big-v" data-deck-bind="applications_covered">{{ deck.applications_covered }}</div><div class="roi-big-l">Applications Covered</div></div>
-        <div class="roi-big roi-big-pos"><div class="roi-big-v" data-deck-bind="gross_benefit_display">{{ deck.gross_benefit_display }}</div><div class="roi-big-l">5-Year Gross Benefit</div></div>
-        <div class="roi-big roi-big-gold"><div class="roi-big-v" data-deck-bind="payback">{{ deck.payback }}</div><div class="roi-big-l">Payback</div></div>
+    {# SLIDE 3 — EXECUTIVE VALUE DASHBOARD (5-year table + bar chart + callout) #}
+    <section class="roi-slide roi-slide-dash" data-deck-slide="3" data-deck-title="Executive Value Dashboard">
+      <h2 class="roi-slide-h">Executive Value Dashboard</h2>
+      <p class="roi-slide-sub">Enterprise scale value realization.</p>
+      <div class="roi-dash-split">
+        <div class="roi-dash-tablewrap">
+          <table class="roi-exec-table roi-dash-table ecs-no-paginate">
+            <thead>
+              <tr><th>Metric</th>{% for r in deck.rows %}<th class="num">Year {{ r.year }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+              <tr><td>Applications</td>{% for r in deck.rows %}<td class="num">{{ r.applications }}</td>{% endfor %}</tr>
+              <tr><td>Annual Savings (Cr)</td>{% for r in deck.rows %}<td class="num">{{ r.annual_savings_cr }}</td>{% endfor %}</tr>
+              <tr><td>Cumulative Savings (Cr)</td>{% for r in deck.rows %}<td class="num">{{ r.cumulative_savings_cr }}</td>{% endfor %}</tr>
+              <tr><td>ECS Cost (Cr)</td>{% for r in deck.rows %}<td class="num">{{ r.ecs_cost_cr }}</td>{% endfor %}</tr>
+              <tr><td>Cumulative Cost (Cr)</td>{% for r in deck.rows %}<td class="num">{{ r.cumulative_cost_cr }}</td>{% endfor %}</tr>
+              <tr><td>Net Benefit (Cr)</td>{% for r in deck.rows %}<td class="num roi-cell-gold">{{ r.net_benefit_cr }}</td>{% endfor %}</tr>
+              <tr><td>Payback Status</td>{% for r in deck.rows %}<td class="num roi-cell-ok">Achieved</td>{% endfor %}</tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="roi-dash-chart">
+          <div class="roi-hbar-title">Net Benefit by Year <span class="roi-chart-unit">(₹ Cr)</span></div>
+          <div class="roi-chart">
+            {% for i in range(chart.labels|length) %}
+            <div class="roi-bar-col">
+              <div class="roi-bar-val">{{ chart.net[i] }}</div>
+              <div class="roi-bar-track"><div class="roi-bar-fill" style="height: {{ (chart.net[i] / chart.max_net * 100)|round(1) }}%"></div></div>
+              <div class="roi-bar-x">{{ chart.labels[i] }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
-    </section>
-
-    {# SLIDE 7 — APPROVAL RECOMMENDATION #}
-    <section class="roi-slide roi-slide-approve" data-deck-slide="7" data-deck-title="Approval Recommendation">
-      <div class="roi-slide-kicker">Recommendation</div>
-      <h2 class="roi-slide-h">Approve Enterprise Roll-Out of <span class="roi-accent">ECS</span></h2>
-      <div class="roi-approve-line">
-        <span class="roi-approve-pill">Payback in <b data-deck-bind="payback">{{ deck.payback }}</b></span>
-        <span class="roi-approve-pill roi-approve-pill-gold"><b data-deck-bind="net_benefit_display">{{ deck.net_benefit_display }}</b> 5-Year Net Benefit</span>
+      <div class="roi-dash-callout">
+        <div class="roi-callout-item"><b>{{ last.applications }}</b><span>Applications</span></div>
+        <div class="roi-callout-item roi-callout-gold"><b>{{ last.net_benefit_display }}</b><span>Net Benefit</span></div>
+        <div class="roi-callout-item roi-callout-ok"><b>Year 1</b><span>Payback Achieved</span></div>
+        <div class="roi-callout-item"><b>{{ deck.steady_cost_display }}</b><span>Annual Operating Cost</span></div>
       </div>
     </section>
 
@@ -143,7 +197,7 @@
   <div class="roi-deck-nav">
     <button class="roi-deck-btn" data-deck-prev type="button" aria-label="Previous slide">‹ Previous</button>
     <div class="roi-deck-dots" data-deck-dots></div>
-    <span class="roi-deck-count"><b data-deck-current>1</b> / 7</span>
+    <span class="roi-deck-count"><b data-deck-current>1</b> / 3</span>
     <button class="roi-deck-btn" data-deck-next type="button" aria-label="Next slide">Next ›</button>
     <button class="roi-deck-btn" data-deck-present type="button" aria-label="Presentation mode">⛶ Present</button>
     <button class="roi-deck-btn roi-deck-exit" data-deck-exit type="button" hidden>✕ Exit</button>
