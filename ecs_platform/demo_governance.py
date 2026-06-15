@@ -17,12 +17,22 @@ from typing import Any
 
 from ecs_platform import demo_evidence
 
-_FRAMEWORKS = ["PCI-DSS", "ISO27001", "SOC2", "RBI-CSF", "AI-SDLC", "DPSC", "VAPT"]
+_FRAMEWORKS = [
+    "PCI-DSS", "ISO27001", "SOC2", "RBI-CSF", "AI-SDLC", "DPSC", "VAPT", "ITPP",
+    "ITDRM", "MBSS", "ASST", "IS-Audit", "CSITE", "OS-Baselining", "DB-Baselining",
+    "Middleware-Baselining", "TPRM",
+]
 _CRITICALITY = ["Critical", "High", "Medium", "Low"]
 _LIFECYCLE = ["Active", "In Onboarding", "Decommissioning"]
 _REVIEW_STATES = ["Collected", "UnderReview", "Approved", "Rejected", "Expired"]
-_OWNERS = ["R. Mehta", "A. Sharma", "K. Reddy", "S. Banerjee", "M. D'Souza", "P. Nair", "V. Desai"]
-_BU = ["Retail Banking", "Corporate Banking", "Treasury", "Risk & Compliance", "Digital", "Operations"]
+_OWNERS = ["R. Mehta", "A. Sharma", "K. Reddy", "S. Banerjee", "M. D'Souza", "P. Nair", "V. Desai",
+           "S. Nair", "N. Iyer", "T. Kapoor", "L. Menon", "J. Patel"]
+_BU = [
+    "Retail Banking", "Corporate Banking", "Treasury", "Risk & Compliance", "Digital Banking",
+    "Operations", "Wealth Management", "Cards & Payments", "Trade Finance", "Technology",
+    "Information Security", "Internal Audit",
+]
+_REGIONS = ["North", "South", "East", "West", "Central"]
 _ANCHOR = date(2026, 5, 29)
 
 
@@ -71,7 +81,7 @@ def _controls() -> list[dict[str, Any]]:
     domains = ["Access Control", "Cryptography", "Network Security", "Logging & Monitoring",
                "Change Management", "DR & BCP", "Data Protection", "Incident Response"]
     out: list[dict[str, Any]] = []
-    for i in range(120):
+    for i in range(320):
         s = _seed("gov-ctrl", i)
         fw = _pick(s, _FRAMEWORKS)
         out.append({
@@ -282,3 +292,115 @@ def governance_scorecard(role: str = "cio") -> dict[str, Any]:
             },
             "by_criticality": inv["by_criticality"], "by_source": counts["by_source"],
             "frameworks": fw["frameworks"], "lifecycle": lc, "per_app": ready["per_app"]}
+
+
+# ---- supplementary enterprise demo datasets --------------------------------
+def _app_names() -> list[str]:
+    return [a["name"] for a in _applications()]
+
+
+def servicenow_tickets(count: int = 80) -> list[dict[str, Any]]:
+    apps = _app_names()
+    types = ["Change", "Incident", "Problem", "Request"]
+    states = ["New", "In Progress", "Awaiting Approval", "Resolved", "Closed"]
+    prios = ["P1", "P2", "P3", "P4"]
+    out = []
+    for i in range(count):
+        s = _seed("snow", i)
+        out.append({
+            "ticket_id": f"INC{100000 + (s % 800000)}", "type": _pick(s, types),
+            "title": f"{_pick(s >> 4, apps)} — {_pick(s, types).lower()} #{i + 1}",
+            "application": _pick(s >> 4, apps), "framework": _pick(s >> 8, _FRAMEWORKS),
+            "state": _pick(s >> 12, states), "priority": _pick(s >> 16, prios),
+            "owner": _pick(s >> 20, _OWNERS),
+            "opened": (_ANCHOR - timedelta(days=(s % 120))).strftime("%Y-%m-%d"),
+        })
+    return out
+
+
+def vapt_findings(count: int = 40) -> list[dict[str, Any]]:
+    apps = _app_names()
+    sev = ["Critical", "High", "Medium", "Low"]
+    titles = ["SQL Injection", "XSS", "Broken Auth", "Sensitive Data Exposure",
+              "Misconfiguration", "Outdated Component", "SSRF", "IDOR", "Weak Crypto", "CSRF"]
+    stat = ["Open", "In Remediation", "Retest Pending", "Closed"]
+    out = []
+    for i in range(count):
+        s = _seed("vapt", i)
+        out.append({
+            "finding_id": f"VAPT-{2000 + i}", "title": _pick(s, titles),
+            "application": _pick(s >> 4, apps), "severity": _pick(s >> 8, sev),
+            "cvss": round(2 + (s % 80) / 10, 1), "status": _pick(s >> 12, stat),
+            "owner": _pick(s >> 16, _OWNERS),
+            "discovered": (_ANCHOR - timedelta(days=(s % 200))).strftime("%Y-%m-%d"),
+        })
+    return out
+
+
+def audit_observations(count: int = 120) -> list[dict[str, Any]]:
+    apps = _app_names()
+    sev = ["Critical", "High", "Medium", "Low"]
+    stat = ["Open", "Submitted", "Under Review", "Accepted", "Closed", "Rejected"]
+    cats = ["Access Control", "Change Management", "Logging", "DR/BCP", "Data Protection",
+            "Vendor Risk", "Patch Management", "Segregation of Duties"]
+    out = []
+    for i in range(count):
+        s = _seed("obs", i)
+        opened = _ANCHOR - timedelta(days=(s % 300))
+        out.append({
+            "observation_id": f"OBS-{5000 + i}", "category": _pick(s, cats),
+            "application": _pick(s >> 4, apps), "framework": _pick(s >> 8, _FRAMEWORKS),
+            "severity": _pick(s >> 12, sev), "status": _pick(s >> 16, stat),
+            "owner": _pick(s >> 20, _OWNERS), "raised_by": _pick(s >> 22, _OWNERS),
+            "opened": opened.strftime("%Y-%m-%d"),
+            "due": (opened + timedelta(days=30 + (s % 60))).strftime("%Y-%m-%d"),
+        })
+    return out
+
+
+def ai_prompts(count: int = 100) -> list[dict[str, Any]]:
+    apps = _app_names()
+    stages = ["Requirements", "Design", "Development", "Testing", "Go-Live"]
+    stat = ["Approved", "Pending Review", "Flagged", "Remediated"]
+    out = []
+    for i in range(count):
+        s = _seed("aiprompt", i)
+        halluc = (s % 9 == 0)
+        out.append({
+            "prompt_id": f"AIP-{3000 + i}", "application": _pick(s, apps),
+            "stage": _pick(s >> 4, stages), "model": _pick(s >> 8, ["GPT-4o", "Claude", "Llama-3", "Gemini"]),
+            "status": "Flagged" if halluc else _pick(s >> 12, stat),
+            "hallucination": halluc, "risk_score": 10 + (s % 90),
+            "reviewer": _pick(s >> 16, _OWNERS),
+            "audited": (_ANCHOR - timedelta(days=(s % 90))).strftime("%Y-%m-%d"),
+        })
+    return out
+
+
+def regions() -> list[dict[str, Any]]:
+    out = []
+    for r in _REGIONS:
+        s = _seed("region", r)
+        out.append({
+            "region": r, "applications": 40 + (s % 60),
+            "score": 62 + (s % 35), "open_observations": 20 + (s % 120),
+            "critical_findings": 2 + (s % 18),
+        })
+    return out
+
+
+def coverage_summary() -> dict[str, Any]:
+    """Single call returning every threshold dataset (for inventory/coverage reporting)."""
+    return {
+        "applications": list_applications()["total"],
+        "frameworks": len(_FRAMEWORKS),
+        "controls": control_coverage()["total_controls"],
+        "evidence": demo_evidence.counts()["total"],
+        "tickets": len(servicenow_tickets()),
+        "vapt_findings": len(vapt_findings()),
+        "audit_observations": len(audit_observations()),
+        "ai_prompts": len(ai_prompts()),
+        "business_units": len(_BU),
+        "regions": len(_REGIONS),
+        "connectors": len(demo_evidence.DEMO_SOURCES),
+    }
