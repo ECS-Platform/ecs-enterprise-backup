@@ -20,7 +20,7 @@ from ecs_platform import demo_evidence
 _FRAMEWORKS = [
     "PCI-DSS", "ISO27001", "SOC2", "RBI-CSF", "AI-SDLC", "DPSC", "VAPT", "ITPP",
     "ITDRM", "MBSS", "ASST", "IS-Audit", "CSITE", "OS-Baselining", "DB-Baselining",
-    "Middleware-Baselining", "TPRM",
+    "Middleware-Baselining", "TPRM", "SWIFT-CSP", "DPDP", "AppSec",
 ]
 _CRITICALITY = ["Critical", "High", "Medium", "Low"]
 _LIFECYCLE = ["Active", "In Onboarding", "Decommissioning"]

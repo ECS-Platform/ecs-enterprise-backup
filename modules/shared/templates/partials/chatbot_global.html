@@ -1,4 +1,4 @@
-<div class="chat-popup ecs-chat-copilot ecs-chat-size-md" id="ecsChatCopilot" data-state="expanded" data-dock="right">
+<div class="chat-popup ecs-chat-copilot ecs-chat-size-md" id="ecsChatCopilot" data-state="minimized" data-dock="right">
 <button type="button" class="ecs-chat-fab" id="ecsChatFab" title="Open ECS AI Copilot" aria-label="Open copilot">
 <span class="ecs-chat-fab-icon">✦</span>
 <span class="badge bg-danger ecs-chat-fab-badge" id="ecsChatFabBadge" style="display:none">0</span>
@@ -284,10 +284,15 @@
     var size = s.size || (window.innerWidth < 768 ? 'sm' : 'md');
     setSize(size);
     var state = s.state;
-    if (window.innerWidth < 768 && !s.state) state = 'minimized';
+    // Default to a non-overlapping state on first load so dashboards/charts stay
+    // fully visible at executive-demo viewports. Expand only when the user has a
+    // saved preference, on small screens we always minimise, and we surface new
+    // responses via the unread badge below rather than auto-expanding.
+    if (!state) state = 'minimized';
     if (state === 'minimized') setState('minimized');
     else if (state === 'closed') setState('closed');
-    else setState('expanded');
+    else if (state === 'expanded') setState('expanded');
+    else setState('minimized');
     if (hasNewResponse && copilot.getAttribute('data-state') !== 'expanded') {
       var unread = (s.unread || 0) + 1;
       saveState({ unread: unread });

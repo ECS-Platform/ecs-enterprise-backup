@@ -100,7 +100,10 @@ def build_pan_india_posture() -> dict:
             "risk_level": risk,
             "risk": risk,
             "owner": OWNERS[_seed(region, 0, len(OWNERS) - 1)],
-            "framework": FRAMEWORKS[_seed(region, 0, len(FRAMEWORKS) - 1)],
+            # Regions span every framework (see framework_matrix below); a single
+            # framework here would wrongly exclude the region under a framework
+            # filter. Use a wildcard so the regions tab is never zeroed.
+            "framework": "All Frameworks",
             "status": "At Risk" if risk == "High" else "Monitoring",
         })
         for fw in FRAMEWORKS[:10]:

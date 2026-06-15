@@ -1,25 +1,48 @@
-# Phase 2 — DEMO_MODE Validation
+# ECS Demo Mode — Permanent Fix Validation
 
-Tested live against http://127.0.0.1:8000 with **no Authorization header, no token, no JWT, no Azure AD**.
+**Objective:** Guarantee `DEMO_MODE` / `ECS_AUTH_ENABLED` are loaded from `.env`
+into `os.environ` at process start (before any authentication initialisation),
+so browser refresh never triggers an auth failure in demo mode.
 
-Result: **all 66 navigation routes load (HTTP 200), zero 401/403, zero unauthorized.**
+## Changes
+1. **`python-dotenv` added** to `requirements.txt` and installed in the runtime
+   interpreter (`python-dotenv==1.2.2`).
+2. **`app/env_bootstrap.py`** (new): loads the repo-root `.env` into
+   `os.environ` exactly once, using `python-dotenv` when available and a tiny
+   built-in parser as a fallback. `override=False` so container/CI env still
+   wins. Never raises.
+3. **`app/main.py`**: `from app import env_bootstrap` is now the **first import**
+   (before `app.*` / `modules.*` / auth), so the flags exist by the time
+   authentication, RBAC and page guards initialise.
+4. **Startup logging** added to the lifespan:
+   ```
+   ECS Startup
+   DEMO_MODE=<value>
+   ECS_AUTH_ENABLED=<value>
+   .env loaded=<bool> via <parser>
+   ```
 
-401/403 occurrences: 0
+## Verification (live server)
 
-| Route family | Routes | All HTTP 200 | 401/403 | Token required |
-|---|---|---|---|---|
-| /dashboard | 5 | Yes | 0 | No |
-| /mvp/* | 56 | Yes | 0 | No |
-| /framework/* | 5 | Yes | 0 | No |
-| operations / governance / evidence (/mvp/platform/*) | 11 | Yes | 0 | No |
-| /ai-sdlc/* | 11 | Yes | 0 | No |
-| /mvp/roi (ROI) | 1 | Yes | 0 | No |
+Startup log:
+```
+[ECSStartup] ECS Startup
+[ECSStartup] DEMO_MODE=true
+[ECSStartup] ECS_AUTH_ENABLED=false
+[ECSStartup] .env loaded=True via python-dotenv
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000
+```
 
-## Bypass mechanism
+HTTP checks:
+| Request | Result |
+|---|---|
+| `GET /dashboard?role=cio&user=cio` | 200 |
+| `GET /mvp/enterprise?role=auditor&user=auditor` | 200 |
+| `GET /dashboard` (no role — refresh/auth-bounce test) | 200 (no redirect to login) |
 
-- `DEMO_MODE=true` -> `app/auth/demo.py:demo_mode()` returns True.
-- `app/auth/middleware.py`: authentication bypassed for every route.
-- `app/auth/page_guard.py` + `app/auth/enforcement.py`: page guard & RBAC enforcement disabled.
-- No Azure AD / OIDC / JWT / Authorization header needed for any page.
-
-Sample probed without headers: /dashboard, /mvp/roi, /framework/PCI-DSS, /mvp/platform/scorecard, /mvp/ai-sdlc/requirements -> all 200.
+## Result
+- `.env` values are loaded automatically at startup. ✅
+- `DEMO_MODE=true` and `ECS_AUTH_ENABLED=false` confirmed in process env. ✅
+- Startup banner present. ✅
+- No authentication failure on refresh / token-free navigation. ✅

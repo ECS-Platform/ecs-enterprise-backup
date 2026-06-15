@@ -18,6 +18,43 @@
 {% if role_metrics.national_score is defined %}
 <span class="badge bg-primary">{{ role_metrics.national_score }}% National</span>
 {% endif %}
+{% if role_metrics.audit_readiness_pct is defined %}
+<span class="badge bg-info text-dark me-1">{{ role_metrics.audit_readiness_pct }}% Audit Ready</span>
+{% endif %}
+{# ---- Part 5: persona-specific KPI badges ---- #}
+{% if role_metrics.critical_vulns is defined %}<span class="badge bg-danger me-1">{{ role_metrics.critical_vulns }} Critical Vulns</span>{% endif %}
+{% if role_metrics.vapt_open is defined %}<span class="badge bg-warning text-dark me-1">{{ role_metrics.vapt_open }} VAPT Open</span>{% endif %}
+{% if role_metrics.mttr_days is defined %}<span class="badge bg-secondary me-1">MTTR {{ role_metrics.mttr_days }}d</span>{% endif %}
+{% if role_metrics.security_score is defined %}<span class="badge bg-primary me-1">{{ role_metrics.security_score }}% Security</span>{% endif %}
+{% if role_metrics.collection_jobs_today is defined %}<span class="badge bg-primary me-1">{{ role_metrics.collection_jobs_today }} Jobs Today</span>{% endif %}
+{% if role_metrics.failed_jobs is defined %}<span class="badge bg-danger me-1">{{ role_metrics.failed_jobs }} Failed</span>{% endif %}
+{% if role_metrics.connector_health_pct is defined %}<span class="badge bg-success me-1">{{ role_metrics.connector_health_pct }}% Connectors</span>{% endif %}
+{% if role_metrics.evidence_collected_today is defined %}<span class="badge bg-info text-dark me-1">{{ role_metrics.evidence_collected_today }} Evidence</span>{% endif %}
+{% if role_metrics.active_connectors is defined %}<span class="badge bg-primary me-1">{{ role_metrics.active_connectors }} Connectors</span>{% endif %}
+{% if role_metrics.sync_runs_today is defined %}<span class="badge bg-secondary me-1">{{ role_metrics.sync_runs_today }} Syncs</span>{% endif %}
+{% if role_metrics.platform_uptime_pct is defined %}<span class="badge bg-success me-1">{{ role_metrics.platform_uptime_pct }}% Uptime</span>{% endif %}
+{% if role_metrics.open_risks is defined %}<span class="badge bg-warning text-dark me-1">{{ role_metrics.open_risks }} Open Risks</span>{% endif %}
+{% if role_metrics.high_critical_risks is defined %}<span class="badge bg-danger me-1">{{ role_metrics.high_critical_risks }} High/Critical</span>{% endif %}
+{% if role_metrics.exceptions_active is defined %}<span class="badge bg-secondary me-1">{{ role_metrics.exceptions_active }} Exceptions</span>{% endif %}
+{% if role_metrics.governance_score is defined %}<span class="badge bg-primary me-1">{{ role_metrics.governance_score }}% Governance</span>{% endif %}
+{% if role_metrics.frameworks_owned is defined %}<span class="badge bg-primary me-1">{{ role_metrics.frameworks_owned }} Frameworks</span>{% endif %}
+{% if role_metrics.control_coverage_pct is defined %}<span class="badge bg-info text-dark me-1">{{ role_metrics.control_coverage_pct }}% Coverage</span>{% endif %}
+{% if role_metrics.open_gaps is defined %}<span class="badge bg-warning text-dark me-1">{{ role_metrics.open_gaps }} Gaps</span>{% endif %}
+{% if role_metrics.ai_systems_governed is defined %}<span class="badge bg-primary me-1">{{ role_metrics.ai_systems_governed }} AI Systems</span>{% endif %}
+{% if role_metrics.prompt_audits is defined %}<span class="badge bg-secondary me-1">{{ role_metrics.prompt_audits }} Prompt Audits</span>{% endif %}
+{% if role_metrics.hallucination_rate_pct is defined %}<span class="badge bg-warning text-dark me-1">{{ role_metrics.hallucination_rate_pct }}% Hallucination</span>{% endif %}
+{% if role_metrics.ai_risk_score is defined %}<span class="badge bg-primary me-1">{{ role_metrics.ai_risk_score }}% AI Risk</span>{% endif %}
+{% if role_metrics.applications_in_sdlc is defined %}<span class="badge bg-primary me-1">{{ role_metrics.applications_in_sdlc }} Apps in SDLC</span>{% endif %}
+{% if role_metrics.stage_gates_passed is defined %}<span class="badge bg-success me-1">{{ role_metrics.stage_gates_passed }} Gates Passed</span>{% endif %}
+{% if role_metrics.sast_findings_open is defined %}<span class="badge bg-danger me-1">{{ role_metrics.sast_findings_open }} SAST Open</span>{% endif %}
+{% if role_metrics.release_readiness_pct is defined %}<span class="badge bg-info text-dark me-1">{{ role_metrics.release_readiness_pct }}% Release Ready</span>{% endif %}
+{% if role_metrics.audit_completion is defined %}<span class="badge bg-success me-1">{{ role_metrics.audit_completion }} Audit Complete</span>{% endif %}
+{% if role_metrics.evidence_artefacts is defined %}<span class="badge bg-info text-dark me-1">{{ role_metrics.evidence_artefacts }} Artefacts</span>{% endif %}
+{% if role_metrics.resubmits_required is defined %}<span class="badge bg-warning text-dark me-1">{{ role_metrics.resubmits_required }} Resubmits</span>{% endif %}
+{% if role_metrics.applications_owned is defined %}<span class="badge bg-primary me-1">{{ role_metrics.applications_owned }} Applications Owned</span>{% endif %}
+{% if role_metrics.owner_open_observations is defined %}<span class="badge bg-info text-dark me-1">{{ role_metrics.owner_open_observations }} Open Observations</span>{% endif %}
+{% if role_metrics.evidence_pending is defined %}<span class="badge bg-warning text-dark me-1">{{ role_metrics.evidence_pending }} Evidence Pending</span>{% endif %}
+{% if role_metrics.owner_sla_breaches is defined %}<span class="badge bg-danger me-1">{{ role_metrics.owner_sla_breaches }} SLA Breaches</span>{% endif %}
 </div>
 </div>
 </div>

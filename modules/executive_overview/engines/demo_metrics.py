@@ -146,12 +146,21 @@ def role_dashboard_metrics(role: str) -> dict:
         }
     if role == "owner":
         owner_q = len(build_owner_work_queue())
+        try:
+            apps_owned = len(ecs_state.onboarded_applications)
+        except Exception:
+            apps_owned = 6
         return {
-            "title": "",
+            "title": "Application Owner Summary",
             "summary": "",
-            "show_strip": False,
+            "show_strip": True,
             "pending_tasks": owner_q or (t["pending"] + t["rejected"]),
             "resubmits_required": t["rejected"],
+            "applications_owned": apps_owned,
+            "owner_open_observations": t["pending"] + t["submitted"],
+            "evidence_pending": t["pending"],
+            "owner_sla_breaches": 9,
+            "audit_readiness_pct": 83.5,
         }
     if role in ("compliance_head", "compliance_officer"):
         return {
@@ -187,7 +196,84 @@ def role_dashboard_metrics(role: str) -> dict:
             "audit_readiness_pct": 82.4,
             "summary": "",
         }
-    return {"title": "", "show_strip": False, "summary": "", "pending_tasks": 0}
+    # ---- Part 5: dedicated persona metric profiles (distinct KPIs per role) ----
+    if role in ("security_officer", "ciso"):
+        return {
+            "title": "Security Posture",
+            "show_strip": True,
+            "pending_tasks": pending_approvals,
+            "critical_vulns": 12,
+            "vapt_open": 38,
+            "mttr_days": 6.4,
+            "security_score": 79.5,
+            "summary": "",
+        }
+    if role in ("operations_owner", "it_operations", "it_ops"):
+        return {
+            "title": "Operations Control Room",
+            "show_strip": True,
+            "pending_tasks": pending_approvals,
+            "collection_jobs_today": 142,
+            "failed_jobs": 7,
+            "connector_health_pct": 96.1,
+            "evidence_collected_today": 1840,
+            "summary": "",
+        }
+    if role in ("platform_operations", "platform_ops"):
+        return {
+            "title": "Platform Operations",
+            "show_strip": True,
+            "pending_tasks": pending_approvals,
+            "active_connectors": 12,
+            "sync_runs_today": 53,
+            "platform_uptime_pct": 99.7,
+            "summary": "",
+        }
+    if role in ("governance_lead", "governance_team", "risk_team"):
+        return {
+            "title": "Governance & Risk Summary",
+            "show_strip": True,
+            "pending_tasks": pending_approvals,
+            "open_risks": 46,
+            "high_critical_risks": 11,
+            "exceptions_active": 28,
+            "governance_score": 84.0,
+            "summary": "",
+        }
+    if role == "framework_owner":
+        return {
+            "title": "Framework Owner Summary",
+            "show_strip": True,
+            "pending_tasks": pending_approvals,
+            "frameworks_owned": 4,
+            "control_coverage_pct": 81.7,
+            "open_gaps": 23,
+            "summary": "",
+        }
+    if role in ("ai_governance_owner", "ai_governance_team"):
+        return {
+            "title": "AI Governance Summary",
+            "show_strip": True,
+            "pending_tasks": pending_approvals,
+            "ai_systems_governed": 18,
+            "prompt_audits": 100,
+            "hallucination_rate_pct": 2.1,
+            "ai_risk_score": 77.4,
+            "summary": "",
+        }
+    if role == "ai_sdlc_owner":
+        return {
+            "title": "AI SDLC Governance",
+            "show_strip": True,
+            "pending_tasks": pending_approvals,
+            "applications_in_sdlc": 26,
+            "stage_gates_passed": 84,
+            "sast_findings_open": 31,
+            "release_readiness_pct": 88.0,
+            "summary": "",
+        }
+    return {"title": "Executive Summary", "show_strip": True, "summary": "",
+            "pending_tasks": pending_approvals, "audit_readiness_pct": 85.0}
 
 
 def enterprise_kpis():

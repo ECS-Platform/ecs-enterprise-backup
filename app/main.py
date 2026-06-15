@@ -1,4 +1,10 @@
 
+# IMPORTANT: load .env into os.environ BEFORE any other app/* or modules/*
+# import so DEMO_MODE / ECS_AUTH_ENABLED are available when authentication,
+# RBAC and page guards initialise. Must remain the first import.
+from app import env_bootstrap as _env_bootstrap  # noqa: F401  (side-effect: loads .env)
+
+import os
 from contextlib import asynccontextmanager
 from urllib.parse import quote
 
@@ -88,8 +94,16 @@ def _redirect_with_toast(
 @asynccontextmanager
 async def ecs_lifespan(application: FastAPI):
     from modules.shared.services.ecs_logging import configure_logging, log_platform_ready, mark_startup_complete
+    from modules.shared.services import ecs_logging as _ecs_log
+    from app.env_bootstrap import ENV_STATUS
 
     configure_logging()
+    # ---- ECS Startup banner: surface demo-mode flags loaded from .env ----
+    _ecs_log.info("ECSStartup", "ECS Startup")
+    _ecs_log.info("ECSStartup", f"DEMO_MODE={os.environ.get('DEMO_MODE', '')}")
+    _ecs_log.info("ECSStartup", f"ECS_AUTH_ENABLED={os.environ.get('ECS_AUTH_ENABLED', '')}")
+    _ecs_log.info("ECSStartup",
+                  f".env loaded={ENV_STATUS.get('loaded')} via {ENV_STATUS.get('parser')}")
     refresh_repository_from_frameworks(source="startup")
     seed_demo_workflow_state()
     from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
