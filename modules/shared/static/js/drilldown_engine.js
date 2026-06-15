@@ -14,6 +14,13 @@
     return m ? parseFloat(m[1]) : 0;
   }
 
+  // KPI cards bind count to their displayed value (e.g. "94.5%", "12 days").
+  // Sanitize to a plain integer so the backend (count param) never 422s.
+  function safeCount(v) {
+    var m = String(v == null ? '' : v).replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+    return m ? Math.round(parseFloat(m[1])) : 0;
+  }
+
   function slug(s) {
     return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   }
@@ -260,12 +267,19 @@
     });
   }
 
-  var EMPTY_DEFAULT = 'Loading representative ECS records\u2026';
+  var EMPTY_DEFAULT = 'No records found for this selection.';
+  var ERROR_DEFAULT = 'Unable to load records. Please try again.';
 
   function emptyStateHtml(msg) {
     return '<div class="ecs-drill-empty text-center py-4">' +
       '<div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128202;</div>' +
       '<p class="mb-0 text-muted">' + esc(msg || EMPTY_DEFAULT) + '</p></div>';
+  }
+
+  function errorStateHtml(msg) {
+    return '<div class="ecs-drill-error text-center py-4">' +
+      '<div class="mb-2" style="font-size:1.6rem;opacity:.6;">&#9888;&#65039;</div>' +
+      '<p class="mb-0 text-danger">' + esc(msg || ERROR_DEFAULT) + '</p></div>';
   }
 
   function renderResponse(j, title) {
@@ -295,13 +309,44 @@
     if (bodyEl) bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
     var modalEl = document.getElementById('ecsUniversalDrillModal');
     if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    fetch(url).then(function (r) { return r.json(); }).then(function (j) { renderResponse(j, title); })
-      .catch(function () { showModal(title, emptyStateHtml(EMPTY_DEFAULT)); });
+
+    // Failsafe: the spinner must always terminate. Hard timeout guarantees the
+    // loader is replaced with an actionable message even if the request hangs.
+    var settled = false;
+    var timer = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      showModal(title, errorStateHtml('Request timed out. ' + ERROR_DEFAULT));
+    }, 12000);
+
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
+      .then(function (r) {
+        if (!r.ok) { var err = new Error('HTTP ' + r.status); err.__http = r.status; throw err; }
+        return r.json();
+      })
+      .then(function (j) {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+        // Guard render: a rendering exception must surface as an error state,
+        // never as the persistent "Loading" message (root cause of the stuck modal).
+        try { renderResponse(j, title); }
+        catch (renderErr) {
+          if (window.console && console.error) console.error('[ecs-drill] render failed', renderErr, j);
+          showModal(title, errorStateHtml('Could not display records. ' + ERROR_DEFAULT));
+        }
+      })
+      .catch(function (e) {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+        if (window.console && console.error) console.error('[ecs-drill] fetch failed', url, e);
+        showModal(title, errorStateHtml(ERROR_DEFAULT));
+      });
   }
 
   window.ecsOpenUniversalKpiDrill = function (page, metric, label, count, framework) {
     var url = '/api/ecs/universal-drill?scope=kpi&page=' + encodeURIComponent(page || '') +
-      '&metric=' + encodeURIComponent(metric || '') + '&count=' + encodeURIComponent(count || 0) +
+      '&metric=' + encodeURIComponent(metric || '') + '&count=' + safeCount(count) +
       '&framework=' + encodeURIComponent(framework || '') + '&label=' + encodeURIComponent(label || '') +
       '&role=' + encodeURIComponent(window.__ecsRole || 'cio');
     fetchJson(url, label || metric);
@@ -316,7 +361,7 @@
   window.ecsOpenUniversalChartDrill = function (page, chart, element, count) {
     fetchJson('/api/ecs/universal-drill?scope=chart&page=' + encodeURIComponent(page || '') +
       '&chart=' + encodeURIComponent(chart || '') + '&element=' + encodeURIComponent(element || '') +
-      '&count=' + encodeURIComponent(count || 0) +
+      '&count=' + safeCount(count) +
       '&role=' + encodeURIComponent(window.__ecsRole || 'cio'), chart + ' — ' + element);
   };
 
@@ -328,7 +373,7 @@
 
   window.ecsOpenEnterpriseWorkflowDrill = function (metric, label, count) {
     fetchJson('/api/ecs/workflow-drill?metric=' + encodeURIComponent(metric || '') +
-      '&count=' + encodeURIComponent(count || 0) + '&role=' + encodeURIComponent(window.__ecsRole || 'cio'),
+      '&count=' + safeCount(count) + '&role=' + encodeURIComponent(window.__ecsRole || 'cio'),
       label || metric);
   };
 

@@ -215,6 +215,30 @@ templates = Jinja2Templates(
 templates.env.globals["review_url"] = review_url
 templates.env.globals["review_url_for_ev"] = review_url_for_ev
 
+
+def asset_ver(rel_path: str) -> str:
+    """Cache-busting version token for a static asset (file mtime).
+
+    Static JS/CSS is served without Cache-Control and at an unversioned URL, so
+    browsers cache it indefinitely and keep running stale code after a deploy.
+    Appending ?v=<mtime> forces a fresh fetch whenever the file changes.
+    """
+    import os
+    candidates = [
+        os.path.join("modules/shared/static", rel_path),
+        os.path.join("static", rel_path),
+        os.path.join("app/static", rel_path),
+    ]
+    for path in candidates:
+        try:
+            return str(int(os.path.getmtime(path)))
+        except OSError:
+            continue
+    return "1"
+
+
+templates.env.globals["asset_ver"] = asset_ver
+
 # Re-export shared state for backward compatibility with existing code paths
 PCI_DSS_MOCK_EVIDENCES = ecs_state.PCI_DSS_MOCK_EVIDENCES
 frameworks = ecs_state.frameworks

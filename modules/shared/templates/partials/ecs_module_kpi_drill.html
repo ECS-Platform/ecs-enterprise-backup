@@ -43,16 +43,32 @@
     modal.show();
     var url = '/api/module-kpi/drill?module=' + encodeURIComponent(module || '') +
       '&metric=' + encodeURIComponent(metric || '') + '&role=' + encodeURIComponent(role);
-    if (count) url += '&count=' + encodeURIComponent(count);
+    var safeCnt = (function(v){ var m=String(v==null?'':v).replace(/,/g,'').match(/(\d+(?:\.\d+)?)/); return m?Math.round(parseFloat(m[1])):0; })(count);
+    if (safeCnt) url += '&count=' + safeCnt;
     var emptyState = '<div class="text-center py-4"><div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128202;</div>' +
-      '<p class="mb-0 text-muted">Loading representative ECS records\u2026</p></div>';
-    fetch(url).then(function(r){ return r.json(); }).then(function(j){
+      '<p class="mb-0 text-muted">No records found for this selection.</p></div>';
+    var errorState = '<div class="text-center py-4"><div class="mb-2" style="font-size:1.6rem;opacity:.6;">&#9888;&#65039;</div>' +
+      '<p class="mb-0 text-danger">Unable to load records. Please try again.</p></div>';
+    // Failsafe: spinner must always terminate.
+    var settled = false;
+    var timer = setTimeout(function(){ if (settled) return; settled = true; bodyEl.innerHTML = errorState; }, 12000);
+    fetch(url).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function(j){
+      if (settled) return; settled = true; clearTimeout(timer);
       if (!j || (!j.ok && !(j.rows && j.rows.length))) { bodyEl.innerHTML = emptyState; return; }
-      titleEl.textContent = j.title || label;
-      var note = j.note ? '<div class="alert alert-secondary py-1 px-2 small mb-2">' + esc(j.note) + '</div>' : '';
-      bodyEl.innerHTML = note + tableHtml(j.rows, j.columns || ['application','framework','control','evidence','owner','status']);
-      if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
-    }).catch(function(){ bodyEl.innerHTML = emptyState; });
+      try {
+        titleEl.textContent = j.title || label;
+        var note = j.note ? '<div class="alert alert-secondary py-1 px-2 small mb-2">' + esc(j.note) + '</div>' : '';
+        bodyEl.innerHTML = note + tableHtml(j.rows, j.columns || ['application','framework','control','evidence','owner','status']);
+        if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+      } catch(renderErr) {
+        if (window.console && console.error) console.error('[ecs-module-kpi] render failed', renderErr, j);
+        bodyEl.innerHTML = errorState;
+      }
+    }).catch(function(e){
+      if (settled) return; settled = true; clearTimeout(timer);
+      if (window.console && console.error) console.error('[ecs-module-kpi] fetch failed', url, e);
+      bodyEl.innerHTML = errorState;
+    });
   };
 
   document.addEventListener('click', function(e){

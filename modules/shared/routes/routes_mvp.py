@@ -30,6 +30,23 @@ from modules.shared.services.enterprise_context import enterprise_widgets_contex
 from modules.executive_overview.engines.demo_metrics import REUSE_METRICS
 
 
+def _safe_count(value) -> int:
+    """Parse a count query param that the UI may send as a formatted KPI value.
+
+    KPI cards bind data-*-count to their *displayed* value (e.g. "94.5%", "12 days",
+    "3.2d", "45,000"). Declaring the query param as ``int`` makes FastAPI reject these
+    with HTTP 422 before the route body (and its fallback) can run. Accept the raw
+    string and extract the leading numeric portion, defaulting to 0.
+    """
+    if value is None:
+        return 0
+    if isinstance(value, (int, float)):
+        return int(value)
+    import re
+    m = re.search(r"\d+(?:\.\d+)?", str(value).replace(",", ""))
+    return int(float(m.group(0))) if m else 0
+
+
 def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_module: str = "", analytics_filters: dict | None = None):
     ctx = {
         "frameworks": ecs_state.frameworks.keys(),
@@ -302,10 +319,11 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_ai_ops_summary.html", ctx)
 
     @app.get("/api/module-kpi/drill")
-    def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: int = 0):
+    def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: str = ""):
         from modules.shared.drilldowns.module_kpi_drill_engine import drill_module_kpi
         from modules.shared.services.drilldown_engine import _fallback_body
 
+        count = _safe_count(count)
         try:
             body = drill_module_kpi(module or "operations", metric, role)
             if count:
@@ -332,7 +350,7 @@ def register_mvp_routes(app, templates):
         element: str = "",
         type: str = "",
         id: str = "",
-        count: int = 0,
+        count: str = "",
         role: str = "cio",
         framework: str = "",
         label: str = "",
@@ -341,6 +359,7 @@ def register_mvp_routes(app, templates):
     ):
         from modules.shared.services.drilldown_engine import drill_metric
 
+        count = _safe_count(count)
         try:
             body = drill_metric(
                 scope,
@@ -365,9 +384,10 @@ def register_mvp_routes(app, templates):
         return JSONResponse(body)
 
     @app.get("/api/ecs/workflow-drill")
-    def api_ecs_workflow_drill(metric: str = "", count: int = 0, role: str = "cio"):
+    def api_ecs_workflow_drill(metric: str = "", count: str = "", role: str = "cio"):
         from modules.shared.services.drilldown_engine import _fallback_body, drill_workflow
 
+        count = _safe_count(count)
         try:
             body = drill_workflow(role, metric or "workflow", count)
             if not isinstance(body, dict) or not body.get("ok", True) or not body.get("rows"):
