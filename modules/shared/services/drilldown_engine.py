@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from modules.shared.drilldowns.ecs_universal_drill_engine import (
+    UNIVERSAL_COLUMNS,
     drill_enterprise_workflow,
     drill_universal_chart,
     drill_universal_kpi,
@@ -12,6 +13,43 @@ from modules.shared.drilldowns.ecs_universal_drill_engine import (
     parse_display_count,
 )
 from modules.shared.services.metric_trace_service import build_metric_trace
+from modules.shared.utils.demo_data_standards import (
+    ensure_drill_rows,
+    generate_standard_drill_row,
+)
+
+
+def _fallback_body(*, scope: str, page: str, metric: str, label: str, count: int,
+                   framework: str, role: str) -> dict[str, Any]:
+    """Global demo-data fallback. Never empty, never an error.
+
+    Used whenever a delegated drill engine raises or returns nothing, so a click
+    never surfaces "Failed"/empty — it shows realistic ECS records plus a note.
+    """
+    title = (label or (metric or scope).replace("_", " ").title() or "Detail").strip()
+    target = max(parse_display_count(count) or 0, 25)
+    target = min(target, 50)
+    rows = ensure_drill_rows(
+        [generate_standard_drill_row(i, metric=metric or scope) for i in range(min(target, 12))],
+        target, metric=metric or scope,
+    )
+    for r in rows:
+        for c in UNIVERSAL_COLUMNS:
+            r.setdefault(c, "—")
+    body: dict[str, Any] = {
+        "ok": True,
+        "title": f"{title} — {page.replace('_', ' ').title()}" if page else title,
+        "note": "Demo data unavailable for this widget — showing representative ECS records.",
+        "rows": rows,
+        "columns": UNIVERSAL_COLUMNS,
+        "trace_count": parse_display_count(count),
+        "row_count": len(rows),
+    }
+    try:
+        return _attach_trace(body, metric=metric or scope, page=page or "dashboard",
+                             label=title, count=count, framework=framework, role=role)
+    except Exception:  # noqa: BLE001 - trace is best-effort
+        return body
 
 
 def _attach_trace(body: dict[str, Any], *, metric: str, page: str, label: str, count: int, framework: str, role: str) -> dict[str, Any]:
@@ -131,16 +169,37 @@ def drill_metric(
     application: str = "",
     readiness_pct: str = "",
 ) -> dict[str, Any]:
-    """Single entry point for all drill scopes."""
+    """Single entry point for all drill scopes.
+
+    Guaranteed to never raise and never return an empty/error payload: any
+    failure in a delegated engine falls back to deterministic ECS mock data so a
+    click never shows "Failed", an empty modal, or a blank table.
+    """
     scope = (scope or "kpi").lower()
-    if scope == "heatmap":
-        return drill_heatmap_cell(application or element, framework, readiness_pct or count, role=role)
-    if scope == "row":
-        return drill_row(page, row_type or "record", row_id, role=role, framework=framework)
-    if scope == "chart":
-        return drill_chart(page, chart or "chart", element or metric, count=count, role=role, framework=framework)
-    if scope == "workflow":
-        return drill_workflow(role, metric, count)
-    if not metric and not label:
-        return {"ok": False, "error": "metric required"}
-    return drill_kpi(page, metric or label, count=count, role=role, framework=framework, label=label)
+    try:
+        if scope == "heatmap":
+            body = drill_heatmap_cell(application or element, framework, readiness_pct or count, role=role)
+        elif scope == "row":
+            body = drill_row(page, row_type or "record", row_id, role=role, framework=framework)
+        elif scope == "chart":
+            body = drill_chart(page, chart or "chart", element or metric, count=count, role=role, framework=framework)
+        elif scope == "workflow":
+            body = drill_workflow(role, metric, count)
+        else:
+            body = drill_kpi(page, metric or label or "metric", count=count, role=role,
+                             framework=framework, label=label)
+    except Exception:  # noqa: BLE001 - never surface an error to the UI
+        body = None
+
+    # Guard: any error, missing payload, ok:false, or empty rows → realistic mock.
+    if not isinstance(body, dict) or not body.get("ok", True) or not body.get("rows"):
+        return _fallback_body(
+            scope=scope,
+            page=page,
+            metric=metric or chart or row_type,
+            label=label or element or row_id,
+            count=count,
+            framework=framework,
+            role=role,
+        )
+    return body

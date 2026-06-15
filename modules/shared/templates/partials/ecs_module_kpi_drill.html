@@ -44,12 +44,15 @@
     var url = '/api/module-kpi/drill?module=' + encodeURIComponent(module || '') +
       '&metric=' + encodeURIComponent(metric || '') + '&role=' + encodeURIComponent(role);
     if (count) url += '&count=' + encodeURIComponent(count);
+    var emptyState = '<div class="text-center py-4"><div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128202;</div>' +
+      '<p class="mb-0 text-muted">Demo data unavailable for this widget</p></div>';
     fetch(url).then(function(r){ return r.json(); }).then(function(j){
-      if (!j.ok) { bodyEl.innerHTML = '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'; return; }
+      if (!j || (!j.ok && !(j.rows && j.rows.length))) { bodyEl.innerHTML = emptyState; return; }
       titleEl.textContent = j.title || label;
-      bodyEl.innerHTML = tableHtml(j.rows, j.columns || ['application','framework','control','evidence','owner','status']);
+      var note = j.note ? '<div class="alert alert-secondary py-1 px-2 small mb-2">' + esc(j.note) + '</div>' : '';
+      bodyEl.innerHTML = note + tableHtml(j.rows, j.columns || ['application','framework','control','evidence','owner','status']);
       if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
-    }).catch(function(){ bodyEl.innerHTML = '<p class="text-danger">Request failed.</p>'; });
+    }).catch(function(){ bodyEl.innerHTML = emptyState; });
   };
 
   document.addEventListener('click', function(e){

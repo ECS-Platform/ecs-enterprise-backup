@@ -11,10 +11,10 @@
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
 <h1 class="ecs-workspace-title h5">Evidence Explorer</h1>
-<p class="small text-muted mb-2">Collected evidence stored in the PostgreSQL repository, with CI/CD relationships (Commit → Build → Sonar Scan).</p>
+<p class="small text-muted mb-2">Collected evidence across SaaS connectors (GitHub, Jira, Confluence, Figma, Teams, SharePoint, SonarQube, Jenkins) with CI/CD relationships (Commit → Build → Sonar Scan → Deploy).</p>
 {% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
-{% if not data.ok %}
-<div class="alert alert-warning py-2 px-3 small mb-2"><strong>Repository unavailable.</strong> {{ data.error or 'Start the postgres service and sync a connector.' }}</div>
+{% if data.demo %}
+<div class="alert alert-info py-2 px-3 small mb-2"><strong>Demo dataset.</strong> Showing {{ data.counts.total if data.counts else (data.rows|length) }} deterministic evidence records across {{ data.filters.sources|length }} connectors — no database required.</div>
 {% endif %}
 
 <div class="mb-2">
@@ -54,8 +54,8 @@
 {% endfor %}
 {% endif %}
 
-<h2 class="h6 mt-3">Evidence ({{ data.rows|length }})</h2>
-<table class="table table-sm table-hover bg-white">
+<h2 class="h6 mt-3">Evidence ({{ data.rows|length }}{% if data.counts and data.counts.total %} of {{ data.counts.total }}{% endif %})</h2>
+<table class="table table-sm table-hover ecs-paginated-table ecs-compact-table">
 <thead><tr><th>Source</th><th>Type</th><th>Title</th><th>Application</th><th>Collected</th><th></th></tr></thead>
 <tbody>
 {% for r in data.rows %}
@@ -68,7 +68,7 @@
 <td>{% if r.url %}<a href="{{ r.url }}" target="_blank" class="small">open</a>{% endif %}</td>
 </tr>
 {% else %}
-<tr><td colspan="6" class="text-muted small">No evidence yet. Go to <a href="/mvp/integration-health?role={{ role }}&user={{ user }}">Integration Health</a> and click <em>Sync Now</em>.</td></tr>
+<tr><td colspan="6" class="text-muted small">No evidence matches the current filters. <a href="?role={{ role }}&user={{ user }}">Clear filters</a> to see all records.</td></tr>
 {% endfor %}
 </tbody>
 </table>

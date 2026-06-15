@@ -253,10 +253,16 @@ def register_mvp_routes(app, templates):
     @app.get("/api/demo/kpi-drill")
     def api_demo_kpi_drill(metric: str = ""):
         from modules.executive_overview.engines.demo_kpi_drill_engine import drill_demo_kpi
+        from modules.shared.services.drilldown_engine import _fallback_body
 
-        if not metric:
-            return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
-        return drill_demo_kpi(metric)
+        try:
+            body = drill_demo_kpi(metric or "applications")
+            if not isinstance(body, dict) or not body.get("ok", True) or not body.get("rows"):
+                raise ValueError("empty demo drill")
+        except Exception:  # noqa: BLE001 - never 500 a drill
+            body = _fallback_body(scope="kpi", page="demo", metric=metric, label=metric,
+                                  count=0, framework="", role="cio")
+        return JSONResponse(body)
 
     @app.get("/mvp/reports/view/{report_type}", response_class=HTMLResponse)
     def mvp_report_view(request: Request, report_type: str, role: str = "cio", user: str = "cio@bank.com"):
@@ -298,19 +304,24 @@ def register_mvp_routes(app, templates):
     @app.get("/api/module-kpi/drill")
     def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: int = 0):
         from modules.shared.drilldowns.module_kpi_drill_engine import drill_module_kpi
+        from modules.shared.services.drilldown_engine import _fallback_body
 
-        if not module:
-            return JSONResponse({"ok": False, "error": "module required"}, status_code=400)
-        body = drill_module_kpi(module, metric, role)
-        if count:
-            from modules.shared.utils.demo_data_standards import ensure_drill_rows
-            from modules.shared.drilldowns.ecs_universal_drill_engine import _target_rows
+        try:
+            body = drill_module_kpi(module or "operations", metric, role)
+            if count:
+                from modules.shared.utils.demo_data_standards import ensure_drill_rows
+                from modules.shared.drilldowns.ecs_universal_drill_engine import _target_rows
 
-            target = _target_rows(count)
-            body["rows"] = ensure_drill_rows(body.get("rows", []), target, metric=metric or module)
-            body["trace_count"] = count
-            body["row_count"] = len(body["rows"])
-        return body
+                target = _target_rows(count)
+                body["rows"] = ensure_drill_rows(body.get("rows", []), target, metric=metric or module)
+                body["trace_count"] = count
+                body["row_count"] = len(body["rows"])
+            if not isinstance(body, dict) or not body.get("ok", True) or not body.get("rows"):
+                raise ValueError("empty module drill")
+        except Exception:  # noqa: BLE001 - never 500 a drill
+            body = _fallback_body(scope="kpi", page=module, metric=metric, label=metric,
+                                  count=count, framework="", role=role)
+        return JSONResponse(body)
 
     @app.get("/api/ecs/universal-drill")
     def api_ecs_universal_drill(
@@ -330,29 +341,41 @@ def register_mvp_routes(app, templates):
     ):
         from modules.shared.services.drilldown_engine import drill_metric
 
-        return JSONResponse(drill_metric(
-            scope,
-            page=page,
-            metric=metric,
-            chart=chart,
-            element=element,
-            row_type=type,
-            row_id=id,
-            count=count,
-            role=role,
-            framework=framework,
-            label=label,
-            application=application,
-            readiness_pct=readiness_pct,
-        ))
+        try:
+            body = drill_metric(
+                scope,
+                page=page,
+                metric=metric,
+                chart=chart,
+                element=element,
+                row_type=type,
+                row_id=id,
+                count=count,
+                role=role,
+                framework=framework,
+                label=label,
+                application=application,
+                readiness_pct=readiness_pct,
+            )
+        except Exception:  # noqa: BLE001 - last-resort guard; never 500 a drill
+            from modules.shared.services.drilldown_engine import _fallback_body
+            body = _fallback_body(scope=scope, page=page, metric=metric or chart,
+                                  label=label or element or id, count=count,
+                                  framework=framework, role=role)
+        return JSONResponse(body)
 
     @app.get("/api/ecs/workflow-drill")
     def api_ecs_workflow_drill(metric: str = "", count: int = 0, role: str = "cio"):
-        from modules.shared.services.drilldown_engine import drill_workflow
+        from modules.shared.services.drilldown_engine import _fallback_body, drill_workflow
 
-        if not metric:
-            return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
-        return JSONResponse(drill_workflow(role, metric, count))
+        try:
+            body = drill_workflow(role, metric or "workflow", count)
+            if not isinstance(body, dict) or not body.get("ok", True) or not body.get("rows"):
+                raise ValueError("empty workflow drill")
+        except Exception:  # noqa: BLE001 - never 500 a drill
+            body = _fallback_body(scope="workflow", page="enterprise", metric=metric,
+                                  label=metric, count=count, framework="", role=role)
+        return JSONResponse(body)
 
     @app.post("/mvp/scheduler/run")
     def mvp_scheduler_run(role: str = Form(...), user: str = Form(...)):

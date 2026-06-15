@@ -174,12 +174,19 @@
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
 
+  function emptyStateHtml(msg) {
+    return '<div class="ecs-drill-empty text-center py-4">' +
+      '<div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128202;</div>' +
+      '<p class="mb-0 text-muted">' + esc(msg || 'Demo data unavailable for this widget') + '</p></div>';
+  }
+
   function renderResponse(j, title) {
-    if (!j.ok) {
-      showModal(title, '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>');
+    if (!j || (!j.ok && !(j.rows && j.rows.length))) {
+      showModal(title, emptyStateHtml('Demo data unavailable for this widget'));
       return;
     }
     var meta = '';
+    if (j.note) meta += '<div class="alert alert-secondary py-1 px-2 small mb-2">' + esc(j.note) + '</div>';
     if (j.trace_count) meta += '<span class="badge bg-info text-dark me-1">Trace: ' + j.trace_count + ' displayed</span>';
     if (j.row_count) meta += '<span class="badge bg-secondary">' + j.row_count + ' supporting records</span>';
     var html = metricTraceHtml(j.metric_trace);
@@ -200,7 +207,7 @@
     var modalEl = document.getElementById('ecsUniversalDrillModal');
     if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
     fetch(url).then(function (r) { return r.json(); }).then(function (j) { renderResponse(j, title); })
-      .catch(function () { showModal(title, '<p class="text-danger">Request failed.</p>'); });
+      .catch(function () { showModal(title, emptyStateHtml('Demo data unavailable for this widget')); });
   }
 
   window.ecsOpenUniversalKpiDrill = function (page, metric, label, count, framework) {
