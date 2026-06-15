@@ -175,6 +175,29 @@ async def ecs_lifespan(application: FastAPI):
 
 
 app = FastAPI(title="ECS Consolidated Demo V13", lifespan=ecs_lifespan)
+
+
+@app.middleware("http")
+async def _no_cache_html(request, call_next):
+    """Force browsers to revalidate dynamic HTML pages.
+
+    Page templates carry inline <style>/<script>, so a cached HTML page keeps
+    rendering stale CSS/JS even after a fix is deployed (observed: Chrome showing
+    the pre-fix sidebar while Safari showed the corrected layout). Sending
+    no-cache on HTML guarantees the browser re-fetches the current markup.
+    Static assets under /static keep their own caching (versioned via ?v=).
+    """
+    response = await call_next(request)
+    try:
+        ctype = response.headers.get("content-type", "")
+        if ctype.startswith("text/html") and not request.url.path.startswith("/static"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+    except Exception:
+        pass
+    return response
+
+
 app.mount("/static/ecs", StaticFiles(directory="modules/shared/static"), name="ecs_static")
 
 # ---- Phase 1: Authentication foundation (Azure AD / OIDC / JWT) ----

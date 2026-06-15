@@ -21,10 +21,16 @@ body.ecs-enterprise-body { background: #f4f6f9; }
 .ecs-sidebar-inner {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* Viewport-locked: never exceed screen height, regardless of nav expansion.
+     position:sticky keeps the column pinned while the page body scrolls. */
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  position: sticky;
+  top: 0;
   padding: 1rem 0.75rem;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden; /* the inner NAV region scrolls, not the whole column */
 }
 .ecs-sidebar-brand {
   font-size: 1.05rem;
@@ -60,6 +66,11 @@ body.ecs-enterprise-body { background: #f4f6f9; }
   justify-content: flex-start;
   width: 100%;
   min-height: 36px;
+  /* WebKit/Safari hardening: flex items default to flex-shrink:1, and inside a
+     height-constrained flex column Safari will compress them below min-height
+     (vertical-compression / overlapping-border symptom). Pin shrink to 0 and
+     declare an explicit flex-basis so Chrome and Safari size items identically. */
+  flex: 0 0 auto;
   padding: 0.45rem 0.7rem;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -121,10 +132,16 @@ body.ecs-enterprise-body { background: #f4f6f9; }
   flex-shrink: 0;
 }
 .ecs-sidebar-footer {
-  margin-top: auto;
+  margin-top: 0; /* nav region (flex:1) now provides the spacer */
   padding-top: 0.75rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0; /* Logout must always stay pinned and visible */
 }
+/* Fixed (non-scrolling) header elements above the scrollable nav */
+.ecs-sidebar-brand,
+.ecs-sidebar-tagline,
+.ecs-sidebar-profile,
+.ecs-sidebar-back { flex-shrink: 0; }
 .ecs-sidebar-tagline {
   font-size: 0.68rem;
   color: rgba(255, 255, 255, 0.45);
@@ -145,7 +162,23 @@ body.ecs-enterprise-body { background: #f4f6f9; }
   border-color: rgba(255, 255, 255, 0.1);
 }
 /* Grouped navigation */
-.ecs-nav-groups { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.5rem; flex: 1; }
+.ecs-nav-groups {
+  display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.5rem;
+  /* Scrollable navigation region: grows to fill, scrolls independently.
+     min-height:0 is required so a flex child can shrink below content size. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* thin, theme-matched scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.25) transparent;
+}
+.ecs-nav-groups::-webkit-scrollbar { width: 7px; }
+.ecs-nav-groups::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 4px; }
+.ecs-nav-groups::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.38); }
+.ecs-nav-groups::-webkit-scrollbar-track { background: transparent; }
 .ecs-nav-group { border-radius: 8px; overflow: hidden; }
 .ecs-nav-group-toggle {
   display: flex; align-items: center; justify-content: space-between; width: 100%;
@@ -158,11 +191,21 @@ body.ecs-enterprise-body { background: #f4f6f9; }
 .ecs-nav-group-toggle.is-open { color: #93c5fd; background: rgba(37, 99, 235, 0.12); border-color: rgba(37, 99, 235, 0.25); }
 .ecs-nav-group-chevron { font-size: 0.55rem; transition: transform 0.2s ease; opacity: 0.7; }
 .ecs-nav-group-toggle.is-open .ecs-nav-group-chevron { transform: rotate(180deg); }
-.ecs-nav-group-items { display: flex; flex-direction: column; gap: 5px; padding: 0.45rem 0 0.35rem; }
+.ecs-nav-group-items { display: flex; flex-direction: column; gap: 5px; padding: 0.45rem 0 0.35rem; flex: 0 0 auto; }
+/* WebKit: prevent flex children from being squeezed; nav groups size to content */
+.ecs-nav-group, .ecs-nav-group-items > .ecs-sidebar-btn { flex-shrink: 0; }
 .ecs-nav-group-items-nested { padding-left: 0.15rem; }
 @media (max-width: 767.98px) {
+  /* On mobile the sidebar stacks above the content; let it use natural height
+     and the normal page scroll instead of the viewport-locked layout. */
   .ecs-sidebar { min-height: auto; }
-  .ecs-sidebar-inner { min-height: auto; max-height: none; }
+  .ecs-sidebar-inner {
+    height: auto;
+    max-height: none;
+    position: static;
+    overflow: visible;
+  }
+  .ecs-nav-groups { overflow-y: visible; min-height: 0; flex: 0 0 auto; }
 }
 .btn-ecs, .btn-primary, .btn-dark, .btn-outline-primary { border-radius: 6px; font-weight: 500; }
 .btn-ecs-primary { background: var(--ecs-accent); border-color: var(--ecs-accent); color: #fff; }
