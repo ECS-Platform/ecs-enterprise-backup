@@ -33,15 +33,30 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
   scrollbar-width: thin;
 }
 .ecs-workspace-tabs-governance { margin-bottom: 0.35rem; }
+/* ── WCAG AA standardized sub-navigation tabs (ecs-chart-accessibility v1.1) ──
+   Inactive: dark ink on light slate (14.5:1). Active: white on brand blue (5.2:1).
+   Hover: white on deep blue (6.7:1). Disabled: muted ink on near-white (7.0:1).
+   Eliminates the prior light-blue-on-light-blue active state (4.24:1, failed AA). */
 .ecs-workspace-tab {
-  border: 1px solid var(--ecs-border-soft, #e2e8f0); background: #fff; color: var(--ecs-slate, #475569);
-  font-size: 0.68rem; font-weight: 600; padding: 0.28rem 0.55rem; border-radius: 6px; cursor: pointer;
+  border: 1px solid #CBD5E1; background: #E2E8F0; color: #0F172A;
+  font-size: 0.72rem; font-weight: 600; padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer;
   line-height: 1.2; white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
-.ecs-workspace-tab:hover { border-color: var(--ecs-accent, #2563eb); color: var(--ecs-accent, #2563eb); }
-.ecs-workspace-tab.is-active {
-  background: var(--ecs-accent-soft, #dbeafe); border-color: var(--ecs-accent, #2563eb);
-  color: var(--ecs-accent, #2563eb); box-shadow: 0 0 0 1px rgba(37,99,235,.1);
+.ecs-workspace-tab:hover,
+.ecs-workspace-tab:focus-visible {
+  background: #1D4ED8; border-color: #1D4ED8; color: #FFFFFF; outline: none;
+}
+.ecs-workspace-tab.is-active,
+.ecs-workspace-tab[aria-selected="true"] {
+  background: #2563EB; border-color: #2563EB; color: #FFFFFF; font-weight: 700;
+  box-shadow: 0 1px 2px rgba(37,99,235,0.25);
+}
+.ecs-workspace-tab.is-active:hover { background: #1D4ED8; border-color: #1D4ED8; }
+.ecs-workspace-tab:disabled,
+.ecs-workspace-tab[disabled],
+.ecs-workspace-tab.is-disabled {
+  background: #F1F5F9; color: #475569; border-color: #E2E8F0; cursor: not-allowed; opacity: 1;
 }
 .ecs-workspace-pane { display: none; }
 .ecs-workspace-pane.is-active {
@@ -88,14 +103,16 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 .ecs-ws-metric-row strong { color: var(--ecs-navy, #1e293b); }
 .ecs-lifecycle-timeline { border-left: 2px solid #e2e8f0; padding-left: 0.65rem; }
 .ecs-timeline-step { font-size: 0.75rem; padding: 0.25rem 0; border-bottom: 1px solid #f1f5f9; }
-.ecs-timeline-badge { display: inline-block; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; background: #dbeafe; color: #2563eb; padding: 0.1rem 0.35rem; border-radius: 4px; margin-right: 0.35rem; }
+.ecs-timeline-badge { display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; background: #dbeafe; color: #1E3A8A; padding: 0.1rem 0.35rem; border-radius: 4px; margin-right: 0.35rem; }
 </style>
 <script>
 (function(){
   function activateTab(tabId) {
     if (!tabId) return;
     document.querySelectorAll('.ecs-workspace-tab').forEach(function(btn){
-      btn.classList.toggle('is-active', btn.getAttribute('data-workspace-tab') === tabId);
+      var on = btn.getAttribute('data-workspace-tab') === tabId;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     document.querySelectorAll('.ecs-workspace-pane').forEach(function(pane){
       pane.classList.toggle('is-active', pane.getAttribute('data-workspace-pane') === tabId);

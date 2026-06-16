@@ -527,3 +527,8 @@ tr.row-approved { background-color: #d1e7dd !important; }
 {% include "partials/ecs_universal_drill.html" %}
 {% include "partials/ecs_floating_action_portal.html" %}
 {% include "partials/ecs_platform_ui.html" %}
+{# Chart accessibility standard for dashboards that load the theme without the
+   chart system (e.g. role dashboards with tabs/badges but no chart DOM). On MVP
+   pages the chart system re-includes this last so token overrides still win. #}
+{% include "partials/ecs_chart_standard.html" %}
+<script src="/static/ecs/js/ecs_chart_standards.js?v={{ asset_ver('js/ecs_chart_standards.js') }}"></script>
