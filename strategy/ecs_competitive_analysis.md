@@ -23,7 +23,7 @@ ECS is unusual in that it spans **GRC + compliance automation + audit management
 ## 2. ECS Differentiators (verified in code)
 
 1. **Collect-once / comply-to-many crosswalk reuse.** 18 canonical control themes (`framework_intelligence.py`) drive a control→framework crosswalk demonstrated at **5.0× reuse** (48 evidence → 240 obligations). Most compliance-automation tools collect evidence per-framework; ECS reuses one artifact across SOC2 CC7.1, ISO 27001 A.14.2.1, PCI-DSS 6.3, RBI-CSF and AI-SDLC simultaneously.
-2. **Regulator-native framework library.** 16 frameworks including **RBI Cyber Security / CSITE, DPSC, ITPP (8 operational sub-domains), ITDRM** — the India-banking obligations that global SaaS tools treat as custom frameworks at best.
+2. **Regulator-native framework library.** 15 pre-built frameworks including **RBI Cyber Security / CSITE, DPSC, ITPP (8 operational sub-domains), ITDRM** — the India-banking obligations that global SaaS tools treat as custom frameworks at best — with more onboardable at runtime via the Framework Loader.
 3. **Grounded, citation-enforced AI.** `config/llm.yaml` enforces `require_citations: true` and `refuse_without_evidence: true` over a pgvector store. The assistant cannot fabricate a control; many competitors bolt on ungrounded chatbots.
 4. **AI governs AI (AI-SDLC + AI Governance posture).** Shift-left "Audit Driven Development" gates plus prompt-audit / hallucination / unsafe-prompt / token-spend governance (`modules/ai_sdlc/`). This is a forward category most GRC incumbents have not productized.
 5. **Transparent, defensible scoring.** Readiness = 50% control coverage + 30% approved evidence + 20% freshness; sufficiency = 5 weighted, deterministic dimensions (`config/sufficiency.yaml`). Auditors can defend the number; black-box scores invite challenge.
@@ -39,7 +39,7 @@ ECS is unusual in that it spans **GRC + compliance automation + audit management
 | Brand/track record | New platform, no install base or analyst coverage | Anchor on India-banking fit + air-gap; reference pilot |
 | Identity hardening | OIDC middleware exists but pass-through by default | Backlog #5–9 (R1) |
 | Persistence convergence | Dual data planes (in-memory showcase + Postgres platform) | Backlog #1–4 (R1) |
-| Enterprise connector breadth live | 3 connectors live in dev; 10 SaaS interface-complete | Backlog #16–23 (R2) |
+| Enterprise connector breadth live | 3 connectors live in dev; 9 SaaS interface-complete | Backlog #16–23 (R2) |
 | HA/DR/observability | Not yet at regulated-prod bar | Backlog #33–40 (R2) |
 | Multi-tenancy | Single-tenant today | Backlog #41 (R3) |
 | Vendor ecosystem/marketplace | None | Out of near-term scope |

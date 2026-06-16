@@ -30,11 +30,11 @@
 |---|---|---|
 | Architecture | Modular monolith, FastAPI + Jinja2, Python 3.12 | `app/main.py`, `docs/architecture/` |
 | Business domains | 6 modules + shared core + `ecs_platform/` infra | `modules/`, `ecs_platform/` |
-| Frameworks | 16 (incl. RBI-CSF/CSITE, PCI DSS, DPSC, ISO 27001, SOC 2, VAPT, AppSec, OS/DB/Nginx, ITPP, ITDRM, ISG, ASST) | `framework_catalog.py` |
-| Controls / evidence | ~307 controls / ~706 evidence records | `framework_catalog.catalog_stats()` |
+| Frameworks | 15 static (incl. RBI-CSF/CSITE, PCI DSS, DPSC, ISO 27001, SOC 2, VAPT, AppSec, OS/DB/Nginx, ITPP, ITDRM, ISG, ASST); more onboardable at runtime | `framework_catalog.py` |
+| Controls / evidence | 305 controls / 702 evidence records | `framework_catalog.catalog_stats()` |
 | Applications | 20 (showcase) / 10 onboarded (live flow) | `ecs_state.BANKING_APPLICATIONS`, demo narrative |
 | UI personas | 7 + 9-role RBAC catalog | `role_permissions.py`, `config/rbac.yaml` |
-| Connectors | 13 (3 live in dev, 10 interface-complete) | `ecs_platform/connectors/` |
+| Connectors | 12 (3 live in dev, 9 interface-complete) | `ecs_platform/connectors/` |
 | Control themes (reuse) | 18 canonical | `framework_intelligence.py` |
 | Demonstrated reuse | 5.0× (48 evidence → 240 obligations) | `demo-data/ECS_DEMO_NARRATIVE.md` |
 | Readiness formula | 50% control coverage + 30% approved + 20% freshness | demo narrative / platform |

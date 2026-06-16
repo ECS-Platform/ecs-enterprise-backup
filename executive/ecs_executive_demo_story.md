@@ -50,7 +50,7 @@ Two demo modes exist and both are legitimate:
 
 **Say:** *"These are real connectors, not screenshots. They pull commits, pull requests, build results, quality gates and security hotspots into PostgreSQL, then automatically assemble Commit → Build → Sonar correlation chains."*
 
-**Proof point:** 54 evidence records collected; 6 CI/CD correlation chains; `evidence.collect` audit entries; each sync run logged with health status. The connector factory and 13 connector implementations live in `ecs_platform/connectors/`. (For a boardroom without Docker, narrate this against the showcase Integrations Hub instead.)
+**Proof point:** 54 evidence records collected; 6 CI/CD correlation chains; `evidence.collect` audit entries; each sync run logged with health status. The connector factory and 12 connector implementations live in `ecs_platform/connectors/`. (For a boardroom without Docker, narrate this against the showcase Integrations Hub instead.)
 
 ---
 

@@ -3,6 +3,12 @@
 **Lens:** CIO Advisory + Chief Product Officer
 **Source of truth:** `config/roi.yaml` (the deterministic ROI engine config) and the platform's ROI Center (`modules/executive_overview/templates/mvp_roi_center.html`, validated by `tests/test_roi_engine.py`). **Every figure here is computed by the engine from editable assumptions — there are no hardcoded outputs in the UI.** Changing the YAML changes ROI output only; it never changes workflow, RBAC, audit, observation or schema behavior. The module is disabled by default (`ROI_CENTER_ENABLED=true` to enable).
 
+> **⚠️ Rate-basis advisory (see `executive/documentation_audit.md`, issues A5/A6).** Two hour-rate bases exist in the repository and must be reconciled before this model is committed to a final business case:
+> - **Config engine default:** `config/roi.yaml` sets `cost_per_hour: 1500`.
+> - **Published workbook headline tables:** the §4 headline figures (e.g. 25-app: 45,438 hrs → ₹4.54 Cr Expected) are computed on the pre-existing ROI workbook basis of **₹1,000/hr** (`executive/ecs_roi_model.md`). At ₹1,500/hr the 25-app Expected saving scales to ~₹6.82 Cr.
+>
+> This document is the **canonical ROI reference for the executive deliverables package**; the pre-existing `executive/ecs_roi_model.md` is the originating workbook write-up. Finance should ratify a single rate and the headline tables should then be restated consistently (deferred — not auto-corrected).
+
 ---
 
 ## 1. How the Model Works
@@ -21,7 +27,7 @@ The engine merges the active **scenario** (`conservative` / `expected` / `aggres
 | Hours per email | 0.25 |
 | Hours per audit cycle | 160 |
 | Hours per manual framework onboarding | 80 |
-| Blended cost per hour | ₹1,500 |
+| Blended cost per hour | ₹1,500 (config default; §4 headline tables use the workbook's ₹1,000 basis — see rate-basis advisory above) |
 | Productive hours / FTE / year | 1,800 |
 | Baseline anchor | ₹4.5 Cr saved per 25 onboarded apps |
 

@@ -13,8 +13,8 @@ ECS is a single-pane Governance, Risk, Compliance, Audit and Evidence-Management
 
 The platform exists in **two operating layers that both run today**:
 
-1. **A deterministic governance showcase** — 16 pre-built compliance frameworks, ~307 controls and ~706 evidence records across 20 banking applications, seven role-tailored dashboards, full evidence workflow, audit-prep "war-room", cross-framework reuse intelligence and 30 regulator/audit report packs. State is hash-seeded so the demo is stable across reloads.
-2. **A real connector-driven evidence platform** (`ecs_platform/` + `/mvp/platform/*`) — 13 source-system connectors (Gitea, GitHub, SonarQube, Jenkins, Jira, Confluence, Figma, ServiceNow, Teams, SharePoint, Prisma Cloud, Azure DevOps) ingest real artifacts into PostgreSQL, with a pgvector store, MinIO object store, Redis, deterministic evidence-sufficiency scoring, a control→framework crosswalk for evidence reuse, and a citation-grounded RAG assistant.
+1. **A deterministic governance showcase** — 15 pre-built compliance frameworks, 305 controls and 702 evidence records across 20 banking applications, seven role-tailored dashboards, full evidence workflow, audit-prep "war-room", cross-framework reuse intelligence and 30 regulator/audit report packs. State is hash-seeded so the demo is stable across reloads. (The platform can onboard additional frameworks at runtime via the Framework Loader, so the live count may exceed 15.)
+2. **A real connector-driven evidence platform** (`ecs_platform/` + `/mvp/platform/*`) — 12 source-system connectors (Gitea, GitHub, SonarQube, Jenkins, Jira, Confluence, Figma, ServiceNow, Teams, SharePoint, Prisma Cloud, Azure DevOps) ingest real artifacts into PostgreSQL, with a pgvector store, MinIO object store, Redis, deterministic evidence-sufficiency scoring, a control→framework crosswalk for evidence reuse, and a citation-grounded RAG assistant.
 
 ---
 
@@ -35,11 +35,11 @@ ECS attacks this directly: **collect evidence once, map it to many frameworks, k
 | Capability | Evidence in repository | Status |
 |---|---|---|
 | Role-aware platform, 7 UI personas + 9-role RBAC catalog | `modules/shared/.../role_permissions.py`, `config/rbac.yaml`, `app/auth/` | Built |
-| 16 framework catalogs, ~307 controls, ~706 evidence records | `modules/frameworks/.../framework_catalog.py` | Built |
+| 15 framework catalogs, 305 controls, 702 evidence records | `modules/frameworks/.../framework_catalog.py` | Built |
 | Full evidence workflow (upload→submit→review→approve/reject/clarify/escalate→close) | `modules/shared/services/evidence_workflow_engine.py` | Built |
 | Audit-prep cockpit: dynamic calendars, readiness scoring, KPI drill-downs | `audit_schedule_engine.py`, `mvp_audit_prep.html` | Built |
 | Cross-framework reuse intelligence (18 control themes, overlap matrix, crosswalk) | `framework_intelligence.py`, control→framework crosswalk | Built |
-| 13 real source-system connectors | `ecs_platform/connectors/` (factory + 13 connectors) | Built (3 live in dev: Gitea/Jenkins/SonarQube; SaaS interface-complete) |
+| 12 real source-system connectors | `ecs_platform/connectors/` (factory + 12 connectors) | Built (3 live in dev: Gitea/Jenkins/SonarQube; 9 SaaS interface-complete) |
 | Evidence repository + pgvector + MinIO + Redis | `ecs_platform/repository`, `ecs_platform/vectorstore`, `docker-compose.yml` | Built |
 | Grounded LLM-RAG assistant (citations required, refuses without evidence) | `ecs_platform/rag.py`, `config/llm.yaml` | Built (provider-pluggable: Ollama/Gemini/OpenAI/Azure/Claude) |
 | Deterministic evidence-sufficiency scoring (5 weighted dimensions) | `config/sufficiency.yaml`, `app/sufficiency` | Built (flag-gated) |
@@ -65,7 +65,7 @@ These figures come from the platform's real evidence flow as documented in `demo
 
 ## 5. Financial Case (deterministic ROI model, `config/roi.yaml`)
 
-The ROI engine computes every figure from editable assumptions (no hardcoded outputs). At the bank's stated scale (905 applications, 600 in VAPT scope; blended ₹1,500/hr):
+The ROI engine computes every figure from editable assumptions (no hardcoded outputs). At the bank's stated scale (905 applications, 600 in VAPT scope):
 
 | Headline | Conservative | Expected | Aggressive |
 |---|--:|--:|--:|
@@ -73,6 +73,8 @@ The ROI engine computes every figure from editable assumptions (no hardcoded out
 | FTE equivalent released (25 apps) | 18.2 | 22.7 | 27.3 |
 | Year-7 net benefit at scale | ₹114.46 Cr | ₹143.08 Cr | ₹171.70 Cr |
 | Stable annual operating cost | ₹2.2 Cr | ₹2.2 Cr | ₹2.2 Cr |
+
+> **Rate basis note.** The headline tables above are stated on the published ROI workbook basis of **₹1,000/hr** (e.g. 45,438 hrs × ₹1,000 = ₹4.54 Cr Expected for 25 apps). The current ROI engine config (`config/roi.yaml`) sets `cost_per_hour: 1500`; on that basis the 25-app Expected saving scales to ~₹6.82 Cr. The rate to be ratified by finance before headline figures are restated (see `executive/documentation_audit.md`, issue A5).
 
 **Program investment:** ₹8 Cr implementation + ₹2 Cr/yr run (per `config/roi.yaml`). **Payback is inside Year 1–2 in every scenario**, with nine-figure (₹114 Cr+) net benefit at portfolio scale even in the conservative case. (Full derivation: `strategy/ecs_roi_model.md`.)
 

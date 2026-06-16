@@ -28,7 +28,7 @@ This is expensive, slow and risky — and it does not scale to your full applica
 ## 3. What ECS Does (and how it's built)
 
 ### 3.1 Collect once
-Onboard an application (owner, BU, criticality, frameworks in scope). Real connectors — **Gitea, Jenkins, SonarQube live today; GitHub, Jira, Confluence, ServiceNow, SharePoint, Teams, Prisma Cloud, Azure DevOps, Figma interface-complete** — pull commits, PRs, builds, quality gates, security hotspots and findings into a PostgreSQL evidence repository with lineage. *(Built: `ecs_platform/connectors/`, 13 connectors.)*
+Onboard an application (owner, BU, criticality, frameworks in scope). Real connectors — **Gitea, Jenkins, SonarQube live today; GitHub, Jira, Confluence, ServiceNow, SharePoint, Teams, Prisma Cloud, Azure DevOps, Figma interface-complete** — pull commits, PRs, builds, quality gates, security hotspots and findings into a PostgreSQL evidence repository with lineage. *(Built: `ecs_platform/connectors/`, 12 connectors.)*
 
 ### 3.2 Approve once, the auditor's quality gate
 Evidence moves Collected → Under Review → Approved (or Rejected) with a validity window. Only **Approved** evidence counts toward readiness; expired evidence is flagged automatically. Roles are enforced — owners can't self-approve, auditors can't upload. *(Built: evidence workflow engine + `config/rbac.yaml`.)*
@@ -37,7 +37,7 @@ Evidence moves Collected → Under Review → Approved (or Rejected) with a vali
 One artifact satisfies many obligations. A single SonarQube quality gate satisfies **SOC2 CC7.1, ISO 27001 A.14.2.1, PCI-DSS 6.3, RBI-CSF BCSF-SDLC and AI-SDLC** at once via the control→framework crosswalk. In our reference flow: **5.0× reuse — 48 evidence items satisfied 240 framework obligations, eliminating 192 collection operations.** *(Built: 18-theme crosswalk in `framework_intelligence.py`.)*
 
 ### 3.4 Stay ready, always
-Dynamic audit calendars (quarterly + annual) across 16 frameworks, with a transparent readiness score: **50% control coverage + 30% approved evidence + 20% freshness**, per app and overall. *(Built: `audit_schedule_engine.py`, audit-prep cockpit.)*
+Dynamic audit calendars (quarterly + annual) across 15 frameworks, with a transparent readiness score: **50% control coverage + 30% approved evidence + 20% freshness**, per app and overall. *(Built: `audit_schedule_engine.py`, audit-prep cockpit.)*
 
 ### 3.5 One truth, framed per leader
 CIO, Vertical Head, Compliance Head, Functional Head, Auditor and App Owner each see the same data, framed for them — every KPI drills to its supporting records. *(Built: persona dashboards + universal drilldown engine.)*
@@ -54,7 +54,7 @@ AI-SDLC applies "Audit Driven Development" — compliance gates across requireme
 
 | Your requirement | ECS answer |
 |---|---|
-| RBI Cyber Security / CSITE, DPSC native | In the framework catalog out of the box (16 frameworks) |
+| RBI Cyber Security / CSITE, DPSC native | In the framework catalog out of the box (15 frameworks) |
 | Data residency / air-gap | Default local Ollama model + self-hostable connectors — runs fully offline |
 | Defensible numbers for regulators | Transparent readiness/sufficiency formulas; every metric drills to source; immutable audit log |
 | No vendor lock-in on AI | Provider-pluggable LLM + vector store via config |

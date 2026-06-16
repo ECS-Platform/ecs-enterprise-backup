@@ -14,20 +14,20 @@ It is implemented as a **modular monolith** (FastAPI, Python 3.12, Jinja2 server
 | Layer | Path | Responsibility |
 |---|---|---|
 | Executive Overview | `modules/executive_overview/` | Persona dashboards, enterprise/Pan-India KPIs, trends, ROI center, 30 report packs, demo metrics |
-| Frameworks | `modules/frameworks/` | 16 framework catalogs, per-framework dashboards, control validation, framework loader/onboarding, ITPP |
+| Frameworks | `modules/frameworks/` | 15 framework catalogs, per-framework dashboards, control validation, framework loader/onboarding, ITPP |
 | Operations | `modules/operations/` | Evidence collection scheduler, bulk upload, connectors/integration health, onboarding, predefined queries, AI Ops assistant |
 | Governance | `modules/governance/` | Evidence health, approval analytics, completeness, lifecycle, search, audit prep, exceptions, gap export |
 | Enterprise GRC | `modules/enterprise_grc/` | Risk register, CMDB, exceptions/TD, regulatory mapping, heatmaps, cross-tool correlation, governance analytics |
 | AI-SDLC | `modules/ai_sdlc/` | SDLC compliance gates (ADD), control tower, controlled documents, AI governance posture, evidence governance, reports |
 | Shared core | `modules/shared/` | State, RBAC, universal drilldown, persona UI, evidence workflow, navigation |
-| Platform infra | `ecs_platform/` | Config loader, 13 connectors, evidence repository, pgvector vector store, RAG, governance schema, ingestion pipeline |
+| Platform infra | `ecs_platform/` | Config loader, 12 connectors, evidence repository, pgvector vector store, RAG, governance schema, ingestion pipeline |
 
 ---
 
 ## 2. Capability Inventory (verified)
 
 ### 2.1 Frameworks & controls — **Built**
-- 16 framework catalogs in `framework_catalog.py`, ~307 controls / ~706 evidence records.
+- 15 framework catalogs in `framework_catalog.py`, 305 controls / 702 evidence records (more onboardable at runtime via the Framework Loader).
 - Coverage spans regulatory (RBI Cyber Security / CSITE, PCI DSS, DPSC), security (VAPT, AppSec, OS/DB/Nginx baselining), trust/ISMS (SOC 2, ISO 27001), operational resilience (ITPP with 8 sub-domains, ITDRM), and internal frameworks (ISG, ASST).
 - Each framework has a dashboard with KPI strip, application grid, drill panels, trends and a workflow table; per-framework themes/accents.
 - **Framework Loader** ingests novel frameworks (CSV/Excel → control extraction → ECS control IDs → reuse detection → activation).
@@ -49,8 +49,8 @@ It is implemented as a **modular monolith** (FastAPI, Python 3.12, Jinja2 server
 - Readiness scoring (transparent formula: 50% control coverage + 30% approved evidence + 20% freshness), baselining history, preparation pipeline.
 - Clickable KPI drill-downs (Draft / Submitted / Re-upload / Approval Rate / Avg Review / Rejection / Pending Aging) and per-audit detail modals.
 
-### 2.5 Real source-system connectors — **Built (3 live in dev, 10 interface-complete)**
-- `ecs_platform/connectors/`: Gitea, GitHub, SonarQube, Jenkins, Jira, Confluence, Figma, ServiceNow, Teams, SharePoint, Prisma Cloud, Azure DevOps — plus operations-layer connectors (Linux, PostgreSQL, SonarQube, Trivy, Gitleaks).
+### 2.5 Real source-system connectors — **Built (3 live in dev, 9 interface-complete)**
+- `ecs_platform/connectors/` (12 connectors): Gitea, GitHub, SonarQube, Jenkins, Jira, Confluence, Figma, ServiceNow, Teams, SharePoint, Prisma Cloud, Azure DevOps — plus operations-layer scanning/infra connectors (Linux, PostgreSQL, SonarQube, Trivy, Gitleaks).
 - Real connectivity in development for Gitea / Jenkins / SonarQube; SaaS connectors are interface-complete and enabled via env vars + tenant onboarding (no code change), per `config/integrations.yaml`.
 - No URLs/credentials hardcoded; all resolve from environment.
 
@@ -86,9 +86,9 @@ It is implemented as a **modular monolith** (FastAPI, Python 3.12, Jinja2 server
 
 | Dimension | Maturity (1–5) | Rationale |
 |---|:--:|---|
-| Functional breadth | 5 | Full GRC + evidence + audit + AI-SDLC lifecycle, 16 frameworks, 30 reports |
+| Functional breadth | 5 | Full GRC + evidence + audit + AI-SDLC lifecycle, 15 frameworks, 30 reports |
 | Differentiated value (reuse) | 5 | 18-theme crosswalk; demonstrated 5.0× reuse |
-| Integration depth | 4 | 13 connectors built; 3 live in dev, SaaS interface-complete pending onboarding |
+| Integration depth | 4 | 12 connectors built; 3 live in dev, 9 SaaS interface-complete pending onboarding |
 | AI capability | 4 | Grounded, citation-enforced RAG + deterministic sufficiency scoring; provider-pluggable |
 | Identity & security | 3 | RBAC catalog + middleware built and tested; real IdP/SSO not yet enabled by default |
 | Data persistence | 3 | Connector platform persists to Postgres/MinIO; showcase layer in-memory; convergence pending |
@@ -118,7 +118,7 @@ It is implemented as a **modular monolith** (FastAPI, Python 3.12, Jinja2 server
 2. **Identity not enforced by default** — auth middleware is pass-through unless configured; URL query params currently carry role/user in the showcase paths.
 3. **`app/*` shims** re-export canonical `modules/*` implementations — intentional during migration but must be retired to avoid confusion.
 4. **Operational hardening gaps** — no HA topology, DR runbook for prod, APM/observability stack, or formal security review on record.
-5. **Connector onboarding** — 10 SaaS connectors await tenant credentials and validation.
+5. **Connector onboarding** — 9 SaaS connectors await tenant credentials and validation.
 6. **Desktop-first, dense UI** — heavy Jinja contexts; limited responsive/mobile design (detailed in `ux/ecs_ux_assessment.md`).
 
 ---

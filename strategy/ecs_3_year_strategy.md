@@ -108,6 +108,8 @@ The ROI configuration models a 24-person program across seven workstreams:
 
 **Program envelope:** ₹8 Cr implementation + ₹2 Cr/yr run (modeled), stabilizing at ₹2.2 Cr OPEX.
 
+> **Note.** The seven workstream figures above are an *illustrative team-investment view* (per `config/roi.yaml`, which labels `workstreams` "illustrative & configurable") and sum to ~₹7.2 Cr/yr at full staffing. This is distinct from the ROI **denominator** run cost (`payback.annual_run_cost` = ₹2 Cr/yr) used in the net-benefit model in `strategy/ecs_roi_model.md`. The two should not be added together.
+
 ---
 
 ## 7. Strategic Risks & Mitigations

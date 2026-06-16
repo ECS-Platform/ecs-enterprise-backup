@@ -51,7 +51,7 @@ ECS is **production-architected but not yet production-deployed for regulated wo
 ### 2.4 Integrations
 | Area | Status | Evidence |
 |---|:--:|---|
-| Connector framework | ✅ | `ecs_platform/connectors/factory.py` + 13 connectors + http client + MS Graph helper |
+| Connector framework | ✅ | `ecs_platform/connectors/factory.py` + 12 connectors + http client + MS Graph helper |
 | Live connectors (dev) | ✅ | Gitea, Jenkins, SonarQube — real connectivity, seed scripts in `demo-data/` |
 | SaaS connectors | 🟡 | Jira, GitHub, Confluence, Figma, ServiceNow, Teams, SharePoint, Prisma, Azure DevOps — interface-complete, disabled until tenant onboarding |
 | Connector resilience | 🟡 | Fast-fail defaults (timeout/retries) in `config/integrations.yaml`; circuit-breaker/backoff to add |
