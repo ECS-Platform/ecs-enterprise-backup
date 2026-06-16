@@ -74,7 +74,17 @@ def sync_connector(name: str, *, actor: str = "system", role: str = "admin",
         result["error"] = str(exc)
         return result
 
-    summary = connector.sync()
+    # Connector-level resiliency boundary: a connector whose host is unreachable
+    # or misconfigured can raise HttpError / urllib URLError / socket.gaierror
+    # (these are NOT ConnectorError, so BaseConnector.sync() does not catch them).
+    # Convert any such failure into a structured "failed" result so one bad
+    # connector can never crash Sync All Sources with a 500.
+    try:
+        summary = connector.sync()
+    except Exception as exc:  # noqa: BLE001 - degrade gracefully, never propagate
+        result["error"] = f"host unreachable: {exc}"
+        return result
+
     result["collected"] = summary.get("collected", 0)
     items = [it.to_dict() if hasattr(it, "to_dict") else it for it in summary.get("items", [])]
     summary_for_db = {k: summary.get(k) for k in ("started", "finished", "ok", "collected", "error")}
@@ -135,7 +145,19 @@ def enabled_connectors() -> list[str]:
 
 def sync_all(*, actor: str = "system", role: str = "admin", index: bool = True) -> list[dict[str, Any]]:
     targets = enabled_connectors() or list(INGESTION_CONNECTORS)
-    return [sync_connector(n, actor=actor, role=role, index=index) for n in targets]
+    results: list[dict[str, Any]] = []
+    for n in targets:
+        # Defensive second layer: even if sync_connector ever raised, one failed
+        # connector must not stop the remaining connectors from being processed.
+        try:
+            results.append(sync_connector(n, actor=actor, role=role, index=index))
+        except Exception as exc:  # noqa: BLE001 - isolate per-connector failures
+            results.append({
+                "connector": n, "ok": False, "collected": 0, "persisted": 0,
+                "indexed": 0, "relationships": 0, "started": _now(),
+                "error": f"sync aborted: {exc}", "warnings": [],
+            })
+    return results
 
 
 def _build_relationships(repo: EvidenceRepository, items: list[dict[str, Any]], actor: str) -> int:
