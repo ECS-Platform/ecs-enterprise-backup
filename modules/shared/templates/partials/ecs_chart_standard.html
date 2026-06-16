@@ -236,6 +236,33 @@
 }
 .ecs-chart-units { color: var(--ecs-helper-text); font-weight: 600; font-size: 0.7rem; }
 
+/* ─────────────── Executive chart sizing (authoritative) ───────────────
+   Loaded last in the chart include chain, so these win over any legacy
+   `max-height` constraints (e.g. the old 72px/180px crushers) that made bars
+   overflow upward and appear top-anchored. Vertical bar charts must grow upward
+   from a bottom baseline inside a tall-enough plot, with room for value labels,
+   axis labels and the X-axis tick row. Minimum executive chart height = 240px. */
+.chart-container-compact {
+  min-height: 240px !important;
+  max-height: none !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;   /* anchor plot to the baseline */
+}
+.chart-container-compact > .ecs-bar-chart,
+.chart-container-compact .ecs-chart-frame .ecs-bar-chart {
+  height: 200px !important;
+  max-height: 200px !important;
+  min-height: 200px !important;
+  align-items: flex-end;       /* bars sit on the baseline and grow up */
+}
+.chart-container-compact .ecs-chart-plot { min-height: 200px; }
+/* Aging tab keeps its own taller flex sizing; do not force a fixed height there. */
+.chart-container-aging > .ecs-bar-chart,
+.ecs-evidence-aging-grid .ecs-aging-bar-chart {
+  max-height: none !important;
+}
+
 /* ───────────────────────────── Responsive ───────────────────────────── */
 /* Prevent axis clipping, hidden labels, truncated values, legend/tooltip overflow. */
 .chart-container-compact,

@@ -465,6 +465,7 @@
       barWidth: 16,
       extraClass: 'ecs-aging-bar-chart',
       labelEvery: 'auto',
+      axes: false,
       drill: { page: page || 'trends', chartId: chartId || 'trend' }
     };
     if (!overrides) return base;
@@ -532,9 +533,16 @@
     var emptyMsg = opts.emptyMessage || 'No data for selected scope.';
     var drill = opts.drill;
     // Accessibility / self-describing chrome.
-    var yLabel = opts.yLabel || '';
-    var xLabel = opts.xLabel || '';
-    var showAxes = !!(yLabel || xLabel || opts.yScale);
+    // Every executive chart is self-describing by default: it shows a Y-axis label,
+    // an auto-scaled Y-axis with units, and an X-axis label. Callers may override any
+    // label, or opt out entirely with `axes: false` for sparkline-style micro charts.
+    var axesEnabled = opts.axes !== false;
+    var unitWord = opts.units || (suffix === '%' ? '%' : (suffix ? suffix : ''));
+    var yLabel = opts.yLabel || (axesEnabled
+      ? (opts.metricName || opts.seriesLabel || (suffix === '%' ? 'Value (%)' : 'Value'))
+      : '');
+    var xLabel = opts.xLabel || (axesEnabled ? (opts.categoryLabel || 'Category') : '');
+    var showAxes = axesEnabled && !!(yLabel || xLabel || opts.yScale);
     // Executive chrome toggles (default ON unless explicitly disabled).
     var showBenchmark = opts.benchmark !== false;
     var showLegend = opts.legend !== false;
@@ -625,7 +633,9 @@
       if (yLabel) {
         var yl = document.createElement('div');
         yl.className = 'ecs-chart-yaxis-label';
-        yl.textContent = yLabel + (opts.units ? ' (' + opts.units + ')' : '');
+        var yUnit = (opts.units && yLabel.indexOf(opts.units) < 0) ? ' (' + opts.units + ')'
+          : ((unitWord === '%' && yLabel.indexOf('%') < 0) ? ' (%)' : '');
+        yl.textContent = yLabel + yUnit;
         frame.appendChild(yl);
       } else {
         frame.appendChild(document.createElement('div'));
@@ -648,6 +658,26 @@
     // Legend + trend strip rendered just above the chart (sibling node).
     // When framed, anchor the legend above the entire frame; else above the chart.
     var legendAnchor = (showAxes ? document.getElementById(el.id + '__frame') : null) || el;
+
+    // Title fallback: ensure every chart has a visible title. If the enclosing card
+    // already provides one (.chart-card-title / .ecs-hub-chart-title) we leave it; only
+    // when none exists do we inject a title (from opts.title or the metric name).
+    var titleText = opts.title || opts.chartTitle ||
+      (opts.metricName ? opts.metricName + ' by ' + (opts.categoryLabel || 'category') : '');
+    var card = el.closest ? el.closest('.chart-card, .executive-analytics-card, .ecs-analytics-chart-card, .ecs-hub-chart') : null;
+    var existingTitleEl = card && card.querySelector ? card.querySelector('.chart-card-title, .ecs-hub-chart-title, .ecs-chart-title') : null;
+    var hasCardTitle = !!(existingTitleEl && existingTitleEl.textContent && existingTitleEl.textContent.trim());
+    if (titleText && !hasCardTitle && legendAnchor.parentNode) {
+      var titleId = el.id + '__title';
+      var oldTitle = document.getElementById(titleId);
+      if (oldTitle) oldTitle.remove();
+      var t = document.createElement('div');
+      t.id = titleId;
+      t.className = 'chart-card-title ecs-chart-title';
+      t.textContent = titleText;
+      legendAnchor.parentNode.insertBefore(t, legendAnchor);
+    }
+
     if ((showLegend || showTrend) && legendAnchor.parentNode) {
       var stripId = el.id + '__legend';
       var old = document.getElementById(stripId);

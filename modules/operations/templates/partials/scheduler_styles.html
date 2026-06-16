@@ -54,4 +54,29 @@
   background: #1D4ED8;
   border-color: #1D4ED8;
 }
+
+/* ── P1 HOTFIX: align Scheduler metric/summary cards with Operations Onboarding ──
+   Visual source of truth: .ecs-onboard-kpi / -val / -lbl in mvp_capability_styles.html
+   (values #1e293b bold, labels #64748b uppercase on #f8fafc tiles). The Scheduler
+   summary tiles (.ecs-sched-card) render their labels as <span>, which the DEMO_MODE
+   dark theme repaints to light gray (#CBD5E1) via `p,span,…{color:var(--demo-text2)!important}`.
+   On the tile's light #f8fafc surface that is 1.42:1 (faded). Onboarding labels use a
+   dedicated .ecs-onboard-kpi-lbl <div> (not a <span>, not .text-muted) so they keep
+   #64748b (4.55:1). These Scheduler-scoped rules restore the Onboarding treatment with
+   matching specificity+!important so they win over the global demo override. Scoped under
+   .ecs-cap-scheduler → no other page is affected. No new design language; same tokens,
+   weights, sizes, spacing as Onboarding. */
+.ecs-cap-scheduler .ecs-sched-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;            /* match .ecs-onboard-kpi */
+  padding: 0.65rem;              /* match .ecs-onboard-kpi */
+}
+.ecs-cap-scheduler .ecs-sched-card strong {
+  color: #1e293b !important;     /* match .ecs-onboard-kpi-val ink, bold value */
+  font-weight: 700 !important;
+}
+.ecs-cap-scheduler .ecs-sched-card span {
+  color: #64748b !important;     /* match .ecs-onboard-kpi-lbl label ink; overrides demo span light-gray */
+}
 </style>

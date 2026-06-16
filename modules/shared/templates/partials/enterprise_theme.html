@@ -439,7 +439,8 @@ tr.row-approved { background-color: #d1e7dd !important; }
 .ecs-ops-detail { font-size: 0.8rem; margin-top: 0.5rem; }
 .ecs-ops-detail ul { margin-bottom: 0.5rem; padding-left: 1.1rem; }
 
-.chart-container-compact { max-height: 180px; overflow: hidden; }
+/* Chart heights/overflow are owned by the chart system so bars are not clipped or
+   crushed. (Was: max-height:180px; overflow:hidden — clipped axis labels & values.) */
 .ecs-bar-chart { max-width: 100%; }
 .ecs-horizontal-bars { max-width: 420px; }
 .compact-chart-grid { max-width: 100%; }
