@@ -17,12 +17,23 @@ DEFAULT_TIMEOUT_SEC = 30
 
 
 def get_sonarqube_config() -> dict[str, Any]:
+    """SonarQube target for predefined query execution.
+
+    Resolution: active-environment YAML (predefined_query_targets.sonarqube) ->
+    ECS_SONAR_* env var -> historical default.
+    """
+    from modules.operations.engines.query_connectors import get_predefined_target
+
+    cfg = get_predefined_target("sonarqube")
+    token_env = str(cfg.get("token_env") or "ECS_SONAR_TOKEN")
+    password_env = str(cfg.get("password_env") or "ECS_SONAR_PASSWORD")
+    base_url = cfg.get("base_url") or os.environ.get("ECS_SONAR_URL", "http://sonarqube-demo:9000")
     return {
-        "base_url": os.environ.get("ECS_SONAR_URL", "http://sonarqube-demo:9000").rstrip("/"),
-        "token": os.environ.get("ECS_SONAR_TOKEN", ""),
-        "user": os.environ.get("ECS_SONAR_USER", "admin"),
-        "password": os.environ.get("ECS_SONAR_PASSWORD", "admin"),
-        "timeout_sec": int(os.environ.get("ECS_SONAR_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
+        "base_url": str(base_url).rstrip("/"),
+        "token": os.environ.get(token_env) or os.environ.get("ECS_SONAR_TOKEN", ""),
+        "user": cfg.get("user") or os.environ.get("ECS_SONAR_USER", "admin"),
+        "password": os.environ.get(password_env) or os.environ.get("ECS_SONAR_PASSWORD", "admin"),
+        "timeout_sec": int(cfg.get("timeout_sec") or os.environ.get("ECS_SONAR_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
     }
 
 

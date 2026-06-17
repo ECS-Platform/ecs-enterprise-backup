@@ -18,9 +18,17 @@ LINUX_CONTROL_COMMANDS: dict[str, str] = {
 
 
 def get_linux_config() -> dict[str, Any]:
+    """Linux target for predefined query execution.
+
+    Resolution: active-environment YAML (predefined_query_targets.linux) ->
+    ECS_LINUX_* env var -> historical default.
+    """
+    from modules.operations.engines.query_connectors import get_predefined_target
+
+    cfg = get_predefined_target("linux")
     return {
-        "container": os.environ.get("ECS_LINUX_CONTAINER", "ubuntu-demo"),
-        "timeout_sec": int(os.environ.get("ECS_LINUX_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
+        "container": cfg.get("container") or os.environ.get("ECS_LINUX_CONTAINER", "ubuntu-demo"),
+        "timeout_sec": int(cfg.get("timeout_sec") or os.environ.get("ECS_LINUX_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
     }
 
 

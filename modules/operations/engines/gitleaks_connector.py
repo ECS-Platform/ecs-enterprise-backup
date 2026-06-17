@@ -14,10 +14,19 @@ DEFAULT_TIMEOUT_SEC = 120
 
 
 def get_gitleaks_config() -> dict[str, Any]:
+    """GitLeaks target for predefined query execution.
+
+    Resolution: active-environment YAML (predefined_query_targets.gitleaks) ->
+    ECS_GITLEAKS_* env var -> in-repo sample dir (absolute).
+    """
+    from modules.operations.engines.query_connectors import get_predefined_target
+
     root = Path(__file__).resolve().parents[3]
+    cfg = get_predefined_target("gitleaks")
+    default_path = str(root / "demo-data" / "gitleaks-sample")
     return {
-        "scan_path": os.environ.get("ECS_GITLEAKS_SCAN_PATH", str(root / "demo-data" / "gitleaks-sample")),
-        "timeout_sec": int(os.environ.get("ECS_GITLEAKS_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
+        "scan_path": cfg.get("scan_path") or os.environ.get("ECS_GITLEAKS_SCAN_PATH", default_path),
+        "timeout_sec": int(cfg.get("timeout_sec") or os.environ.get("ECS_GITLEAKS_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
     }
 
 

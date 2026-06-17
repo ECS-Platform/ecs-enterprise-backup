@@ -115,6 +115,41 @@ async def ecs_lifespan(application: FastAPI):
     for line in pq_report.get("log_lines", []):
         ecs_logging.info("PredefinedQueries", line)
 
+    # ---- Environment configuration validation (YAML-driven UAT/SIT/PROD) ----
+    # Logs the active environment and validates its configuration. Fails startup
+    # with meaningful errors in strict environments (sit/uat/prod) or when
+    # ECS_VALIDATE_CONFIG is truthy. Never blocks the local demo. Opt out with
+    # ECS_VALIDATE_CONFIG=off.
+    try:
+        from config.environment_loader import active_environment
+        from config.config_validation import validate_environment
+
+        env_name = active_environment()
+        rep = validate_environment(env_name)
+        ecs_logging.info(
+            "ECSEnvironment",
+            f"Active environment: {env_name} "
+            f"({rep.checks_run} checks, {len(rep.errors)} errors, {len(rep.warnings)} warnings)",
+        )
+        for warn in rep.warnings:
+            ecs_logging.info("ECSEnvironment", f"warn: {warn}")
+        for err in rep.errors:
+            ecs_logging.info("ECSEnvironment", f"ERROR: {err}")
+
+        _flag = os.environ.get("ECS_VALIDATE_CONFIG", "").strip().lower()
+        _opt_out = _flag in {"off", "0", "false", "no"}
+        _force = _flag in {"1", "true", "yes", "strict", "on"}
+        _strict_env = env_name in {"sit", "uat", "prod"}
+        if rep.errors and not _opt_out and (_force or _strict_env):
+            raise RuntimeError(
+                f"ECS environment '{env_name}' configuration is invalid: "
+                + "; ".join(rep.errors)
+            )
+    except RuntimeError:
+        raise
+    except Exception as _env_exc:  # noqa: BLE001 - validation must never crash a healthy demo
+        ecs_logging.info("ECSEnvironment", f"environment validation skipped: {_env_exc}")
+
     # Best-effort evidence repository schema init (never blocks startup).
     try:
         from ecs_platform.ingestion import init_repository

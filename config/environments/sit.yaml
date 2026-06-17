@@ -1,0 +1,36 @@
+# =============================================================================
+# ECS ENVIRONMENT — SIT (System Integration Test)
+# =============================================================================
+# Deep-merged over _base.yaml. Populate with the SIT landscape.
+# Secrets are NEVER placed here — set the *_env environment variables instead.
+# =============================================================================
+
+environment: sit
+tenant: "${ECS_TENANT:-sit}"
+region: "${ECS_REGION:-in-mumbai-sit}"
+
+applications:
+  netbanking:    {host: "${APP_NETBANKING_HOST:-netbanking.sit.bank.local}", port: "${APP_NETBANKING_PORT:-443}", base_url: "${APP_NETBANKING_URL:-https://netbanking.sit.bank.local}"}
+  mobilebanking: {host: "${APP_MOBILEBANKING_HOST:-mobile.sit.bank.local}",  port: "${APP_MOBILEBANKING_PORT:-443}", base_url: "${APP_MOBILEBANKING_URL:-https://mobile.sit.bank.local}"}
+  payments:      {host: "${APP_PAYMENTS_HOST:-payments.sit.bank.local}",     port: "${APP_PAYMENTS_PORT:-443}", base_url: "${APP_PAYMENTS_URL:-https://payments.sit.bank.local}"}
+  cbs:           {host: "${APP_CBS_HOST:-cbs.sit.bank.local}",               port: "${APP_CBS_PORT:-443}", base_url: "${APP_CBS_URL:-https://cbs.sit.bank.local}"}
+  upi:           {host: "${APP_UPI_HOST:-upi.sit.bank.local}",               port: "${APP_UPI_PORT:-443}", base_url: "${APP_UPI_URL:-https://upi.sit.bank.local}"}
+
+databases:
+  postgres: {host: "${ECS_REPO_PG_HOST:-pg.sit.bank.local}", port: "${ECS_REPO_PG_PORT:-5432}", database: "${ECS_REPO_PG_DATABASE:-ecs_repository_sit}"}
+  oracle:   {host: "${DB_ORACLE_HOST:-oracle.sit.bank.local}", service: "${DB_ORACLE_SERVICE:-ECSSIT}"}
+  mysql:    {host: "${DB_MYSQL_HOST:-mysql.sit.bank.local}"}
+
+connectors:
+  jira:       {url: "${JIRA_URL:-https://jira.sit.bank.local}",             enabled: "${ECS_JIRA_ENABLED:-true}"}
+  confluence: {url: "${CONFLUENCE_URL:-https://confluence.sit.bank.local}", enabled: "${ECS_CONFLUENCE_ENABLED:-true}"}
+  servicenow: {url: "${SNOW_URL:-https://sit.service-now.com}",             enabled: "${ECS_SNOW_ENABLED:-true}"}
+
+predefined_query_targets:
+  os_servers:          ["10.20.10.1", "10.20.10.2", "10.20.10.3"]
+  db_servers:          ["10.20.20.1", "10.20.20.2"]
+  middleware_servers:  ["10.20.30.1", "10.20.30.2"]
+  appsec_targets:      ["netbanking.sit.bank.local", "payments.sit.bank.local"]
+
+reporting:
+  export_path: "${ECS_REPORT_EXPORT_PATH:-/var/ecs/exports/sit}"

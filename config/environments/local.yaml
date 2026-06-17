@@ -1,0 +1,24 @@
+# =============================================================================
+# ECS ENVIRONMENT — LOCAL (developer laptop / docker-compose demo)
+# =============================================================================
+# Deep-merged over _base.yaml. LOCAL intentionally keeps the historical
+# docker-compose defaults, so `ECS_ENV=local` (the default) reproduces the
+# current demo behaviour with zero changes.
+# =============================================================================
+
+environment: local
+tenant: "${ECS_TENANT:-local-demo}"
+region: "${ECS_REGION:-local}"
+
+# Predefined-query targets are empty for local (live demo containers are used
+# via the postgresql/linux/sonarqube/trivy/gitleaks blocks inherited from base).
+predefined_query_targets:
+  os_servers:          []
+  db_servers:          []
+  middleware_servers:  []
+  appsec_targets:      []
+  # gitleaks.scan_path inherits the base default (blank) so the GitLeaks
+  # connector falls back to its absolute in-repo demo-data/gitleaks-sample dir.
+
+reporting:
+  export_path: "${ECS_REPORT_EXPORT_PATH:-./exports/local}"

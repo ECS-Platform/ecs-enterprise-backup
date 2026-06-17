@@ -1,0 +1,192 @@
+# =============================================================================
+# ECS ENVIRONMENT CONFIGURATION — BASE / DEFAULTS
+# =============================================================================
+# This is the schema-complete BASE layer. Every environment file
+# (local/dev/sit/uat/prod) is deep-merged ON TOP of this file by
+# config/environment_loader.py, so an env file only needs to specify the values
+# that DIFFER from these defaults.
+#
+# RULES
+#   * No secret (password/token/key) is ever stored here — only the NAME of the
+#     environment variable that supplies it (`*_env`). Secrets resolve from the
+#     process environment at load time.
+#   * Every value supports ${VAR} / ${VAR:-default} substitution, so a single
+#     env var can still override any field at runtime (Docker / K8s friendly).
+#     Placeholders are quoted because they appear inside YAML flow mappings.
+#   * The defaults below reproduce the historical ECS behaviour (docker-compose
+#     service names), so loading with no env file / no env vars changes nothing.
+#
+# To deploy to a new environment a team edits ONLY the matching env file
+# (e.g. uat.yaml) — never source code.
+# =============================================================================
+
+environment: base
+tenant: "${ECS_TENANT:-default}"
+region: "${ECS_REGION:-in-mumbai}"
+
+# -----------------------------------------------------------------------------
+# APPLICATIONS — banking application endpoints ECS integrates with / reports on.
+# host/port/base_url are forward-looking integration slots; populate per env.
+# -----------------------------------------------------------------------------
+applications:
+  netbanking:              {label: "Net Banking",              host: "${APP_NETBANKING_HOST:-}",    port: "${APP_NETBANKING_PORT:-443}",    base_url: "${APP_NETBANKING_URL:-}",    business_unit: "Retail Banking",   criticality: Critical, enabled: true}
+  mobilebanking:           {label: "Mobile Banking",           host: "${APP_MOBILEBANKING_HOST:-}", port: "${APP_MOBILEBANKING_PORT:-443}", base_url: "${APP_MOBILEBANKING_URL:-}", business_unit: "Retail Banking",   criticality: Critical, enabled: true}
+  payments:                {label: "Payments",                 host: "${APP_PAYMENTS_HOST:-}",      port: "${APP_PAYMENTS_PORT:-443}",      base_url: "${APP_PAYMENTS_URL:-}",      business_unit: "Payments",         criticality: Critical, enabled: true}
+  cbs:                     {label: "Core Banking System",      host: "${APP_CBS_HOST:-}",           port: "${APP_CBS_PORT:-443}",           base_url: "${APP_CBS_URL:-}",           business_unit: "Core Banking",     criticality: Critical, enabled: true}
+  upi:                     {label: "UPI",                      host: "${APP_UPI_HOST:-}",           port: "${APP_UPI_PORT:-443}",           base_url: "${APP_UPI_URL:-}",           business_unit: "Payments",         criticality: Critical, enabled: true}
+  los:                     {label: "Loan Origination",         host: "${APP_LOS_HOST:-}",           port: "${APP_LOS_PORT:-443}",           base_url: "${APP_LOS_URL:-}",           business_unit: "Lending",          criticality: High, enabled: true}
+  lms:                     {label: "Loan Management",          host: "${APP_LMS_HOST:-}",           port: "${APP_LMS_PORT:-443}",           base_url: "${APP_LMS_URL:-}",           business_unit: "Lending",          criticality: High, enabled: true}
+  crm:                     {label: "CRM",                      host: "${APP_CRM_HOST:-}",           port: "${APP_CRM_PORT:-443}",           base_url: "${APP_CRM_URL:-}",           business_unit: "Customer",         criticality: Medium, enabled: true}
+  treasury:                {label: "Treasury",                 host: "${APP_TREASURY_HOST:-}",      port: "${APP_TREASURY_PORT:-443}",      base_url: "${APP_TREASURY_URL:-}",      business_unit: "Wholesale Banking", criticality: High, enabled: true}
+  cards:                   {label: "Cards",                    host: "${APP_CARDS_HOST:-}",         port: "${APP_CARDS_PORT:-443}",         base_url: "${APP_CARDS_URL:-}",         business_unit: "Cards",            criticality: High, enabled: true}
+  trade_finance:           {label: "Trade Finance",            host: "${APP_TRADEFIN_HOST:-}",      port: "${APP_TRADEFIN_PORT:-443}",      base_url: "${APP_TRADEFIN_URL:-}",      business_unit: "Wholesale Banking", criticality: Medium, enabled: true}
+  merchant_acquiring:      {label: "Merchant Acquiring",       host: "${APP_MERCHANT_HOST:-}",      port: "${APP_MERCHANT_PORT:-443}",      base_url: "${APP_MERCHANT_URL:-}",      business_unit: "Payments",         criticality: High, enabled: true}
+  api_gateway:             {label: "API Gateway",              host: "${APP_APIGW_HOST:-}",         port: "${APP_APIGW_PORT:-443}",         base_url: "${APP_APIGW_URL:-}",         business_unit: "Platform",         criticality: High, enabled: true}
+  middleware:              {label: "Middleware",               host: "${APP_MIDDLEWARE_HOST:-}",    port: "${APP_MIDDLEWARE_PORT:-8443}",   base_url: "${APP_MIDDLEWARE_URL:-}",    business_unit: "Platform",         criticality: High, enabled: true}
+  authentication_services: {label: "Authentication Services",  host: "${APP_AUTHSVC_HOST:-}",       port: "${APP_AUTHSVC_PORT:-443}",       base_url: "${APP_AUTHSVC_URL:-}",       business_unit: "Platform",         criticality: Critical, enabled: true}
+
+# -----------------------------------------------------------------------------
+# DATABASES — infrastructure database endpoints.
+#   postgres = ECS evidence repository (system of record) — reuses ECS_REPO_PG_*
+#   oracle/mysql/sqlserver = downstream application databases (integration slots)
+# -----------------------------------------------------------------------------
+databases:
+  postgres:
+    host:     "${ECS_REPO_PG_HOST:-postgres}"
+    port:     "${ECS_REPO_PG_PORT:-5432}"
+    database: "${ECS_REPO_PG_DATABASE:-ecs_repository}"
+    user:     "${ECS_REPO_PG_USER:-ecs_user}"
+    password_env: ECS_REPO_PG_PASSWORD
+    schema:   "${ECS_REPO_PG_SCHEMA:-public}"
+  oracle:
+    host:     "${DB_ORACLE_HOST:-}"
+    port:     "${DB_ORACLE_PORT:-1521}"
+    service:  "${DB_ORACLE_SERVICE:-ORCLPDB1}"
+    user:     "${DB_ORACLE_USER:-ecs_ro}"
+    password_env: DB_ORACLE_PASSWORD
+  mysql:
+    host:     "${DB_MYSQL_HOST:-}"
+    port:     "${DB_MYSQL_PORT:-3306}"
+    database: "${DB_MYSQL_DATABASE:-ecs}"
+    user:     "${DB_MYSQL_USER:-ecs_ro}"
+    password_env: DB_MYSQL_PASSWORD
+  sqlserver:
+    host:     "${DB_SQLSERVER_HOST:-}"
+    port:     "${DB_SQLSERVER_PORT:-1433}"
+    database: "${DB_SQLSERVER_DATABASE:-ecs}"
+    user:     "${DB_SQLSERVER_USER:-ecs_ro}"
+    password_env: DB_SQLSERVER_PASSWORD
+
+# -----------------------------------------------------------------------------
+# CONNECTORS — evidence-collection source systems. URLs only (no secrets).
+# Defaults mirror config/integrations.yaml so existing connector runtime is
+# unchanged. Secrets continue to resolve from the *_env names in integrations.yaml.
+# -----------------------------------------------------------------------------
+connectors:
+  jira:         {url: "${JIRA_URL:-}",                                  enabled: "${ECS_JIRA_ENABLED:-false}"}
+  confluence:   {url: "${CONFLUENCE_URL:-}",                            enabled: "${ECS_CONFLUENCE_ENABLED:-false}"}
+  servicenow:   {url: "${SNOW_URL:-}",                                  enabled: "${ECS_SNOW_ENABLED:-false}"}
+  github:       {url: "${GITHUB_URL:-https://api.github.com}",          enabled: "${ECS_GITHUB_ENABLED:-false}"}
+  gitea:        {url: "${GITEA_URL:-http://gitea:3000}",                enabled: "${ECS_GITEA_ENABLED:-true}"}
+  teams:        {url: "${MS_GRAPH_URL:-https://graph.microsoft.com/v1.0}", enabled: "${ECS_TEAMS_ENABLED:-false}"}
+  sharepoint:   {url: "${MS_GRAPH_URL:-https://graph.microsoft.com/v1.0}", enabled: "${ECS_SHAREPOINT_ENABLED:-false}"}
+  azure_devops: {url: "${AZDO_URL:-https://dev.azure.com}",             enabled: "${ECS_AZDO_ENABLED:-false}"}
+  jenkins:      {url: "${JENKINS_URL:-http://jenkins:8080}",            enabled: "${ECS_JENKINS_ENABLED:-true}"}
+  sonarqube:    {url: "${SONAR_URL:-http://sonarqube-demo:9000}",       enabled: "${ECS_SONAR_ENABLED:-true}"}
+  prisma_cloud: {url: "${PRISMA_URL:-}",                                enabled: "${ECS_PRISMA_ENABLED:-false}"}
+  figma:        {url: "${FIGMA_URL:-https://api.figma.com}",            enabled: "${ECS_FIGMA_ENABLED:-false}"}
+
+# -----------------------------------------------------------------------------
+# FRAMEWORK TARGETS — per-framework scope of systems each control set assesses.
+# `target_groups` reference keys under predefined_query_targets below.
+# -----------------------------------------------------------------------------
+framework_targets:
+  csite:                  {enabled: true,  target_groups: [os_servers, db_servers, middleware_servers]}
+  pci_dss:                {enabled: true,  target_groups: [os_servers, db_servers, appsec_targets]}
+  dpsc:                   {enabled: true,  target_groups: [db_servers, appsec_targets]}
+  isg:                    {enabled: true,  target_groups: [os_servers, middleware_servers]}
+  mbss:                   {enabled: true,  target_groups: [os_servers, db_servers, middleware_servers]}
+  asst:                   {enabled: true,  target_groups: [appsec_targets]}
+  itpp:                   {enabled: true,  target_groups: [os_servers]}
+  itdrm:                  {enabled: true,  target_groups: [os_servers, db_servers]}
+  os_baselining:          {enabled: true,  target_groups: [os_servers]}
+  db_baselining:          {enabled: true,  target_groups: [db_servers]}
+  middleware_baselining:  {enabled: true,  target_groups: [middleware_servers]}
+  application_security:   {enabled: true,  target_groups: [appsec_targets]}
+  vapt:                   {enabled: true,  target_groups: [os_servers, appsec_targets]}
+
+# -----------------------------------------------------------------------------
+# PREDEFINED QUERY TARGETS — execution targets for the Predefined Queries module.
+# Server lists are per-environment IP/host lists (native YAML lists). The live
+# demo connectors keep their historical defaults so the running demo is unchanged.
+# Server lists can also be overridden by comma-separated env vars
+# (ECS_TARGET_OS_SERVERS, _DB_SERVERS, _MW_SERVERS, _APPSEC).
+# -----------------------------------------------------------------------------
+predefined_query_targets:
+  os_servers:          []
+  db_servers:          []
+  middleware_servers:  []
+  appsec_targets:      []
+
+  # Live demo execution connectors (deterministic; reused by predefined_queries_engine)
+  postgresql:
+    host:     "${ECS_PG_HOST:-localhost}"
+    port:     "${ECS_PG_PORT:-5432}"
+    database: "${ECS_PG_DATABASE:-ecs_demo}"
+    user:     "${ECS_PG_USER:-ecs_user}"
+    password_env: ECS_PG_PASSWORD
+    timeout_sec: "${ECS_PG_TIMEOUT_SEC:-30}"
+  linux:
+    container:   "${ECS_LINUX_CONTAINER:-ubuntu-demo}"
+    timeout_sec: "${ECS_LINUX_TIMEOUT_SEC:-30}"
+  sonarqube:
+    base_url:    "${ECS_SONAR_URL:-http://sonarqube-demo:9000}"
+    user:        "${ECS_SONAR_USER:-admin}"
+    token_env:   ECS_SONAR_TOKEN
+    password_env: ECS_SONAR_PASSWORD
+    timeout_sec: "${ECS_SONAR_TIMEOUT_SEC:-30}"
+  trivy:
+    image:       "${ECS_TRIVY_IMAGE:-alpine:3.19}"
+    timeout_sec: "${ECS_TRIVY_TIMEOUT_SEC:-120}"
+  gitleaks:
+    scan_path:   "${ECS_GITLEAKS_SCAN_PATH:-}"
+    timeout_sec: "${ECS_GITLEAKS_TIMEOUT_SEC:-120}"
+
+# -----------------------------------------------------------------------------
+# STORAGE — object store for raw evidence artifacts. Reuses MINIO_* env names.
+# -----------------------------------------------------------------------------
+storage:
+  object_store:
+    enabled:   "${ECS_OBJECT_STORE_ENABLED:-true}"
+    provider:  "${ECS_OBJECT_STORE_PROVIDER:-minio}"   # minio | s3
+    endpoint:  "${MINIO_ENDPOINT:-minio:9000}"
+    bucket:    "${MINIO_BUCKET:-ecs-evidence}"
+    access_key_env: MINIO_ACCESS_KEY
+    secret_key_env: MINIO_SECRET_KEY
+    secure:    "${MINIO_SECURE:-false}"
+
+# -----------------------------------------------------------------------------
+# AUTHENTICATION — SSO / IdP integration (forward-looking slots).
+# -----------------------------------------------------------------------------
+authentication:
+  sso:
+    enabled:  "${ECS_SSO_ENABLED:-false}"
+    provider: "${ECS_SSO_PROVIDER:-}"            # saml | oidc | azure_ad
+    metadata_url: "${ECS_SSO_METADATA_URL:-}"
+    client_id_env: ECS_SSO_CLIENT_ID
+    client_secret_env: ECS_SSO_CLIENT_SECRET
+
+# -----------------------------------------------------------------------------
+# LLM — assistant / RAG provider. Reuses ECS_LLM_* / provider URLs from llm.yaml.
+# -----------------------------------------------------------------------------
+llm:
+  provider: "${ECS_LLM_PROVIDER:-ollama}"
+  model:    "${ECS_LLM_MODEL:-qwen3:8b}"
+  base_url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
+
+# -----------------------------------------------------------------------------
+# REPORTING — export destination for generated report packs.
+# -----------------------------------------------------------------------------
+reporting:
+  export_path: "${ECS_REPORT_EXPORT_PATH:-./exports}"
+  format:      "${ECS_REPORT_FORMAT:-pdf}"

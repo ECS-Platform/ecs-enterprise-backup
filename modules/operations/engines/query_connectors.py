@@ -6,8 +6,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-# Prepared connector targets for future Docker demo environment integration.
-CONNECTOR_CONFIG: dict[str, dict[str, str | int]] = {
+# ---------------------------------------------------------------------------
+# Predefined-query execution targets are now sourced from the active ECS
+# environment (config/environments/<ECS_ENV>.yaml) via config.environment_loader.
+# The static map below is a SAFE FALLBACK only — used verbatim when the
+# environment layer is unavailable, so historical demo behaviour is preserved.
+# ---------------------------------------------------------------------------
+_STATIC_CONNECTOR_CONFIG: dict[str, dict[str, str | int]] = {
     "postgres-demo": {"type": "PostgreSQLConnector", "technology": "PostgreSQL", "host": "postgres-demo", "port": 5432},
     "ubuntu-demo": {"type": "LinuxConnector", "technology": "Linux", "host": "ubuntu-demo", "port": 0},
     "sonarqube-demo": {"type": "SonarQubeConnector", "technology": "SonarQube", "host": "sonarqube-demo", "port": 9000},
@@ -18,6 +23,61 @@ CONNECTOR_CONFIG: dict[str, dict[str, str | int]] = {
     "ubuntu-host": {"type": "SSHConnector", "technology": "Linux", "host": "ubuntu-host", "port": 22},
     "sonarqube-server": {"type": "APIConnector", "technology": "SonarQube", "host": "sonarqube-server", "port": 9000},
 }
+
+
+def _env_predefined_targets() -> dict[str, Any]:
+    """Predefined-query targets from the active environment config (never raises)."""
+    try:
+        from config.environment_loader import get_predefined_query_targets
+
+        return get_predefined_query_targets() or {}
+    except Exception:  # noqa: BLE001 - degrade to static fallback, never break callers
+        return {}
+
+
+def get_predefined_target(name: str) -> dict[str, Any]:
+    """Return one predefined-query target block (e.g. 'postgresql') as a dict."""
+    block = _env_predefined_targets().get(name)
+    return dict(block) if isinstance(block, dict) else {}
+
+
+def build_connector_config() -> dict[str, dict[str, str | int]]:
+    """Build the connector target map from the active environment.
+
+    Combines the live demo connectors with the per-environment OS/DB/middleware
+    server lists. Falls back to the static map when the environment layer yields
+    nothing, so the result is never empty.
+    """
+    targets = _env_predefined_targets()
+    if not targets:
+        return dict(_STATIC_CONNECTOR_CONFIG)
+
+    cfg: dict[str, dict[str, str | int]] = {}
+    pg = targets.get("postgresql") or {}
+    cfg["postgres-demo"] = {"type": "PostgreSQLConnector", "technology": "PostgreSQL",
+                            "host": str(pg.get("host") or "postgres-demo"), "port": int(pg.get("port") or 5432)}
+    lx = targets.get("linux") or {}
+    cfg["ubuntu-demo"] = {"type": "LinuxConnector", "technology": "Linux",
+                          "host": str(lx.get("container") or "ubuntu-demo"), "port": 0}
+    sq = targets.get("sonarqube") or {}
+    cfg["sonarqube-demo"] = {"type": "SonarQubeConnector", "technology": "SonarQube",
+                             "host": str(sq.get("base_url") or "sonarqube-demo"), "port": 9000}
+
+    for host in targets.get("os_servers") or []:
+        cfg[str(host)] = {"type": "SSHConnector", "technology": "Linux", "host": str(host), "port": 22}
+    for host in targets.get("db_servers") or []:
+        cfg[str(host)] = {"type": "DatabaseConnector", "technology": "PostgreSQL", "host": str(host), "port": 5432}
+    for host in targets.get("middleware_servers") or []:
+        cfg[str(host)] = {"type": "APIConnector", "technology": "Middleware", "host": str(host), "port": 443}
+
+    # Ensure the map is never smaller than the static baseline for legacy checks.
+    for key, val in _STATIC_CONNECTOR_CONFIG.items():
+        cfg.setdefault(key, val)
+    return cfg
+
+
+#: Backwards-compatible module-level map (env-derived, static fallback).
+CONNECTOR_CONFIG: dict[str, dict[str, str | int]] = build_connector_config()
 
 
 @dataclass

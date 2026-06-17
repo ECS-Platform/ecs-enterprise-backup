@@ -1,0 +1,39 @@
+# =============================================================================
+# ECS ENVIRONMENT — DEV (shared development cluster)
+# =============================================================================
+# Deep-merged over _base.yaml. Populate hosts/IPs for the DEV landscape.
+# Secrets are NEVER placed here — set the *_env environment variables instead.
+# =============================================================================
+
+environment: dev
+tenant: "${ECS_TENANT:-dev}"
+region: "${ECS_REGION:-in-mumbai-dev}"
+
+applications:
+  netbanking:    {host: "${APP_NETBANKING_HOST:-netbanking.dev.bank.local}", port: "${APP_NETBANKING_PORT:-8443}",  base_url: "${APP_NETBANKING_URL:-https://netbanking.dev.bank.local}"}
+  mobilebanking: {host: "${APP_MOBILEBANKING_HOST:-mobile.dev.bank.local}",  port: "${APP_MOBILEBANKING_PORT:-8443}", base_url: "${APP_MOBILEBANKING_URL:-https://mobile.dev.bank.local}"}
+  payments:      {host: "${APP_PAYMENTS_HOST:-payments.dev.bank.local}",     port: "${APP_PAYMENTS_PORT:-8443}",    base_url: "${APP_PAYMENTS_URL:-https://payments.dev.bank.local}"}
+  cbs:           {host: "${APP_CBS_HOST:-cbs.dev.bank.local}",               port: "${APP_CBS_PORT:-8443}",         base_url: "${APP_CBS_URL:-https://cbs.dev.bank.local}"}
+  upi:           {host: "${APP_UPI_HOST:-upi.dev.bank.local}",               port: "${APP_UPI_PORT:-8443}",         base_url: "${APP_UPI_URL:-https://upi.dev.bank.local}"}
+
+databases:
+  postgres: {host: "${ECS_REPO_PG_HOST:-pg.dev.bank.local}", port: "${ECS_REPO_PG_PORT:-5432}", database: "${ECS_REPO_PG_DATABASE:-ecs_repository_dev}"}
+  oracle:   {host: "${DB_ORACLE_HOST:-oracle.dev.bank.local}", service: "${DB_ORACLE_SERVICE:-ECSDEV}"}
+  mysql:    {host: "${DB_MYSQL_HOST:-mysql.dev.bank.local}"}
+
+connectors:
+  jira:       {url: "${JIRA_URL:-https://jira.dev.bank.local}",             enabled: "${ECS_JIRA_ENABLED:-true}"}
+  confluence: {url: "${CONFLUENCE_URL:-https://confluence.dev.bank.local}", enabled: "${ECS_CONFLUENCE_ENABLED:-true}"}
+  servicenow: {url: "${SNOW_URL:-https://dev.service-now.com}",             enabled: "${ECS_SNOW_ENABLED:-false}"}
+
+# Native YAML lists are the source of truth. They can also be overridden at
+# runtime with comma-separated env vars (ECS_TARGET_OS_SERVERS, _DB_SERVERS,
+# _MW_SERVERS, _APPSEC) — handled by config/environment_loader.py.
+predefined_query_targets:
+  os_servers:          ["10.0.10.11", "10.0.10.12"]
+  db_servers:          ["10.0.20.11", "10.0.20.12"]
+  middleware_servers:  ["10.0.30.11"]
+  appsec_targets:      ["netbanking.dev.bank.local", "mobile.dev.bank.local"]
+
+reporting:
+  export_path: "${ECS_REPORT_EXPORT_PATH:-/var/ecs/exports/dev}"

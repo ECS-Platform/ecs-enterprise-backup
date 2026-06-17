@@ -14,13 +14,24 @@ DEFAULT_TIMEOUT_SEC = 30
 
 
 def get_postgresql_config() -> dict[str, Any]:
+    """PostgreSQL target for predefined query execution.
+
+    Resolution order per field: active-environment YAML
+    (predefined_query_targets.postgresql) -> ECS_PG_* env var -> historical
+    default. The YAML values already honour the env vars, so behaviour is
+    identical when no env file overrides are present.
+    """
+    from modules.operations.engines.query_connectors import get_predefined_target
+
+    cfg = get_predefined_target("postgresql")
+    password_env = str(cfg.get("password_env") or "ECS_PG_PASSWORD")
     return {
-        "host": os.environ.get("ECS_PG_HOST", "localhost"),
-        "port": int(os.environ.get("ECS_PG_PORT", "5432")),
-        "database": os.environ.get("ECS_PG_DATABASE", "ecs_demo"),
-        "user": os.environ.get("ECS_PG_USER", "ecs_user"),
-        "password": os.environ.get("ECS_PG_PASSWORD", "ecs_password"),
-        "timeout_sec": int(os.environ.get("ECS_PG_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
+        "host": cfg.get("host") or os.environ.get("ECS_PG_HOST", "localhost"),
+        "port": int(cfg.get("port") or os.environ.get("ECS_PG_PORT", "5432")),
+        "database": cfg.get("database") or os.environ.get("ECS_PG_DATABASE", "ecs_demo"),
+        "user": cfg.get("user") or os.environ.get("ECS_PG_USER", "ecs_user"),
+        "password": os.environ.get(password_env) or os.environ.get("ECS_PG_PASSWORD", "ecs_password"),
+        "timeout_sec": int(cfg.get("timeout_sec") or os.environ.get("ECS_PG_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
     }
 
 

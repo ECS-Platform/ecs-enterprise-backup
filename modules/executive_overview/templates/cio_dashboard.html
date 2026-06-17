@@ -8,6 +8,30 @@
 
 {% include "partials/enterprise_theme.html" %}
 {% include "partials/executive_charts_system.html" %}
+<style>
+/* ── P1 demo fix: Active Rejections "Reason" readability (CIO dashboard only) ──
+   Same defect/root-cause as the /dashboard Evidence Rejections table: this 4-column
+   table borrows the shared 7-column .ecs-risk-table width classes (.col-app=18% etc.)
+   plus the shared `td { white-space:nowrap; overflow:hidden; text-overflow:ellipsis }`,
+   so the full-sentence rejection reason (info.reason) is crushed into an ~18% cell and
+   truncated/unreadable. These rules are scoped strictly to .ecs-rejections-table (used
+   only by this table on this page) so no shared table renderer, shared CSS, or other
+   dashboard is affected. Mirrors the fix already shipped in dashboard.html. */
+.ecs-rejections-table { table-layout: fixed; width: 100%; }
+.ecs-rejections-table .rej-col-fw       { width: 16%; }
+.ecs-rejections-table .rej-col-control  { width: 26%; }
+.ecs-rejections-table .rej-col-reason   { width: 42%; }
+.ecs-rejections-table .rej-col-by       { width: 16%; }
+.ecs-rejections-table td.rej-reason-cell {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+.ecs-rejections-table td, .ecs-rejections-table th { vertical-align: top; }
+</style>
 </head>
 
 <body class="bg-light ecs-enterprise-body">
@@ -155,11 +179,11 @@
 {% if rejected_controls %}
 {% call accordion_section('Active Rejections', 'cio-rejections', rejected_controls|length|string, true) %}
 <div class="ecs-risk-table-wrap ecs-paginated-wrap">
-<table class="table ecs-table-modern ecs-risk-table ecs-paginated-table mb-0">
-<thead><tr><th class="col-fw">Framework</th><th class="col-control">Control</th><th class="col-app">Reason</th><th class="col-status">Rejected By</th></tr></thead>
+<table class="table ecs-table-modern ecs-risk-table ecs-rejections-table ecs-paginated-table mb-0">
+<thead><tr><th class="rej-col-fw">Framework</th><th class="rej-col-control">Control</th><th class="rej-col-reason">Reason</th><th class="rej-col-by">Rejected By</th></tr></thead>
 <tbody>
 {% for ckey, info in rejected_controls.items() %}
-<tr><td>{{ ckey.split('::')[0] }}</td><td>{{ ckey.split('::')[1] }}</td><td>{{ info.reason }}</td><td>{{ info.rejected_by }}</td></tr>
+<tr><td>{{ ckey.split('::')[0] }}</td><td>{{ ckey.split('::')[1] }}</td><td class="rej-reason-cell" title="{{ info.reason }}"><span class="rej-reason-text">{{ info.reason }}</span></td><td>{{ info.rejected_by }}</td></tr>
 {% endfor %}
 </tbody>
 </table>

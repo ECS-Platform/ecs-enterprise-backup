@@ -1,0 +1,47 @@
+# =============================================================================
+# ECS ENVIRONMENT — PRODUCTION
+# =============================================================================
+# Deep-merged over _base.yaml. Populate with the PRODUCTION landscape.
+# Secrets are NEVER placed here — set the *_env environment variables (ideally
+# from a vault / K8s secret) instead. SSO is expected to be enabled in PROD.
+# =============================================================================
+
+environment: prod
+tenant: "${ECS_TENANT:-prod}"
+region: "${ECS_REGION:-in-mumbai}"
+
+applications:
+  netbanking:    {host: "${APP_NETBANKING_HOST:-netbanking.bank.com}", port: "${APP_NETBANKING_PORT:-443}", base_url: "${APP_NETBANKING_URL:-https://netbanking.bank.com}"}
+  mobilebanking: {host: "${APP_MOBILEBANKING_HOST:-mobile.bank.com}",  port: "${APP_MOBILEBANKING_PORT:-443}", base_url: "${APP_MOBILEBANKING_URL:-https://mobile.bank.com}"}
+  payments:      {host: "${APP_PAYMENTS_HOST:-payments.bank.com}",     port: "${APP_PAYMENTS_PORT:-443}", base_url: "${APP_PAYMENTS_URL:-https://payments.bank.com}"}
+  cbs:           {host: "${APP_CBS_HOST:-cbs.bank.com}",               port: "${APP_CBS_PORT:-443}", base_url: "${APP_CBS_URL:-https://cbs.bank.com}"}
+  upi:           {host: "${APP_UPI_HOST:-upi.bank.com}",               port: "${APP_UPI_PORT:-443}", base_url: "${APP_UPI_URL:-https://upi.bank.com}"}
+
+databases:
+  postgres: {host: "${ECS_REPO_PG_HOST:-pg.prod.bank.internal}", port: "${ECS_REPO_PG_PORT:-5432}", database: "${ECS_REPO_PG_DATABASE:-ecs_repository}"}
+  oracle:   {host: "${DB_ORACLE_HOST:-oracle.prod.bank.internal}", service: "${DB_ORACLE_SERVICE:-ECSPROD}"}
+  mysql:    {host: "${DB_MYSQL_HOST:-mysql.prod.bank.internal}"}
+
+connectors:
+  jira:       {url: "${JIRA_URL:-https://jira.bank.com}",             enabled: "${ECS_JIRA_ENABLED:-true}"}
+  confluence: {url: "${CONFLUENCE_URL:-https://confluence.bank.com}", enabled: "${ECS_CONFLUENCE_ENABLED:-true}"}
+  servicenow: {url: "${SNOW_URL:-https://bank.service-now.com}",      enabled: "${ECS_SNOW_ENABLED:-true}"}
+
+# Per the standard: PRODUCTION predefined-query execution targets.
+predefined_query_targets:
+  os_servers:          ["172.16.10.1", "172.16.10.2"]
+  db_servers:          ["172.16.20.1", "172.16.20.2"]
+  middleware_servers:  ["172.16.30.1", "172.16.30.2"]
+  appsec_targets:      ["netbanking.bank.com", "payments.bank.com"]
+
+storage:
+  object_store:
+    secure: "${MINIO_SECURE:-true}"
+
+authentication:
+  sso:
+    enabled:  "${ECS_SSO_ENABLED:-true}"
+    provider: "${ECS_SSO_PROVIDER:-saml}"
+
+reporting:
+  export_path: "${ECS_REPORT_EXPORT_PATH:-/var/ecs/exports/prod}"

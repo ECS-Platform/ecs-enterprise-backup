@@ -14,9 +14,17 @@ DEFAULT_IMAGE = "alpine:3.19"
 
 
 def get_trivy_config() -> dict[str, Any]:
+    """Trivy target for predefined query execution.
+
+    Resolution: active-environment YAML (predefined_query_targets.trivy) ->
+    ECS_TRIVY_* env var -> historical default.
+    """
+    from modules.operations.engines.query_connectors import get_predefined_target
+
+    cfg = get_predefined_target("trivy")
     return {
-        "image": os.environ.get("ECS_TRIVY_IMAGE", DEFAULT_IMAGE),
-        "timeout_sec": int(os.environ.get("ECS_TRIVY_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
+        "image": cfg.get("image") or os.environ.get("ECS_TRIVY_IMAGE", DEFAULT_IMAGE),
+        "timeout_sec": int(cfg.get("timeout_sec") or os.environ.get("ECS_TRIVY_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
     }
 
 
