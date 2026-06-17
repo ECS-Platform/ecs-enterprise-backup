@@ -56,6 +56,26 @@ DeepSeek). Documentation only — no source changes.
 
 ---
 
+## AI Documentation Review Program (`ecs-ai-documentation-review-v1`)
+
+Architecture/decision/governance/security set produced by the AI documentation review.
+**Documentation only — no source changes.** Grounded in `ecs_platform/llm_engine/provider.py`,
+`ecs_platform/rag.py`, `ecs_platform/llm_engine/prompt_builder.py`, `config/llm.yaml`,
+`config/vectorstore.yaml`. Inferred/target content is labeled.
+
+| # | Document | Covers |
+|---|---|---|
+| 1 | [ECS_LOCAL_VS_CLOUD_LLM_DECISION_MATRIX.md](ECS_LOCAL_VS_CLOUD_LLM_DECISION_MATRIX.md) | Local/cloud/hybrid capabilities, banking suitability, cost/security/privacy/air-gap, recommendation matrix |
+| 2 | [ECS_LLM_USE_CASE_COVERAGE_MATRIX.md](ECS_LLM_USE_CASE_COVERAGE_MATRIX.md) | 82 use cases × local/cloud/hybrid/recommended/complexity/ROI across all 11 domains |
+| 3 | [ECS_LOCAL_LLM_USE_CASE_CATALOG_V2.md](ECS_LOCAL_LLM_USE_CASE_CATALOG_V2.md) | 104 use cases (problem/inputs/flow/outputs/personas/screens/APIs/data/benefits) |
+| 4 | [ECS_AI_FUNCTIONAL_REQUIREMENTS.md](ECS_AI_FUNCTIONAL_REQUIREMENTS.md) | FR/NFR/Security/AI/Performance/Explainability/Auditability requirements |
+| 5 | [ECS_AI_ARCHITECTURE_REFERENCE.md](ECS_AI_ARCHITECTURE_REFERENCE.md) | Ollama/Qwen3/embeddings/pgvector/RAG/retrieval/provider abstraction/hybrid/cloud/AI gov controls |
+| 6 | [ECS_AI_GOVERNANCE_OPERATING_MODEL.md](ECS_AI_GOVERNANCE_OPERATING_MODEL.md) | Use-case lifecycle, model/prompt approval, risk, monitoring, revalidation, retirement |
+| 7 | [ECS_AI_SECURITY_ARCHITECTURE.md](ECS_AI_SECURITY_ARCHITECTURE.md) | Data classification, prompt security, RBAC, PII, audit logging, encryption, model security |
+| 8 | [ECS_AI_DOCUMENT_COMPLETENESS_REPORT.md](ECS_AI_DOCUMENT_COMPLETENESS_REPORT.md) | Coverage %, missing areas, enhancements, Phase 2 & 3 roadmaps |
+
+---
+
 ## Key code anchors
 
 | Concern | File:line |
