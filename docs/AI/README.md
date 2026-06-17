@@ -73,6 +73,7 @@ Architecture/decision/governance/security set produced by the AI documentation r
 | 6 | [ECS_AI_GOVERNANCE_OPERATING_MODEL.md](ECS_AI_GOVERNANCE_OPERATING_MODEL.md) | Use-case lifecycle, model/prompt approval, risk, monitoring, revalidation, retirement |
 | 7 | [ECS_AI_SECURITY_ARCHITECTURE.md](ECS_AI_SECURITY_ARCHITECTURE.md) | Data classification, prompt security, RBAC, PII, audit logging, encryption, model security |
 | 8 | [ECS_AI_DOCUMENT_COMPLETENESS_REPORT.md](ECS_AI_DOCUMENT_COMPLETENESS_REPORT.md) | Coverage %, missing areas, enhancements, Phase 2 & 3 roadmaps |
+| 9 | [ECS_AI_LIFECYCLE_REFERENCE.md](ECS_AI_LIFECYCLE_REFERENCE.md) | Consolidated local/cloud/hybrid + prompt→embedding→RAG→governance→testing→monitoring lifecycle thread (Enterprise Knowledge Completion Phase 14) |
 
 ---
 

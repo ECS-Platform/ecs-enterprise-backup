@@ -22,6 +22,54 @@ capability claims are cited to source files. Forward-looking content is tagged *
 
 ---
 
+## Workflow & Knowledge Documentation (2026-06)
+
+| Area | Document |
+|------|----------|
+| Workflow orchestration (20 workflows + diagrams) | [WORKFLOWS/ECS_WORKFLOW_ORCHESTRATION_GUIDE.md](WORKFLOWS/ECS_WORKFLOW_ORCHESTRATION_GUIDE.md) |
+| Role action / CRUD matrix (15 roles) | [WORKFLOWS/ECS_ROLE_ACTION_MATRIX.md](WORKFLOWS/ECS_ROLE_ACTION_MATRIX.md) |
+| State transition matrix | [WORKFLOWS/ECS_STATE_TRANSITION_MATRIX.md](WORKFLOWS/ECS_STATE_TRANSITION_MATRIX.md) |
+| SLA & escalation matrix | [WORKFLOWS/ECS_SLA_ESCALATION_MATRIX.md](WORKFLOWS/ECS_SLA_ESCALATION_MATRIX.md) |
+| Notification matrix | [WORKFLOWS/ECS_NOTIFICATION_MATRIX.md](WORKFLOWS/ECS_NOTIFICATION_MATRIX.md) |
+| Business process model (BPMN-style) | [WORKFLOWS/ECS_BUSINESS_PROCESS_MODEL.md](WORKFLOWS/ECS_BUSINESS_PROCESS_MODEL.md) |
+| Sequence diagram library (10 lifecycles) | [WORKFLOWS/ECS_SEQUENCE_DIAGRAMS.md](WORKFLOWS/ECS_SEQUENCE_DIAGRAMS.md) |
+| Predefined query execution guide | [OPERATIONS/ECS_PREDEFINED_QUERY_EXECUTION_GUIDE.md](OPERATIONS/ECS_PREDEFINED_QUERY_EXECUTION_GUIDE.md) |
+| Predefined query execution workflow | [OPERATIONS/ECS_PREDEFINED_QUERY_EXECUTION_WORKFLOW.md](OPERATIONS/ECS_PREDEFINED_QUERY_EXECUTION_WORKFLOW.md) |
+| Control & evidence reuse guide | [OPERATIONS/ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md](OPERATIONS/ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md) |
+| Framework reference (all frameworks) | [FRAMEWORKS/ECS_FRAMEWORK_REFERENCE.md](FRAMEWORKS/ECS_FRAMEWORK_REFERENCE.md) |
+| Product feature completeness matrix | [PRODUCT/ECS_FEATURE_COMPLETENESS_MATRIX.md](PRODUCT/ECS_FEATURE_COMPLETENESS_MATRIX.md) |
+| Final knowledge completeness report | [EXECUTIVE/ECS_FINAL_KNOWLEDGE_COMPLETENESS_REPORT.md](EXECUTIVE/ECS_FINAL_KNOWLEDGE_COMPLETENESS_REPORT.md) |
+| Workflow completeness report | [EXECUTIVE/ECS_WORKFLOW_COMPLETENESS_REPORT.md](EXECUTIVE/ECS_WORKFLOW_COMPLETENESS_REPORT.md) |
+
+See also [WORKFLOWS/README.md](WORKFLOWS/README.md) for the workflow package index.
+
+---
+
+## Enterprise Knowledge Completion Program (2026-06)
+
+Documentation-only program (no code/UI/DB changes). All facts grounded in repository evidence; inferred/target content labeled **[Inferred/Target]**. Final completeness score and gap analysis in the audit at the end of this list.
+
+| Phase | Area | Document |
+|---|---|---|
+| 1 | Master Product Manual | [PRODUCT/ECS_MASTER_PRODUCT_MANUAL.md](PRODUCT/ECS_MASTER_PRODUCT_MANUAL.md) |
+| 2 | Master KPI Dictionary | [PRODUCT/ECS_MASTER_KPI_DICTIONARY.md](PRODUCT/ECS_MASTER_KPI_DICTIONARY.md) |
+| 3 | Evidence Management Reference | [EVIDENCE/ECS_EVIDENCE_REFERENCE_GUIDE.md](EVIDENCE/ECS_EVIDENCE_REFERENCE_GUIDE.md) |
+| 4 | Control Management Reference | [CONTROLS/ECS_CONTROL_REFERENCE_GUIDE.md](CONTROLS/ECS_CONTROL_REFERENCE_GUIDE.md) |
+| 5 | Framework Reference Library (15) | [FRAMEWORKS/README.md](FRAMEWORKS/README.md) |
+| 6 | Application Onboarding Guide | [operations/ECS_APPLICATION_ONBOARDING_GUIDE.md](operations/ECS_APPLICATION_ONBOARDING_GUIDE.md) |
+| 7 | Scheduler Reference | [operations/ECS_SCHEDULER_REFERENCE.md](operations/ECS_SCHEDULER_REFERENCE.md) |
+| 8 | Predefined Query Execution Architecture | [operations/ECS_PREDEFINED_QUERY_ARCHITECTURE.md](operations/ECS_PREDEFINED_QUERY_ARCHITECTURE.md) |
+| 9 | Integration Architecture (9 guides) | [INTEGRATIONS/README.md](INTEGRATIONS/README.md) |
+| 10 | Data Architecture Reference | [architecture/ECS_DATA_ARCHITECTURE_REFERENCE.md](architecture/ECS_DATA_ARCHITECTURE_REFERENCE.md) |
+| 11 | Load Testing Reference | [TESTING/ECS_LOAD_TESTING_REFERENCE.md](TESTING/ECS_LOAD_TESTING_REFERENCE.md) |
+| 12 | Security Reference | [SECURITY/ECS_SECURITY_REFERENCE.md](SECURITY/ECS_SECURITY_REFERENCE.md) |
+| 13 | Deployment Reference | [DEPLOYMENT/ECS_DEPLOYMENT_REFERENCE.md](DEPLOYMENT/ECS_DEPLOYMENT_REFERENCE.md) |
+| 14 | AI Lifecycle Reference | [AI/ECS_AI_LIFECYCLE_REFERENCE.md](AI/ECS_AI_LIFECYCLE_REFERENCE.md) |
+| 15 | Master Use Case Catalog (150+) | [PRODUCT/ECS_MASTER_USE_CASE_CATALOG.md](PRODUCT/ECS_MASTER_USE_CASE_CATALOG.md) |
+| 16 | Final Enterprise Knowledge Audit | [executive/ECS_FINAL_ENTERPRISE_KNOWLEDGE_AUDIT.md](executive/ECS_FINAL_ENTERPRISE_KNOWLEDGE_AUDIT.md) |
+
+---
+
 ## How to read this package
 
 - **Executives / leadership:** start with #7 (Dossier), then #1 (Architecture Review).
