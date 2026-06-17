@@ -38,6 +38,24 @@ quality tiers) is explicitly labeled as such and not presented as measured fact.
 
 ---
 
+## Implementation, Testing & Use Case Guide (`ecs-local-llm-readiness-enterprise-v1`)
+
+Practitioner-facing set showing how ECS operates on local LLMs (Ollama/Qwen/Llama/Mistral/Phi/Gemma/
+DeepSeek). Documentation only — no source changes.
+
+| Phase | Document | Covers |
+|---|---|---|
+| 1 | [ECS_LOCAL_LLM_DEVELOPER_GUIDE.md](ECS_LOCAL_LLM_DEVELOPER_GUIDE.md) | Provider abstraction, Ollama, models, embeddings, pgvector, vector/RAG/Copilot flows + sequence diagrams |
+| 2 | [ECS_LOCAL_LLM_DEPLOYMENT_GUIDE.md](ECS_LOCAL_LLM_DEPLOYMENT_GUIDE.md) | Mac/Windows/Linux/UAT/Prod install, model pulls, pgvector, validation, troubleshooting |
+| 3 | [ECS_LOCAL_LLM_SCREEN_MAPPING.md](ECS_LOCAL_LLM_SCREEN_MAPPING.md) | Per-page: current behaviour, local-LLM opportunity, effort |
+| 4 | [ECS_LOCAL_LLM_USE_CASE_CATALOG.md](ECS_LOCAL_LLM_USE_CASE_CATALOG.md) | 28 use cases (value/input/output/persona/app/framework/ROI) |
+| 4/5 | [ECS_LOCAL_LLM_BANKING_USE_CASES.md](ECS_LOCAL_LLM_BANKING_USE_CASES.md) | Banking use cases + full persona mapping |
+| 6 | [ECS_LOCAL_LLM_TESTING_GUIDE.md](ECS_LOCAL_LLM_TESTING_GUIDE.md) | Functional/Perf/Security/Accuracy/Hallucination/RAG/Vector tests |
+| — | [ECS_LOCAL_LLM_OPERATIONS_GUIDE.md](ECS_LOCAL_LLM_OPERATIONS_GUIDE.md) | Day-2 ops, health, change mgmt, failure modes, air-gap checklist |
+| 7 | [ECS_LOCAL_LLM_PHASE1_ROADMAP.md](ECS_LOCAL_LLM_PHASE1_ROADMAP.md) | MoSCoW Phase-1 recommendations + effort/dependencies |
+
+---
+
 ## Key code anchors
 
 | Concern | File:line |
