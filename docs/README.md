@@ -22,6 +22,19 @@ capability claims are cited to source files. Forward-looking content is tagged *
 
 ---
 
+## Master Knowledge Consolidation (2026-06) — authoritative entry points
+
+| Area | Single Source of Truth |
+|------|----------|
+| Use Case Registry (unified index) | [PRODUCT/ECS_MASTER_USE_CASE_REGISTRY.md](PRODUCT/ECS_MASTER_USE_CASE_REGISTRY.md) |
+| Use Cases + AI/LLM/Integration | [AI/ECS_MASTER_USE_CASE_AND_LLM_REFERENCE.md](AI/ECS_MASTER_USE_CASE_AND_LLM_REFERENCE.md) |
+| LLM Implementation Matrix / Roadmap | [AI/ECS_LLM_IMPLEMENTATION_MATRIX.md](AI/ECS_LLM_IMPLEMENTATION_MATRIX.md) · [AI/ECS_LLM_IMPLEMENTATION_ROADMAP.md](AI/ECS_LLM_IMPLEMENTATION_ROADMAP.md) |
+| Master Integration Matrix | [INTEGRATIONS/ECS_MASTER_INTEGRATION_MATRIX.md](INTEGRATIONS/ECS_MASTER_INTEGRATION_MATRIX.md) |
+| Document Reconciliation (SoT matrix) | [executive/ECS_DOCUMENT_RECONCILIATION_REPORT.md](executive/ECS_DOCUMENT_RECONCILIATION_REPORT.md) |
+| Knowledge Consolidation (score 95/100) | [executive/ECS_MASTER_KNOWLEDGE_CONSOLIDATION_REPORT.md](executive/ECS_MASTER_KNOWLEDGE_CONSOLIDATION_REPORT.md) |
+
+---
+
 ## Workflow & Knowledge Documentation (2026-06)
 
 | Area | Document |

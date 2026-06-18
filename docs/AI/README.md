@@ -38,6 +38,19 @@ quality tiers) is explicitly labeled as such and not presented as measured fact.
 
 ---
 
+## Master Use Case & LLM Reference Set (2026-06, consolidated)
+
+| Document | Covers |
+|---|---|
+| [ECS_MASTER_USE_CASE_AND_LLM_REFERENCE.md](ECS_MASTER_USE_CASE_AND_LLM_REFERENCE.md) | **SoT:** 150+ use cases with integration + LLM + local/cloud/hybrid analysis |
+| [ECS_LLM_USE_CASE_PRIORITY_MATRIX.md](ECS_LLM_USE_CASE_PRIORITY_MATRIX.md) | Per-use-case value/complexity/ROI/fit → Phase 1/2/3 |
+| [ECS_LLM_IMPLEMENTATION_MATRIX.md](ECS_LLM_IMPLEMENTATION_MATRIX.md) | Per-use-case fit + effort (eng-days) + priority |
+| [ECS_LLM_IMPLEMENTATION_ROADMAP.md](ECS_LLM_IMPLEMENTATION_ROADMAP.md) | Quick wins, candidates, sequencing, **Local-First** recommendation |
+
+> Related indexes: [Use Case Registry](../PRODUCT/ECS_MASTER_USE_CASE_REGISTRY.md) · [Integration Matrix](../INTEGRATIONS/ECS_MASTER_INTEGRATION_MATRIX.md) · [Document Reconciliation](../executive/ECS_DOCUMENT_RECONCILIATION_REPORT.md) · [Knowledge Consolidation](../executive/ECS_MASTER_KNOWLEDGE_CONSOLIDATION_REPORT.md)
+
+---
+
 ## Implementation, Testing & Use Case Guide (`ecs-local-llm-readiness-enterprise-v1`)
 
 Practitioner-facing set showing how ECS operates on local LLMs (Ollama/Qwen/Llama/Mistral/Phi/Gemma/
