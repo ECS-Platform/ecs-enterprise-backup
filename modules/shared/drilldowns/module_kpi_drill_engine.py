@@ -75,6 +75,13 @@ def _pick_rows(view: dict, metric: str) -> list[dict]:
 
 
 def drill_module_kpi(module: str, metric: str, role: str = "cio") -> dict:
+    if module == "predefined_queries":
+        # Authoritative, traceable KPI drilldowns sourced directly from the
+        # control library — never generic/padded/fabricated rows.
+        from modules.operations.engines.predefined_queries_engine import drill_predefined_query_kpi
+
+        return drill_predefined_query_kpi(metric or "total_controls", role)
+
     if module == "trends":
         from modules.governance.engines.trends_drill_engine import drill_trends_kpi
         from modules.shared.drilldowns.ecs_universal_drill_engine import parse_display_count

@@ -77,7 +77,7 @@
 <td class="ecs-pq-fw">{{ r.framework_coverage or '—' }}</td>
 <td>{% if r.technology %}<span class="badge bg-{% if r.technology == 'Unknown' %}warning text-dark{% else %}info{% endif %}">{{ r.technology }}</span>{% else %}—{% endif %}</td>
 <td class="ecs-pq-query" title="{{ r.query|e }}">{% if r.query %}{{ r.query }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-<td><span class="badge bg-{% if r.status == 'Ready' %}success{% elif r.status == 'Manual' %}secondary{% else %}warning text-dark{% endif %}">{{ r.status }}</span></td>
+<td><span class="badge bg-{% if r.status == 'Ready' %}success{% elif r.status == 'Manual' %}secondary{% elif r.status == 'Unsupported Technology' %}warning text-dark{% else %}light text-dark border{% endif %}" title="{{ r.capability_reason|default('') }}">{{ r.status }}</span></td>
 <td class="small">{{ r.last_execution }}</td>
 <td class="text-nowrap">
 <a href="/mvp/predefined-queries/detail?control_id={{ r.control_id|urlencode }}&role={{ role }}&user={{ user|urlencode }}" class="btn btn-outline-primary btn-sm">View</a>

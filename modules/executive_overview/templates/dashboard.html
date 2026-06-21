@@ -15,10 +15,12 @@
    .ecs-rejections-table (a class used only by this table on this page) so no shared
    table renderer, shared CSS, or other dashboard is affected. */
 .ecs-rejections-table { table-layout: fixed; width: 100%; }
-.ecs-rejections-table .rej-col-fw       { width: 16%; }
-.ecs-rejections-table .rej-col-control  { width: 26%; }
-.ecs-rejections-table .rej-col-reason   { width: 42%; }
-.ecs-rejections-table .rej-col-by       { width: 16%; }
+.ecs-rejections-table .rej-col-fw       { width: 12%; }
+.ecs-rejections-table .rej-col-control  { width: 19%; }
+.ecs-rejections-table .rej-col-reason   { width: 31%; }
+.ecs-rejections-table .rej-col-by       { width: 13%; }
+.ecs-rejections-table .rej-col-when     { width: 14%; }
+.ecs-rejections-table .rej-col-state    { width: 11%; }
 /* Make the reason cell readable: wrap onto multiple lines (override the shared
    .ecs-risk-table td { white-space:nowrap; overflow:hidden; text-overflow:ellipsis }). */
 .ecs-rejections-table td.rej-reason-cell {
@@ -89,12 +91,12 @@
 {% call accordion_section('Evidence Rejections', 'dash-rejections', rejected_controls|length|string if rejected_controls else '0', false) %}
 <div class="ecs-risk-table-wrap ecs-paginated-wrap">
 <table class="table ecs-table-modern ecs-risk-table ecs-rejections-table ecs-paginated-table mb-0">
-<thead><tr><th class="rej-col-fw">Framework</th><th class="rej-col-control">Control</th><th class="rej-col-reason">Reason</th><th class="rej-col-by">Rejected By</th></tr></thead>
+<thead><tr><th class="rej-col-fw">Framework</th><th class="rej-col-control">Control</th><th class="rej-col-reason">Reason</th><th class="rej-col-by">Rejected By</th><th class="rej-col-when">Rejected At</th><th class="rej-col-state">Workflow State</th></tr></thead>
 <tbody>
 {% for ckey, info in rejected_controls.items() if rejected_controls %}
-<tr><td>{{ ckey.split('::')[0] }}</td><td>{{ ckey.split('::')[1] }}</td><td class="rej-reason-cell" title="{{ info.reason }}"><span class="rej-reason-text">{{ info.reason }}</span></td><td>{{ info.rejected_by }}</td></tr>
+<tr><td>{{ ckey.split('::')[0] }}</td><td>{{ ckey.split('::')[1] }}</td><td class="rej-reason-cell" title="{{ info.reason }}"><span class="rej-reason-text">{{ info.reason }}</span></td><td>{{ info.rejected_by }}</td><td class="small">{{ info.rejected_at|default('—') }}</td><td class="small">{{ (info.resubmission_stage|default('—'))|replace('_',' ')|title }}</td></tr>
 {% else %}
-<tr><td colspan="4" class="text-muted small">No rejected evidence</td></tr>
+<tr><td colspan="6" class="text-muted small">No rejected evidence</td></tr>
 {% endfor %}
 </tbody>
 </table>

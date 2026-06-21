@@ -146,13 +146,66 @@ def detect_technology(query: str) -> str:
     return "Unknown"
 
 
-def _derive_status(control: dict[str, Any]) -> str:
+# Technologies that have a real, executable connector implementation.
+_IMPLEMENTED_CONNECTOR_TECH: frozenset[str] = frozenset({"PostgreSQL", "Linux", "SonarQube", "Trivy", "GitLeaks"})
+# Technologies whose connector classes exist but are not yet runnable
+# (DatabaseConnector / SSHConnector / APIConnector raise NotImplementedError).
+_GENERIC_CONNECTOR_TECH: frozenset[str] = frozenset({"Oracle", "Windows", "NGINX"})
+
+
+def _dependency_available(technology: str) -> bool:
+    """Return True when the runtime dependency for a technology is importable.
+
+    Only PostgreSQL has a hard Python dependency (psycopg2). Other implemented
+    connectors run via subprocess/HTTP and surface target availability at
+    execution time, so they are treated as dependency-available at capability
+    assessment time.
+    """
+    if technology == "PostgreSQL":
+        import importlib.util
+
+        return importlib.util.find_spec("psycopg2") is not None
+    return True
+
+
+def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
+    """Single source of truth for a control's *truthful* execution status.
+
+    Returns ``{"executable": bool, "status": str, "reason": str}`` where status
+    is one of: Manual, Unsupported Technology, Connector Missing, Configuration
+    Required, Dependency Missing, Ready. "Ready" is returned ONLY when the
+    control is genuinely executable (implemented connector + dependency present +
+    wired for live execution) — never as a cosmetic label.
+    """
     if not control.get("predefined"):
-        return "Manual"
+        return {"executable": False, "status": "Manual",
+                "reason": "No predefined query — manual evidence collection required."}
+
     technology = control.get("technology") or ""
     if not technology or technology == "Unknown":
-        return "Unsupported Technology"
-    return "Ready"
+        return {"executable": False, "status": "Unsupported Technology",
+                "reason": "Query text did not match any known technology pattern, so no connector can run it."}
+
+    if technology in _GENERIC_CONNECTOR_TECH or technology not in _IMPLEMENTED_CONNECTOR_TECH:
+        return {"executable": False, "status": "Connector Missing",
+                "reason": f"No executable connector is implemented for {technology} yet."}
+
+    if control.get("control_id") not in LIVE_CONTROL_IDS:
+        return {"executable": False, "status": "Configuration Required",
+                "reason": f"The {technology} connector exists but this control is not yet wired for live "
+                          f"execution (target / query allow-list not configured)."}
+
+    if not _dependency_available(technology):
+        dep = "psycopg2" if technology == "PostgreSQL" else "the required driver"
+        return {"executable": False, "status": "Dependency Missing",
+                "reason": f"The {technology} driver ({dep}) is not installed in this environment."}
+
+    return {"executable": True, "status": "Ready",
+            "reason": f"{technology} connector is available and this control is enabled for live execution."}
+
+
+def _derive_status(control: dict[str, Any]) -> str:
+    return assess_execution_capability(control)["status"]
 
 
 def _last_execution(control_id: str) -> str:
@@ -269,7 +322,10 @@ def _load_from_excel() -> tuple[list[dict[str, Any]], list[str]]:
             "status": "",
             "last_execution": "Not Executed",
         }
-        record["status"] = _derive_status(record)
+        capability = assess_execution_capability(record)
+        record["status"] = capability["status"]
+        record["executable"] = capability["executable"]
+        record["capability_reason"] = capability["reason"]
         controls.append(record)
 
     workbook.close()
@@ -359,7 +415,15 @@ def _normalize_query_allowlist(query: str) -> str:
 
 
 def is_live_execution_enabled(control: dict[str, Any]) -> bool:
-    return bool(control.get("predefined")) and control.get("control_id") in LIVE_CONTROL_IDS
+    # A control is live-executable only when it is in the curated live set AND
+    # genuinely executable (implemented connector + dependency present). This
+    # prevents enabling "Run Query" for controls whose status is not Ready
+    # (e.g. an Unknown-technology control that was listed in LIVE_CONTROL_IDS).
+    return (
+        bool(control.get("predefined"))
+        and control.get("control_id") in LIVE_CONTROL_IDS
+        and assess_execution_capability(control)["executable"]
+    )
 
 
 def is_postgresql_execution_enabled(control: dict[str, Any]) -> bool:
@@ -485,6 +549,113 @@ def get_predefined_queries_dashboard(
     }
 
 
+def _pq_drill_body(title: str, columns: list[str], rows: list[dict[str, Any]], *, empty_note: str) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "ok": True,
+        "title": f"{title} — Predefined Queries",
+        "columns": columns,
+        "rows": rows,
+        "row_count": len(rows),
+    }
+    if not rows:
+        # Honest empty-state: no fabricated, padded, or unrelated records.
+        body["note"] = empty_note
+    return body
+
+
+def drill_predefined_query_kpi(metric: str, role: str = "owner") -> dict[str, Any]:
+    """Authoritative, traceable drilldown for the Predefined Queries KPI cards.
+
+    Each KPI returns ONLY rows directly related to that KPI, sourced from the
+    loaded control library. When a KPI count is zero an honest empty-state is
+    returned (explanatory note, no rows) — never fabricated, padded, or
+    unrelated records. This is the single source of truth for KPI drilldowns on
+    the Predefined Queries page.
+    """
+    load_predefined_queries()
+    controls = get_all_controls()
+    m = (metric or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+    control_columns = ["control", "control_name", "framework", "technology", "status"]
+
+    def _control_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [
+            {
+                "control": c.get("control_id", "—"),
+                "control_name": c.get("control_name", "—"),
+                "framework": c.get("framework_coverage") or "—",
+                "technology": c.get("technology") or "—",
+                "status": c.get("status") or "—",
+            }
+            for c in rows
+        ]
+
+    if m in ("total_controls", "total", "controls"):
+        return _pq_drill_body(
+            "Total Controls", control_columns, _control_rows(controls),
+            empty_note="No controls are loaded from the control library.",
+        )
+
+    if m in ("predefined_queries", "predefined", "queries", "ready_queries", "ready"):
+        rows = [c for c in controls if c.get("predefined")]
+        return _pq_drill_body(
+            "Predefined Queries", control_columns, _control_rows(rows),
+            empty_note="No predefined queries are loaded from the control library.",
+        )
+
+    if m in ("manual_controls", "manual"):
+        rows = [c for c in controls if not c.get("predefined")]
+        return _pq_drill_body(
+            "Manual Controls", control_columns, _control_rows(rows),
+            empty_note="No manual controls — every loaded control has a predefined query.",
+        )
+
+    if m in ("frameworks_covered", "frameworks", "framework_coverage"):
+        counts: dict[str, dict[str, int]] = {}
+        for c in controls:
+            for fw in c.get("frameworks", []):
+                slot = counts.setdefault(fw, {"controls": 0, "predefined": 0, "manual": 0})
+                slot["controls"] += 1
+                if c.get("predefined"):
+                    slot["predefined"] += 1
+                else:
+                    slot["manual"] += 1
+        rows = [
+            {"framework": fw, "controls": v["controls"], "predefined": v["predefined"], "manual": v["manual"]}
+            for fw, v in sorted(counts.items())
+        ]
+        return _pq_drill_body(
+            "Frameworks Covered", ["framework", "controls", "predefined", "manual"], rows,
+            empty_note="No frameworks are mapped to the loaded controls.",
+        )
+
+    if m in ("unsupported_tech", "unsupported_technology", "unsupported"):
+        rows = [
+            {
+                "control": c.get("control_id", "—"),
+                "control_name": c.get("control_name", "—"),
+                "framework": c.get("framework_coverage") or "—",
+                "query_excerpt": (c.get("query") or "—")[:60] + ("…" if len(c.get("query") or "") > 60 else ""),
+                "reason": c.get("capability_reason")
+                or "Query text did not match any known technology pattern, so no connector can run it.",
+            }
+            for c in controls
+            if c.get("predefined") and c.get("technology") == "Unknown"
+        ]
+        return _pq_drill_body(
+            "Unsupported Technology",
+            ["control", "control_name", "framework", "query_excerpt", "reason"], rows,
+            empty_note="No unsupported technologies — every predefined query maps to a known connector.",
+        )
+
+    # Unknown metric → return the full catalog rather than unrelated/fabricated data.
+    return _pq_drill_body(
+        (metric or "Predefined Queries").replace("_", " ").title(),
+        control_columns, _control_rows(controls),
+        empty_note="No controls are loaded from the control library.",
+    )
+
+
 def prepare_execution(control_id: str, user: str) -> dict[str, Any]:
     """
     Prepare execution context (interfaces only — does not execute).
@@ -558,7 +729,20 @@ def run_postgresql_query(control_id: str, user: str) -> dict[str, Any]:
             "error_type": "unsupported_query",
         }
 
-    from modules.operations.engines.postgresql_connector import PostgreSQLConnector, get_postgresql_config
+    try:
+        from modules.operations.engines.postgresql_connector import PostgreSQLConnector, get_postgresql_config
+    except ImportError as exc:
+        # The PostgreSQL driver (psycopg2) is not available in this environment.
+        # Return a structured, demo-friendly error rather than letting a raw
+        # ModuleNotFoundError bubble up into a 500 / stack trace.
+        missing = getattr(exc, "name", "") or "psycopg2"
+        return {
+            "ok": False,
+            "error": "PostgreSQL connector unavailable",
+            "error_type": "connector_unavailable",
+            "reason": f"Required driver '{missing}' is not installed in this environment.",
+            "action": "Install psycopg2-binary or configure the PostgreSQL connector, then retry.",
+        }
 
     connector = PostgreSQLConnector(**get_postgresql_config())
     framework_coverage = control.get("framework_coverage") or ""

@@ -258,8 +258,26 @@ def register_mvp_routes(app, templates):
     ):
         from modules.operations.engines.predefined_queries_engine import run_predefined_query
 
-        outcome = run_predefined_query(control_id, user)
-        notice = outcome.get("message") if outcome.get("ok") else outcome.get("error", "Query execution failed")
+        try:
+            outcome = run_predefined_query(control_id, user)
+        except Exception as exc:  # noqa: BLE001 — never surface a 500 / stack trace to the demo
+            outcome = {
+                "ok": False,
+                "error": "Query execution failed",
+                "error_type": "unexpected_error",
+                "reason": str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__,
+                "action": "Review the connector configuration and try again.",
+            }
+        if outcome.get("ok"):
+            notice = outcome.get("message", "Query executed successfully")
+        else:
+            # Build a graceful, single-line notice: "Query Execution Failed — Reason … Action …"
+            parts = [outcome.get("error") or "Query Execution Failed"]
+            if outcome.get("reason"):
+                parts.append(f"Reason: {outcome['reason']}")
+            if outcome.get("action"):
+                parts.append(f"Action: {outcome['action']}")
+            notice = " — ".join(parts)
         dest = (
             f"/mvp/predefined-queries?role={role}&user={user}&notice={quote(notice)}"
             if return_to == "catalog"
@@ -326,6 +344,11 @@ def register_mvp_routes(app, templates):
         count = _safe_count(count)
         try:
             body = drill_module_kpi(module or "operations", metric, role)
+            # Predefined Queries returns authoritative, KPI-specific rows (with
+            # honest empty-states). Bypass the generic count-padding / fallback
+            # so its drilldowns are never fabricated or unrelated.
+            if (module or "") == "predefined_queries" and isinstance(body, dict) and body.get("ok"):
+                return JSONResponse(body)
             if count:
                 from modules.shared.utils.demo_data_standards import ensure_drill_rows
                 from modules.shared.drilldowns.ecs_universal_drill_engine import _target_rows

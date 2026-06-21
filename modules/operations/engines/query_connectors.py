@@ -174,8 +174,13 @@ def connector_for_technology(technology: str) -> BaseConnector | None:
     if not technology or technology == "Unknown":
         return None
     if technology == "PostgreSQL":
-        from modules.operations.engines.postgresql_connector import PostgreSQLConnector, get_postgresql_config
-
+        try:
+            from modules.operations.engines.postgresql_connector import PostgreSQLConnector, get_postgresql_config
+        except ImportError:
+            # psycopg2 (or another driver dependency) is not installed in this
+            # environment. Degrade gracefully so callers can surface a friendly
+            # message instead of a 500 / raw ModuleNotFoundError.
+            return None
         return PostgreSQLConnector(**get_postgresql_config())
     if technology == "Linux":
         from modules.operations.engines.linux_connector import LinuxConnector, get_linux_config
