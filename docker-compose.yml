@@ -97,6 +97,10 @@ services:
 
   postgres-demo:
     image: postgres:16
+    # Pin the container name so the predefined-query PostgreSQL connector
+    # (ECS_PG_HOST=postgres-demo) resolves the same DNS name regardless of the
+    # compose project prefix.
+    container_name: postgres-demo
     environment:
       POSTGRES_DB: ecs_demo
       POSTGRES_USER: ecs_user
@@ -108,6 +112,11 @@ services:
   ubuntu-demo:
     image: ubuntu:22.04
     profiles: ["demo-connectors"]
+    # Pin the container name: the Linux connector runs `docker exec ubuntu-demo`
+    # (ECS_LINUX_CONTAINER=ubuntu-demo). Without this, compose names the
+    # container "<project>-ubuntu-demo-1" and the exec fails with
+    # "No such container: ubuntu-demo".
+    container_name: ubuntu-demo
     hostname: ubuntu-demo
     command: ["sleep", "infinity"]
     restart: unless-stopped
@@ -115,6 +124,10 @@ services:
   sonarqube-demo:
     image: sonarqube:lts-community
     profiles: ["demo-connectors"]
+    # Pin the container name so the SonarQube connector
+    # (ECS_SONAR_URL=http://sonarqube-demo:9000) resolves the same DNS name
+    # regardless of the compose project prefix.
+    container_name: sonarqube-demo
     ports:
       - "9000:9000"
     environment:

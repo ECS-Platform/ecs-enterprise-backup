@@ -44,7 +44,8 @@ TECHNOLOGY_RULES: list[tuple[str, list[str]]] = [
     ("PostgreSQL", ["pg_stat_replication", "show ssl", "show password_encryption", "from pg_", " pg_"]),
     ("Oracle", ["dba_role_privs", "v$encryption_wallet", " v$", " dba_", "from dba_"]),
     ("Windows", ["get-hotfix", "get-mpcomputerstatus", "get-aduser", "powershell"]),
-    ("Linux", ["df -h", "free -m", "timedatectl", "cat /etc/ssh/sshd_config", "/etc/ssh", "systemctl status"]),
+    ("Linux", ["df -h", "free -m", "timedatectl", "cat /etc/ssh/sshd_config", "/etc/ssh", "/etc/passwd",
+               "/etc/group", "systemctl", "yum ", "apt-get", "dpkg", "rpm -", "hostname", "uptime"]),
 ]
 
 ALLOWED_POSTGRESQL_QUERIES: frozenset[str] = frozenset({
