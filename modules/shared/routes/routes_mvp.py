@@ -224,7 +224,11 @@ def register_mvp_routes(app, templates):
         user: str = "User",
         notice: str = "",
     ):
-        from modules.operations.engines.predefined_queries_engine import get_control_by_id, prepare_execution
+        from modules.operations.engines.predefined_queries_engine import (
+            derive_runtime_state,
+            get_control_by_id,
+            prepare_execution,
+        )
 
         ctx = _base_ctx(role, user, "", notice, page_module="predefined_queries")
         control = get_control_by_id(control_id) if control_id else None
@@ -232,10 +236,19 @@ def register_mvp_routes(app, templates):
             ctx["control"] = {"control_id": control_id or "—", "control_name": "Not Found"}
             ctx["error_message"] = "Control not found in the predefined query library."
             ctx["execution_prep"] = {"ok": False}
+            ctx["runtime"] = derive_runtime_state(None)
         else:
             ctx["control"] = control
             ctx["error_message"] = ""
             ctx["execution_prep"] = prepare_execution(control_id, user)
+            # Trustability: the banner is derived from durable runtime signals,
+            # not the (possibly stale) URL notice. A successful run clears the
+            # stale notice so SUCCESS can never appear next to a failure/connector
+            # warning.
+            runtime = derive_runtime_state(control)
+            ctx["runtime"] = runtime
+            if runtime["suppress_notice"]:
+                ctx["notice"] = ""
         return templates.TemplateResponse(request, "mvp_predefined_query_detail.html", ctx)
 
     @app.post("/mvp/predefined-queries/prepare", response_class=JSONResponse)

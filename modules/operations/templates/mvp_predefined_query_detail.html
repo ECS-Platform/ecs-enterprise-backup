@@ -14,7 +14,31 @@
 <h1 class="ecs-workspace-title h5 mb-0">{{ control.control_id }}</h1>
 </div>
 <p class="small text-muted mb-3">{{ control.control_name }}</p>
-{% if notice %}<div class="alert alert-{% if 'successfully' in notice|lower %}success{% else %}warning{% endif %} py-2 px-3 small mb-2">{{ notice }}</div>{% endif %}
+{# ===================== TRUSTABILITY — RUNTIME-DERIVED BANNER =====================
+   The banner reflects ACTUAL runtime state (latest_execution / latest_result /
+   execution_history), never the stale URL notice. A successful run (or any
+   existing evidence) renders SUCCESS and suppresses every failure / connector /
+   dependency message, so contradictory states (e.g. "SUCCESS" + "SonarQube
+   unreachable") can never appear together. #}
+{% if runtime and runtime.success %}
+<div class="alert alert-success py-2 px-3 small mb-2">
+<strong>✓ SUCCESS</strong>
+&nbsp;·&nbsp; Rows Returned: <strong>{{ runtime.rows_returned if runtime.rows_returned is not none else '—' }}</strong>
+&nbsp;·&nbsp; Duration: <strong>{{ runtime.duration_ms if runtime.duration_ms is not none else '—' }} ms</strong>
+{% if runtime.evidence_id %}&nbsp;·&nbsp; Evidence ID: <strong>{{ runtime.evidence_id }}</strong>{% endif %}
+{% if runtime.timestamp %}&nbsp;·&nbsp; <span class="text-muted">{{ runtime.timestamp }}</span>{% endif %}
+</div>
+{% elif runtime and runtime.failed %}
+<div class="alert alert-danger py-2 px-3 small mb-2">
+<strong>✕ Execution Failed</strong>
+<div class="mt-1"><strong>Exception:</strong> {{ runtime.error_message or 'Execution did not complete.' }}</div>
+<div><strong>Connector:</strong> {{ runtime.connector or '—' }} &nbsp;·&nbsp; <strong>Failure point:</strong> {{ runtime.failure_point or '—' }}</div>
+<div><strong>Suggested action:</strong> {{ runtime.suggested_action or 'Review the connector configuration and re-run the query.' }}</div>
+</div>
+{% elif notice %}
+{# No execution recorded yet — fall back to the transient action notice. #}
+<div class="alert alert-{% if 'successfully' in notice|lower %}success{% else %}warning{% endif %} py-2 px-3 small mb-2">{{ notice }}</div>
+{% endif %}
 
 {% if error_message %}
 <div class="alert alert-danger py-2 px-3 small">{{ error_message }}</div>
@@ -63,7 +87,8 @@
 <button type="button" class="btn btn-primary btn-sm w-100 mb-2" disabled title="Live execution not enabled for this control">Run Query</button>
 <p class="small text-muted mb-0">Live execution is enabled only for selected demo controls.</p>
 {% endif %}
-{% if execution_prep and not execution_prep.ok %}
+{# Suppress capability/prep warnings once a successful run/evidence exists (Rule 2 & 7). #}
+{% if execution_prep and not execution_prep.ok and not (runtime and runtime.success) %}
 <div class="alert alert-warning py-1 px-2 small mt-2 mb-0">{{ execution_prep.error }}</div>
 {% endif %}
 </div>

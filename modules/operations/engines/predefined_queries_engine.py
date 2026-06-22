@@ -456,6 +456,77 @@ def get_control_by_id(control_id: str) -> dict[str, Any] | None:
     return None
 
 
+def _runtime_suggested_action(failure_point: str) -> str:
+    return {
+        "Connector connection": "Confirm the target service is running and reachable, then re-run the query.",
+        "Driver / dependency": "Install the required driver in the execution environment, then re-run the query.",
+        "Execution gate / allow-list": "Enable this control for live execution (target / query allow-list), then re-run.",
+        "Query execution": "Review the query and target permissions, then re-run.",
+    }.get(failure_point, "Review the connector configuration and re-run the query.")
+
+
+def derive_runtime_state(control: dict[str, Any] | None) -> dict[str, Any]:
+    """Single source of truth for the UI execution banner.
+
+    The execution status is derived ONLY from the durable runtime signals
+    (``latest_execution`` / ``latest_result`` / ``execution_history``) — never
+    from a (possibly stale) URL ``notice`` parameter. Rule: when an evidence
+    record exists the control's execution is treated as SUCCESS regardless of
+    any stale failure notice, so SUCCESS always overrides a stale banner and the
+    two can never be shown together.
+    """
+    control = control or {}
+    le = control.get("latest_execution") or {}
+    lr = control.get("latest_result") or {}
+    history = control.get("execution_history") or []
+
+    has_evidence = bool(lr.get("evidence_id"))
+    succeeded = str(le.get("status", "")).lower() == "success" or has_evidence
+    executed = bool(le) or has_evidence or bool(history)
+
+    if succeeded:
+        status = "SUCCESS"
+    elif le:
+        status = "FAILED"
+    else:
+        status = "NOT_EXECUTED"
+
+    err = le.get("error_message") or ""
+    low = err.lower()
+    if not err or succeeded:
+        failure_point = ""
+    elif any(k in low for k in (
+        "reachable", "could not connect", "connection refused", "timed out",
+        "timeout", "no route", "unavailable", "not connected",
+    )):
+        failure_point = "Connector connection"
+    elif "not installed" in low or "driver" in low:
+        failure_point = "Driver / dependency"
+    elif any(k in low for k in ("not enabled", "allow-list", "unsupported")):
+        failure_point = "Execution gate / allow-list"
+    else:
+        failure_point = "Query execution"
+
+    return {
+        "status": status,
+        "executed": executed,
+        "success": succeeded,
+        "failed": status == "FAILED",
+        "rows_returned": le.get("rows_returned"),
+        "duration_ms": le.get("duration_ms"),
+        "evidence_id": lr.get("evidence_id") or "",
+        "timestamp": le.get("execution_time") or "",
+        "user": le.get("user") or "",
+        "connector": control.get("technology") or "",
+        "error_message": "" if succeeded else err,
+        "failure_point": failure_point,
+        "suggested_action": _runtime_suggested_action(failure_point) if failure_point else "",
+        # When the run succeeded, the route must drop the stale notice so a
+        # success banner and a failure/connector/dependency banner never co-exist.
+        "suppress_notice": succeeded,
+    }
+
+
 def get_framework_filter_options() -> list[str]:
     frameworks = {"All Frameworks"}
     for ctrl in get_all_controls():

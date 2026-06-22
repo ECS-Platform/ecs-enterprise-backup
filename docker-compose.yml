@@ -4,6 +4,8 @@ services:
     ports:
       - "8000:8000"
     environment:
+      DEMO_MODE: "true"
+      ECS_AUTH_ENABLED: "false"
       ECS_PG_HOST: postgres-demo
       ECS_PG_PORT: 5432
       ECS_PG_DATABASE: ecs_demo
