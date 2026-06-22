@@ -298,6 +298,17 @@ def register_mvp_routes(app, templates):
         )
         return RedirectResponse(url=dest, status_code=303)
 
+    @app.get("/mvp/evidence-story", response_class=HTMLResponse)
+    def mvp_evidence_reuse_story(request: Request, role: str = "owner", user: str = "User"):
+        """Phase-1 value chain: Query -> Evidence -> Reuse -> Readiness -> Observations."""
+        from modules.operations.engines.evidence_reuse_story_engine import (
+            build_evidence_reuse_story,
+        )
+
+        ctx = _base_ctx(role, user, page_module="evidence_story")
+        ctx["story"] = build_evidence_reuse_story()
+        return templates.TemplateResponse(request, "mvp_evidence_reuse_story.html", ctx)
+
     @app.get("/api/demo/kpi-drill")
     def api_demo_kpi_drill(metric: str = ""):
         from modules.executive_overview.engines.demo_kpi_drill_engine import drill_demo_kpi

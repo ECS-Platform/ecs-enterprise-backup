@@ -1,0 +1,178 @@
+<!DOCTYPE html><html><head><title>Evidence Reuse &amp; Observation Lifecycle</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ers-wrap { max-width: 1080px; }
+.ers-section { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:18px 20px; margin-bottom:18px; }
+.ers-section h2 { font-size:1.0rem; margin:0 0 4px; }
+.ers-section .ers-q { font-size:.8rem; color:#64748b; margin:0 0 14px; }
+.ers-chips { display:flex; gap:18px; flex-wrap:wrap; margin-bottom:8px; }
+.ers-chip { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; padding:8px 14px; }
+.ers-chip .n { font-size:1.25rem; font-weight:700; color:#0f172a; }
+.ers-chip .l { font-size:.72rem; color:#64748b; text-transform:uppercase; letter-spacing:.03em; }
+.ers-table { width:100%; border-collapse:collapse; font-size:.83rem; }
+.ers-table th, .ers-table td { border:1px solid #e2e8f0; padding:6px 9px; text-align:left; vertical-align:top; }
+.ers-table th { background:#f8fafc; font-weight:600; color:#334155; }
+.ers-badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:.72rem; font-weight:600; }
+.b-ok { background:#dcfce7; color:#166534; }
+.b-bad { background:#fee2e2; color:#991b1b; }
+.b-warn { background:#fef9c3; color:#854d0e; }
+.b-info { background:#e0f2fe; color:#075985; }
+.ers-flow { display:flex; gap:6px; flex-wrap:wrap; font-size:.74rem; color:#475569; margin-bottom:14px; }
+.ers-flow span { background:#0f172a; color:#fff; border-radius:4px; padding:3px 9px; }
+.ers-flow .arr { background:none; color:#94a3b8; padding:3px 0; }
+details.ers-dd { border:1px solid #e2e8f0; border-radius:6px; margin-bottom:8px; }
+details.ers-dd > summary { cursor:pointer; padding:8px 12px; font-size:.85rem; font-weight:600; list-style:none; display:flex; justify-content:space-between; align-items:center; }
+details.ers-dd > summary::-webkit-details-marker { display:none; }
+details.ers-dd[open] > summary { border-bottom:1px solid #e2e8f0; }
+.ers-dd-body { padding:8px 12px; }
+.ers-bar { height:7px; border-radius:4px; background:#e2e8f0; overflow:hidden; width:120px; display:inline-block; vertical-align:middle; }
+.ers-bar > i { display:block; height:100%; background:#16a34a; }
+</style></head>
+<body class="bg-light ecs-cap-predefined-queries"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+{% set s = story %}
+
+<div class="ers-wrap">
+<h1 class="ecs-workspace-title h5 mb-1">Evidence Reuse &amp; Observation Lifecycle</h1>
+<p class="small text-muted mb-2">The complete ECS value chain for the three working controls — DB-001, APP-001, OS-001.</p>
+<div class="ers-flow">
+<span>Predefined Query</span><span class="arr">→</span><span>Evidence</span><span class="arr">→</span><span>Reuse</span><span class="arr">→</span><span>Audit Readiness</span><span class="arr">→</span><span>Observation Created</span><span class="arr">→</span><span>Observation Closed</span>
+</div>
+
+{# ============================ 1. EVIDENCE ============================ #}
+<div class="ers-section">
+<h2>1 · Evidence Generated</h2>
+<p class="ers-q">What did each predefined query produce, and does it satisfy its control?</p>
+<table class="ers-table">
+<thead><tr><th>Evidence ID</th><th>Control</th><th>Application</th><th>Technology</th><th>Collected</th><th>Result</th><th>Status</th></tr></thead>
+<tbody>
+{% for e in s.evidence %}
+<tr>
+<td><strong>{{ e.evidence_id }}</strong>{% if e.source == 'live' %} <span class="ers-badge b-info">live</span>{% endif %}</td>
+<td>{{ e.control_id }} — <span class="text-muted">{{ e.control_name }}</span></td>
+<td>{{ e.application }}</td>
+<td>{{ e.technology }}</td>
+<td class="small text-muted">{{ e.timestamp }}</td>
+<td><code style="font-size:.76rem">{{ e.result|replace('\n',' · ') }}</code></td>
+<td>{% if e.satisfied %}<span class="ers-badge b-ok">Satisfied</span>{% else %}<span class="ers-badge b-bad">Violation</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+{# ============================ 2. REUSE ============================ #}
+<div class="ers-section">
+<h2>2 · Evidence Reuse</h2>
+<p class="ers-q">How many framework obligations does this evidence satisfy without re-collection?</p>
+<div class="ers-chips">
+<div class="ers-chip"><div class="n">{{ s.reuse_summary.reuse_count }}</div><div class="l">Reuse Count</div></div>
+<div class="ers-chip"><div class="n">{{ s.reuse_summary.reuse_factor }}×</div><div class="l">Reuse Factor</div></div>
+<div class="ers-chip"><div class="n">{{ s.reuse_summary.frameworks_covered }}</div><div class="l">Frameworks Covered</div></div>
+<div class="ers-chip"><div class="n">{{ s.reuse_summary.controls_covered }}</div><div class="l">Controls Covered</div></div>
+<div class="ers-chip"><div class="n">{{ s.reuse_summary.effort_saved_hours }}h</div><div class="l">Collection Effort Saved</div></div>
+</div>
+<p class="small text-muted mb-2">{{ s.reuse_summary.controls_covered }} evidence records satisfy {{ s.reuse_summary.reuse_count }} framework obligations — {{ s.reuse_summary.collections_saved }} manual collections avoided.</p>
+<table class="ers-table">
+<thead><tr><th>Evidence</th><th>Framework</th><th>Reference</th><th>Control</th><th>Status</th></tr></thead>
+<tbody>
+{% for r in s.reuse_rows %}
+<tr>
+<td><strong>{{ r.evidence_id }}</strong></td>
+<td>{{ r.framework }}</td>
+<td class="small text-muted">{{ r.framework_ref }}</td>
+<td>{{ r.control_id }}</td>
+<td>{% if r.status == 'Satisfied' %}<span class="ers-badge b-ok">Satisfied</span>{% else %}<span class="ers-badge b-bad">Violation</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+{# ============================ 3. AUDIT READINESS ============================ #}
+<div class="ers-section">
+<h2>3 · Audit Readiness</h2>
+<p class="ers-q">Across the in-scope frameworks, how many control obligations are covered? (drill: Framework → Control → Evidence)</p>
+<div class="ers-chips">
+<div class="ers-chip"><div class="n">{{ s.readiness.covered_controls }}</div><div class="l">Covered Controls</div></div>
+<div class="ers-chip"><div class="n">{{ s.readiness.total_controls }}</div><div class="l">Total Controls</div></div>
+<div class="ers-chip"><div class="n">{{ s.readiness.readiness_pct }}%</div><div class="l">Readiness</div></div>
+</div>
+{% for f in s.readiness.by_framework %}
+<details class="ers-dd">
+<summary>
+<span>{{ f.framework }}</span>
+<span class="small text-muted">
+<span class="ers-bar"><i style="width: {{ f.readiness_pct }}%; background: {% if f.readiness_pct == 100 %}#16a34a{% elif f.readiness_pct == 0 %}#dc2626{% else %}#d97706{% endif %};"></i></span>
+&nbsp;{{ f.covered }}/{{ f.total }} ({{ f.readiness_pct }}%)
+</span>
+</summary>
+<div class="ers-dd-body">
+<table class="ers-table">
+<thead><tr><th>Control</th><th>Evidence</th><th>Status</th></tr></thead>
+<tbody>
+{% for c in f.controls %}
+<tr>
+<td>{{ c.control_id }} — <span class="text-muted">{{ c.control_name }}</span></td>
+<td>{{ c.evidence_id }}</td>
+<td>{% if c.status == 'Covered' %}<span class="ers-badge b-ok">Covered</span>{% else %}<span class="ers-badge b-bad">Gap</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</details>
+{% endfor %}
+</div>
+
+{# ============================ 4. OBSERVATIONS ============================ #}
+<div class="ers-section">
+<h2>4 · Observations</h2>
+<p class="ers-q">Violations create observations automatically; satisfying evidence makes open observations ready for closure.</p>
+
+<h6 class="small text-uppercase text-muted mt-1 mb-2">Open — auto-created from violations <span class="ers-badge b-warn">{{ s.observations.open_count }}</span></h6>
+{% if s.observations.open %}
+<table class="ers-table mb-3">
+<thead><tr><th>Observation ID</th><th>Framework</th><th>Control</th><th>Application</th><th>Severity</th><th>Finding</th><th>Evidence Ref</th></tr></thead>
+<tbody>
+{% for o in s.observations.open %}
+<tr>
+<td><strong>{{ o.observation_id }}</strong></td>
+<td>{{ o.framework }}</td>
+<td>{{ o.control_id }}</td>
+<td>{{ o.application }}</td>
+<td><span class="ers-badge {% if o.severity == 'High' %}b-bad{% else %}b-warn{% endif %}">{{ o.severity }}</span></td>
+<td class="small">{{ o.finding }}</td>
+<td>{{ o.evidence_reference }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="small text-muted mb-3">No open observations.</p>
+{% endif %}
+
+<h6 class="small text-uppercase text-muted mb-2">Ready for closure — satisfied by new evidence <span class="ers-badge b-ok">{{ s.observations.closure_count }}</span></h6>
+{% if s.observations.ready_for_closure %}
+<table class="ers-table">
+<thead><tr><th>Observation</th><th>Evidence Used</th><th>Control Covered</th><th>Framework Covered</th><th>Status</th></tr></thead>
+<tbody>
+{% for o in s.observations.ready_for_closure %}
+<tr>
+<td><strong>{{ o.observation_id }}</strong></td>
+<td>{{ o.evidence_used }}</td>
+<td>{{ o.control_covered }}</td>
+<td>{{ o.framework_covered }}</td>
+<td><span class="ers-badge b-ok">{{ o.status }}</span></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="small text-muted mb-0">No observations are ready for closure.</p>
+{% endif %}
+</div>
+
+</div>
+</div></div></div>
+</body></html>
