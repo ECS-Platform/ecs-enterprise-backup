@@ -1,0 +1,27 @@
+{
+  "role": "cio",
+  "user": "benchmark-runner",
+  "concurrency": 1,
+  "max_requests_per_minute": 3,
+  "output_dir": "benchmarks/output",
+  "run_sync_once": false,
+  "reindex_before_run": false,
+  "profile_keys": [],
+  "categories": [],
+  "memory_guard_min_mb": 512,
+  "capacity_assumptions": {
+    "concurrent_users": 50,
+    "requests_per_user_per_day": 8,
+    "working_hours_per_day": 9.0,
+    "working_days_per_month": 22,
+    "months_per_year": 12,
+    "peak_to_average_factor": 3.0,
+    "embedding_dimensions": 768,
+    "bytes_per_dimension": 4,
+    "vector_index_overhead_factor": 1.3,
+    "avg_chunk_bytes": 1200,
+    "new_chunks_per_day": 5000,
+    "cost_per_1k_input_tokens": 0.0,
+    "cost_per_1k_output_tokens": 0.0
+  }
+}
