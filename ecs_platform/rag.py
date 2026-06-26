@@ -17,6 +17,9 @@ the model never sees anything outside the retrieved, RBAC-scoped evidence.
 
 from __future__ import annotations
 
+import time
+import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from ecs_platform.governance import (
@@ -29,6 +32,7 @@ from ecs_platform.governance import (
     framework_coverage,
 )
 from ecs_platform.ingestion import to_jsonable
+from ecs_platform.llm_engine.metrics_logger import persist_rag_metric
 from ecs_platform.repository import EvidenceRepository, RepositoryError
 
 # Exact refusal message when retrieval yields nothing (anti-hallucination contract).
@@ -90,7 +94,9 @@ def llm_connectivity() -> dict[str, Any]:
     logs secrets."""
     out: dict[str, Any] = {"provider": "", "model": "", "embedding_model": "",
                            "configured": False, "reachable": False, "embed_ok": False,
-                           "embed_dim": 0, "detail": ""}
+                           "embed_dim": 0, "detail": "", "request_id": str(uuid.uuid4()),
+                           "timestamp": datetime.now(timezone.utc).isoformat(),
+                           "input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
     try:
         from ecs_platform.llm_engine.provider import get_provider
 
@@ -102,7 +108,15 @@ def llm_connectivity() -> dict[str, Any]:
         if not provider.configured():
             out["detail"] = "provider not configured"
             return out
-        txt = provider.generate("Reply with the single word OK.", system="You are a health probe.")
+        txt, usage = provider.generate_with_metadata(
+            "Reply with the single word OK.",
+            system="You are a health probe.",
+        )
+        out["input_tokens"] = int(usage.get("input_tokens", 0) or 0)
+        out["output_tokens"] = int(usage.get("output_tokens", 0) or 0)
+        out["total_tokens"] = int(
+            usage.get("total_tokens", 0) or (out["input_tokens"] + out["output_tokens"])
+        )
         out["reachable"] = bool(txt)
         vec = provider.embed(["healthcheck"])
         out["embed_ok"] = bool(vec and vec[0])
@@ -432,10 +446,10 @@ def _parse_hints(question: str) -> dict[str, Any]:
 
 
 def _retrieve(question: str, scope_filter: dict[str, Any], hints: dict[str, Any],
-              top_k: int) -> tuple[list[str], str]:
+              top_k: int) -> tuple[list[str], str, int]:
     """Step 2: retrieve candidate evidence UIDs. Vector-first, repository fallback.
 
-    Returns (ordered_uids, mode). Vector mode needs GEMINI_API_KEY + a populated
+    Returns (ordered_uids, mode, retrieved_chunks). Vector mode needs GEMINI_API_KEY + a populated
     index; otherwise we fall back to deterministic repository retrieval so the
     pipeline still produces grounded context.
     """
@@ -460,7 +474,7 @@ def _retrieve(question: str, scope_filter: dict[str, Any], hints: dict[str, Any]
                 if h.evidence_uid not in uids:
                     uids.append(h.evidence_uid)
             if uids:
-                return uids, "vector"
+                return uids, "vector", len(hits)
     except Exception:  # noqa: BLE001 - fall through to repository retrieval
         pass
 
@@ -471,7 +485,7 @@ def _retrieve(question: str, scope_filter: dict[str, Any], hints: dict[str, Any]
     if "application" in scope_filter:
         scope_apps = scope_filter["application"]
         if not scope_apps:
-            return [], "repository"  # restricted role, no assignments -> deny
+            return [], "repository", 0  # restricted role, no assignments -> deny
     try:
         with EvidenceRepository() as repo, repo.connect().cursor() as cur:
             cur.execute(
@@ -492,9 +506,10 @@ def _retrieve(question: str, scope_filter: dict[str, Any], hints: dict[str, Any]
                 {"app": hints.get("application"), "fw": hints.get("framework"),
                  "status": hints.get("status"), "src": hints.get("source_system"),
                  "scope": scope_apps, "limit": top_k})
-            return [r[0] for r in cur.fetchall()], "repository"
+            rows = cur.fetchall()
+            return [r[0] for r in rows], "repository", len(rows)
     except RepositoryError:
-        return [], "repository"
+        return [], "repository", 0
 
 
 def _enrich(uids: list[str]) -> list[dict[str, Any]]:
@@ -604,17 +619,22 @@ def answer(question: str, *, role: str = "cio", user: str = "User", top_k: int =
     deterministic keyword assistant instead. Explicit application/framework filters
     (from the UI) override question-parsed hints.
     """
+    request_id = str(uuid.uuid4())
+    started = time.perf_counter()
+    timestamp = datetime.now(timezone.utc).isoformat()
     rbac = _rbac_filter(role, user)
     if not rbac["allowed"]:
         return {"ok": False, "grounded": False, "answer": f"Access denied: {rbac['reason']}",
-                "citations": [], "rbac": rbac, "mode": "denied"}
+                "citations": [], "rbac": rbac, "mode": "denied", "request_id": request_id}
 
     hints = _parse_hints(question)
     if application:
         hints["application"] = application
     if framework:
         hints["framework"] = framework
-    uids, mode = _retrieve(question, rbac["scope_filter"], hints, top_k)
+    retrieval_start = time.perf_counter()
+    uids, mode, retrieved_chunks = _retrieve(question, rbac["scope_filter"], hints, top_k)
+    retrieval_ms = int((time.perf_counter() - retrieval_start) * 1000)
     evidence = _enrich(uids)
     facts = _governance_facts(question)
 
@@ -631,29 +651,134 @@ def answer(question: str, *, role: str = "cio", user: str = "User", top_k: int =
         from ecs_platform.llm_engine.provider import get_provider
         from ecs_platform.llm_engine.prompt_builder import SYSTEM_PROMPT
 
+        provider = get_provider()
+
         # Grounding gate (applies to every provider): if nothing was retrieved and
         # no governance facts apply, refuse with the exact required message. This is
         # the primary anti-hallucination guard and runs BEFORE any model call.
         if not evidence and not facts:
-            return {"ok": True, "grounded": False, "mode": "no_evidence",
-                    "answer": NO_EVIDENCE_MESSAGE,
-                    "citations": [], "rbac": rbac, "hints": hints, "retrieval_mode": mode}
+            out = {"ok": True, "grounded": False, "mode": "no_evidence",
+                   "answer": NO_EVIDENCE_MESSAGE,
+                   "citations": [], "rbac": rbac, "hints": hints, "retrieval_mode": mode,
+                   "request_id": request_id}
+            _persist_metric({
+                "timestamp": timestamp,
+                "request_id": request_id,
+                "question": question,
+                "model_name": "",
+                "provider": "",
+                "retrieval_mode": mode,
+                "retrieved_documents": len(uids),
+                "retrieved_chunks": retrieved_chunks,
+                "prompt_size_chars": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "retrieval_latency_ms": retrieval_ms,
+                "prompt_build_latency_ms": 0,
+                "llm_latency_ms": 0,
+                "end_to_end_latency_ms": int((time.perf_counter() - started) * 1000),
+            })
+            return out
 
-        provider = get_provider()
         if not provider.configured():
-            return {"ok": True, "grounded": False, "mode": "fallback",
-                    "answer": "LLM provider not configured. Returning structured retrieval only.",
-                    "citations": citations, "rbac": rbac, "hints": hints,
-                    "retrieval_mode": mode, "facts": facts}
+            out = {"ok": True, "grounded": False, "mode": "fallback",
+                   "answer": "LLM provider not configured. Returning structured retrieval only.",
+                   "citations": citations, "rbac": rbac, "hints": hints,
+                   "retrieval_mode": mode, "facts": facts, "request_id": request_id}
+            _persist_metric({
+                "timestamp": timestamp,
+                "request_id": request_id,
+                "question": question,
+                "model_name": "",
+                "provider": "",
+                "retrieval_mode": mode,
+                "retrieved_documents": len(uids),
+                "retrieved_chunks": retrieved_chunks,
+                "prompt_size_chars": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "retrieval_latency_ms": retrieval_ms,
+                "prompt_build_latency_ms": 0,
+                "llm_latency_ms": 0,
+                "end_to_end_latency_ms": int((time.perf_counter() - started) * 1000),
+            })
+            return out
+        prompt_start = time.perf_counter()
         prompt = _assemble_prompt(question, facts, evidence)
-        text = provider.generate(prompt, system=SYSTEM_PROMPT)
+        prompt_build_ms = int((time.perf_counter() - prompt_start) * 1000)
+        llm_start = time.perf_counter()
+        text, usage = provider.generate_with_metadata(prompt, system=SYSTEM_PROMPT)
+        llm_ms = int((time.perf_counter() - llm_start) * 1000)
+        in_tokens = int(usage.get("input_tokens", 0) or 0)
+        out_tokens = int(usage.get("output_tokens", 0) or 0)
+        total_tokens = int(usage.get("total_tokens", 0) or (in_tokens + out_tokens))
+        _persist_metric({
+            "timestamp": timestamp,
+            "request_id": request_id,
+            "question": question,
+            "model_name": provider.model,
+            "provider": type(provider).__name__.replace("Provider", "").lower(),
+            "retrieval_mode": mode,
+            "retrieved_documents": len(uids),
+            "retrieved_chunks": retrieved_chunks,
+            "prompt_size_chars": len(prompt),
+            "input_tokens": in_tokens,
+            "output_tokens": out_tokens,
+            "total_tokens": total_tokens,
+            "retrieval_latency_ms": retrieval_ms,
+            "prompt_build_latency_ms": prompt_build_ms,
+            "llm_latency_ms": llm_ms,
+            "end_to_end_latency_ms": int((time.perf_counter() - started) * 1000),
+        })
         return {"ok": True, "grounded": True, "mode": "rag", "answer": text,
                 "citations": citations, "rbac": rbac, "hints": hints,
                 "retrieval_mode": mode, "facts": facts, "model": provider.model,
-                "provider": type(provider).__name__.replace("Provider", "").lower()}
+                "provider": type(provider).__name__.replace("Provider", "").lower(),
+                "request_id": request_id,
+                "metrics": {
+                    "retrieved_documents": len(uids),
+                    "retrieved_chunks": retrieved_chunks,
+                    "prompt_size_chars": len(prompt),
+                    "input_tokens": in_tokens,
+                    "output_tokens": out_tokens,
+                    "total_tokens": total_tokens,
+                    "retrieval_latency_ms": retrieval_ms,
+                    "prompt_build_latency_ms": prompt_build_ms,
+                    "llm_latency_ms": llm_ms,
+                    "end_to_end_latency_ms": int((time.perf_counter() - started) * 1000),
+                }}
     except Exception as exc:  # noqa: BLE001
+        _persist_metric({
+            "timestamp": timestamp,
+            "request_id": request_id,
+            "question": question,
+            "model_name": "",
+            "provider": "",
+            "retrieval_mode": mode,
+            "retrieved_documents": len(uids),
+            "retrieved_chunks": retrieved_chunks,
+            "prompt_size_chars": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "retrieval_latency_ms": retrieval_ms,
+            "prompt_build_latency_ms": 0,
+            "llm_latency_ms": 0,
+            "end_to_end_latency_ms": int((time.perf_counter() - started) * 1000),
+        })
         return {"ok": False, "grounded": False, "mode": "error", "answer": f"RAG error: {exc}",
-                "citations": citations, "rbac": rbac, "hints": hints, "retrieval_mode": mode}
+                "citations": citations, "rbac": rbac, "hints": hints,
+                "retrieval_mode": mode, "request_id": request_id}
+
+
+def _persist_metric(row: dict[str, Any]) -> None:
+    """Best-effort metric write; never interferes with request handling."""
+    try:
+        persist_rag_metric(row)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # Example questions surfaced in the UI.

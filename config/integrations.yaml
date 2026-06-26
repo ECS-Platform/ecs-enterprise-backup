@@ -27,8 +27,8 @@ integrations:
     auth_type: token
     token_env: SONAR_TOKEN
     # Fallback basic auth for local demo if no token issued yet
-    username_env: SONAR_USER
-    password_env: SONAR_PASSWORD
+    username_env: ECS_SONAR_USER
+    password_env: ECS_SONAR_PASSWORD
     verify_ssl: ${ECS_SONAR_VERIFY_SSL:-true}
     collect:
       - quality_gates

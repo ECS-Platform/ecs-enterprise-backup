@@ -14,7 +14,7 @@ services:
       ECS_LINUX_CONTAINER: ubuntu-demo
       ECS_SONAR_URL: http://sonarqube-demo:9000
       ECS_SONAR_USER: admin
-      ECS_SONAR_PASSWORD: a123
+      ECS_SONAR_PASSWORD: admin123
       ECS_GITLEAKS_SCAN_PATH: /app/demo-data/gitleaks-sample
       # ---- ECS platform (evidence repository / vector store / object store) ----
       ECS_CONFIG_DIR: /app/config
@@ -84,6 +84,7 @@ services:
       - ./app:/app/app
       - ./modules:/app/modules
       - ./ecs_platform:/app/ecs_platform
+      - ./benchmarks:/app/benchmarks
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000",
               "--reload", "--reload-dir", "/app/app", "--reload-dir", "/app/modules",
               "--reload-dir", "/app/ecs_platform"]
