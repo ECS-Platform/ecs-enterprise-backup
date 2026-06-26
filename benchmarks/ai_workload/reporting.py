@@ -21,7 +21,7 @@ from typing import Any
 
 from benchmarks.ai_workload import capacity_planning
 from benchmarks.ai_workload.bench_statistics import summarize
-from benchmarks.ai_workload.capacity_planning import CapacityAssumptions
+from benchmarks.ai_workload.capacity_planning import CapacityAssumptions, WorstCaseAssumptions
 
 # Metrics measured by the existing ECS instrumentation (ecs_platform.rag.answer).
 _MEASURED_METRIC_FIELDS = [
@@ -76,6 +76,12 @@ _CSV_COLUMNS = [
 ]
 
 
+# Approx chars-per-token for the system-prompt token estimate ONLY (the frozen
+# instrumentation reports prompt_size_chars, not a per-segment token split). Used
+# solely to seed the worst-case system-prompt growth axis; clearly an estimate.
+_CHARS_PER_TOKEN = 4.0
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -87,8 +93,46 @@ def _provider_model(rows: list[dict[str, Any]]) -> tuple[str, str]:
     return "", ""
 
 
-def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions) -> dict[str, Any]:
-    """Aggregate per-request rows into the enterprise report structure."""
+def _measured_worst_case(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Extract MEASURED worst-case maxima consumed by capacity_planning.worst_case_plan.
+
+    All values come straight from the benchmark rows (existing instrumentation);
+    nothing is invented. ``worst_case``-category rows are preferred when present so
+    the envelope reflects the heaviest tier; otherwise all rows are used.
+    """
+    wc_rows = [r for r in rows if r.get("category") == "worst_case"] or rows
+
+    def mx(field_name: str) -> float:
+        s = summarize([r.get(field_name) for r in wc_rows])
+        return float(s.maximum) if s.maximum is not None else 0.0
+
+    max_sys_chars = mx("system_prompt_chars")
+    return {
+        "max_input_tokens": mx("input_tokens"),
+        "max_output_tokens": mx("output_tokens"),
+        "max_total_tokens": mx("total_tokens"),
+        "max_prompt_size_chars": mx("prompt_size_chars"),
+        "max_retrieved_context_chars": mx("retrieved_context_chars_derived"),
+        "max_retrieved_documents": mx("retrieved_documents"),
+        "max_retrieved_chunks": mx("retrieved_chunks"),
+        "max_end_to_end_ms": mx("end_to_end_latency_ms"),
+        # System-prompt token estimate (chars/4) — seeds the growth axis only.
+        "max_system_prompt_tokens": round(max_sys_chars / _CHARS_PER_TOKEN, 2),
+        "_source_rows": len(wc_rows),
+        "_basis": "Maxima of MEASURED per-request fields (existing instrumentation).",
+    }
+
+
+def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions,
+                 *, include_worst_case: bool = False,
+                 worst_case_assumptions: WorstCaseAssumptions | None = None) -> dict[str, Any]:
+    """Aggregate per-request rows into the enterprise report structure.
+
+    When ``include_worst_case`` is True an additive ``worst_case`` section and an
+    ``executive_summary`` (maximum realistic token analysis + worst-case budget) are
+    appended, keeping Measured / Worst-Case / Projected / Forecast strictly separate.
+    Default False -> byte-for-byte the original standard report (backward compatible).
+    """
     ok_rows = [r for r in rows if r.get("ok")]
     provider, model = _provider_model(rows)
 
@@ -141,7 +185,7 @@ def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions) -
     }
     capacity = capacity_planning.plan(measured_for_capacity, assumptions)
 
-    return {
+    report: dict[str, Any] = {
         "meta": {
             "generated_at": _utc_now(),
             "provider": provider,
@@ -149,6 +193,7 @@ def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions) -
             "total_requests": len(rows),
             "successful_requests": len(ok_rows),
             "failed_requests": len(rows) - len(ok_rows),
+            "benchmark_mode": "worst_case" if include_worst_case else "standard",
             "benchmark": "ECS enterprise AI workload",
             "reuses": "ecs_platform.rag.answer + existing instrumentation (no instrumentation changes)",
         },
@@ -175,6 +220,63 @@ def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions) -
             "Projected = production load from operator assumptions x measured tokens.",
             "System/user prompt sizes are measured from the benchmark's own inputs (SYSTEM_PROMPT + question) without modifying instrumentation.",
         ],
+    }
+
+    # ---- Additive worst-case layer (single reporting framework; no parallel one) ----
+    # When requested, append the worst-case capacity plan + an executive summary.
+    # Measured / Worst-Case / Projected / Forecast are kept strictly separate by the
+    # provenance tiers that capacity_planning.worst_case_plan stamps on every block.
+    if include_worst_case:
+        wc = worst_case_assumptions or WorstCaseAssumptions()
+        measured_worst_case = _measured_worst_case(rows)
+        wc_plan = capacity_planning.worst_case_plan(measured_worst_case, assumptions, wc)
+        report["worst_case"] = {
+            "measured_baseline": measured_worst_case,
+            "capacity_planning": wc_plan,
+        }
+        report["executive_summary"] = _executive_summary(report, wc_plan)
+        report["meta"]["worst_case_requests"] = len(
+            [r for r in rows if r.get("category") == "worst_case"])
+        report["notes"].extend([
+            "Worst-Case = measured worst-case x documented headroom (ESTIMATED upper bound).",
+            "Forecast = multi-year growth applied to the projection (FORECAST).",
+            "Worst-case projections/forecasts are NEVER presented as measured results.",
+        ])
+
+    return report
+
+
+def _executive_summary(report: dict[str, Any], wc_plan: dict[str, Any]) -> dict[str, Any]:
+    """Maximum-realistic-token analysis + worst-case budget for executive budgeting.
+
+    Pure selection/relabelling over already-computed blocks (no new arithmetic),
+    presenting the four provenance tiers side by side for procurement sign-off.
+    """
+    headline = wc_plan["worst_case_headline"]
+    forecast = wc_plan["forecast"]
+    base_measured = report["capacity_planning"]["measured"]
+    return {
+        "purpose": "Maximum realistic enterprise token consumption for LLM procurement, "
+                   "token-budget approval, infrastructure sizing and 5-year budgeting.",
+        "measured_baseline": {
+            "tier": capacity_planning.TIER_MEASURED,
+            "avg_total_tokens_per_request": base_measured["avg_total_tokens"],
+            "peak_total_tokens_per_request": base_measured["peak_total_tokens"],
+        },
+        "maximum_realistic_per_request": {
+            "tier": capacity_planning.TIER_WORST_CASE,
+            "input_tokens": headline["maximum_realistic_input_tokens"],
+            "output_tokens": headline["maximum_realistic_output_tokens"],
+            "total_tokens": headline["maximum_realistic_total_tokens"],
+            "latency_ms": headline["worst_case_latency_ms"],
+        },
+        "five_year_worst_case_budget": {
+            "tier": capacity_planning.TIER_FORECAST,
+            **forecast["final_year_worst_case_budget"],
+            "cumulative_forecast": forecast["cumulative_forecast"],
+        },
+        "_basis": "Selection over measured baseline + worst-case envelope + forecast; "
+                  "tiers kept separate (see worst_case.capacity_planning.tiers).",
     }
 
 
@@ -206,6 +308,13 @@ def write_report(report: dict[str, Any], rows: list[dict[str, Any]], out_dir: Pa
         },
         "notes": report["notes"],
     }
+    # Additive worst-case headline in the same summary (no separate summary file).
+    if "worst_case" in report:
+        wc_plan = report["worst_case"]["capacity_planning"]
+        summary["worst_case_headline"] = wc_plan["worst_case_headline"]
+        summary["worst_case_tiers"] = wc_plan["tiers"]
+        summary["executive_summary"] = report.get("executive_summary")
+
     with summary_path.open("w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=2, ensure_ascii=True)
 
@@ -215,8 +324,28 @@ def write_report(report: dict[str, Any], rows: list[dict[str, Any]], out_dir: Pa
         for r in rows:
             writer.writerow({k: r.get(k, "") for k in _CSV_COLUMNS})
 
-    return {
+    paths = {
         "report": str(report_path),
         "summary": str(summary_path),
         "csv": str(csv_path),
     }
+
+    # Additive worst-case forecast CSV (one row per forecast year) — same framework,
+    # written only when the report carries a worst-case layer.
+    if "worst_case" in report:
+        forecast_csv = out_dir / "enterprise_worst_case_forecast.csv"
+        cols = [
+            "year", "tier", "demand_growth_factor", "token_growth_factor", "concurrent_users",
+            "worst_case_input_tokens_per_request", "worst_case_output_tokens_per_request",
+            "worst_case_total_tokens_per_request", "requests_per_month", "requests_per_year",
+            "monthly_total_tokens", "yearly_total_tokens", "monthly_total_cost", "yearly_total_cost",
+        ]
+        years = report["worst_case"]["capacity_planning"]["forecast"]["years"]
+        with forecast_csv.open("w", encoding="utf-8", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
+            writer.writeheader()
+            for yr in years:
+                writer.writerow({k: yr.get(k, "") for k in cols})
+        paths["worst_case_forecast_csv"] = str(forecast_csv)
+
+    return paths

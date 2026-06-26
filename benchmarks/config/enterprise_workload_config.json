@@ -9,6 +9,8 @@
   "profile_keys": [],
   "categories": [],
   "memory_guard_min_mb": 512,
+  "benchmark_mode": "standard",
+  "worst_case_assumptions": {},
   "capacity_assumptions": {
     "concurrent_users": 50,
     "requests_per_user_per_day": 8,

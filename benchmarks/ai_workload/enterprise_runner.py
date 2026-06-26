@@ -47,8 +47,11 @@ from pathlib import Path
 from typing import Any
 
 from benchmarks.ai_workload import reporting, workload_profiles
-from benchmarks.ai_workload.capacity_planning import CapacityAssumptions
+from benchmarks.ai_workload.capacity_planning import CapacityAssumptions, WorstCaseAssumptions
 from benchmarks.ai_workload.workload_profiles import WorkloadProfile
+
+# Supported benchmark modes (configuration-driven; single execution path).
+BENCHMARK_MODES = ("standard", "worst_case")
 
 _REQUESTS_FILE = "enterprise_requests.jsonl"
 _RUN_META_FILE = "enterprise_run_meta.json"
@@ -71,10 +74,24 @@ class EnterpriseRunnerConfig:
     categories: list[str] = field(default_factory=list)     # empty -> all categories
     memory_guard_min_mb: int = 512           # 0 disables the soft memory guard
     capacity_assumptions: dict[str, Any] = field(default_factory=dict)
+    # Configuration-driven mode (single execution path):
+    #   "standard"   -> base enterprise catalog, standard report (default, unchanged).
+    #   "worst_case" -> base catalog + worst-case tier, worst-case report sections.
+    benchmark_mode: str = "standard"
+    # Operator-tunable worst-case scaling / growth inputs (capacity_planning.
+    # WorstCaseAssumptions). Empty -> documented defaults. Only used in worst_case mode.
+    worst_case_assumptions: dict[str, Any] = field(default_factory=dict)
+    # Additive, backward-compatible hook: extra WorkloadProfile objects to run in
+    # addition to the base catalog. Empty -> behaviour unchanged. (worst_case mode
+    # injects workload_profiles.worst_case_profiles() automatically.)
+    extra_profiles: list[Any] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "EnterpriseRunnerConfig":
         data = data or {}
+        mode = str(data.get("benchmark_mode", "standard")).strip().lower() or "standard"
+        if mode not in BENCHMARK_MODES:
+            raise ValueError(f"benchmark_mode must be one of {BENCHMARK_MODES}, got {mode!r}.")
         return cls(
             role=str(data.get("role", "cio")),
             user=str(data.get("user", "benchmark-runner")),
@@ -87,7 +104,13 @@ class EnterpriseRunnerConfig:
             categories=list(data.get("categories", []) or []),
             memory_guard_min_mb=int(data.get("memory_guard_min_mb", 512)),
             capacity_assumptions=dict(data.get("capacity_assumptions", {}) or {}),
+            benchmark_mode=mode,
+            worst_case_assumptions=dict(data.get("worst_case_assumptions", {}) or {}),
         )
+
+    @property
+    def is_worst_case(self) -> bool:
+        return self.benchmark_mode == "worst_case"
 
 
 # --------------------------------------------------------------------------- #
@@ -141,12 +164,26 @@ def _available_mb() -> float | None:
     return None
 
 
-def _select_profiles(config: EnterpriseRunnerConfig) -> list[WorkloadProfile]:
-    profiles = (
-        workload_profiles.profiles_by_keys(config.profile_keys)
-        if config.profile_keys
-        else workload_profiles.default_profiles()
-    )
+def _select_profiles(config: EnterpriseRunnerConfig,
+                     extra_profiles: list[WorkloadProfile] | None = None) -> list[WorkloadProfile]:
+    """Resolve the profiles to run.
+
+    ``extra_profiles`` is an OPTIONAL additive catalog (e.g. the worst-case
+    profiles) appended to the base catalog before key/category filtering. When it
+    is None the behavior is identical to before (full backward compatibility).
+    """
+    catalog = list(workload_profiles.default_profiles())
+    if extra_profiles:
+        # Append any profiles whose keys are not already in the base catalog.
+        seen = {p.key for p in catalog}
+        catalog.extend(p for p in extra_profiles if p.key not in seen)
+
+    if config.profile_keys:
+        wanted_keys = set(config.profile_keys)
+        profiles = [p for p in catalog if p.key in wanted_keys]
+    else:
+        profiles = catalog
+
     if config.categories:
         wanted = set(config.categories)
         profiles = [p for p in profiles if p.category in wanted]
@@ -253,12 +290,16 @@ def _build_row(profile: WorkloadProfile, res: dict[str, Any],
 # --------------------------------------------------------------------------- #
 # Runner.
 # --------------------------------------------------------------------------- #
-def run(config: EnterpriseRunnerConfig) -> dict[str, str]:
+def run(config: EnterpriseRunnerConfig,
+        extra_profiles: list[WorkloadProfile] | None = None) -> dict[str, str]:
     """Execute the enterprise workload benchmark. Returns written artifact paths.
 
     Pure orchestration over existing ECS components. Never raises for a single
     failed request; a hard memory condition stops the loop gracefully and a report
     is still produced from already-flushed rows.
+
+    ``extra_profiles`` is an OPTIONAL additive catalog (e.g. the worst-case
+    profiles). Omitting it preserves the original behavior exactly.
     """
     if config.concurrency != 1:
         raise ValueError("enterprise_runner supports only concurrency=1 (single-stream).")
@@ -275,9 +316,20 @@ def run(config: EnterpriseRunnerConfig) -> dict[str, str]:
     requests_path.write_text("", encoding="utf-8")
     log_path.write_text("", encoding="utf-8")
 
-    profiles = _select_profiles(config)
-    _log(log_path, f"enterprise benchmark start: {len(profiles)} profiles, "
-                   f"concurrency=1, max_rpm={config.max_requests_per_minute}, out={out_dir}")
+    # Configuration-driven mode: worst_case injects the worst-case workload tier so
+    # the SAME single execution path measures the heaviest realistic scenarios.
+    mode_extra: list[WorkloadProfile] = []
+    if config.is_worst_case:
+        mode_extra = list(workload_profiles.worst_case_profiles())
+    # Forward the mode tier + explicit argument + any config-provided extra_profiles
+    # (additive, backward compatible: None/empty -> identical to prior behaviour).
+    effective_extra = (mode_extra
+                       + list(extra_profiles or [])
+                       + list(getattr(config, "extra_profiles", []) or []))
+    profiles = _select_profiles(config, effective_extra or None)
+    _log(log_path, f"enterprise benchmark start: mode={config.benchmark_mode}, "
+                   f"{len(profiles)} profiles, concurrency=1, "
+                   f"max_rpm={config.max_requests_per_minute}, out={out_dir}")
 
     # Optional one-time data preparation (reuse existing flows).
     if config.run_sync_once:
@@ -354,9 +406,18 @@ def run(config: EnterpriseRunnerConfig) -> dict[str, str]:
         gc.collect()
 
     # --- build report from disk (no in-memory retention of prior results) ---
+    # Single reporting framework: in worst_case mode the SAME build_report appends
+    # the worst-case capacity sections + executive summary (Measured / Worst-Case /
+    # Projected / Forecast kept strictly separate). Standard mode is unchanged.
     rows = _read_rows(requests_path)
     assumptions = CapacityAssumptions.from_dict(config.capacity_assumptions)
-    report = reporting.build_report(rows, assumptions)
+    wc_assumptions = (WorstCaseAssumptions.from_dict(config.worst_case_assumptions)
+                      if config.is_worst_case else None)
+    report = reporting.build_report(
+        rows, assumptions,
+        include_worst_case=config.is_worst_case,
+        worst_case_assumptions=wc_assumptions,
+    )
     report["meta"]["run_status"] = stopped_reason
     report["meta"]["profiles_planned"] = len(profiles)
     report["meta"]["profiles_completed"] = completed
@@ -367,12 +428,15 @@ def run(config: EnterpriseRunnerConfig) -> dict[str, str]:
         "run_status": stopped_reason,
         "profiles_planned": len(profiles),
         "profiles_completed": completed,
+        "benchmark_mode": config.benchmark_mode,
         "config": {
             "role": config.role, "user": config.user,
+            "benchmark_mode": config.benchmark_mode,
             "max_requests_per_minute": config.max_requests_per_minute,
             "profile_keys": config.profile_keys, "categories": config.categories,
             "run_sync_once": config.run_sync_once, "reindex_before_run": config.reindex_before_run,
             "memory_guard_min_mb": config.memory_guard_min_mb,
+            "worst_case_assumptions": config.worst_case_assumptions if config.is_worst_case else {},
         },
         "artifacts": {**paths, "requests_jsonl": str(requests_path),
                       "rag_metrics_jsonl": str(out_dir / "rag_metrics.jsonl")},
@@ -422,13 +486,15 @@ def main(argv: list[str] | None = None) -> int:
                         help="Comma-separated categories to run (overrides config).")
     parser.add_argument("--max-rpm", type=int, default=0,
                         help="Override max_requests_per_minute (>0).")
+    parser.add_argument("--mode", type=str, default="", choices=["", *BENCHMARK_MODES],
+                        help="Benchmark mode (overrides config): standard | worst_case.")
     parser.add_argument("--list", action="store_true",
-                        help="List the workload catalog and exit (no execution).")
+                        help="List the full workload catalog (default + worst-case) and exit.")
     args = parser.parse_args(argv)
 
     if args.list:
-        for p in workload_profiles.default_profiles():
-            print(f"{p.key:22s} {p.category:11s} {p.prompt_class:6s}->{p.response_intent:8s} "
+        for p in workload_profiles.all_profiles():
+            print(f"{p.key:22s} {p.category:18s} {p.prompt_class:6s}->{p.response_intent:8s} "
                   f"top_k={p.top_k:<3d} {p.name}")
         return 0
 
@@ -446,6 +512,8 @@ def main(argv: list[str] | None = None) -> int:
         config.categories = [c.strip() for c in args.categories.split(",") if c.strip()]
     if args.max_rpm and args.max_rpm > 0:
         config.max_requests_per_minute = args.max_rpm
+    if args.mode:
+        config.benchmark_mode = args.mode
 
     run(config)
     return 0

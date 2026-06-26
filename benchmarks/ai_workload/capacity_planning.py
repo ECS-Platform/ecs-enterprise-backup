@@ -15,7 +15,7 @@ Nothing here calls ECS or the LLM; it is pure arithmetic over inputs.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
@@ -164,4 +164,332 @@ def plan(measured: dict[str, Any], assumptions: CapacityAssumptions) -> dict[str
         "estimated": estimated,
         "projected": projected,
         "assumptions": a.to_dict(),
+    }
+
+
+# =========================================================================== #
+# WORST-CASE ENTERPRISE CAPACITY MODEL
+# --------------------------------------------------------------------------- #
+# Consolidated here (from the former standalone worst_case_model.py) so there is
+# ONE capacity-planning framework. It REUSES the demand/storage arithmetic of
+# ``plan()`` above and ``CapacityAssumptions``; it performs NO measurement and NO
+# token counting of its own. Every output is tagged with one of four strictly
+# separated provenance tiers so a projection is never read as a measured result:
+#
+#   MEASURED_BASELINE  — observed in the benchmark (passed in; never invented here)
+#   WORST_CASE         — measured worst-case envelope x documented headroom
+#   PROJECTED_CAPACITY — production demand x worst-case per-request tokens
+#   FORECAST           — Years 1..N growth applied to the projection
+# =========================================================================== #
+
+TIER_MEASURED = "MEASURED_BASELINE"
+TIER_WORST_CASE = "WORST_CASE"
+TIER_PROJECTED = "PROJECTED_CAPACITY"
+TIER_FORECAST = "FORECAST"
+
+
+@dataclass
+class WorstCaseAssumptions:
+    """Worst-case scaling + multi-year growth inputs. All ESTIMATED, not measured.
+
+    Defaults encode the documented parameter grid. They are applied ONLY to
+    WORST_CASE / PROJECTED / FORECAST tiers — never to the measured baseline.
+    """
+
+    # ---- Sensitivity grid (configurable benchmark parameters) ----
+    top_k_grid: list[int] = field(default_factory=lambda: [5, 10, 20, 30, 40])
+    chunk_size_grid: list[int] = field(default_factory=lambda: [256, 512, 768, 1024])
+    output_token_grid: list[int] = field(default_factory=lambda: [256, 512, 768, 1024])
+    system_prompt_growth_grid: list[float] = field(default_factory=lambda: [0.0, 0.10, 0.20, 0.30])
+    framework_scope_grid: list[str] = field(
+        default_factory=lambda: ["single_framework", "multiple_frameworks", "enterprise_cross_framework"])
+
+    # Framework-scope context multipliers (relative retrieved-context volume).
+    framework_scope_multipliers: dict[str, float] = field(default_factory=lambda: {
+        "single_framework": 1.0,
+        "multiple_frameworks": 2.5,
+        "enterprise_cross_framework": 6.0,
+    })
+
+    # Reference point for proportional scaling of measured worst-case input tokens.
+    reference_top_k: int = 40
+    reference_chunk_size: int = 768          # nomic-embed-text chunking (vectorstore.yaml)
+    reference_output_tokens: int = 2048      # config/llm.yaml max_output_tokens
+
+    # ---- Worst-case per-request envelope multipliers (vs measured peak) ----
+    worst_case_input_headroom: float = 1.25   # +25% input headroom for larger estate
+    worst_case_output_headroom: float = 1.00  # output capped by model max_output_tokens
+    worst_case_latency_headroom: float = 1.30 # +30% latency under load/large context
+
+    # ---- Multi-year growth model ----
+    forecast_years: int = 5
+    evidence_files_per_control_per_framework_per_year: int = 2
+    baseline_controls: int = 200
+    baseline_frameworks: int = 6
+    applications_added_per_year: int = 10
+    baseline_applications: int = 50
+    annual_demand_growth_rate: float = 0.20   # +20%/yr requests (adoption)
+    annual_token_growth_rate: float = 0.10    # +10%/yr worst-case tokens per request
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "WorstCaseAssumptions":
+        data = data or {}
+        known = {k: data[k] for k in data if k in cls.__dataclass_fields__}
+        return cls(**known)
+
+
+def worst_case_envelope(measured: dict[str, Any], wc: WorstCaseAssumptions) -> dict[str, Any]:
+    """Worst-case per-request envelope from MEASURED worst-case values + headroom.
+
+    ``measured`` keys (all from existing reporting/statistics; missing -> 0):
+      max_input_tokens, max_output_tokens, max_total_tokens, max_prompt_size_chars,
+      max_retrieved_context_chars, max_retrieved_documents, max_retrieved_chunks,
+      max_end_to_end_ms
+    """
+    m_in = _f(measured.get("max_input_tokens"))
+    m_out = _f(measured.get("max_output_tokens"))
+    m_total = _f(measured.get("max_total_tokens")) or (m_in + m_out)
+    m_lat = _f(measured.get("max_end_to_end_ms"))
+
+    wc_in = m_in * wc.worst_case_input_headroom
+    wc_out = m_out * wc.worst_case_output_headroom
+    wc_total = wc_in + wc_out if (wc_in or wc_out) else m_total * wc.worst_case_input_headroom
+    wc_lat = m_lat * wc.worst_case_latency_headroom
+
+    return {
+        "tier": TIER_WORST_CASE,
+        "measured_worst_case": {
+            "tier": TIER_MEASURED,
+            "max_input_tokens": round(m_in, 2),
+            "max_output_tokens": round(m_out, 2),
+            "max_total_tokens": round(m_total, 2),
+            "max_prompt_size_chars": _f(measured.get("max_prompt_size_chars")),
+            "max_retrieved_context_chars": _f(measured.get("max_retrieved_context_chars")),
+            "max_retrieved_documents": _f(measured.get("max_retrieved_documents")),
+            "max_retrieved_chunks": _f(measured.get("max_retrieved_chunks")),
+            "max_end_to_end_ms": round(m_lat, 2),
+            "_basis": "Observed maxima from the worst-case benchmark run (existing instrumentation).",
+        },
+        "worst_case_scaled": {
+            "max_realistic_input_tokens": round(wc_in, 2),
+            "max_realistic_output_tokens": round(wc_out, 2),
+            "max_realistic_total_tokens": round(wc_total, 2),
+            "worst_case_latency_ms": round(wc_lat, 2),
+            "_basis": (
+                "Measured worst-case x documented headroom multipliers "
+                f"(input x{wc.worst_case_input_headroom}, output x{wc.worst_case_output_headroom}, "
+                f"latency x{wc.worst_case_latency_headroom}) to bound a larger realistic estate. ESTIMATED."
+            ),
+        },
+    }
+
+
+def sensitivity_sweep(measured: dict[str, Any], wc: WorstCaseAssumptions) -> dict[str, Any]:
+    """Project worst-case tokens across each documented parameter axis (arithmetic only).
+
+    Each axis is varied independently around the measured worst-case figure, scaled
+    by the lever that physically drives size. ESTIMATED sensitivity, not measurement.
+    """
+    base_in = _f(measured.get("max_input_tokens"))
+    base_out = _f(measured.get("max_output_tokens"))
+    base_sys = _f(measured.get("max_system_prompt_tokens")) or _f(measured.get("system_prompt_tokens"))
+
+    def axis(points: list, scale_fn) -> list[dict[str, Any]]:
+        return [{"value": p, "estimated_input_tokens": round(scale_fn(p), 2)} for p in points]
+
+    top_k_axis = axis(
+        wc.top_k_grid,
+        lambda k: base_in * (k / wc.reference_top_k) if wc.reference_top_k else base_in,
+    )
+    chunk_axis = axis(
+        wc.chunk_size_grid,
+        lambda c: base_in * (c / wc.reference_chunk_size) if wc.reference_chunk_size else base_in,
+    )
+    output_axis = [
+        {"value": o, "estimated_output_tokens": round(min(_f(o), base_out or _f(o)) if base_out else _f(o), 2)}
+        for o in wc.output_token_grid
+    ]
+    sys_axis = [
+        {"value_pct": round(g * 100, 1), "estimated_input_tokens": round(base_in + base_sys * g, 2)}
+        for g in wc.system_prompt_growth_grid
+    ]
+    scope_axis = [
+        {"value": scope,
+         "estimated_input_tokens": round(base_in * wc.framework_scope_multipliers.get(scope, 1.0), 2)}
+        for scope in wc.framework_scope_grid
+    ]
+
+    return {
+        "tier": TIER_PROJECTED,
+        "_basis": "Independent one-axis-at-a-time scaling of MEASURED worst-case tokens. ESTIMATED sensitivity, not measured.",
+        "reference_point": {
+            "measured_max_input_tokens": round(base_in, 2),
+            "measured_max_output_tokens": round(base_out, 2),
+            "reference_top_k": wc.reference_top_k,
+            "reference_chunk_size": wc.reference_chunk_size,
+        },
+        "retrieval_depth_top_k": top_k_axis,
+        "chunk_size": chunk_axis,
+        "output_token_limit": output_axis,
+        "system_prompt_growth": sys_axis,
+        "framework_scope": scope_axis,
+    }
+
+
+def repository_growth(wc: WorstCaseAssumptions) -> dict[str, Any]:
+    """Evidence-file / portfolio growth from the documented growth rule (ESTIMATED).
+
+    Rule: N new evidence files / control / framework / year, with the app portfolio
+    growing by ``applications_added_per_year``.
+    """
+    years = []
+    cumulative_files = 0
+    apps = wc.baseline_applications
+    for y in range(0, wc.forecast_years + 1):
+        if y == 0:
+            new_files = 0
+        else:
+            apps = wc.baseline_applications + wc.applications_added_per_year * y
+            new_files = (wc.evidence_files_per_control_per_framework_per_year
+                         * wc.baseline_controls * wc.baseline_frameworks
+                         * (apps / wc.baseline_applications if wc.baseline_applications else 1))
+        cumulative_files += new_files
+        years.append({
+            "year": y,
+            "applications": apps,
+            "new_evidence_files": round(new_files, 0),
+            "cumulative_evidence_files": round(cumulative_files, 0),
+        })
+    return {
+        "tier": TIER_FORECAST,
+        "_basis": (f"Documented rule: {wc.evidence_files_per_control_per_framework_per_year} evidence files "
+                   f"/ control / framework / year, {wc.baseline_controls} controls x {wc.baseline_frameworks} "
+                   f"frameworks, +{wc.applications_added_per_year} apps/year. ESTIMATED."),
+        "years": years,
+    }
+
+
+def _worst_case_budget(total_tokens_per_request: float, input_tokens: float,
+                       output_tokens: float, demand: CapacityAssumptions) -> dict[str, Any]:
+    """Monthly/annual worst-case token + cost budget at a per-request envelope.
+
+    Reuses the SAME demand arithmetic as ``plan()`` (no duplicate demand math).
+    """
+    planned = plan({
+        "avg_total_tokens": total_tokens_per_request,
+        "peak_total_tokens": total_tokens_per_request,
+        "avg_input_tokens": input_tokens,
+        "avg_output_tokens": output_tokens,
+        "avg_end_to_end_ms": 0.0,
+        "p95_end_to_end_ms": 0.0,
+    }, demand)
+    proj = planned["projected"]
+    return {
+        "requests_per_month": proj["requests"]["per_month"],
+        "requests_per_year": proj["requests"]["per_year"],
+        "monthly_total_tokens": proj["tokens"]["monthly_total_tokens"],
+        "yearly_total_tokens": proj["tokens"]["yearly_total_tokens"],
+        "monthly_total_cost": proj["cost_inputs"]["monthly_total_cost"],
+        "yearly_total_cost": proj["cost_inputs"]["yearly_total_cost"],
+    }
+
+
+def multi_year_forecast(envelope: dict[str, Any], wc: WorstCaseAssumptions,
+                        demand: CapacityAssumptions) -> dict[str, Any]:
+    """Years 0..N worst-case token + cost budget under compounding growth.
+
+    Year 0 = current worst-case scaled envelope at current demand. Each subsequent
+    year compounds demand growth and per-request token drift, reusing ``plan()``.
+    """
+    scaled = envelope["worst_case_scaled"]
+    base_in = _f(scaled.get("max_realistic_input_tokens"))
+    base_out = _f(scaled.get("max_realistic_output_tokens"))
+    base_total = _f(scaled.get("max_realistic_total_tokens")) or (base_in + base_out)
+
+    years = []
+    for y in range(0, wc.forecast_years + 1):
+        demand_factor = (1.0 + wc.annual_demand_growth_rate) ** y
+        token_factor = (1.0 + wc.annual_token_growth_rate) ** y
+        in_y = base_in * token_factor
+        out_y = base_out * token_factor
+        total_y = base_total * token_factor
+        demand_y = CapacityAssumptions.from_dict({
+            **demand.to_dict(),
+            "concurrent_users": int(round(demand.concurrent_users * demand_factor)),
+        })
+        budget = _worst_case_budget(total_y, in_y, out_y, demand_y)
+        years.append({
+            "year": y,
+            "tier": TIER_FORECAST if y > 0 else TIER_PROJECTED,
+            "demand_growth_factor": round(demand_factor, 4),
+            "token_growth_factor": round(token_factor, 4),
+            "worst_case_input_tokens_per_request": round(in_y, 2),
+            "worst_case_output_tokens_per_request": round(out_y, 2),
+            "worst_case_total_tokens_per_request": round(total_y, 2),
+            "concurrent_users": demand_y.concurrent_users,
+            **budget,
+        })
+
+    last = years[-1] if years else {}
+    return {
+        "tier": TIER_FORECAST,
+        "_basis": (f"Year 0 = worst-case scaled envelope at current demand (PROJECTED). "
+                   f"Years 1..{wc.forecast_years} compound demand +{wc.annual_demand_growth_rate*100:.0f}%/yr "
+                   f"and per-request tokens +{wc.annual_token_growth_rate*100:.0f}%/yr. FORECAST."),
+        "years": years,
+        "final_year_worst_case_budget": {
+            "year": last.get("year"),
+            "yearly_total_tokens": last.get("yearly_total_tokens"),
+            "yearly_total_cost": last.get("yearly_total_cost"),
+        },
+        "cumulative_forecast": {
+            "total_tokens": round(sum(_f(yr.get("yearly_total_tokens")) for yr in years), 0),
+            "total_cost": round(sum(_f(yr.get("yearly_total_cost")) for yr in years), 4),
+            "_note": "Cost is zero unless cost_per_1k_*_tokens demand assumptions are provided.",
+        },
+    }
+
+
+def worst_case_plan(measured_worst_case: dict[str, Any], demand: CapacityAssumptions,
+                    wc: WorstCaseAssumptions) -> dict[str, Any]:
+    """Full worst-case capacity-planning bundle with four strictly-separated tiers:
+    measured_baseline / worst_case / projected_capacity / forecast.
+    """
+    envelope = worst_case_envelope(measured_worst_case, wc)
+    sweep = sensitivity_sweep(measured_worst_case, wc)
+    growth = repository_growth(wc)
+    forecast = multi_year_forecast(envelope, wc, demand)
+
+    scaled = envelope["worst_case_scaled"]
+    headline = {
+        "tier": TIER_WORST_CASE,
+        "maximum_realistic_input_tokens": scaled["max_realistic_input_tokens"],
+        "maximum_realistic_output_tokens": scaled["max_realistic_output_tokens"],
+        "maximum_realistic_total_tokens": scaled["max_realistic_total_tokens"],
+        "worst_case_prompt_size_chars": envelope["measured_worst_case"]["max_prompt_size_chars"],
+        "worst_case_context_chars": envelope["measured_worst_case"]["max_retrieved_context_chars"],
+        "worst_case_retrieval_documents": envelope["measured_worst_case"]["max_retrieved_documents"],
+        "worst_case_response_tokens": scaled["max_realistic_output_tokens"],
+        "worst_case_latency_ms": scaled["worst_case_latency_ms"],
+    }
+
+    return {
+        "tiers": {
+            TIER_MEASURED: "Observed via existing ECS instrumentation during the benchmark.",
+            TIER_WORST_CASE: "Measured worst-case x documented headroom (ESTIMATED upper bound).",
+            TIER_PROJECTED: "Production demand x worst-case per-request tokens (ESTIMATED).",
+            TIER_FORECAST: "Years 1..N growth applied to the projection (FORECAST).",
+        },
+        "worst_case_headline": headline,
+        "envelope": envelope,
+        "sensitivity": sweep,
+        "repository_growth": growth,
+        "forecast": forecast,
+        "assumptions": {
+            "demand": demand.to_dict(),
+            "worst_case": wc.to_dict(),
+        },
     }

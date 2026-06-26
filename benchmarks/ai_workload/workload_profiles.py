@@ -319,16 +319,259 @@ _ENTERPRISE: list[WorkloadProfile] = [
 ]
 
 
+# --------------------------------------------------------------------------- #
+# 4) Worst-case enterprise workloads (14 scenarios) — maximum REALISTIC token use
+# --------------------------------------------------------------------------- #
+# These represent the heaviest plausible Pan-India HDFC governance workloads. They
+# are NOT average production traffic; they exist to establish a realistic UPPER
+# BOUND for LLM procurement / budgeting / infrastructure sizing. Every prompt is a
+# genuine enterprise audit/governance instruction — large because the *scope* is
+# large (every application x every framework x every control), never because of
+# padding or repeated text. All run at TOP_K_MAX (widest realistic retrieval) and
+# request maximum detailed output. They share the ``worst_case`` category and the
+# ``response_intent="maximum"`` so reporting can isolate the worst-case envelope.
+_WORST_CASE: list[WorkloadProfile] = [
+    WorkloadProfile(
+        key="wc_enterprise_compliance",
+        name="Enterprise-wide Compliance Assessment (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Produce an enterprise-wide compliance assessment for the entire HDFC Bank application "
+            "portfolio against PCI DSS, RBI Cyber Security Framework, RBI C-SITE, SOC2, ISO 27001 and "
+            "AI-SDLC. For every application and every applicable control, state the control objective, "
+            "current evidence with ECS citations, evidence freshness, compliance status, gap, risk rating, "
+            "remediation action, owner and target date. Conclude with a per-framework readiness scorecard "
+            "and an enterprise compliance index."
+        ),
+        description="Full portfolio x full framework set x control-by-control — primary worst case.",
+    ),
+    WorkloadProfile(
+        key="wc_cross_framework_reuse",
+        name="Cross-framework Evidence Reuse (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Across the full application portfolio, map every evidence record to all frameworks and controls "
+            "it satisfies (PCI DSS, RBI CSF, RBI C-SITE, SOC2, ISO 27001, AI-SDLC), quantify reuse ratios per "
+            "evidence item, identify single-points-of-failure evidence, and produce a complete cross-framework "
+            "reuse matrix with citations and a remediation list for low-reuse obligations."
+        ),
+        description="Dense many-to-many reuse mapping over maximum retrieved evidence.",
+    ),
+    WorkloadProfile(
+        key="wc_executive_audit_package",
+        name="Executive Audit Package (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Assemble a complete executive audit package for the CISO and Audit Committee covering all "
+            "applications and frameworks: executive summary, per-framework readiness, top enterprise risks, "
+            "control-failure analysis, rejected/stale evidence analysis, remediation roadmap with owners and "
+            "dates, and an appendix of cited ECS evidence for every material finding."
+        ),
+        description="Long-form executive deliverable with full evidence appendix.",
+    ),
+    WorkloadProfile(
+        key="wc_board_reporting",
+        name="Board Reporting Pack (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Generate a board-level technology governance and compliance report for HDFC Bank: enterprise "
+            "compliance posture across all frameworks, material risks and trends, regulatory exposure, "
+            "remediation status against prior commitments, and forward-looking risk outlook, each substantiated "
+            "with cited ECS evidence and a clear executive narrative suitable for the Board."
+        ),
+        description="Board-grade narrative synthesis over the whole estate.",
+    ),
+    WorkloadProfile(
+        key="wc_technology_risk",
+        name="Technology Risk Assessment (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Perform an enterprise technology risk assessment across all applications: enumerate risks from open "
+            "vulnerabilities, stale and rejected evidence, failed/unauthorized changes, incident history and "
+            "control gaps; rate each by likelihood and impact; aggregate into a risk register with inherent and "
+            "residual ratings; and recommend prioritized mitigations with owners, citing ECS evidence."
+        ),
+        description="Full-estate risk reasoning and register synthesis.",
+    ),
+    WorkloadProfile(
+        key="wc_remediation_planning",
+        name="Enterprise Remediation Planning (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Build an enterprise remediation plan covering every open gap across all applications and frameworks: "
+            "for each gap describe root cause, affected controls and frameworks, remediation steps, dependencies, "
+            "effort, owner, target date and verification evidence, then sequence everything into a prioritized "
+            "multi-quarter roadmap with a critical-path summary, citing ECS evidence."
+        ),
+        description="Exhaustive gap-to-plan expansion across the estate.",
+    ),
+    WorkloadProfile(
+        key="wc_cloud_governance",
+        name="Cloud Governance Assessment (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Assess cloud governance across all cloud-hosted applications: evaluate identity and access, network "
+            "controls, encryption, configuration baselines, logging/monitoring, backup/DR and regulatory data "
+            "residency against PCI DSS, RBI CSF, ISO 27001 and SOC2; list deviations, risks and remediation per "
+            "application with cited ECS evidence and a consolidated cloud posture scorecard."
+        ),
+        description="Cloud control-plane assessment across the portfolio.",
+    ),
+    WorkloadProfile(
+        key="wc_data_governance",
+        name="Data Governance Assessment (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Assess enterprise data governance: classify data across applications, evaluate encryption at rest and "
+            "in transit, access control, retention, masking, lineage and DPSC/RBI data-localization obligations; "
+            "identify gaps and risks per application and data domain; and provide remediation with cited ECS "
+            "evidence and a data-governance maturity scorecard."
+        ),
+        description="Data-domain governance across the estate.",
+    ),
+    WorkloadProfile(
+        key="wc_operational_resilience",
+        name="Operational Resilience Assessment (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Assess operational resilience for all critical applications: evaluate backup success, restore testing, "
+            "RPO/RTO adherence, DR drills, incident response maturity, change failure rate and single points of "
+            "failure; map to RBI operational-resilience expectations; and provide per-application gaps, risks and "
+            "remediation with cited ECS evidence and an enterprise resilience scorecard."
+        ),
+        description="Resilience/continuity across critical systems.",
+    ),
+    WorkloadProfile(
+        key="wc_third_party_risk",
+        name="Third-Party Risk Assessment (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Perform an enterprise third-party / vendor risk assessment: for every application with material "
+            "third-party dependencies, evaluate due-diligence evidence, contractual controls, access, "
+            "sub-processor risk, incident and SLA history against RBI outsourcing guidelines and ISO 27001; rate "
+            "and prioritize risks; and recommend mitigations with cited ECS evidence."
+        ),
+        description="Vendor/outsourcing risk across the estate.",
+    ),
+    WorkloadProfile(
+        key="wc_ai_governance",
+        name="AI Governance Assessment (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Assess AI governance across all AI/ML use cases under the AI-SDLC framework: for each use case evaluate "
+            "model risk, data provenance, bias/fairness, explainability, human oversight, security and lifecycle "
+            "gate evidence; identify gaps and risks; and provide remediation and an AI-governance maturity "
+            "scorecard with cited ECS evidence."
+        ),
+        description="AI/ML lifecycle governance across use cases.",
+    ),
+    WorkloadProfile(
+        key="wc_portfolio_review",
+        name="Portfolio-wide Compliance Review (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Conduct a portfolio-wide compliance review: for every application produce a one-page compliance "
+            "profile (frameworks in scope, readiness, top gaps, top risks, remediation status) and then a "
+            "portfolio rollup ranking applications by risk and readiness, all substantiated with cited ECS evidence."
+        ),
+        description="Per-application profiles plus portfolio rollup.",
+    ),
+    WorkloadProfile(
+        key="wc_regulator_inspection",
+        name="Large Regulator Inspection Response (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Prepare a comprehensive response to a large RBI regulatory inspection covering cyber security, IT "
+            "governance, data localization, operational resilience and outsourcing: for each inspection area, "
+            "provide the control narrative, supporting evidence with ECS citations, identified gaps, compensating "
+            "controls and remediation commitments, formatted as a regulator-ready submission."
+        ),
+        description="Regulator-grade, evidence-backed inspection submission.",
+    ),
+    WorkloadProfile(
+        key="wc_control_maturity",
+        name="Enterprise Control Maturity Assessment (Worst Case)",
+        category="worst_case",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Assess enterprise control maturity across all control families (access control, change management, "
+            "vulnerability management, incident response, backup/DR, configuration management, data protection, "
+            "logging/monitoring): for each family rate maturity on a defined scale with justification and cited "
+            "ECS evidence, identify maturity gaps and improvement actions, and produce an enterprise maturity "
+            "heatmap and roadmap."
+        ),
+        description="Maturity scoring across all control families.",
+    ),
+]
+
+
 def default_profiles() -> list[WorkloadProfile]:
-    """Full enterprise workload catalog (20 realistic scenarios)."""
+    """Default enterprise workload catalog (20 realistic scenarios).
+
+    Backward compatible: the worst-case tier is intentionally NOT included here so
+    existing runs/reports are unchanged. Use ``worst_case_profiles()`` or
+    ``all_profiles()`` (or select ``category="worst_case"``) to include it.
+    """
     return [*_SIZE_MATRIX, *_CONTEXT_STRESS, *_ENTERPRISE]
 
 
+def worst_case_profiles() -> list[WorkloadProfile]:
+    """Worst-case enterprise workload tier (14 maximum-realistic scenarios)."""
+    return list(_WORST_CASE)
+
+
+def all_profiles() -> list[WorkloadProfile]:
+    """Default catalog + worst-case tier (34 scenarios)."""
+    return [*default_profiles(), *worst_case_profiles()]
+
+
 def profiles_by_keys(keys: list[str]) -> list[WorkloadProfile]:
-    """Subset of the catalog by profile key, preserving catalog order."""
+    """Subset of the FULL catalog (default + worst-case) by key, in catalog order."""
     wanted = set(keys)
-    return [p for p in default_profiles() if p.key in wanted]
+    return [p for p in all_profiles() if p.key in wanted]
 
 
 def catalog_index() -> dict[str, WorkloadProfile]:
-    return {p.key: p for p in default_profiles()}
+    """Index of the FULL catalog (default + worst-case) by profile key."""
+    return {p.key: p for p in all_profiles()}
