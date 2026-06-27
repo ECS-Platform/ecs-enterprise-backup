@@ -70,16 +70,66 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# Truncation-detection thresholds. ``measured_input_tokens`` saturates at the context
+# window when the constructed prompt exceeds it (Ollama truncates and reports only the
+# evaluated tokens). We flag truncation when measured sits within NEAR_FRACTION of the
+# effective window AND the ESTIMATED constructed prompt is materially (MATERIAL_FRACTION)
+# larger than measured.
+_TRUNC_NEAR_FRACTION = 0.97          # measured within 3% of the effective ctx window
+_TRUNC_MATERIAL_FRACTION = 1.05      # estimated > measured by >= 5%
+
+_TRUNC_NOTE = (
+    "Measured input tokens reflect model-evaluated tokens after context-window "
+    "truncation; constructed prompt was larger."
+)
+
+
+def _detect_truncation(measured_input_tokens: int | None,
+                       estimated_input_tokens: int | None,
+                       effective_num_ctx: int | None) -> tuple[bool, str]:
+    """Return (truncation_suspected, note).
+
+    Truncation is suspected when the MEASURED model-evaluated input tokens are close to
+    the effective context window AND the ESTIMATED constructed prompt is materially
+    higher than the measured value (the model saw fewer tokens than were built).
+
+    When ``effective_num_ctx`` is None (provider omitted ``num_ctx``; model default
+    applies) we cannot compare against a known window, but a measured value that is
+    materially below the ESTIMATED constructed size is still a strong truncation signal,
+    so we flag it on the estimate-vs-measured gap alone. The MEASURED value is never
+    rewritten — only annotated."""
+    if not measured_input_tokens or not estimated_input_tokens:
+        return False, ""
+    est_materially_higher = (
+        estimated_input_tokens >= measured_input_tokens * _TRUNC_MATERIAL_FRACTION)
+    if not est_materially_higher:
+        return False, ""
+    if effective_num_ctx:
+        near_window = measured_input_tokens >= effective_num_ctx * _TRUNC_NEAR_FRACTION
+        if near_window:
+            return True, _TRUNC_NOTE
+        return False, ""
+    # Unknown window (model default): the estimate-vs-measured gap is the only signal.
+    return True, _TRUNC_NOTE
+
+
 # --------------------------------------------------------------------------- #
 # Per-scenario execution.
 # --------------------------------------------------------------------------- #
 def _run_scenario(scenario: NeevScenario, *, dry_run: bool, seed: int,
                   chars_per_token: float, provider: Any | None,
-                  engine_runtime: str, model_name: str) -> dict[str, Any]:
+                  engine_runtime: str, model_name: str,
+                  num_ctx_requested: int | None = None,
+                  effective_num_ctx: int | None = None) -> dict[str, Any]:
     """Build the realistic prompt and (unless dry-run) measure tokens via the provider.
 
     Returns a flat record carrying MEASURED prompt-size metrics, ESTIMATED input tokens,
-    and — when the LLM ran successfully — MEASURED input/output tokens + latency."""
+    and — when the LLM ran successfully — MEASURED input/output tokens + latency.
+
+    ``num_ctx_requested`` is the benchmark-only context window passed via ``--num-ctx``
+    (None -> provider default). ``effective_num_ctx`` is the provider-resolved context
+    window used for truncation detection (None when the provider omits ``num_ctx`` and
+    the model default applies)."""
     spec = scenario.to_prompt_spec()
     built = build_prompt(spec, seed=seed, chars_per_token=chars_per_token)
 
@@ -110,6 +160,12 @@ def _run_scenario(scenario: NeevScenario, *, dry_run: bool, seed: int,
         # ESTIMATED input tokens (char-based; planning estimate)
         "estimated_input_tokens": built["estimated_input_tokens"],
         "chars_per_token_basis": built["chars_per_token_basis"],
+        # context window provenance (benchmark-only; production unchanged)
+        "num_ctx_requested": num_ctx_requested,        # --num-ctx (None -> provider default)
+        "effective_num_ctx": effective_num_ctx,        # provider-resolved (None -> model default)
+        # truncation detection (filled after measurement)
+        "truncation_suspected": False,
+        "input_measurement_note": "",
         # filled by the LLM path
         "measured_input_tokens": None,
         "measured_output_tokens": None,
@@ -140,14 +196,20 @@ def _run_scenario(scenario: NeevScenario, *, dry_run: bool, seed: int,
         wall_ms = int((time.perf_counter() - t0) * 1000)
         in_tok = int(meta.get("input_tokens", 0) or 0)
         out_tok = int(meta.get("output_tokens", 0) or 0)
+        trunc_suspected, trunc_note = _detect_truncation(
+            in_tok, record["estimated_input_tokens"], effective_num_ctx)
         record.update({
             "measured_input_tokens": in_tok,
             "measured_output_tokens": out_tok,
             "measured_total_tokens": int(meta.get("total_tokens", in_tok + out_tok) or 0),
             "llm_latency_ms": wall_ms,
+            # MEASURED = model-EVALUATED input (never rewritten to the full prompt size);
+            # ESTIMATED constructed prompt size remains separate.
             "input_token_label": "MEASURED",
             "output_token_label": "MEASURED",
             "status": STATUS_MEASURED,
+            "truncation_suspected": trunc_suspected,
+            "input_measurement_note": trunc_note,
             "_response_chars": len(text or ""),
         })
     except LLMError as exc:
@@ -245,9 +307,11 @@ _RESULT_COLUMNS = [
     "repository_apps", "apps_selected", "frameworks", "controls_per_framework",
     "evidence_files_per_framework", "retrieved_evidence_blocks", "output_mode",
     "system_prompt_source", "prompt_chars", "prompt_bytes", "prompt_chars_label",
+    "num_ctx_requested", "effective_num_ctx",
     "estimated_input_tokens", "input_token_label",
     "measured_input_tokens", "measured_output_tokens", "measured_total_tokens",
-    "output_token_label", "llm_latency_ms", "error_message",
+    "output_token_label", "truncation_suspected", "input_measurement_note",
+    "llm_latency_ms", "error_message",
 ]
 
 
@@ -288,6 +352,7 @@ def _write_composition_csv(path: Path, records: list[dict[str, Any]]) -> None:
 def _write_projection_csv(path: Path, records: list[dict[str, Any]],
                           assumptions: NeevAssumptions) -> None:
     cols = ["scenario_key", "scenario_name", "status", "token_label",
+            "truncation_suspected", "estimated_input_tokens", "measured_input_tokens",
             "input_tokens", "output_tokens", "weighted_tokens_per_request",
             "peak_tpm_1_rpm", "peak_tpm_2_rpm", "peak_tpm_3_rpm", "peak_tpm_5_rpm",
             "daily_tokens", "monthly_tokens", "annual_tokens",
@@ -301,7 +366,10 @@ def _write_projection_csv(path: Path, records: list[dict[str, Any]],
                                        r["measured_output_tokens"], assumptions)
                 w.writerow({"scenario_key": r["scenario_key"],
                             "scenario_name": r["scenario_name"], "status": r["status"],
-                            "token_label": "MEASURED->MODELED/PROJECTED", **proj})
+                            "token_label": "MEASURED->MODELED/PROJECTED",
+                            "truncation_suspected": r.get("truncation_suspected", False),
+                            "estimated_input_tokens": r["estimated_input_tokens"],
+                            "measured_input_tokens": r["measured_input_tokens"], **proj})
             else:
                 # No measured output -> weighted TPM not derivable. Show ESTIMATED input
                 # only; never fabricate output/weighted values.
@@ -309,6 +377,9 @@ def _write_projection_csv(path: Path, records: list[dict[str, Any]],
                     "scenario_key": r["scenario_key"],
                     "scenario_name": r["scenario_name"], "status": r["status"],
                     "token_label": "ESTIMATED input / output NOT_MEASURED",
+                    "truncation_suspected": r.get("truncation_suspected", False),
+                    "estimated_input_tokens": r["estimated_input_tokens"],
+                    "measured_input_tokens": "",
                     "input_tokens": r["estimated_input_tokens"],
                     "output_tokens": "", "weighted_tokens_per_request": "",
                     "peak_tpm_1_rpm": "", "peak_tpm_2_rpm": "", "peak_tpm_3_rpm": "",
@@ -329,7 +400,7 @@ def _fmt(n: Any) -> str:
 
 
 def _write_projection_md(path: Path, agg: dict[str, Any], assumptions: NeevAssumptions,
-                         dry_run: bool) -> None:
+                         dry_run: bool, records: list[dict[str, Any]] | None = None) -> None:
     lines = ["# ECS Neev Capacity Projection", "",
              f"_Generated: {_utc_now()}_", "",
              "> Local Ollama result = ENGINEERING BENCHMARK. Gemini 2.5 Pro sizing = "
@@ -360,6 +431,7 @@ def _write_projection_md(path: Path, agg: dict[str, Any], assumptions: NeevAssum
     rec = agg["recommendation"]
     cmp = agg["target_comparison"]
     proj = project_request(peak["measured_input_tokens"], peak["measured_output_tokens"], a)
+    peak_rec = next((r for r in (records or []) if r["scenario_key"] == peak["scenario_key"]), {})
     lines += [
         "## A. Measured realistic peak (MEASURED)", "",
         f"- Peak scenario: **{peak['scenario_name']}** (`{peak['scenario_key']}`)",
@@ -367,6 +439,16 @@ def _write_projection_md(path: Path, agg: dict[str, Any], assumptions: NeevAssum
         f"- Measured output tokens: **{_fmt(peak['measured_output_tokens'])}**",
         f"- Weighted tokens/request (MODELED, input + {a.output_weighting_factor}x output): "
         f"**{_fmt(peak['weighted_tokens_per_request'])}**", "",
+    ]
+    if peak_rec.get("truncation_suspected"):
+        lines += [
+            f"> **Truncation caveat:** {peak_rec.get('input_measurement_note', '')} "
+            f"MEASURED input {_fmt(peak['measured_input_tokens'])} vs ESTIMATED constructed "
+            f"{_fmt(peak_rec.get('estimated_input_tokens'))}. Treat the recommended INPUT "
+            f"value as a floor; re-run with a larger `--num-ctx` for full input measurement.",
+            "",
+        ]
+    lines += [
         "## B. Recommended Neev value (MODELED = measured peak + headroom)", "",
         f"- Recommended input tokens: **{_fmt(rec['recommended_input_tokens'])}** "
         f"(+{int(a.headroom_factor * 100)}%)",
@@ -422,16 +504,36 @@ def _write_summary_md(path: Path, records: list[dict[str, Any]], agg: dict[str, 
     if dry_run:
         lines += ["Dry run: LLM calls were skipped. Input tokens are **ESTIMATED** "
                   "(char-based); output tokens are **NOT_MEASURED**.", ""]
-    lines += ["| Scenario | Status | Prompt chars (MEASURED) | Input tokens | Output tokens | Latency ms |",
-              "| --- | --- | ---: | ---: | ---: | ---: |"]
+    lines += [
+        "| Scenario | Status | Prompt chars (MEASURED) | Estimated input (ESTIMATED) | "
+        "Measured input (MEASURED) | Output tokens | num_ctx | Truncation | Latency ms |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: | ---: |"]
     for r in records:
-        in_tok = (f"{r['measured_input_tokens']:,} (MEASURED)" if r["status"] == STATUS_MEASURED
-                  else f"{r['estimated_input_tokens']:,} (ESTIMATED)")
+        meas_in = (f"{r['measured_input_tokens']:,}" if r["status"] == STATUS_MEASURED
+                   else "NOT_MEASURED")
         out_tok = (f"{r['measured_output_tokens']:,} (MEASURED)" if r["status"] == STATUS_MEASURED
                    else "NOT_MEASURED")
+        ctx = (str(r.get("effective_num_ctx")) if r.get("effective_num_ctx")
+               else (str(r.get("num_ctx_requested")) if r.get("num_ctx_requested")
+                     else "model_default"))
+        trunc = "YES" if r.get("truncation_suspected") else "no"
         lines.append(f"| {r['scenario_name']} | {r['status']} | {r['prompt_chars']:,} | "
-                     f"{in_tok} | {out_tok} | {_fmt(r['llm_latency_ms'])} |")
+                     f"{r['estimated_input_tokens']:,} | {meas_in} | {out_tok} | "
+                     f"{ctx} | {trunc} | {_fmt(r['llm_latency_ms'])} |")
     lines.append("")
+
+    truncated = [r for r in records if r.get("truncation_suspected")]
+    if truncated:
+        lines += [
+            "> **Truncation warning:** the following scenario(s) hit the model context "
+            "window — MEASURED input tokens reflect model-evaluated tokens AFTER "
+            "context-window truncation; the constructed prompt was larger. Use the "
+            "ESTIMATED constructed prompt size for the input shape, and re-run with a "
+            "larger `--num-ctx` to measure these prompts fully: "
+            + ", ".join(f"`{r['scenario_key']}` (measured {r['measured_input_tokens']:,} "
+                        f"vs estimated {r['estimated_input_tokens']:,})" for r in truncated),
+            "",
+        ]
 
     # Prompt composition (largest scenario).
     lines += ["## Prompt composition", "",
@@ -448,12 +550,24 @@ def _write_summary_md(path: Path, records: list[dict[str, Any]], agg: dict[str, 
         cmp = agg["target_comparison"]
         proj = project_request(peak["measured_input_tokens"],
                                peak["measured_output_tokens"], a)
+        peak_rec = next((r for r in records if r["scenario_key"] == peak["scenario_key"]), {})
+        peak_truncated = bool(peak_rec.get("truncation_suspected"))
         lines += [
             "## Largest realistic successful workload (MEASURED)", "",
             f"- **{peak['scenario_name']}** (`{peak['scenario_key']}`)",
             f"- Measured input tokens: **{peak['measured_input_tokens']:,}**",
             f"- Measured output tokens: **{peak['measured_output_tokens']:,}**",
             f"- Weighted tokens/request (MODELED): **{peak['weighted_tokens_per_request']:,}**", "",
+        ]
+        if peak_truncated:
+            lines += [
+                f"> **Caveat:** this peak's MEASURED input ({peak['measured_input_tokens']:,}) "
+                f"is context-window truncated; the constructed prompt was larger "
+                f"(ESTIMATED {peak_rec.get('estimated_input_tokens', 0):,}). The recommended "
+                f"INPUT budget below is therefore a floor — re-run with a larger `--num-ctx` "
+                f"to measure the full prompt before finalizing input sizing.", "",
+            ]
+        lines += [
             "## Recommended budgeting values", "",
             f"- **Recommended input tokens (MODELED):** {rec['recommended_input_tokens']:,} "
             f"(measured peak + {int(a.headroom_factor * 100)}% headroom)",
@@ -494,19 +608,32 @@ def _write_summary_md(path: Path, records: list[dict[str, Any]], agg: dict[str, 
 # --------------------------------------------------------------------------- #
 # Orchestration.
 # --------------------------------------------------------------------------- #
-def _resolve_provider(max_output_tokens: int, timeout_seconds: int) -> tuple[Any, str, str]:
+def _resolve_provider(max_output_tokens: int, timeout_seconds: int,
+                      num_ctx: int | None) -> tuple[Any, str, str, int | None]:
     """Lazily import + configure the existing ECS provider for the full run. Supplies
-    the benchmark output cap + timeout via the EXISTING benchmark config hook (does not
-    change production defaults). Returns (provider, engine_runtime, model_name)."""
+    the benchmark output cap + timeout + (optional) context window via the EXISTING
+    benchmark config hook (does NOT change production defaults; the hook is benchmark-only
+    and the provider still owns final resolution). Returns
+    (provider, engine_runtime, model_name, effective_num_ctx)."""
     from ecs_platform.llm_engine.provider import (  # lazy: keeps dry-run dependency-free
         get_provider, set_benchmark_generation_config)
 
+    # num_ctx=None leaves the setting untouched -> provider default (model context).
     set_benchmark_generation_config(num_predict=max_output_tokens,
+                                    num_ctx=num_ctx,
                                     timeout_seconds=timeout_seconds)
     provider = get_provider()
     engine_runtime = type(provider).__name__.replace("Provider", "").lower()
     model_name = getattr(provider, "model", "") or ""
-    return provider, engine_runtime, model_name
+    # Resolve the provider's effective context window for truncation detection. Only
+    # Ollama exposes it; None means "provider omitted num_ctx -> model default applies".
+    effective_num_ctx: int | None = None
+    try:
+        if hasattr(provider, "effective_generation_limits"):
+            effective_num_ctx = provider.effective_generation_limits().get("num_ctx")
+    except Exception:  # noqa: BLE001 - never block the run on a reporting probe
+        effective_num_ctx = None
+    return provider, engine_runtime, model_name, effective_num_ctx
 
 
 def run(args: argparse.Namespace) -> int:
@@ -527,10 +654,11 @@ def run(args: argparse.Namespace) -> int:
 
     provider: Any | None = None
     engine_runtime, model_name = "dry-run", ""
+    effective_num_ctx: int | None = None
     if not args.dry_run:
         try:
-            provider, engine_runtime, model_name = _resolve_provider(
-                args.max_output_tokens, args.timeout_seconds)
+            provider, engine_runtime, model_name, effective_num_ctx = _resolve_provider(
+                args.max_output_tokens, args.timeout_seconds, args.num_ctx)
         except Exception as exc:  # noqa: BLE001 - clear message, no traceback dump
             print(f"ERROR: could not initialize the LLM provider for a full run: {exc}\n"
                   f"Hint: use --dry-run on an 8 GB workstation, or start the 16 GB stack "
@@ -541,19 +669,26 @@ def run(args: argparse.Namespace) -> int:
     mode = "DRY RUN" if args.dry_run else f"FULL RUN ({engine_runtime})"
     print(f"[neev-validation] {mode}: {len(scenarios)} scenario(s); out={out_dir}")
     if not args.dry_run:
+        ctx_note = (f"effective_num_ctx={effective_num_ctx}" if effective_num_ctx
+                    else "effective_num_ctx=model_default (provider omits num_ctx)")
         print(f"[neev-validation] engine_runtime={engine_runtime} model={model_name} "
               f"max_output_tokens={args.max_output_tokens} timeout_seconds={args.timeout_seconds} "
+              f"num_ctx_requested={args.num_ctx} {ctx_note} "
               f"| ENGINEERING benchmark; Gemini 2.5 Pro = projection, not measured")
 
     records: list[dict[str, Any]] = []
     for sc in scenarios:
         rec = _run_scenario(sc, dry_run=args.dry_run, seed=args.seed,
                             chars_per_token=args.chars_per_token, provider=provider,
-                            engine_runtime=engine_runtime, model_name=model_name)
+                            engine_runtime=engine_runtime, model_name=model_name,
+                            num_ctx_requested=args.num_ctx,
+                            effective_num_ctx=effective_num_ctx)
         records.append(rec)
+        trunc = " TRUNCATED?" if rec.get("truncation_suspected") else ""
         print(f"  - {sc.key:24s} status={rec['status']:<12s} prompt_chars={rec['prompt_chars']:>8,} "
               f"est_in={rec['estimated_input_tokens']:>7,} "
-              f"meas_in={_fmt(rec['measured_input_tokens'])} meas_out={_fmt(rec['measured_output_tokens'])}")
+              f"meas_in={_fmt(rec['measured_input_tokens'])} "
+              f"meas_out={_fmt(rec['measured_output_tokens'])}{trunc}")
 
     agg = _aggregate(records, assumptions, allow_timeout_evidence=args.allow_timeout_evidence)
 
@@ -561,7 +696,8 @@ def run(args: argparse.Namespace) -> int:
     _write_results_csv(out_dir / "neev_validation_results.csv", records)
     _write_composition_csv(out_dir / "prompt_composition_report.csv", records)
     _write_projection_csv(out_dir / "neev_capacity_projection.csv", records, assumptions)
-    _write_projection_md(out_dir / "neev_capacity_projection.md", agg, assumptions, args.dry_run)
+    _write_projection_md(out_dir / "neev_capacity_projection.md", agg, assumptions,
+                         args.dry_run, records)
     _write_summary_md(out_dir / "neev_validation_summary.md", records, agg, assumptions,
                       args.dry_run, engine_runtime, model_name)
     # Strip private (_-prefixed) fields from the JSON record dump.
@@ -572,6 +708,8 @@ def run(args: argparse.Namespace) -> int:
         "engine_runtime": engine_runtime,
         "model": model_name,
         "target_platform": TARGET_PLATFORM,
+        "num_ctx_requested": args.num_ctx,
+        "effective_num_ctx": effective_num_ctx,
         "assumptions": assumptions.to_dict(),
         "label_legend": {
             "MEASURED": "actual benchmark token instrumentation result",
@@ -579,6 +717,13 @@ def run(args: argparse.Namespace) -> int:
             "PROJECTED": "future usage from measured/modeled values",
             "TARGET": "existing planning assumption (125K/50K/9x/3RPM)",
             "ESTIMATED": "used only where measurement is unavailable",
+            "measured_input_tokens": "MEASURED model-evaluated input (post context-window "
+                                     "truncation; never rewritten to the full prompt size)",
+            "estimated_input_tokens": "ESTIMATED constructed prompt size (char-based)",
+            "truncation_suspected": "true when measured input is near the effective context "
+                                    "window AND the estimated constructed prompt is materially larger",
+            "num_ctx_requested": "benchmark-only --num-ctx (None -> provider/model default)",
+            "effective_num_ctx": "provider-resolved context window (None -> model default applies)",
         },
         "results": public_records,
         "aggregate": agg,
@@ -609,6 +754,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "(benchmark config; does not change production defaults).")
     p.add_argument("--timeout-seconds", type=int, default=300,
                    help="HTTP/model timeout (seconds) supplied to the provider for the full run.")
+    p.add_argument("--num-ctx", type=int, default=None,
+                   help="Benchmark-only Ollama context window. If omitted, provider "
+                        "default is used.")
     p.add_argument("--allow-timeout-evidence", action="store_true",
                    help="Include ESTIMATED input-token context for timed-out scenarios "
                         "(never counted as MEASURED; output stays NOT_MEASURED).")

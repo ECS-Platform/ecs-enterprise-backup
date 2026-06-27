@@ -201,3 +201,57 @@ The Ollama HTTP/model timeout is resolved by precedence
 candidate's `timeout_seconds`) → existing provider/`config/llm.yaml` default**.
 Production sets neither override, so its timeout is unchanged — the benchmark only
 supplies a larger timeout through config for the duration of a benchmark run.
+
+---
+
+# Neev Validation Benchmark — context window (`--num-ctx`) & truncation detection
+
+`scripts/run_neev_validation_benchmark.py` measures the real token shape of realistic
+ECS assessment prompts to validate the Neev planning assumption (125K input / 50K
+output). When the constructed prompt exceeds the model's context window, Ollama
+silently truncates it and reports only the evaluated tokens via `prompt_eval_count`,
+so `measured_input_tokens` plateaus at the window size (e.g. ~16,384 for `qwen3:8b`).
+
+## `--num-ctx` (benchmark-only context window override)
+
+Pass a larger context window so larger prompts are measured fully instead of being
+truncated:
+
+```bash
+python scripts/run_neev_validation_benchmark.py \
+  --profiles enterprise,large_repository \
+  --max-output-tokens 1024 \
+  --timeout-seconds 600 \
+  --num-ctx 40960 \
+  --allow-timeout-evidence
+```
+
+- `--num-ctx` is **benchmark-only**. It is supplied to the provider through the existing
+  `set_benchmark_generation_config(...)` hook and resolved by the provider's normal
+  precedence (**env `ECS_LLM_CONTEXT_WINDOW` → benchmark config → `config/llm.yaml` →
+  provider fallback**). It does **not** change production defaults or provider default
+  behavior; omit it and the provider/model default applies exactly as before.
+- A larger `num_ctx` increases RAM and latency on the local box — raise it together with
+  `--timeout-seconds`. This is the same context-vs-timeout trade-off as the enterprise
+  optimization candidates above.
+
+## Truncation detection
+
+Every result now carries truncation fields in the CSV, JSON, and Markdown reports:
+
+- `num_ctx_requested` — the `--num-ctx` value (blank ⇒ provider/model default).
+- `effective_num_ctx` — the provider-resolved window (blank ⇒ model default applies).
+- `estimated_input_tokens` — **ESTIMATED** constructed prompt size (char-based).
+- `measured_input_tokens` — **MEASURED** model-evaluated input (post-truncation; never
+  rewritten to the full prompt size).
+- `truncation_suspected` — `true` when `measured_input_tokens` is within ~3% of the
+  effective context window **and** `estimated_input_tokens` is materially (≥5%) larger.
+  When the provider omits `num_ctx` (model default applies, so the window is unknown to
+  the benchmark), the estimate-vs-measured gap alone raises the flag.
+- `input_measurement_note` — when truncation is suspected:
+  _"Measured input tokens reflect model-evaluated tokens after context-window
+  truncation; constructed prompt was larger."_
+
+Classification is preserved: a truncated MEASURED value is annotated, never treated as
+the full prompt size. For input sizing under truncation, use the ESTIMATED constructed
+prompt size and re-run with a larger `--num-ctx` to obtain a full MEASURED input.
