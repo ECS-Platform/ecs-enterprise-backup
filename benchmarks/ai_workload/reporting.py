@@ -72,6 +72,9 @@ _CSV_COLUMNS = [
     "retrieved_context_chars_derived",
     "prompt_bytes_derived",
     "runner_end_to_end_ms",
+    # MODELED (Pan-India future-state context provenance; not measured evidence)
+    "modeled_context",
+    "modeled_context_chars",
     # DIAGNOSTIC (failures are never silently swallowed)
     "error",
     "error_type",
@@ -88,6 +91,33 @@ _CHARS_PER_TOKEN = 4.0
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _model_output_cap() -> int | None:
+    """Best-effort configured LLM output cap (config/llm.yaml max_output_tokens).
+
+    Honors the ECS_LLM_MAX_TOKENS env override, else parses the documented default
+    from config/llm.yaml (``${ECS_LLM_MAX_TOKENS:-2048}``). Never raises; returns
+    None if it cannot be determined. This lets Finance see the local model's output
+    ceiling alongside the target enterprise output requirement.
+    """
+    import os
+    import re
+
+    env = os.environ.get("ECS_LLM_MAX_TOKENS")
+    if env and env.strip().isdigit():
+        return int(env.strip())
+    try:
+        text = Path("config/llm.yaml").read_text(encoding="utf-8")
+        m = re.search(r"max_output_tokens:\s*\$\{ECS_LLM_MAX_TOKENS:-(\d+)\}", text)
+        if m:
+            return int(m.group(1))
+        m = re.search(r"max_output_tokens:\s*(\d+)", text)
+        if m:
+            return int(m.group(1))
+    except OSError:
+        pass
+    return None
 
 
 def _provider_model(rows: list[dict[str, Any]]) -> tuple[str, str]:
@@ -145,13 +175,19 @@ def _measured_worst_case(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions,
                  *, include_worst_case: bool = False,
-                 worst_case_assumptions: WorstCaseAssumptions | None = None) -> dict[str, Any]:
+                 worst_case_assumptions: WorstCaseAssumptions | None = None,
+                 pan_india_assumptions: dict[str, Any] | None = None) -> dict[str, Any]:
     """Aggregate per-request rows into the enterprise report structure.
 
     When ``include_worst_case`` is True an additive ``worst_case`` section and an
     ``executive_summary`` (maximum realistic token analysis + worst-case budget) are
     appended, keeping Measured / Worst-Case / Projected / Forecast strictly separate.
     Default False -> byte-for-byte the original standard report (backward compatible).
+
+    When any ``pan_india_enterprise``-category rows are present (or
+    ``pan_india_assumptions`` are supplied) an additive ``pan_india_capacity_validation``
+    section is appended: MEASURED current vs MODELED future-state vs NEEV target, with
+    the weighted-TPM recalculation. Strictly separated, never mixed.
     """
     ok_rows = [r for r in rows if r.get("ok")]
     provider, model = _provider_model(rows)
@@ -305,7 +341,129 @@ def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions,
             "Worst-case projections/forecasts are NEVER presented as measured results.",
         ])
 
+    # ---- Additive Pan-India capacity validation (single capacity framework) ----
+    # Appended when there are pan_india_enterprise rows OR explicit assumptions. It
+    # keeps MEASURED current / MODELED future-state / NEEV target strictly separate
+    # and recalculates the Neev weighted TPM. Standard/worst-case reports without
+    # Pan-India rows or assumptions are unchanged (section omitted).
+    pie_rows = [r for r in rows if r.get("category") == "pan_india_enterprise"]
+    if pie_rows or pan_india_assumptions:
+        report["pan_india_capacity_validation"] = _pan_india_section(
+            rows, pie_rows, pan_india_assumptions or {})
+        report["notes"].extend([
+            "Pan-India MEASURED current = tokens measured today (small repository).",
+            "Pan-India MODELED = modeled future-state input volume + target output (estimate, not measured).",
+            "Pan-India NEEV target = capacity-planning assumption submitted to Finance.",
+            "Modeled/target Pan-India values are NEVER presented as measured results.",
+        ])
+
     return report
+
+
+def _pan_india_section(all_rows: list[dict[str, Any]],
+                       pie_rows: list[dict[str, Any]],
+                       pan_india_assumptions: dict[str, Any]) -> dict[str, Any]:
+    """Build the ``pan_india_capacity_validation`` section (additive).
+
+    Reuses ``capacity_planning.pan_india_plan`` (single capacity framework) for the
+    MEASURED/MODELED/NEEV token model + Neev formula validation, and adds the
+    max-token PROFILE identification requested for token-budget approval.
+    """
+    from benchmarks.ai_workload.pan_india_reference_context import (
+        PanIndiaAssumptions, context_size_estimate)
+
+    pia = PanIndiaAssumptions.from_dict(pan_india_assumptions)
+
+    # Prefer Pan-India rows for the measured envelope (heaviest modeled-context tier);
+    # fall back to all rows if the tier was not run.
+    measure_rows = pie_rows or all_rows
+
+    def mx(field_name: str, src: list[dict[str, Any]]) -> float:
+        s = summarize([r.get(field_name) for r in src])
+        return float(s.maximum) if s.maximum is not None else 0.0
+
+    def avg(field_name: str, src: list[dict[str, Any]]) -> float:
+        s = summarize([r.get(field_name) for r in src])
+        return float(s.average) if s.average is not None else 0.0
+
+    # MODELED context size estimate (uses the SAME generator + assumptions).
+    ctx_estimate = context_size_estimate(pia) if pie_rows else {
+        "modeled_context_estimated_tokens": 0,
+        "modeled_context_chars": 0,
+        "_basis": "No pan_india_enterprise rows in this run; modeled size from assumptions only.",
+    }
+
+    measured_for_pan_india = {
+        "max_input_tokens": mx("input_tokens", measure_rows),
+        "max_output_tokens": mx("output_tokens", measure_rows),
+        "avg_input_tokens": avg("input_tokens", measure_rows),
+        "avg_output_tokens": avg("output_tokens", measure_rows),
+        "modeled_context_estimated_tokens": _f_local(
+            ctx_estimate.get("modeled_context_estimated_tokens")),
+    }
+
+    plan = capacity_planning.pan_india_plan(measured_for_pan_india, pia)
+
+    # Max-token PROFILES (which workload produced each peak) — measured vs modeled.
+    def _max_profile_by(metric: str, src: list[dict[str, Any]]):
+        candidates = [r for r in src if isinstance(r.get(metric), (int, float))]
+        if not candidates:
+            return None
+        return _profile_token_snapshot(max(candidates, key=lambda r: r.get(metric) or 0))
+
+    def _max_modeled_weighted_profile(src: list[dict[str, Any]]):
+        weight = float(getattr(pia, "output_weighting_factor", 9) or 9)
+        candidates = [r for r in src if isinstance(r.get("input_tokens"), (int, float))]
+        if not candidates:
+            return None
+
+        def weighted(r):
+            return _f_local(r.get("input_tokens")) + weight * _f_local(r.get("output_tokens"))
+
+        best = max(candidates, key=weighted)
+        snap = _profile_token_snapshot(best)
+        snap["weighted_tokens_per_request"] = round(weighted(best), 2)
+        snap["output_weighting_factor"] = weight
+        return snap
+
+    # MEASURED output cap context (so finance sees the local-model output ceiling).
+    measured_max_output = measured_for_pan_india["max_output_tokens"]
+
+    return {
+        "purpose": ("Evidence-backed input/output token assumptions for Neev/Finance, "
+                    "based on the benchmark rather than a manual estimate. MEASURED current, "
+                    "MODELED future-state and NEEV target are kept strictly separate."),
+        "modeled_context_estimate": ctx_estimate,
+        "token_model": plan["token_model"],
+        "neev_formula_validation": plan["neev_formula_validation"],
+        "output_token_modelling": {
+            "measured_output_tokens": round(measured_max_output, 2),
+            "configured_model_output_cap": _model_output_cap(),
+            "target_enterprise_output_requirement": getattr(pia, "target_output_tokens", 50000),
+            "gap_current_vs_target": round(
+                _f_local(getattr(pia, "target_output_tokens", 50000)) - measured_max_output, 2),
+            "_note": ("If the local model output is capped (e.g. 512 tokens) the benchmark reports the "
+                      "MEASURED output, the configured model cap, the target enterprise requirement and "
+                      "the gap. It NEVER claims the model generated the target output."),
+        },
+        "max_profiles": {
+            "max_measured_input_profile": _max_profile_by("input_tokens", measure_rows),
+            "max_measured_output_profile": _max_profile_by("output_tokens", measure_rows),
+            "max_measured_total_profile": _max_profile_by("total_tokens", measure_rows),
+            "max_modeled_input_profile": _max_profile_by("input_tokens", pie_rows) if pie_rows else None,
+            "max_modeled_weighted_request_profile": _max_modeled_weighted_profile(pie_rows) if pie_rows else None,
+            "_basis": "Observed maxima per metric over Pan-India rows (or all rows if the tier was not run).",
+        },
+        "assumptions": pia.to_dict(),
+        "_provenance": plan["tiers"],
+    }
+
+
+def _f_local(x: Any) -> float:
+    try:
+        return float(x) if x is not None else 0.0
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _executive_summary(report: dict[str, Any], wc_plan: dict[str, Any]) -> dict[str, Any]:
@@ -376,6 +534,16 @@ def write_report(report: dict[str, Any], rows: list[dict[str, Any]], out_dir: Pa
         summary["worst_case_headline"] = wc_plan["worst_case_headline"]
         summary["worst_case_tiers"] = wc_plan["tiers"]
         summary["executive_summary"] = report.get("executive_summary")
+
+    # Additive Pan-India headline in the same summary (no separate summary file).
+    if "pan_india_capacity_validation" in report:
+        piv = report["pan_india_capacity_validation"]
+        summary["pan_india_capacity_validation"] = {
+            "token_model": piv["token_model"],
+            "neev_formula_validation": piv["neev_formula_validation"],
+            "output_token_modelling": piv["output_token_modelling"],
+            "max_profiles": piv["max_profiles"],
+        }
 
     with summary_path.open("w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=2, ensure_ascii=True)

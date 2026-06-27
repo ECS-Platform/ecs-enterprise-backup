@@ -493,3 +493,199 @@ def worst_case_plan(measured_worst_case: dict[str, Any], demand: CapacityAssumpt
             "worst_case": wc.to_dict(),
         },
     }
+
+
+# =========================================================================== #
+# PAN-INDIA ENTERPRISE TOKEN MODEL + NEEV WEIGHTED-TPM VALIDATION
+# --------------------------------------------------------------------------- #
+# Extends THIS capacity-planning framework (no new framework). Computes the Neev
+# weighted token-per-minute figure from configurable inputs and validates it
+# against both the MEASURED current runtime and the MODELED Pan-India future state.
+# Strict provenance: three tiers are kept separate and never mixed:
+#
+#   MEASURED_CURRENT  — tokens actually measured by ECS instrumentation today.
+#   PAN_INDIA_MODELED — modeled future-state context volume + target output.
+#   NEEV_TARGET       — the capacity-planning assumption submitted to Finance.
+#
+# Formula (output weighting factor and peak RPM both configurable):
+#   TPM = (input_tokens + output_weighting_factor * output_tokens) * peak_rpm
+# =========================================================================== #
+
+TIER_MEASURED_CURRENT = "MEASURED_CURRENT"
+TIER_PAN_INDIA_MODELED = "PAN_INDIA_MODELED"
+TIER_NEEV_TARGET = "NEEV_TARGET"
+
+# Defaults for the Neev formula (configurable via PanIndiaAssumptions / config).
+DEFAULT_OUTPUT_WEIGHTING_FACTOR = 9
+DEFAULT_PEAK_REQUESTS_PER_MINUTE = 3
+
+
+def weighted_tpm_calculation(input_tokens: float, output_tokens: float,
+                             output_weighting_factor: float = DEFAULT_OUTPUT_WEIGHTING_FACTOR,
+                             peak_requests_per_minute: float = DEFAULT_PEAK_REQUESTS_PER_MINUTE
+                             ) -> dict[str, Any]:
+    """Neev weighted tokens-per-minute for one per-request token envelope.
+
+    ``TPM = (input + weight * output) * peak_rpm``. Both ``output_weighting_factor``
+    and ``peak_requests_per_minute`` are configurable. Pure arithmetic; no provenance
+    assumed here (the caller stamps the tier).
+    """
+    in_t = _f(input_tokens)
+    out_t = _f(output_tokens)
+    weight = _f(output_weighting_factor)
+    peak = _f(peak_requests_per_minute)
+    weighted_per_request = in_t + weight * out_t
+    tpm = weighted_per_request * peak
+    return {
+        "input_tokens": round(in_t, 2),
+        "output_tokens": round(out_t, 2),
+        "output_weighting_factor": weight,
+        "peak_requests_per_minute": peak,
+        "weighted_tokens_per_request": round(weighted_per_request, 2),
+        "tokens_per_minute": round(tpm, 2),
+        "formula": "(input_tokens + output_weighting_factor * output_tokens) * peak_requests_per_minute",
+    }
+
+
+def pan_india_token_model(measured: dict[str, Any], pia: Any) -> dict[str, Any]:
+    """Pan-India token model: MEASURED current vs MODELED future-state vs NEEV target.
+
+    ``measured`` keys (from existing reporting/statistics; missing -> 0):
+      max_input_tokens, max_output_tokens, avg_input_tokens, avg_output_tokens,
+      modeled_context_estimated_tokens (estimate of the modeled context volume).
+
+    ``pia`` is a PanIndiaAssumptions instance (duck-typed: only attributes are read)
+    carrying the configurable target tokens + Neev formula inputs.
+    """
+    weight = getattr(pia, "output_weighting_factor", DEFAULT_OUTPUT_WEIGHTING_FACTOR)
+    peak = getattr(pia, "peak_requests_per_minute", DEFAULT_PEAK_REQUESTS_PER_MINUTE)
+    target_in = _f(getattr(pia, "target_input_tokens", 125000))
+    target_out = _f(getattr(pia, "target_output_tokens", 50000))
+
+    # --- MEASURED CURRENT: actual tokens from today's small repository ---
+    cur_in = _f(measured.get("max_input_tokens"))
+    cur_out = _f(measured.get("max_output_tokens"))
+    measured_current = {
+        "tier": TIER_MEASURED_CURRENT,
+        "measured_max_input_tokens": round(cur_in, 2),
+        "measured_max_output_tokens": round(cur_out, 2),
+        "measured_avg_input_tokens": round(_f(measured.get("avg_input_tokens")), 2),
+        "measured_avg_output_tokens": round(_f(measured.get("avg_output_tokens")), 2),
+        "weighted_tpm": weighted_tpm_calculation(cur_in, cur_out, weight, peak),
+        "_basis": "Tokens MEASURED by existing ECS instrumentation on the current repository.",
+    }
+
+    # --- PAN-INDIA MODELED: modeled input context volume + target output band ---
+    # Modeled input = measured input + modeled context estimate (the future-state
+    # retrieval volume the generator represents). Output is the configured target
+    # (the local model may cap actual output far below this — see output gap below).
+    modeled_ctx_tokens = _f(measured.get("modeled_context_estimated_tokens"))
+    modeled_in = cur_in + modeled_ctx_tokens if modeled_ctx_tokens else max(cur_in, target_in)
+    pan_india_modeled = {
+        "tier": TIER_PAN_INDIA_MODELED,
+        "modeled_input_tokens": round(modeled_in, 2),
+        "modeled_context_estimated_tokens": round(modeled_ctx_tokens, 2),
+        "modeled_output_requirement_tokens": round(target_out, 2),
+        "weighted_tpm": weighted_tpm_calculation(modeled_in, target_out, weight, peak),
+        "input_token_target_band": [
+            getattr(pia, "input_token_target_low", 75000),
+            getattr(pia, "input_token_target_high", 125000),
+        ],
+        "output_token_target_band": [
+            getattr(pia, "output_token_target_low", 25000),
+            getattr(pia, "output_token_target_high", 50000),
+        ],
+        "_basis": ("MODELED future-state: measured input + modeled Pan-India context estimate; "
+                   "output is the configured enterprise requirement (NOT measured). "
+                   "Input token estimate is chars/chars_per_token; actual tokens are MEASURED at run time."),
+    }
+
+    # --- NEEV TARGET: the capacity-planning assumption submitted to Finance ---
+    neev_target = {
+        "tier": TIER_NEEV_TARGET,
+        "target_input_tokens": round(target_in, 2),
+        "target_output_tokens": round(target_out, 2),
+        "weighted_tpm": weighted_tpm_calculation(target_in, target_out, weight, peak),
+        "_basis": "Capacity-planning ASSUMPTION submitted to Neev/Finance (not measured).",
+    }
+
+    return {
+        "tiers": {
+            TIER_MEASURED_CURRENT: "Tokens measured today via ECS instrumentation.",
+            TIER_PAN_INDIA_MODELED: "Modeled future-state input volume + target output (estimate).",
+            TIER_NEEV_TARGET: "Capacity-planning assumption submitted to Finance.",
+        },
+        "measured_current": measured_current,
+        "pan_india_modeled": pan_india_modeled,
+        "neev_target": neev_target,
+    }
+
+
+def neev_formula_validation(token_model: dict[str, Any], pia: Any,
+                            current_tpm_assumption: float = 1_725_000.0) -> dict[str, Any]:
+    """Validate the Neev weighted-TPM against the originally estimated assumption.
+
+    Recomputes TPM from the NEEV target tier and compares it to the manually
+    estimated ``current_tpm_assumption`` (default 1.725M). Also reports whether the
+    MODELED future-state reaches the target bands, and the output-capability gap.
+    """
+    weight = getattr(pia, "output_weighting_factor", DEFAULT_OUTPUT_WEIGHTING_FACTOR)
+    peak = getattr(pia, "peak_requests_per_minute", DEFAULT_PEAK_REQUESTS_PER_MINUTE)
+
+    neev = token_model["neev_target"]
+    modeled = token_model["pan_india_modeled"]
+    measured = token_model["measured_current"]
+
+    recalculated_tpm = _f(neev["weighted_tpm"]["tokens_per_minute"])
+    delta = recalculated_tpm - _f(current_tpm_assumption)
+
+    in_band = modeled["input_token_target_band"]
+    out_band = modeled["output_token_target_band"]
+    modeled_in = _f(modeled["modeled_input_tokens"])
+    modeled_out = _f(modeled["modeled_output_requirement_tokens"])
+
+    return {
+        "formula": "(input_tokens + output_weighting_factor * output_tokens) * peak_requests_per_minute",
+        "output_weighting_factor": weight,
+        "peak_requests_per_minute": peak,
+        "original_estimated_tpm_assumption": round(_f(current_tpm_assumption), 2),
+        "benchmark_recalculated_tpm_neev_target": round(recalculated_tpm, 2),
+        "delta_tpm_vs_assumption": round(delta, 2),
+        "delta_pct_vs_assumption": (round(delta / _f(current_tpm_assumption) * 100, 2)
+                                    if _f(current_tpm_assumption) else None),
+        "assumption_supported_by_benchmark": bool(abs(delta) <= 0.01 * _f(current_tpm_assumption))
+        if _f(current_tpm_assumption) else None,
+        "target_band_check": {
+            "modeled_input_in_band": in_band[0] <= modeled_in <= in_band[1] if len(in_band) == 2 else None,
+            "modeled_input_tokens": round(modeled_in, 2),
+            "input_target_band": in_band,
+            "output_requirement_in_band": out_band[0] <= modeled_out <= out_band[1] if len(out_band) == 2 else None,
+            "output_requirement_tokens": round(modeled_out, 2),
+            "output_target_band": out_band,
+        },
+        "measured_vs_target_tpm": {
+            "measured_current_tpm": _f(measured["weighted_tpm"]["tokens_per_minute"]),
+            "neev_target_tpm": recalculated_tpm,
+            "_note": "Measured current TPM is far below target because today's repository is small; "
+                     "the Pan-India modeled tier bridges current measurement to the target assumption.",
+        },
+        "_basis": "Recomputes the Neev formula from configurable inputs and compares to the "
+                  "original manually-estimated 1.725M TPM assumption. MEASURED / MODELED / TARGET kept separate.",
+    }
+
+
+def pan_india_plan(measured: dict[str, Any], pia: Any,
+                   current_tpm_assumption: float = 1_725_000.0) -> dict[str, Any]:
+    """Full Pan-India capacity bundle: token model + Neev formula validation.
+
+    Bundles ``pan_india_token_model`` + ``neev_formula_validation`` under one block
+    with the configurable assumptions echoed for auditability.
+    """
+    token_model = pan_india_token_model(measured, pia)
+    validation = neev_formula_validation(token_model, pia, current_tpm_assumption)
+    return {
+        "tiers": token_model["tiers"],
+        "token_model": token_model,
+        "neev_formula_validation": validation,
+        "assumptions": pia.to_dict() if hasattr(pia, "to_dict") else {},
+    }

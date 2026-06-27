@@ -24,7 +24,7 @@ evidence on the benchmark workstation.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 # Retrieval breadth presets (documents requested from the retriever).
 TOP_K_SMALL = 3
@@ -45,6 +45,14 @@ class WorkloadProfile:
     top_k: int
     question: str
     description: str = ""
+    # When True, the runner prepends the BENCHMARK-MODELED Pan-India reference
+    # context (pan_india_reference_context.build_reference_context) to the question
+    # so the EXISTING instrumentation measures a realistic future-state input-token
+    # volume. Default False -> behaviour unchanged for every existing profile.
+    modeled_context: bool = False
+    # Optional subset of modeled-context blocks (see pan_india_reference_context
+    # _BLOCK_BUILDERS). Empty -> all blocks. Only used when modeled_context=True.
+    modeled_context_blocks: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -693,6 +701,161 @@ _WORST_CASE_OUTPUT: list[WorkloadProfile] = [
     ),
 ]
 
+# --------------------------------------------------------------------------- #
+# 6) Pan-India enterprise workloads (8 scenarios) — FUTURE-STATE token sizing
+# --------------------------------------------------------------------------- #
+# These model a MATURE Pan-India ECS deployment for token-budget approval to
+# Neev/Finance. Each carries ``modeled_context=True`` so the runner prepends the
+# BENCHMARK-MODELED Pan-India reference context (a realistic, structured,
+# configurable enterprise dataset — NOT padding/repetition) to the question. The
+# combination of that modeled context + a genuine long-form governance ask drives
+# realistic MAXIMUM input AND output token volumes, all MEASURED by the existing
+# instrumentation. The modeled context is clearly separated from measured values
+# in reporting (pan_india_capacity_validation). All run at TOP_K_MAX / large /
+# maximum. Category ``pan_india_enterprise`` so the tier is selectable on its own.
+_PAN_INDIA_ENTERPRISE: list[WorkloadProfile] = [
+    WorkloadProfile(
+        key="pie_regulator_pan_india_inspection",
+        name="Regulator Pan-India Inspection Response (Pan-India Enterprise)",
+        category="pan_india_enterprise",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        modeled_context=True,
+        question=(
+            "Using the Pan-India enterprise reference context above, produce a complete RBI "
+            "regulator-facing inspection response pack covering the full application estate and all "
+            "in-scope frameworks. Provide: an executive summary; framework-by-framework findings as "
+            "tables (control objective, evidence, status, gap); control-failure analysis; per-finding "
+            "risk ratings with justification; a remediation plan with owners and target dates; stated "
+            "assumptions; and audit caveats. Provide control-level detail across the estate."
+        ),
+        description="Estate-wide regulator submission over modeled Pan-India context.",
+    ),
+    WorkloadProfile(
+        key="pie_board_enterprise_audit_pack",
+        name="Board Enterprise Audit Pack (Pan-India Enterprise)",
+        category="pan_india_enterprise",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        modeled_context=True,
+        question=(
+            "Using the Pan-India enterprise reference context above, generate a board-ready compliance "
+            "and technology-risk pack for the full Pan-India estate. Include: executive summary; "
+            "compliance heatmap narrative across all frameworks and lines of business; top enterprise "
+            "risks; systemic and recurring issues; overdue/stale evidence; control-maturity overview by "
+            "domain; management actions with owners; and explicit board decision points. Use tables."
+        ),
+        description="Board pack spanning all LoBs/frameworks over modeled context.",
+    ),
+    WorkloadProfile(
+        key="pie_pan_india_control_maturity",
+        name="Pan-India Control Maturity Assessment (Pan-India Enterprise)",
+        category="pan_india_enterprise",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        modeled_context=True,
+        question=(
+            "Using the Pan-India enterprise reference context above, produce a full control-maturity "
+            "assessment across every framework and control domain in the estate. For each "
+            "framework/domain give a maturity rating with justification, evidence strength, gaps and "
+            "cross-framework reuse opportunities, then a consolidated maturity heatmap and a prioritized, "
+            "multi-quarter improvement plan with owners. Provide control-by-control commentary."
+        ),
+        description="Estate-wide maturity matrix + heatmap over modeled context.",
+    ),
+    WorkloadProfile(
+        key="pie_enterprise_observation_register",
+        name="Enterprise Observation Register (Pan-India Enterprise)",
+        category="pan_india_enterprise",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        modeled_context=True,
+        question=(
+            "Using the Pan-India enterprise reference context above, generate a detailed enterprise audit "
+            "observation register for the full estate. For every observation provide: title, description, "
+            "impacted framework(s) and application, evidence source, root cause, severity, risk rating, "
+            "recommendation, control owner, target date and closure criteria. Present as a structured "
+            "table grouped by framework and application, and close with severity distribution and the "
+            "most material systemic themes."
+        ),
+        description="Long structured register across the modeled Pan-India estate.",
+    ),
+    WorkloadProfile(
+        key="pie_framework_crosswalk_reuse",
+        name="Framework Crosswalk & Evidence Reuse (Pan-India Enterprise)",
+        category="pan_india_enterprise",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        modeled_context=True,
+        question=(
+            "Using the Pan-India enterprise reference context above, produce an enterprise evidence-reuse "
+            "and framework-crosswalk report. Include a cross-framework crosswalk of which evidence "
+            "satisfies which controls/frameworks; quantify reuse ratios and duplication; identify coverage "
+            "gaps and single-points-of-failure evidence; assess over-reliance risk; and recommend "
+            "automation and collection-efficiency opportunities. Use tables throughout."
+        ),
+        description="Crosswalk + reuse + duplication analysis over modeled context.",
+    ),
+    WorkloadProfile(
+        key="pie_risk_exception_governance",
+        name="Risk & Exception Governance Review (Pan-India Enterprise)",
+        category="pan_india_enterprise",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        modeled_context=True,
+        question=(
+            "Using the Pan-India enterprise reference context above, produce an enterprise risk-acceptance "
+            "and exception-governance review. Summarize all active exceptions and accepted risks by "
+            "framework and application; assess residual risk and compensating controls; flag expiring or "
+            "overdue exceptions; identify concentration and systemic risk; and recommend a governance and "
+            "remediation-sequencing plan with owners, timelines and escalation triggers. Use tables."
+        ),
+        description="Exception/risk governance over the modeled Pan-India estate.",
+    ),
+    WorkloadProfile(
+        key="pie_five_year_capacity_forecast",
+        name="Five-Year Enterprise Capacity & Governance Narrative (Pan-India Enterprise)",
+        category="pan_india_enterprise",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        modeled_context=True,
+        question=(
+            "Using the Pan-India enterprise reference context above, write a long-form executive narrative "
+            "on the bank's five-year Pan-India compliance, evidence and governance outlook. Cover current "
+            "posture and evidence base; projected evidence/application/framework growth; control-maturity "
+            "trajectory; governance and operating-model implications; key risks and dependencies; and a "
+            "year-by-year set of governance priorities. Ground current-state sections in the reference "
+            "context and clearly label forward-looking statements as assumptions."
+        ),
+        description="Long-form 5-year governance narrative grounded in modeled context.",
+    ),
+    WorkloadProfile(
+        key="pie_ciso_operational_resilience",
+        name="CISO Operational Resilience & Risk Briefing (Pan-India Enterprise)",
+        category="pan_india_enterprise",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        modeled_context=True,
+        question=(
+            "Using the Pan-India enterprise reference context above, prepare a regulator-ready CISO "
+            "operational-resilience and technology-risk briefing for the full estate. Include: control "
+            "posture by domain across all frameworks; material evidence gaps; open risk themes with "
+            "ratings; active exceptions and compensating controls; BCP/DR and resilience posture; "
+            "remediation sequencing with owners and timelines; and an overall assurance view. Provide "
+            "control-level detail, use tables, and state assumptions and evidence caveats."
+        ),
+        description="CISO resilience/assurance briefing over the modeled estate.",
+    ),
+]
+
 
 def default_profiles() -> list[WorkloadProfile]:
     """Default enterprise workload catalog (20 realistic scenarios).
@@ -720,21 +883,37 @@ def worst_case_profiles() -> list[WorkloadProfile]:
     Includes BOTH the broad worst-case tier (``worst_case``) and the true
     worst-case OUTPUT tier (``worst_case_output``), so worst-case mode and
     ``all_profiles()`` pick up the long-output deliverables automatically.
+
+    Backward compatible: the Pan-India future-state tier is intentionally NOT
+    included here, so worst-case mode runs exactly as before. Select Pan-India via
+    ``--categories pan_india_enterprise`` (resolved against ``all_profiles()``) or
+    ``pan_india_enterprise_profiles()``.
     """
     return [*_WORST_CASE, *_WORST_CASE_OUTPUT]
 
 
+def pan_india_enterprise_profiles() -> list[WorkloadProfile]:
+    """Pan-India future-state tier (8 modeled-context enterprise scenarios).
+
+    Additive: each profile carries ``modeled_context=True`` so the runner prepends
+    the BENCHMARK-MODELED Pan-India reference context. Category
+    ``pan_india_enterprise`` so it is selectable on its own
+    (``--categories pan_india_enterprise``).
+    """
+    return list(_PAN_INDIA_ENTERPRISE)
+
+
 def all_profiles() -> list[WorkloadProfile]:
-    """Default catalog + worst-case tiers (42 scenarios)."""
-    return [*default_profiles(), *worst_case_profiles()]
+    """Full catalog: default + worst-case tiers + Pan-India tier (50 scenarios)."""
+    return [*default_profiles(), *worst_case_profiles(), *pan_india_enterprise_profiles()]
 
 
 def profiles_by_keys(keys: list[str]) -> list[WorkloadProfile]:
-    """Subset of the FULL catalog (default + worst-case) by key, in catalog order."""
+    """Subset of the FULL catalog (default + worst-case + pan-india) by key."""
     wanted = set(keys)
     return [p for p in all_profiles() if p.key in wanted]
 
 
 def catalog_index() -> dict[str, WorkloadProfile]:
-    """Index of the FULL catalog (default + worst-case) by profile key."""
+    """Index of the FULL catalog (default + worst-case + pan-india) by profile key."""
     return {p.key: p for p in all_profiles()}

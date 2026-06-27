@@ -82,6 +82,10 @@ class EnterpriseRunnerConfig:
     # Operator-tunable worst-case scaling / growth inputs (capacity_planning.
     # WorstCaseAssumptions). Empty -> documented defaults. Only used in worst_case mode.
     worst_case_assumptions: dict[str, Any] = field(default_factory=dict)
+    # Operator-tunable Pan-India future-state assumptions (pan_india_reference_context.
+    # PanIndiaAssumptions + Neev formula inputs). Empty -> documented defaults. Drives
+    # the MODELED reference context volume and the Neev weighted-TPM validation.
+    pan_india_assumptions: dict[str, Any] = field(default_factory=dict)
     # Additive, backward-compatible hook: extra WorkloadProfile objects to run in
     # addition to the base catalog. Empty -> behaviour unchanged. (worst_case mode
     # injects workload_profiles.worst_case_profiles() automatically.)
@@ -107,6 +111,7 @@ class EnterpriseRunnerConfig:
             capacity_assumptions=dict(data.get("capacity_assumptions", {}) or {}),
             benchmark_mode=mode,
             worst_case_assumptions=dict(data.get("worst_case_assumptions", {}) or {}),
+            pan_india_assumptions=dict(data.get("pan_india_assumptions", {}) or {}),
         )
 
     @property
@@ -248,13 +253,20 @@ _METRIC_FIELDS = (
 
 def _build_row(profile: WorkloadProfile, res: dict[str, Any],
                metrics: dict[str, Any], system_prompt: str,
-               runner_ms: int) -> dict[str, Any]:
-    """Assemble the flat per-request row consumed by ``reporting``."""
+               runner_ms: int, effective_question: str | None = None,
+               modeled_context_chars: int = 0) -> dict[str, Any]:
+    """Assemble the flat per-request row consumed by ``reporting``.
+
+    ``effective_question`` is the question actually sent to RAG (for modeled-context
+    profiles this includes the prepended Pan-India context). ``modeled_context_chars``
+    records the MODELED portion so reporting can separate measured vs modeled inputs.
+    """
     # MEASURED — benchmark-known prompt inputs (no instrumentation change needed).
+    sent_question = effective_question if effective_question is not None else (profile.question or "")
     system_chars = len(system_prompt or "")
-    user_chars = len(profile.question or "")
+    user_chars = len(sent_question or "")
     system_bytes = len((system_prompt or "").encode("utf-8"))
-    user_bytes = len((profile.question or "").encode("utf-8"))
+    user_bytes = len((sent_question or "").encode("utf-8"))
 
     prompt_size_chars = metrics.get("prompt_size_chars")
     # DERIVED — clearly suffixed so provenance is never ambiguous.
@@ -302,6 +314,9 @@ def _build_row(profile: WorkloadProfile, res: dict[str, Any],
         "retrieved_context_chars_derived": context_chars_derived,
         "prompt_bytes_derived": prompt_bytes_derived,
         "runner_end_to_end_ms": runner_ms,
+        # MODELED — Pan-India future-state context provenance (clearly separated).
+        "modeled_context": bool(getattr(profile, "modeled_context", False)),
+        "modeled_context_chars": int(modeled_context_chars),
     }
     # MEASURED — from existing instrumentation (metrics dict / persisted row).
     for f in _METRIC_FIELDS:
@@ -374,6 +389,22 @@ def run(config: EnterpriseRunnerConfig,
     except Exception:  # noqa: BLE001 - never block the run on a prompt import
         SYSTEM_PROMPT = ""
 
+    # Build the BENCHMARK-MODELED Pan-India reference context ONCE (reused across
+    # all modeled-context profiles). Only built when at least one selected profile
+    # requests it, so standard/worst-case runs pay nothing. This is MODELED context
+    # prepended to the question so the EXISTING instrumentation measures a realistic
+    # future-state input-token volume — it is never presented as measured evidence.
+    pan_india_context = ""
+    if any(getattr(p, "modeled_context", False) for p in profiles):
+        from benchmarks.ai_workload.pan_india_reference_context import (
+            PanIndiaAssumptions, build_reference_context, context_size_estimate)
+
+        pia = PanIndiaAssumptions.from_dict(config.pan_india_assumptions)
+        pan_india_context = build_reference_context(pia)
+        est = context_size_estimate(pia)
+        _log(log_path, f"pan-india modeled context built: {est['modeled_context_chars']} chars, "
+                       f"~{est['modeled_context_estimated_tokens']} est tokens (MODELED, not measured)")
+
     min_interval = 60.0 / float(config.max_requests_per_minute)
     last_started = 0.0
     completed = 0
@@ -397,9 +428,17 @@ def run(config: EnterpriseRunnerConfig,
 
         _log(log_path, f"req#{idx} START '{profile.name}' (top_k={profile.top_k}, "
                        f"class={profile.prompt_class}->{profile.response_intent})")
+        # MODELED-context profiles (pan_india_enterprise) prepend the generated
+        # Pan-India reference context to the question so the EXISTING RAG/provider
+        # instrumentation measures a realistic future-state input-token volume.
+        if getattr(profile, "modeled_context", False) and pan_india_context:
+            effective_question = f"{pan_india_context}\n\n{profile.question}"
+        else:
+            effective_question = profile.question
+
         t0 = time.perf_counter()
         try:
-            res = answer(profile.question, role=config.role, user=config.user, top_k=profile.top_k)
+            res = answer(effective_question, role=config.role, user=config.user, top_k=profile.top_k)
         except MemoryError:
             stopped_reason = "MemoryError during request"
             _log(log_path, f"GRACEFUL STOP: MemoryError on '{profile.name}'; "
@@ -438,7 +477,12 @@ def run(config: EnterpriseRunnerConfig,
         # persisted instrumentation row (covers fallback/no_evidence/error).
         metrics = res.get("metrics") or _persisted_metric(out_dir, res.get("request_id", ""))
 
-        row = _build_row(profile, res, metrics, SYSTEM_PROMPT, runner_ms)
+        row = _build_row(
+            profile, res, metrics, SYSTEM_PROMPT, runner_ms,
+            effective_question=effective_question,
+            modeled_context_chars=(len(pan_india_context)
+                                   if getattr(profile, "modeled_context", False) else 0),
+        )
         _flush_jsonl(requests_path, row)
         completed += 1
         _log(log_path, f"req#{idx} DONE ok={row['ok']} mode={row['mode']} "
@@ -465,6 +509,7 @@ def run(config: EnterpriseRunnerConfig,
         rows, assumptions,
         include_worst_case=config.is_worst_case,
         worst_case_assumptions=wc_assumptions,
+        pan_india_assumptions=config.pan_india_assumptions,
     )
     report["meta"]["run_status"] = stopped_reason
     report["meta"]["profiles_planned"] = len(profiles)
@@ -485,6 +530,7 @@ def run(config: EnterpriseRunnerConfig,
             "run_sync_once": config.run_sync_once, "reindex_before_run": config.reindex_before_run,
             "memory_guard_min_mb": config.memory_guard_min_mb,
             "worst_case_assumptions": config.worst_case_assumptions if config.is_worst_case else {},
+            "pan_india_assumptions": config.pan_india_assumptions,
         },
         "artifacts": {**paths, "requests_jsonl": str(requests_path),
                       "rag_metrics_jsonl": str(out_dir / "rag_metrics.jsonl")},
