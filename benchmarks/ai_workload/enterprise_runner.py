@@ -41,6 +41,7 @@ import gc
 import json
 import os
 import time
+import traceback
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -270,7 +271,18 @@ def _build_row(profile: WorkloadProfile, res: dict[str, Any],
         "provider": res.get("provider", "") or metrics.get("provider", ""),
         "model": res.get("model", "") or metrics.get("model_name", ""),
         "request_id": res.get("request_id", ""),
-        "error": res.get("answer", "") if res.get("mode") == "error" else "",
+        # Diagnostic error surface. ``error`` keeps the human-readable message
+        # (back-compat); the structured fields make every failure debuggable.
+        # When the runner caught the exception it supplies error_type/message/
+        # traceback directly; when ecs_platform.rag.answer returned mode=error it
+        # carries the message in ``answer`` (no traceback available from there).
+        "error": (res.get("error_message")
+                  or (res.get("answer", "") if res.get("mode") == "error" else "")),
+        "error_type": res.get("error_type", "")
+        or ("RAGError" if res.get("mode") == "error" and not res.get("error_message") else ""),
+        "error_message": (res.get("error_message")
+                          or (res.get("answer", "") if res.get("mode") == "error" else "")),
+        "error_traceback": res.get("error_traceback", ""),
         # MEASURED — benchmark inputs
         "system_prompt_chars": system_chars,
         "system_prompt_bytes": system_bytes,
@@ -384,8 +396,32 @@ def run(config: EnterpriseRunnerConfig,
                            f"{completed} requests already flushed.")
             break
         except Exception as exc:  # noqa: BLE001 - capture, never abort the suite
-            res = {"ok": False, "grounded": False, "mode": "error",
-                   "answer": f"runner-caught error: {exc}", "request_id": ""}
+            # Do NOT silently swallow: capture the full exception so the failure is
+            # diagnosable in the log AND in the per-request row / CSV / report.
+            err_type = type(exc).__name__
+            err_msg = str(exc) or err_type
+            err_tb = traceback.format_exc()
+            res = {
+                "ok": False, "grounded": False, "mode": "error", "request_id": "",
+                "answer": f"runner-caught error: {err_type}: {err_msg}",
+                "error_type": err_type,
+                "error_message": err_msg,
+                "error_traceback": err_tb,
+            }
+            # Structured, multi-line diagnostic block written to enterprise_run.log.
+            _log(log_path,
+                 "req#%d FAILED '%s' [%s]\n"
+                 "  error_type   : %s\n"
+                 "  error_message: %s\n"
+                 "  profile_key  : %s\n"
+                 "  profile_name : %s\n"
+                 "  question     : %s\n"
+                 "  top_k        : %s\n"
+                 "  benchmark_mode: %s\n"
+                 "  traceback    :\n%s"
+                 % (idx, profile.name, _utc_now(), err_type, err_msg,
+                    profile.key, profile.name, profile.question, profile.top_k,
+                    config.benchmark_mode, err_tb))
         runner_ms = int((time.perf_counter() - t0) * 1000)
 
         # MEASURED metrics: prefer the embedded dict; otherwise recover the
@@ -399,7 +435,9 @@ def run(config: EnterpriseRunnerConfig,
                        f"provider={row['provider'] or 'n/a'} model={row['model'] or 'n/a'} "
                        f"docs={row['retrieved_documents']} in_tok={row['input_tokens']} "
                        f"out_tok={row['output_tokens']} total_tok={row['total_tokens']} "
-                       f"e2e_ms={row['end_to_end_latency_ms']}")
+                       f"e2e_ms={row['end_to_end_latency_ms']}"
+                       + (f" error_type={row['error_type']} error_message={row['error_message']}"
+                          if not row['ok'] else ""))
 
         # --- release temporary objects; do not retain results in memory ---
         del res, metrics, row

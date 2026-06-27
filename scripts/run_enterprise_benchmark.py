@@ -7,11 +7,20 @@ capacity-planning and reporting modules.
 
 Usage (run later on the 16 GB benchmark workstation):
 
-    python scripts/run_enterprise_benchmark.py
+PREFERRED (works on every shell, incl. Windows Git Bash) — run from the repo root
+so the ``benchmarks`` / ``ecs_platform`` packages resolve:
+
+    PYTHONPATH=. python3 -m scripts.run_enterprise_benchmark --config benchmarks/config/enterprise_workload_config.json
+
+Other examples:
+
+    PYTHONPATH=. python3 -m scripts.run_enterprise_benchmark --profiles sp_sr --max-rpm 3
+    PYTHONPATH=. python3 -m scripts.run_enterprise_benchmark --mode worst_case
+    PYTHONPATH=. python3 -m scripts.run_enterprise_benchmark --list
+
+Script-style invocation also works from the repo root:
+
     python scripts/run_enterprise_benchmark.py --config benchmarks/config/enterprise_workload_config.json
-    python scripts/run_enterprise_benchmark.py --profiles maxctx_max,complete_compliance
-    python scripts/run_enterprise_benchmark.py --categories framework,baseline
-    python scripts/run_enterprise_benchmark.py --list
 """
 
 from __future__ import annotations

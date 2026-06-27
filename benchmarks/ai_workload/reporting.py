@@ -72,7 +72,11 @@ _CSV_COLUMNS = [
     "retrieved_context_chars_derived",
     "prompt_bytes_derived",
     "runner_end_to_end_ms",
+    # DIAGNOSTIC (failures are never silently swallowed)
     "error",
+    "error_type",
+    "error_message",
+    "error_traceback",
 ]
 
 
@@ -221,6 +225,38 @@ def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions,
             "System/user prompt sizes are measured from the benchmark's own inputs (SYSTEM_PROMPT + question) without modifying instrumentation.",
         ],
     }
+
+    # ---- Diagnostics: surface failures so a broken run is debuggable from the
+    # report alone (never silently swallowed). Errors are also in the per-request
+    # rows / CSV / enterprise_run.log. ----
+    failed_rows = [r for r in rows if not r.get("ok")]
+    if failed_rows:
+        error_type_counts: dict[str, int] = {}
+        for r in failed_rows:
+            et = str(r.get("error_type") or "Unknown")
+            error_type_counts[et] = error_type_counts.get(et, 0) + 1
+        report["diagnostics"] = {
+            "failed_requests": len(failed_rows),
+            "error_type_counts": error_type_counts,
+            "failures": [
+                {
+                    "profile_key": r.get("profile_key"),
+                    "workload": r.get("workload"),
+                    "top_k": r.get("top_k"),
+                    "mode": r.get("mode"),
+                    "error_type": r.get("error_type"),
+                    "error_message": r.get("error_message") or r.get("error"),
+                    # Keep the report readable: full traceback lives in the JSONL/CSV
+                    # and enterprise_run.log; here we keep the last line for triage.
+                    "error_traceback_tail": (
+                        (r.get("error_traceback") or "").strip().splitlines()[-1]
+                        if r.get("error_traceback") else ""
+                    ),
+                }
+                for r in failed_rows
+            ],
+            "_note": "Full tracebacks are in enterprise_requests.jsonl / enterprise_results.csv / enterprise_run.log.",
+        }
 
     # ---- Additive worst-case layer (single reporting framework; no parallel one) ----
     # When requested, append the worst-case capacity plan + an executive summary.
