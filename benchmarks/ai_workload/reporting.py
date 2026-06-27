@@ -97,6 +97,22 @@ def _provider_model(rows: list[dict[str, Any]]) -> tuple[str, str]:
     return "", ""
 
 
+def _profile_token_snapshot(r: dict[str, Any]) -> dict[str, Any]:
+    """Compact identity + token view of a single request row (no new math)."""
+    return {
+        "profile_key": r.get("profile_key"),
+        "workload": r.get("workload"),
+        "category": r.get("category"),
+        "top_k": r.get("top_k"),
+        "input_tokens": r.get("input_tokens"),
+        "output_tokens": r.get("output_tokens"),
+        "total_tokens": r.get("total_tokens"),
+        "prompt_size_chars": r.get("prompt_size_chars"),
+        "retrieved_documents": r.get("retrieved_documents"),
+        "end_to_end_latency_ms": r.get("end_to_end_latency_ms"),
+    }
+
+
 def _measured_worst_case(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Extract MEASURED worst-case maxima consumed by capacity_planning.worst_case_plan.
 
@@ -162,17 +178,26 @@ def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions,
     token_rows = [r for r in rows if isinstance(r.get("total_tokens"), (int, float))]
     if token_rows:
         worst = max(token_rows, key=lambda r: r.get("total_tokens") or 0)
-        worst = {
-            "profile_key": worst.get("profile_key"),
-            "workload": worst.get("workload"),
-            "top_k": worst.get("top_k"),
-            "input_tokens": worst.get("input_tokens"),
-            "output_tokens": worst.get("output_tokens"),
-            "total_tokens": worst.get("total_tokens"),
-            "prompt_size_chars": worst.get("prompt_size_chars"),
-            "retrieved_documents": worst.get("retrieved_documents"),
-            "end_to_end_latency_ms": worst.get("end_to_end_latency_ms"),
-        }
+        worst = _profile_token_snapshot(worst)
+
+    # Max-token PROFILES (which workload produced each maximum) — for token-budget
+    # approval. Additive; reuses the same rows, no new measurement/token logic.
+    def _max_profile_by(metric: str, *, rows_subset: list[dict[str, Any]] | None = None):
+        candidates = [r for r in (rows_subset if rows_subset is not None else rows)
+                      if isinstance(r.get(metric), (int, float))]
+        if not candidates:
+            return None
+        return _profile_token_snapshot(max(candidates, key=lambda r: r.get(metric) or 0))
+
+    wco_rows = [r for r in rows if r.get("category") == "worst_case_output"]
+    max_profiles = {
+        "max_input_token_profile": _max_profile_by("input_tokens"),
+        "max_output_token_profile": _max_profile_by("output_tokens"),
+        "max_total_token_profile": _max_profile_by("total_tokens"),
+        # Max realistic OUTPUT among the dedicated long-output tier (when present).
+        "max_realistic_output_profile": _max_profile_by("output_tokens", rows_subset=wco_rows),
+        "_basis": "Observed maxima per metric; identifies the workload behind each peak.",
+    }
 
     # Capacity planning from measured token + latency stats.
     tot = statistics["total_tokens"]
@@ -205,6 +230,7 @@ def build_report(rows: list[dict[str, Any]], assumptions: CapacityAssumptions,
             "statistics": statistics,
             "by_category": category_stats,
             "worst_case_max_tokens": worst,
+            "max_token_profiles": max_profiles,
             "field_provenance": {
                 "from_instrumentation": _MEASURED_METRIC_FIELDS,
                 "from_benchmark_inputs": [

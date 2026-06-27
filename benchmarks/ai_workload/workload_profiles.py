@@ -545,6 +545,154 @@ _WORST_CASE: list[WorkloadProfile] = [
     ),
 ]
 
+# --------------------------------------------------------------------------- #
+# 5) True worst-case OUTPUT workloads (8 scenarios) — maximum REALISTIC output
+# --------------------------------------------------------------------------- #
+# Some worst-case profiles under-produced output tokens because the ask, while
+# broad, did not explicitly require long-form, structured deliverables. These
+# profiles target the MAXIMUM realistic OUTPUT envelope for token-budget approval:
+# each is a genuine senior-management / audit / regulator / board deliverable
+# whose length is justified by the governance use case (multi-section reports,
+# control-level findings, registers, roadmaps) — NEVER by padding, repetition or
+# "write as much as possible" phrasing. All run at TOP_K_MAX (widest realistic
+# retrieval -> large input) and response_intent="maximum". They share the
+# ``worst_case_output`` category so reporting can isolate the output envelope.
+_WORST_CASE_OUTPUT: list[WorkloadProfile] = [
+    WorkloadProfile(
+        key="wco_regulator_inspection_pack",
+        name="Full Regulator Inspection Response Pack (Worst Case Output)",
+        category="worst_case_output",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Produce a complete RBI regulator-facing inspection response pack for HDFC Bank. Structure it "
+            "as: (1) executive summary; (2) framework-by-framework findings for PCI DSS, RBI Cyber Security "
+            "Framework, RBI C-SITE, SOC2, ISO 27001 and AI-SDLC, each as a table of control objective, "
+            "current evidence with ECS citations, compliance status and gap; (3) control-failure analysis; "
+            "(4) per-finding risk rating with justification; (5) a remediation plan with owners and target "
+            "dates; (6) stated assumptions; and (7) audit caveats and evidence limitations. Provide "
+            "control-level detail throughout and cite ECS evidence for every material finding."
+        ),
+        description="Regulator-ready multi-section submission with control-level tables and caveats.",
+    ),
+    WorkloadProfile(
+        key="wco_board_audit_committee_pack",
+        name="Board Audit Committee Pack (Worst Case Output)",
+        category="worst_case_output",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Generate a board-ready audit committee compliance and technology-risk pack. Include: an "
+            "executive summary; a compliance heatmap narrative across all frameworks; the top enterprise "
+            "risks with likelihood/impact; systemic and recurring issues; overdue and stale evidence; a "
+            "control-maturity overview by control family; recommended management actions with owners; and an "
+            "explicit list of decision points requiring board direction. Use tables where appropriate and "
+            "cite ECS evidence for each material point."
+        ),
+        description="Board-grade narrative + heatmap + risk + decisions, fully sectioned.",
+    ),
+    WorkloadProfile(
+        key="wco_enterprise_remediation_roadmap",
+        name="Enterprise Remediation Roadmap (Worst Case Output)",
+        category="worst_case_output",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Convert every identified compliance and control gap across all applications and frameworks into "
+            "a structured enterprise remediation roadmap. Organize it into quick wins, medium-term fixes and "
+            "long-term structural changes; for each item give the affected controls and frameworks, root "
+            "cause, remediation steps, control owner, dependencies, effort, target date, verification "
+            "evidence and escalation triggers; then provide a sequenced multi-quarter plan with a "
+            "critical-path summary. Cite ECS evidence for each gap."
+        ),
+        description="Exhaustive gap-to-roadmap expansion with owners, dependencies and timelines.",
+    ),
+    WorkloadProfile(
+        key="wco_cross_framework_maturity_report",
+        name="Cross-framework Control Maturity Report (Worst Case Output)",
+        category="worst_case_output",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Produce a full control-maturity report across RBI C-SITE, PCI DSS, DPSC, ITGRC, VAPT, AppSec, "
+            "ITDRM, cloud governance and the OS/database/middleware baselines. For each domain provide a "
+            "maturity rating on a defined scale with justification, evidence strength, gaps, cross-framework "
+            "reuse opportunities and control-by-control commentary, then a consolidated maturity heatmap and "
+            "prioritized improvement plan. Cite ECS evidence throughout."
+        ),
+        description="Domain-by-domain maturity with control-level commentary and heatmap.",
+    ),
+    WorkloadProfile(
+        key="wco_audit_observation_register",
+        name="Full Audit Observation Register (Worst Case Output)",
+        category="worst_case_output",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Generate a detailed enterprise audit observation register from the available evidence. For every "
+            "observation provide: observation title, description, impacted framework(s), evidence source with "
+            "ECS citation, root cause, severity, risk rating, recommendation, control owner, target date and "
+            "closure criteria. Present the register as a structured table, group observations by framework and "
+            "application, and finish with a summary of severity distribution and the most material themes."
+        ),
+        description="Long structured register: one fully-attributed row per observation.",
+    ),
+    WorkloadProfile(
+        key="wco_evidence_reuse_efficiency_report",
+        name="Executive Evidence Reuse & Efficiency Report (Worst Case Output)",
+        category="worst_case_output",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Produce an executive evidence-reuse and efficiency report across all frameworks. Include a "
+            "cross-framework crosswalk of which evidence satisfies which controls and frameworks; quantify "
+            "reuse ratios and identify duplication; highlight coverage gaps and single-points-of-failure "
+            "evidence; assess the risk of over-reliance on individual evidence items; and recommend "
+            "automation and collection-efficiency opportunities. Use tables and cite ECS evidence."
+        ),
+        description="Reuse crosswalk + duplication + over-reliance risk + automation opportunities.",
+    ),
+    WorkloadProfile(
+        key="wco_five_year_governance_narrative",
+        name="Five-Year Enterprise Capacity & Governance Narrative (Worst Case Output)",
+        category="worst_case_output",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Write a long-form executive narrative on HDFC Bank's five-year compliance evidence and "
+            "governance outlook. Cover current posture and evidence base; projected evidence growth as "
+            "applications and frameworks expand; control-maturity trajectory; governance and operating-model "
+            "implications; key risks and dependencies over the horizon; and a year-by-year set of governance "
+            "priorities. Ground the current-state sections in cited ECS evidence and clearly label "
+            "forward-looking statements as assumptions."
+        ),
+        description="Long-form multi-year executive governance narrative, evidence-grounded.",
+    ),
+    WorkloadProfile(
+        key="wco_ciso_technology_risk_briefing",
+        name="CISO Technology Risk Briefing (Worst Case Output)",
+        category="worst_case_output",
+        prompt_class="large",
+        response_intent="maximum",
+        top_k=TOP_K_MAX,
+        question=(
+            "Prepare a regulator-ready CISO technology-risk briefing for HDFC Bank. Include: enterprise "
+            "control posture by control family; material evidence gaps; open risk themes with ratings; active "
+            "exceptions and compensating controls; remediation sequencing with owners and timelines; and an "
+            "overall assurance view. Provide control-level detail, use tables where appropriate, state "
+            "assumptions and evidence caveats, and cite ECS evidence for each material point."
+        ),
+        description="CISO-grade assurance briefing: posture, gaps, exceptions, sequencing.",
+    ),
+]
+
 
 def default_profiles() -> list[WorkloadProfile]:
     """Default enterprise workload catalog (20 realistic scenarios).
@@ -556,13 +704,28 @@ def default_profiles() -> list[WorkloadProfile]:
     return [*_SIZE_MATRIX, *_CONTEXT_STRESS, *_ENTERPRISE]
 
 
+def worst_case_output_profiles() -> list[WorkloadProfile]:
+    """True worst-case OUTPUT tier (8 maximum-realistic long-output scenarios).
+
+    Additive: targets the maximum realistic OUTPUT-token envelope (board / audit /
+    regulator deliverables). Category ``worst_case_output`` so it is selectable on
+    its own (``--categories worst_case_output``).
+    """
+    return list(_WORST_CASE_OUTPUT)
+
+
 def worst_case_profiles() -> list[WorkloadProfile]:
-    """Worst-case enterprise workload tier (14 maximum-realistic scenarios)."""
-    return list(_WORST_CASE)
+    """Worst-case enterprise workload tier (maximum-realistic scenarios).
+
+    Includes BOTH the broad worst-case tier (``worst_case``) and the true
+    worst-case OUTPUT tier (``worst_case_output``), so worst-case mode and
+    ``all_profiles()`` pick up the long-output deliverables automatically.
+    """
+    return [*_WORST_CASE, *_WORST_CASE_OUTPUT]
 
 
 def all_profiles() -> list[WorkloadProfile]:
-    """Default catalog + worst-case tier (34 scenarios)."""
+    """Default catalog + worst-case tiers (42 scenarios)."""
     return [*default_profiles(), *worst_case_profiles()]
 
 

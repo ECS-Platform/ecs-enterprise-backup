@@ -179,6 +179,16 @@ def _select_profiles(config: EnterpriseRunnerConfig,
         seen = {p.key for p in catalog}
         catalog.extend(p for p in extra_profiles if p.key not in seen)
 
+    # Explicit selection (keys/categories) resolves against the FULL catalog so
+    # worst-case / worst-case-output profiles are reachable by selection even in
+    # standard mode (e.g. ``--categories worst_case_output``). The UNSELECTED path
+    # is unchanged: standard mode -> base catalog, worst_case mode -> base + tier
+    # (tier injected via extra_profiles), so default runs stay backward compatible.
+    if config.profile_keys or config.categories:
+        full = list(workload_profiles.all_profiles())
+        seen = {p.key for p in catalog}
+        catalog.extend(p for p in full if p.key not in seen)
+
     if config.profile_keys:
         wanted_keys = set(config.profile_keys)
         profiles = [p for p in catalog if p.key in wanted_keys]
