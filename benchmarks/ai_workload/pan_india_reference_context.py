@@ -131,6 +131,27 @@ class PanIndiaAssumptions:
     # the source of truth at run time; this is a planning estimate for the report).
     chars_per_token: float = 4.0
 
+    # Pan-India context scale (0 < scale <= 1.0). Reduces the modeled context size
+    # by emitting fewer ROWS PER BLOCK (never mid-text truncation), so each block
+    # stays structurally complete and realistic. 1.0 = full; 0.5 = half rows; etc.
+    # Used by the benchmark optimization candidates to find the largest realistic
+    # prompt that completes without timing out. Default 1.0 = unchanged behavior.
+    context_scale: float = 1.0
+
+    @property
+    def effective_max_rows_per_block(self) -> int:
+        """Rows-per-block after applying ``context_scale`` (floored at 1).
+
+        Scaling rows (not characters) keeps every emitted block a complete,
+        coherent enterprise sample at any scale. Values are clamped to (0, 1.0];
+        a non-positive scale is treated as full (1.0).
+        """
+        scale = self.context_scale
+        if not scale or scale <= 0:
+            scale = 1.0
+        scale = min(float(scale), 1.0)
+        return max(1, int(round(self.max_rows_per_block * scale)))
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -164,7 +185,7 @@ def _cycle(seq: list[str], i: int) -> str:
 def _framework_control_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Framework & Control Coverage Summary"]
     total = a.frameworks * a.control_domains
-    for i in range(_rows(total, a.max_rows_per_block)):
+    for i in range(_rows(total, a.effective_max_rows_per_block)):
         fw = _cycle(_FRAMEWORKS, i)
         dom = _cycle(_CONTROL_DOMAINS, i // max(1, a.frameworks))
         ctrls = a.controls_per_framework // max(1, a.control_domains)
@@ -179,7 +200,7 @@ def _framework_control_summary(a: PanIndiaAssumptions) -> str:
 
 def _application_portfolio_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Application Portfolio Summary (Pan-India estate)"]
-    for i in range(_rows(a.applications, a.max_rows_per_block)):
+    for i in range(_rows(a.applications, a.effective_max_rows_per_block)):
         fam = _cycle(_APPLICATION_FAMILIES, i)
         lob = _cycle(_LINES_OF_BUSINESS, i)
         region = _cycle(_REGIONS, i)
@@ -195,7 +216,7 @@ def _application_portfolio_summary(a: PanIndiaAssumptions) -> str:
 def _evidence_inventory_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Evidence Inventory Summary"]
     total = a.frameworks * a.control_domains
-    for i in range(_rows(total, a.max_rows_per_block)):
+    for i in range(_rows(total, a.effective_max_rows_per_block)):
         fw = _cycle(_FRAMEWORKS, i)
         dom = _cycle(_CONTROL_DOMAINS, i)
         src = _cycle(_SOURCE_SYSTEMS, i)
@@ -210,7 +231,7 @@ def _evidence_inventory_summary(a: PanIndiaAssumptions) -> str:
 def _open_observation_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Open Observation Summary"]
     total = a.frameworks * a.historical_observations_per_framework
-    for i in range(_rows(total, a.max_rows_per_block)):
+    for i in range(_rows(total, a.effective_max_rows_per_block)):
         fw = _cycle(_FRAMEWORKS, i)
         dom = _cycle(_CONTROL_DOMAINS, i)
         sev = _cycle(_SEVERITIES, i)
@@ -227,7 +248,7 @@ def _open_observation_summary(a: PanIndiaAssumptions) -> str:
 def _risk_acceptance_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Risk Acceptance & Exception Summary"]
     total = a.frameworks * a.risk_exception_records_per_framework
-    for i in range(_rows(total, a.max_rows_per_block)):
+    for i in range(_rows(total, a.effective_max_rows_per_block)):
         fw = _cycle(_FRAMEWORKS, i)
         app = _cycle(_APPLICATION_FAMILIES, i)
         sev = _cycle(_SEVERITIES, i)
@@ -242,7 +263,7 @@ def _risk_acceptance_summary(a: PanIndiaAssumptions) -> str:
 def _control_maturity_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Control Maturity Summary (by framework x domain)"]
     total = a.frameworks * a.control_domains
-    for i in range(_rows(total, a.max_rows_per_block)):
+    for i in range(_rows(total, a.effective_max_rows_per_block)):
         fw = _cycle(_FRAMEWORKS, i)
         dom = _cycle(_CONTROL_DOMAINS, i)
         lvl = _cycle(_MATURITY_LEVELS, i)
@@ -257,7 +278,7 @@ def _control_maturity_summary(a: PanIndiaAssumptions) -> str:
 def _evidence_reuse_crosswalk_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Evidence Reuse Crosswalk Summary"]
     total = a.frameworks * a.evidence_reuse_mappings_per_framework
-    for i in range(_rows(total, a.max_rows_per_block)):
+    for i in range(_rows(total, a.effective_max_rows_per_block)):
         fw_a = _cycle(_FRAMEWORKS, i)
         fw_b = _cycle(_FRAMEWORKS, i + 3)
         dom = _cycle(_CONTROL_DOMAINS, i)
@@ -272,7 +293,7 @@ def _evidence_reuse_crosswalk_summary(a: PanIndiaAssumptions) -> str:
 def _audit_closure_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Audit Closure Record Summary"]
     total = a.frameworks * (a.historical_observations_per_framework // 2)
-    for i in range(_rows(total, a.max_rows_per_block)):
+    for i in range(_rows(total, a.effective_max_rows_per_block)):
         fw = _cycle(_FRAMEWORKS, i)
         lines.append(
             f"- CLR-{i + 1:05d}: {fw} observation closed; "
@@ -285,7 +306,7 @@ def _audit_closure_summary(a: PanIndiaAssumptions) -> str:
 def _remediation_roadmap_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Remediation Roadmap Summary"]
     total = a.frameworks * a.control_domains
-    for i in range(_rows(total, a.max_rows_per_block)):
+    for i in range(_rows(total, a.effective_max_rows_per_block)):
         fw = _cycle(_FRAMEWORKS, i)
         dom = _cycle(_CONTROL_DOMAINS, i)
         horizon = "quick win" if i % 3 == 0 else "medium-term" if i % 3 == 1 else "structural"
@@ -299,7 +320,7 @@ def _remediation_roadmap_summary(a: PanIndiaAssumptions) -> str:
 
 def _regulator_inspection_summary(a: PanIndiaAssumptions) -> str:
     lines = ["## Regulator Inspection Readiness Summary"]
-    for i in range(_rows(a.frameworks, a.max_rows_per_block)):
+    for i in range(_rows(a.frameworks, a.effective_max_rows_per_block)):
         fw = _cycle(_FRAMEWORKS, i)
         lines.append(
             f"- {fw}: readiness={_cycle(_STATUSES, i)}; "
@@ -359,6 +380,8 @@ def context_size_estimate(assumptions: PanIndiaAssumptions | None = None,
         "modeled_context_chars": chars,
         "modeled_context_estimated_tokens": est_tokens,
         "chars_per_token_basis": a.chars_per_token,
+        "pan_india_context_scale": a.context_scale,
+        "effective_max_rows_per_block": a.effective_max_rows_per_block,
         "blocks_included": list(blocks) if blocks else [n for n, _ in _BLOCK_BUILDERS],
         "_basis": (
             "MODELED enterprise reference context generated from PanIndiaAssumptions. "

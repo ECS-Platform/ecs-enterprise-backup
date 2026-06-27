@@ -40,18 +40,21 @@ class LLMError(RuntimeError):
 _BENCHMARK_GENERATION_CONFIG: dict[str, Any] = {}
 
 
-def set_benchmark_generation_config(*, num_predict: Any = None, num_ctx: Any = None) -> None:
-    """Benchmark-only hook to SUPPLY generation/context limits to the provider.
+def set_benchmark_generation_config(*, num_predict: Any = None, num_ctx: Any = None,
+                                    timeout_seconds: Any = None) -> None:
+    """Benchmark-only hook to SUPPLY generation/context/timeout limits to the provider.
 
     Passing ``None`` for a setting leaves it untouched. The provider resolves the
-    effective value (env > benchmark config > config/llm.yaml > fallback), so this
-    never overrides an explicit environment variable. No-op for production code,
+    effective value (env > benchmark config > config/llm.yaml/provider default), so
+    this never overrides an explicit environment variable. No-op for production code,
     which does not call it.
     """
     if num_predict is not None:
         _BENCHMARK_GENERATION_CONFIG["num_predict"] = num_predict
     if num_ctx is not None:
         _BENCHMARK_GENERATION_CONFIG["num_ctx"] = num_ctx
+    if timeout_seconds is not None:
+        _BENCHMARK_GENERATION_CONFIG["timeout_seconds"] = timeout_seconds
 
 
 def _coerce_positive_int(value: Any, *, label: str) -> int:
@@ -81,6 +84,22 @@ class LLMProvider(ABC):
     def configured(self) -> bool:
         return bool(self.api_key())
 
+    def _resolve_timeout(self) -> tuple[int, str]:
+        """Resolve the HTTP timeout (seconds) + its source by strict precedence:
+        env ECS_LLM_TIMEOUT_SECONDS > benchmark config > existing provider/config
+        default. Production sets neither override, so the default is unchanged.
+        """
+        raw = os.environ.get("ECS_LLM_TIMEOUT_SECONDS", "").strip()
+        if raw:
+            return _coerce_positive_int(raw, label="timeout_seconds"), "env:ECS_LLM_TIMEOUT_SECONDS"
+        bench = _BENCHMARK_GENERATION_CONFIG.get("timeout_seconds")
+        if bench is not None and str(bench).strip() != "":
+            return _coerce_positive_int(bench, label="timeout_seconds"), "benchmark_config"
+        return int(self.timeout), "provider/config_default"
+
+    def _effective_timeout(self) -> int:
+        return self._resolve_timeout()[0]
+
     @abstractmethod
     def generate(self, prompt: str, *, system: str = "") -> str: ...
 
@@ -97,7 +116,7 @@ class LLMProvider(ABC):
         req = urllib.request.Request(url, data=body, method="POST",
                                      headers={"Content-Type": "application/json", **headers})
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self._effective_timeout()) as resp:
                 content_len_hdr = resp.headers.get("Content-Length")
                 # Avoid waiting indefinitely on read-to-EOF if a server keeps the
                 # connection open; prefer bounded read when Content-Length is present.
@@ -360,10 +379,12 @@ class OllamaProvider(LLMProvider):
             num_ctx, nc_src = None, "provider_fallback(omit)"
         else:
             num_ctx = _coerce_positive_int(nc_raw, label="num_ctx")
+        timeout_seconds, timeout_src = self._resolve_timeout()
         return {
             "provider": "ollama", "model": self.model,
             "num_predict": num_predict, "num_predict_source": np_src,
             "num_ctx": num_ctx, "num_ctx_source": nc_src,
+            "timeout_seconds": timeout_seconds, "timeout_source": timeout_src,
         }
 
     @staticmethod

@@ -12,7 +12,16 @@
   "benchmark_mode": "standard",
   "ollama": {
     "num_predict": 2048,
-    "num_ctx": 32768
+    "num_ctx": 32768,
+    "timeout_seconds": 600
+  },
+  "benchmark_optimization": {
+    "enabled": true,
+    "candidate_settings": [
+      { "label": "safe_16k_512", "num_ctx": 16384, "num_predict": 512, "timeout_seconds": 180, "pan_india_context_scale": 0.25 },
+      { "label": "balanced_24k_1024", "num_ctx": 24576, "num_predict": 1024, "timeout_seconds": 300, "pan_india_context_scale": 0.50 },
+      { "label": "extended_32k_2048", "num_ctx": 32768, "num_predict": 2048, "timeout_seconds": 600, "pan_india_context_scale": 0.75 }
+    ]
   },
   "worst_case_assumptions": {},
   "pan_india_assumptions": {

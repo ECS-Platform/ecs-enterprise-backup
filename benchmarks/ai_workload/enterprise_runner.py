@@ -93,6 +93,16 @@ class EnterpriseRunnerConfig:
     # supplies configuration (precedence: env > benchmark config > llm.yaml > fallback).
     ollama_num_predict: int | None = None
     ollama_num_ctx: int | None = None
+    # Benchmark-supplied HTTP/model timeout (seconds). None leaves the provider's own
+    # resolution intact (env > config/llm.yaml > built-in). Production never sets it.
+    timeout_seconds: int | None = None
+    # Optional optimum-setting discovery block (see benchmarks/config/...). Holds
+    # named candidate_settings {num_ctx, num_predict, timeout_seconds,
+    # pan_india_context_scale}. NEVER auto-applied — only via --optimization-candidate.
+    benchmark_optimization: dict[str, Any] = field(default_factory=dict)
+    # Populated when an optimization candidate is selected (for reporting/meta only).
+    optimization_candidate: str = ""
+    selected_candidate: dict[str, Any] = field(default_factory=dict)
     # Additive, backward-compatible hook: extra WorkloadProfile objects to run in
     # addition to the base catalog. Empty -> behaviour unchanged. (worst_case mode
     # injects workload_profiles.worst_case_profiles() automatically.)
@@ -108,6 +118,7 @@ class EnterpriseRunnerConfig:
         ollama_cfg = dict(data.get("ollama", {}) or {})
         ollama_num_predict = ollama_cfg.get("num_predict")
         ollama_num_ctx = ollama_cfg.get("num_ctx")
+        timeout_seconds = ollama_cfg.get("timeout_seconds")
         return cls(
             role=str(data.get("role", "cio")),
             user=str(data.get("user", "benchmark-runner")),
@@ -125,11 +136,56 @@ class EnterpriseRunnerConfig:
             pan_india_assumptions=dict(data.get("pan_india_assumptions", {}) or {}),
             ollama_num_predict=ollama_num_predict,
             ollama_num_ctx=ollama_num_ctx,
+            timeout_seconds=timeout_seconds,
+            benchmark_optimization=dict(data.get("benchmark_optimization", {}) or {}),
         )
 
     @property
     def is_worst_case(self) -> bool:
         return self.benchmark_mode == "worst_case"
+
+    @property
+    def pan_india_context_scale(self) -> float:
+        """Effective Pan-India context scale (1.0 = full). Sourced from the
+        pan_india_assumptions block; an optimization candidate overrides it."""
+        try:
+            return float(self.pan_india_assumptions.get("context_scale", 1.0))
+        except (TypeError, ValueError):
+            return 1.0
+
+
+def apply_optimization_candidate(config: "EnterpriseRunnerConfig", label: str) -> dict[str, Any]:
+    """Apply one named optimization candidate from ``benchmark_optimization``.
+
+    A candidate supplies a single coherent setting bundle (num_ctx, num_predict,
+    timeout_seconds, pan_india_context_scale). Candidates are NEVER auto-applied;
+    this is invoked only when ``--optimization-candidate`` is passed. Raises a clear
+    error (listing available labels) when the label is unknown so the operator can't
+    silently run an unintended configuration. Returns the matched candidate dict.
+    """
+    block = config.benchmark_optimization or {}
+    candidates = list(block.get("candidate_settings", []) or [])
+    match = next((c for c in candidates if str(c.get("label")) == str(label)), None)
+    if match is None:
+        available = ", ".join(str(c.get("label")) for c in candidates) or "(none configured)"
+        raise ValueError(
+            f"Unknown --optimization-candidate {label!r}. "
+            f"Available candidate_settings labels: {available}.")
+    if match.get("num_ctx") is not None:
+        config.ollama_num_ctx = match["num_ctx"]
+    if match.get("num_predict") is not None:
+        config.ollama_num_predict = match["num_predict"]
+    if match.get("timeout_seconds") is not None:
+        config.timeout_seconds = match["timeout_seconds"]
+    if match.get("pan_india_context_scale") is not None:
+        # Reduce ROWS PER BLOCK (never mid-text truncation) via the assumptions.
+        config.pan_india_assumptions = {
+            **(config.pan_india_assumptions or {}),
+            "context_scale": match["pan_india_context_scale"],
+        }
+    config.optimization_candidate = str(label)
+    config.selected_candidate = dict(match)
+    return match
 
 
 # --------------------------------------------------------------------------- #
@@ -267,12 +323,15 @@ _METRIC_FIELDS = (
 def _build_row(profile: WorkloadProfile, res: dict[str, Any],
                metrics: dict[str, Any], system_prompt: str,
                runner_ms: int, effective_question: str | None = None,
-               modeled_context_chars: int = 0) -> dict[str, Any]:
+               modeled_context_chars: int = 0,
+               settings: dict[str, Any] | None = None) -> dict[str, Any]:
     """Assemble the flat per-request row consumed by ``reporting``.
 
     ``effective_question`` is the question actually sent to RAG (for modeled-context
     profiles this includes the prepended Pan-India context). ``modeled_context_chars``
     records the MODELED portion so reporting can separate measured vs modeled inputs.
+    ``settings`` carries the run-constant resolved limits/timeout/scale (added to every
+    row so each measurement is self-describing); it never affects measured values.
     """
     # MEASURED — benchmark-known prompt inputs (no instrumentation change needed).
     sent_question = effective_question if effective_question is not None else (profile.question or "")
@@ -334,6 +393,21 @@ def _build_row(profile: WorkloadProfile, res: dict[str, Any],
     # MEASURED — from existing instrumentation (metrics dict / persisted row).
     for f in _METRIC_FIELDS:
         row[f] = metrics.get(f)
+    # Run-constant resolved settings + a MODELED est-token figure for the prepended
+    # context (chars / chars_per_token; the LLM tokenizer remains the source of truth
+    # for the MEASURED input_tokens above). Additive — never alters measured fields.
+    settings = settings or {}
+    cpt = float(settings.get("chars_per_token") or 4.0)
+    row["modeled_context_est_tokens"] = (
+        round(int(modeled_context_chars) / cpt, 2) if modeled_context_chars and cpt else 0)
+    for key in (
+        "pan_india_context_scale", "optimization_candidate",
+        "configured_num_ctx", "effective_num_ctx",
+        "configured_num_predict", "effective_num_predict",
+        "configured_timeout_seconds", "effective_timeout_seconds",
+    ):
+        if key in settings:
+            row[key] = settings[key]
     return row
 
 
@@ -351,36 +425,95 @@ def _resolve_generation_config(config: EnterpriseRunnerConfig, log_path: Path) -
     from ecs_platform.llm_engine.provider import get_provider, set_benchmark_generation_config
 
     set_benchmark_generation_config(
-        num_predict=config.ollama_num_predict, num_ctx=config.ollama_num_ctx)
+        num_predict=config.ollama_num_predict, num_ctx=config.ollama_num_ctx,
+        timeout_seconds=config.timeout_seconds)
     try:
         provider = get_provider()
         if hasattr(provider, "effective_generation_limits"):
             limits = provider.effective_generation_limits()
         else:  # non-Ollama provider: nothing to resolve, report identity only.
+            timeout_val, timeout_src = (
+                provider._resolve_timeout() if hasattr(provider, "_resolve_timeout")
+                else (None, "n/a"))
             limits = {"provider": type(provider).__name__.replace("Provider", "").lower(),
                       "model": getattr(provider, "model", ""),
                       "num_predict": None, "num_predict_source": "n/a",
-                      "num_ctx": None, "num_ctx_source": "n/a"}
+                      "num_ctx": None, "num_ctx_source": "n/a",
+                      "timeout_seconds": timeout_val, "timeout_source": timeout_src}
     except Exception as exc:  # noqa: BLE001 - invalid config must fail clearly at startup
-        _log(log_path, f"FATAL: invalid generation/context configuration: {exc}")
+        _log(log_path, f"FATAL: invalid generation/context/timeout configuration: {exc}")
         raise
     gen = {
+        "optimization_candidate": config.optimization_candidate or None,
         "configured_num_predict": config.ollama_num_predict,
         "configured_num_ctx": config.ollama_num_ctx,
+        "configured_timeout_seconds": config.timeout_seconds,
         "effective_num_predict": limits.get("num_predict"),
         "effective_num_ctx": limits.get("num_ctx"),
+        "effective_timeout_seconds": limits.get("timeout_seconds"),
         "num_predict_source": limits.get("num_predict_source"),
         "num_ctx_source": limits.get("num_ctx_source"),
+        "timeout_source": limits.get("timeout_source"),
+        "pan_india_context_scale": config.pan_india_context_scale,
         "model": limits.get("model"),
         "provider": limits.get("provider"),
     }
+    if config.optimization_candidate:
+        _log(log_path, f"Optimization candidate: {config.optimization_candidate}")
     _log(log_path, f"Configured num_ctx: {gen['configured_num_ctx']}")
     _log(log_path, f"Configured num_predict: {gen['configured_num_predict']}")
+    _log(log_path, f"Configured timeout_seconds: {gen['configured_timeout_seconds']}")
     _log(log_path, f"Effective num_ctx: {gen['effective_num_ctx']} (source: {gen['num_ctx_source']})")
     _log(log_path, f"Effective num_predict: {gen['effective_num_predict']} (source: {gen['num_predict_source']})")
+    _log(log_path, f"Effective timeout_seconds: {gen['effective_timeout_seconds']} (source: {gen['timeout_source']})")
+    _log(log_path, f"Pan-India context scale: {gen['pan_india_context_scale']}")
     _log(log_path, f"Model name: {gen['model']}")
     _log(log_path, f"Provider: {gen['provider']}")
     return gen
+
+
+def _is_timeout_row(row: dict[str, Any]) -> bool:
+    """True when a request failed due to an HTTP/model timeout (string match on the
+    captured error). Conservative: only flags genuine timeout text, never coerces
+    other failures into timeouts."""
+    if row.get("ok"):
+        return False
+    blob = " ".join(str(row.get(k, "")) for k in ("error", "error_message", "error_type")).lower()
+    return "timed out" in blob or "timeout" in blob
+
+
+def _summarize_candidate_outcome(config: EnterpriseRunnerConfig,
+                                 generation_config: dict[str, Any],
+                                 rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize how the (optionally selected) candidate fared. Measured-only:
+    success/failure/timeout counts come from real row outcomes; no fabrication."""
+    total = len(rows)
+    succeeded = sum(1 for r in rows if r.get("ok"))
+    timed_out = sum(1 for r in rows if _is_timeout_row(r))
+    failed = total - succeeded
+    eff_timeout = generation_config.get("effective_timeout_seconds")
+    if timed_out:
+        status_note = (f"Candidate failed: timed out after {eff_timeout} seconds "
+                       f"({timed_out}/{total} request(s) timed out)")
+    elif total == 0:
+        status_note = "no requests executed"
+    elif failed:
+        status_note = f"completed with failures ({failed}/{total} failed, non-timeout)"
+    else:
+        status_note = f"ok ({succeeded}/{total} succeeded)"
+    return {
+        "candidate": config.optimization_candidate or None,
+        "requested_settings": config.selected_candidate or None,
+        "effective_num_ctx": generation_config.get("effective_num_ctx"),
+        "effective_num_predict": generation_config.get("effective_num_predict"),
+        "effective_timeout_seconds": eff_timeout,
+        "pan_india_context_scale": generation_config.get("pan_india_context_scale"),
+        "total_requests": total,
+        "succeeded": succeeded,
+        "failed": failed,
+        "timed_out": timed_out,
+        "status_note": status_note,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -416,6 +549,22 @@ def run(config: EnterpriseRunnerConfig,
     # + validated here (clear startup error on invalid config); recorded into the
     # report/summary/run-meta below. Does not alter workload or reporting logic.
     generation_config = _resolve_generation_config(config, log_path)
+    # Run-constant settings stamped onto every row (self-describing measurements).
+    try:
+        _cpt = float(config.pan_india_assumptions.get("chars_per_token", 4.0))
+    except (TypeError, ValueError):
+        _cpt = 4.0
+    runtime_settings: dict[str, Any] = {
+        "chars_per_token": _cpt,
+        "pan_india_context_scale": generation_config.get("pan_india_context_scale"),
+        "optimization_candidate": config.optimization_candidate or "",
+        "configured_num_ctx": generation_config.get("configured_num_ctx"),
+        "effective_num_ctx": generation_config.get("effective_num_ctx"),
+        "configured_num_predict": generation_config.get("configured_num_predict"),
+        "effective_num_predict": generation_config.get("effective_num_predict"),
+        "configured_timeout_seconds": generation_config.get("configured_timeout_seconds"),
+        "effective_timeout_seconds": generation_config.get("effective_timeout_seconds"),
+    }
 
     # Configuration-driven mode: worst_case injects the worst-case workload tier so
     # the SAME single execution path measures the heaviest realistic scenarios.
@@ -546,6 +695,7 @@ def run(config: EnterpriseRunnerConfig,
             effective_question=effective_question,
             modeled_context_chars=(len(pan_india_context)
                                    if getattr(profile, "modeled_context", False) else 0),
+            settings=runtime_settings,
         )
         _flush_jsonl(requests_path, row)
         completed += 1
@@ -581,6 +731,12 @@ def run(config: EnterpriseRunnerConfig,
     # Record resolved generation/context limits into report meta -> lands in both
     # enterprise_report.json and enterprise_summary.json (summary embeds meta).
     report["meta"]["generation_config"] = generation_config
+    # Optimization-candidate outcome (success/failure/timeout). Derived ONLY from
+    # measured row outcomes — timed-out runs are reported as failures, NEVER coerced
+    # into measured token values. Additive meta; reporting calculations are untouched.
+    optimization_outcome = _summarize_candidate_outcome(config, generation_config, rows)
+    report["meta"]["benchmark_optimization"] = optimization_outcome
+    _log(log_path, f"optimization outcome: {optimization_outcome['status_note']}")
     paths = reporting.write_report(report, rows, out_dir)
 
     run_meta = {
@@ -599,7 +755,11 @@ def run(config: EnterpriseRunnerConfig,
             "memory_guard_min_mb": config.memory_guard_min_mb,
             "worst_case_assumptions": config.worst_case_assumptions if config.is_worst_case else {},
             "pan_india_assumptions": config.pan_india_assumptions,
+            "optimization_candidate": config.optimization_candidate or "",
+            "selected_candidate": config.selected_candidate or {},
+            "timeout_seconds": config.timeout_seconds,
         },
+        "benchmark_optimization": report["meta"].get("benchmark_optimization", {}),
         "artifacts": {**paths, "requests_jsonl": str(requests_path),
                       "rag_metrics_jsonl": str(out_dir / "rag_metrics.jsonl")},
     }
@@ -650,6 +810,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="Override max_requests_per_minute (>0).")
     parser.add_argument("--mode", type=str, default="", choices=["", *BENCHMARK_MODES],
                         help="Benchmark mode (overrides config): standard | worst_case.")
+    parser.add_argument("--optimization-candidate", type=str, default="",
+                        help="Apply ONE named candidate from config's benchmark_optimization."
+                             "candidate_settings (num_ctx/num_predict/timeout/context_scale). "
+                             "e.g. --optimization-candidate balanced_24k_1024.")
     parser.add_argument("--list", action="store_true",
                         help="List the full workload catalog (default + worst-case) and exit.")
     args = parser.parse_args(argv)
@@ -676,6 +840,10 @@ def main(argv: list[str] | None = None) -> int:
         config.max_requests_per_minute = args.max_rpm
     if args.mode:
         config.benchmark_mode = args.mode
+    # Apply a single optimization candidate (overrides ctx/predict/timeout/scale).
+    # Explicit-only: nothing is auto-applied. Unknown labels fail fast with the list.
+    if args.optimization_candidate:
+        apply_optimization_candidate(config, args.optimization_candidate)
 
     run(config)
     return 0

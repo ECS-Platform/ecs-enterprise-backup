@@ -75,6 +75,16 @@ _CSV_COLUMNS = [
     # MODELED (Pan-India future-state context provenance; not measured evidence)
     "modeled_context",
     "modeled_context_chars",
+    "modeled_context_est_tokens",
+    # SETTINGS (run-constant resolved limits/timeout/scale; self-describing rows)
+    "optimization_candidate",
+    "pan_india_context_scale",
+    "configured_num_ctx",
+    "effective_num_ctx",
+    "configured_num_predict",
+    "effective_num_predict",
+    "configured_timeout_seconds",
+    "effective_timeout_seconds",
     # DIAGNOSTIC (failures are never silently swallowed)
     "error",
     "error_type",
