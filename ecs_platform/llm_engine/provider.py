@@ -28,6 +28,43 @@ class LLMError(RuntimeError):
     pass
 
 
+# --------------------------------------------------------------------------- #
+# Generation/context limits: benchmark SUPPLIES configuration; provider DECIDES.
+#
+# A benchmark harness may supply generation/context limits via
+# ``set_benchmark_generation_config``. The provider still owns the final value and
+# resolves it with strict precedence (see OllamaProvider._resolve_limit):
+#     environment variable  >  benchmark config  >  config/llm.yaml  >  fallback
+# Production never calls the setter, so default behavior is unchanged.
+# --------------------------------------------------------------------------- #
+_BENCHMARK_GENERATION_CONFIG: dict[str, Any] = {}
+
+
+def set_benchmark_generation_config(*, num_predict: Any = None, num_ctx: Any = None) -> None:
+    """Benchmark-only hook to SUPPLY generation/context limits to the provider.
+
+    Passing ``None`` for a setting leaves it untouched. The provider resolves the
+    effective value (env > benchmark config > config/llm.yaml > fallback), so this
+    never overrides an explicit environment variable. No-op for production code,
+    which does not call it.
+    """
+    if num_predict is not None:
+        _BENCHMARK_GENERATION_CONFIG["num_predict"] = num_predict
+    if num_ctx is not None:
+        _BENCHMARK_GENERATION_CONFIG["num_ctx"] = num_ctx
+
+
+def _coerce_positive_int(value: Any, *, label: str) -> int:
+    """Validate a generation/context limit: a clear error for non-positive-int input."""
+    try:
+        ivalue = int(str(value).strip())
+    except (TypeError, ValueError):
+        raise LLMError(f"Invalid {label} value {value!r}: expected a positive integer.")
+    if ivalue <= 0:
+        raise LLMError(f"Invalid {label} value {value!r}: must be a positive integer (> 0).")
+    return ivalue
+
+
 class LLMProvider(ABC):
     def __init__(self, cfg: dict[str, Any], provider_cfg: dict[str, Any]):
         self.cfg = cfg
@@ -267,12 +304,67 @@ class OllamaProvider(LLMProvider):
         # ECS_OLLAMA_KEEP_ALIVE (e.g. "30m", "-1" for forever, "0" to unload).
         return str(self.provider_cfg.get("keep_alive", self.cfg.get("keep_alive", "30m")))
 
+    # ----------------------------------------------------------------- #
+    # Generation/context limit resolution (provider owns the decision).
+    # Precedence: env var > benchmark config > config/llm.yaml > fallback.
+    # ----------------------------------------------------------------- #
+    def _resolve_limit(self, env_name: str, key: str, fallback: Any) -> tuple[Any, str]:
+        """Resolve a raw limit value + its source by strict precedence.
+
+        Returns ``(raw_value, source)``; ``raw_value`` may be ``fallback`` (which may
+        be ``None`` to mean "unset"). Empty/blank candidates are skipped so an empty
+        env var or blank YAML key falls through to the next tier.
+        """
+        env_raw = os.environ.get(env_name, "").strip()
+        if env_raw:
+            return env_raw, f"env:{env_name}"
+        bench = _BENCHMARK_GENERATION_CONFIG.get(key)
+        if bench is not None and str(bench).strip() != "":
+            return bench, "benchmark_config"
+        cfg_val = self.provider_cfg.get(key, self.cfg.get(key))
+        if cfg_val is not None and str(cfg_val).strip() != "":
+            return cfg_val, "config/llm.yaml"
+        return fallback, "provider_fallback"
+
     def _num_predict(self) -> int:
-        # For benchmark stability, default Ollama generation length to 512.
-        # Preserve explicit environment override when provided.
-        if os.environ.get("ECS_LLM_MAX_TOKENS", "").strip():
-            return self.max_tokens
-        return int(self.provider_cfg.get("num_predict", 512))
+        # Output-token cap. Env knob is ECS_LLM_MAX_TOKENS (shared with
+        # max_output_tokens). Fallback 512 preserves prior default behavior.
+        raw, _ = self._resolve_limit("ECS_LLM_MAX_TOKENS", "num_predict", 512)
+        return _coerce_positive_int(raw, label="num_predict")
+
+    def _num_ctx(self) -> int | None:
+        # Context window. Env knob is ECS_LLM_CONTEXT_WINDOW. Fallback is None
+        # (omit num_ctx) so default behavior matches today's payload exactly.
+        raw, _ = self._resolve_limit("ECS_LLM_CONTEXT_WINDOW", "num_ctx", None)
+        if raw is None or str(raw).strip() == "":
+            return None
+        return _coerce_positive_int(raw, label="num_ctx")
+
+    def _gen_options(self) -> dict[str, Any]:
+        """Ollama ``options`` for generation. ``num_ctx`` is only included when
+        resolved to a value, so the production payload is unchanged by default."""
+        options: dict[str, Any] = {
+            "temperature": self.temperature, "num_predict": self._num_predict()}
+        num_ctx = self._num_ctx()
+        if num_ctx is not None:
+            options["num_ctx"] = num_ctx
+        return options
+
+    def effective_generation_limits(self) -> dict[str, Any]:
+        """Resolve + validate the effective limits (raises a clear error on invalid
+        config). Used by the benchmark to print/record configured vs effective values."""
+        np_raw, np_src = self._resolve_limit("ECS_LLM_MAX_TOKENS", "num_predict", 512)
+        num_predict = _coerce_positive_int(np_raw, label="num_predict")
+        nc_raw, nc_src = self._resolve_limit("ECS_LLM_CONTEXT_WINDOW", "num_ctx", None)
+        if nc_raw is None or str(nc_raw).strip() == "":
+            num_ctx, nc_src = None, "provider_fallback(omit)"
+        else:
+            num_ctx = _coerce_positive_int(nc_raw, label="num_ctx")
+        return {
+            "provider": "ollama", "model": self.model,
+            "num_predict": num_predict, "num_predict_source": np_src,
+            "num_ctx": num_ctx, "num_ctx_source": nc_src,
+        }
 
     @staticmethod
     def _response_text(data: dict[str, Any]) -> str:
@@ -303,7 +395,7 @@ class OllamaProvider(LLMProvider):
             "stream": False,
             "think": False,
             "keep_alive": self._keep_alive(),
-            "options": {"temperature": self.temperature, "num_predict": self._num_predict()},
+            "options": self._gen_options(),
         }
         data = self._post_json(f"{self._base()}/api/chat", payload, {})
         content = self._response_text(data)
@@ -320,7 +412,7 @@ class OllamaProvider(LLMProvider):
             "stream": False,
             "think": False,
             "keep_alive": self._keep_alive(),
-            "options": {"temperature": self.temperature, "num_predict": self._num_predict()},
+            "options": self._gen_options(),
         }
         data = self._post_json(f"{self._base()}/api/chat", payload, {})
         content = self._response_text(data)

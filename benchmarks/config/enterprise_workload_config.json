@@ -10,6 +10,10 @@
   "categories": [],
   "memory_guard_min_mb": 512,
   "benchmark_mode": "standard",
+  "ollama": {
+    "num_predict": 2048,
+    "num_ctx": 32768
+  },
   "worst_case_assumptions": {},
   "pan_india_assumptions": {
     "applications": 500,

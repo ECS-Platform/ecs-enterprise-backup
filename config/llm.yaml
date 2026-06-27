@@ -19,6 +19,12 @@ llm:
       # host.docker.internal; override with OLLAMA_URL for a remote/in-cluster daemon.
       base_url: ${OLLAMA_URL:-http://host.docker.internal:11434}
       model: ${OLLAMA_MODEL:-qwen3:8b}
+      # Optional generation/context limits (provider resolution tier 3). Blank ->
+      # provider fallback (num_predict=512, num_ctx omitted), preserving current
+      # behavior. Precedence: env (ECS_LLM_MAX_TOKENS / ECS_LLM_CONTEXT_WINDOW) >
+      # benchmark config > these values > provider fallback.
+      num_predict:
+      num_ctx:
     gemini:
       api_key_env: GEMINI_API_KEY
       base_url: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}

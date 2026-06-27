@@ -86,6 +86,13 @@ class EnterpriseRunnerConfig:
     # PanIndiaAssumptions + Neev formula inputs). Empty -> documented defaults. Drives
     # the MODELED reference context volume and the Neev weighted-TPM validation.
     pan_india_assumptions: dict[str, Any] = field(default_factory=dict)
+    # Benchmark-supplied Ollama generation/context limits (configuration plumbing
+    # only — values come from JSON config, never hardcoded). None leaves the
+    # setting unset so the provider keeps its own resolution (config/llm.yaml or
+    # built-in fallback). The PROVIDER owns the final decision; the benchmark only
+    # supplies configuration (precedence: env > benchmark config > llm.yaml > fallback).
+    ollama_num_predict: int | None = None
+    ollama_num_ctx: int | None = None
     # Additive, backward-compatible hook: extra WorkloadProfile objects to run in
     # addition to the base catalog. Empty -> behaviour unchanged. (worst_case mode
     # injects workload_profiles.worst_case_profiles() automatically.)
@@ -97,6 +104,10 @@ class EnterpriseRunnerConfig:
         mode = str(data.get("benchmark_mode", "standard")).strip().lower() or "standard"
         if mode not in BENCHMARK_MODES:
             raise ValueError(f"benchmark_mode must be one of {BENCHMARK_MODES}, got {mode!r}.")
+        # Optional benchmark-supplied generation/context limits (JSON-sourced).
+        ollama_cfg = dict(data.get("ollama", {}) or {})
+        ollama_num_predict = ollama_cfg.get("num_predict")
+        ollama_num_ctx = ollama_cfg.get("num_ctx")
         return cls(
             role=str(data.get("role", "cio")),
             user=str(data.get("user", "benchmark-runner")),
@@ -112,6 +123,8 @@ class EnterpriseRunnerConfig:
             benchmark_mode=mode,
             worst_case_assumptions=dict(data.get("worst_case_assumptions", {}) or {}),
             pan_india_assumptions=dict(data.get("pan_india_assumptions", {}) or {}),
+            ollama_num_predict=ollama_num_predict,
+            ollama_num_ctx=ollama_num_ctx,
         )
 
     @property
@@ -325,6 +338,52 @@ def _build_row(profile: WorkloadProfile, res: dict[str, Any],
 
 
 # --------------------------------------------------------------------------- #
+# Generation/context limits (configuration plumbing only).
+# --------------------------------------------------------------------------- #
+def _resolve_generation_config(config: EnterpriseRunnerConfig, log_path: Path) -> dict[str, Any]:
+    """Benchmark SUPPLIES generation/context limits; the PROVIDER resolves the final
+    value (env > benchmark config > config/llm.yaml > provider fallback).
+
+    Prints configured vs effective values at startup and validates them: invalid
+    configuration raises a clear error before any request runs. No limits are
+    hardcoded here — they originate from JSON config.
+    """
+    from ecs_platform.llm_engine.provider import get_provider, set_benchmark_generation_config
+
+    set_benchmark_generation_config(
+        num_predict=config.ollama_num_predict, num_ctx=config.ollama_num_ctx)
+    try:
+        provider = get_provider()
+        if hasattr(provider, "effective_generation_limits"):
+            limits = provider.effective_generation_limits()
+        else:  # non-Ollama provider: nothing to resolve, report identity only.
+            limits = {"provider": type(provider).__name__.replace("Provider", "").lower(),
+                      "model": getattr(provider, "model", ""),
+                      "num_predict": None, "num_predict_source": "n/a",
+                      "num_ctx": None, "num_ctx_source": "n/a"}
+    except Exception as exc:  # noqa: BLE001 - invalid config must fail clearly at startup
+        _log(log_path, f"FATAL: invalid generation/context configuration: {exc}")
+        raise
+    gen = {
+        "configured_num_predict": config.ollama_num_predict,
+        "configured_num_ctx": config.ollama_num_ctx,
+        "effective_num_predict": limits.get("num_predict"),
+        "effective_num_ctx": limits.get("num_ctx"),
+        "num_predict_source": limits.get("num_predict_source"),
+        "num_ctx_source": limits.get("num_ctx_source"),
+        "model": limits.get("model"),
+        "provider": limits.get("provider"),
+    }
+    _log(log_path, f"Configured num_ctx: {gen['configured_num_ctx']}")
+    _log(log_path, f"Configured num_predict: {gen['configured_num_predict']}")
+    _log(log_path, f"Effective num_ctx: {gen['effective_num_ctx']} (source: {gen['num_ctx_source']})")
+    _log(log_path, f"Effective num_predict: {gen['effective_num_predict']} (source: {gen['num_predict_source']})")
+    _log(log_path, f"Model name: {gen['model']}")
+    _log(log_path, f"Provider: {gen['provider']}")
+    return gen
+
+
+# --------------------------------------------------------------------------- #
 # Runner.
 # --------------------------------------------------------------------------- #
 def run(config: EnterpriseRunnerConfig,
@@ -352,6 +411,11 @@ def run(config: EnterpriseRunnerConfig,
     # Fresh run: start a clean requests file (report is rebuilt from it).
     requests_path.write_text("", encoding="utf-8")
     log_path.write_text("", encoding="utf-8")
+
+    # Generation/context limits: benchmark supplies config, provider decides. Printed
+    # + validated here (clear startup error on invalid config); recorded into the
+    # report/summary/run-meta below. Does not alter workload or reporting logic.
+    generation_config = _resolve_generation_config(config, log_path)
 
     # Configuration-driven mode: worst_case injects the worst-case workload tier so
     # the SAME single execution path measures the heaviest realistic scenarios.
@@ -514,6 +578,9 @@ def run(config: EnterpriseRunnerConfig,
     report["meta"]["run_status"] = stopped_reason
     report["meta"]["profiles_planned"] = len(profiles)
     report["meta"]["profiles_completed"] = completed
+    # Record resolved generation/context limits into report meta -> lands in both
+    # enterprise_report.json and enterprise_summary.json (summary embeds meta).
+    report["meta"]["generation_config"] = generation_config
     paths = reporting.write_report(report, rows, out_dir)
 
     run_meta = {
@@ -522,6 +589,7 @@ def run(config: EnterpriseRunnerConfig,
         "profiles_planned": len(profiles),
         "profiles_completed": completed,
         "benchmark_mode": config.benchmark_mode,
+        "generation_config": generation_config,
         "config": {
             "role": config.role, "user": config.user,
             "benchmark_mode": config.benchmark_mode,
