@@ -70,6 +70,25 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _final_prompt_text(system_prompt: str, user_prompt: str) -> str:
+    """Exact final prompt text payload: system + user content."""
+    return f"{system_prompt}\n\n{user_prompt}"
+
+
+def _write_prompt_capture(prompts_dir: Path, scenario_key: str,
+                          system_prompt: str, user_prompt: str) -> str:
+    """Persist the exact final prompt text for one scenario.
+
+    Returns the prompt file path relative to the benchmark output root
+    (e.g. ``prompts/small.txt``) for reporting.
+    """
+    prompts_dir.mkdir(parents=True, exist_ok=True)
+    prompt_rel = f"prompts/{scenario_key}.txt"
+    prompt_path = prompts_dir / f"{scenario_key}.txt"
+    prompt_path.write_text(_final_prompt_text(system_prompt, user_prompt), encoding="utf-8")
+    return prompt_rel
+
+
 # Truncation-detection thresholds. ``measured_input_tokens`` saturates at the context
 # window when the constructed prompt exceeds it (Ollama truncates and reports only the
 # evaluated tokens). We flag truncation when measured sits within NEAR_FRACTION of the
@@ -120,7 +139,8 @@ def _run_scenario(scenario: NeevScenario, *, dry_run: bool, seed: int,
                   chars_per_token: float, provider: Any | None,
                   engine_runtime: str, model_name: str,
                   num_ctx_requested: int | None = None,
-                  effective_num_ctx: int | None = None) -> dict[str, Any]:
+                  effective_num_ctx: int | None = None,
+                  prompts_dir: Path | None = None) -> dict[str, Any]:
     """Build the realistic prompt and (unless dry-run) measure tokens via the provider.
 
     Returns a flat record carrying MEASURED prompt-size metrics, ESTIMATED input tokens,
@@ -180,6 +200,14 @@ def _run_scenario(scenario: NeevScenario, *, dry_run: bool, seed: int,
         "_source_pages_per_file": built["source_pages_per_file"],
         "_source_words_per_page": built["source_words_per_page"],
     }
+
+    # Capture the exact final prompt text after construction and immediately before
+    # provider invocation (for dry-run/full-run traceability).
+    if prompts_dir is not None:
+        record["prompt_file"] = _write_prompt_capture(
+            prompts_dir, scenario.key, built["system_prompt"], built["user_prompt"])
+    else:
+        record["prompt_file"] = f"prompts/{scenario.key}.txt"
 
     if dry_run or provider is None:
         record["status"] = STATUS_NOT_MEASURED
@@ -311,7 +339,7 @@ _RESULT_COLUMNS = [
     "estimated_input_tokens", "input_token_label",
     "measured_input_tokens", "measured_output_tokens", "measured_total_tokens",
     "output_token_label", "truncation_suspected", "input_measurement_note",
-    "llm_latency_ms", "error_message",
+    "llm_latency_ms", "error_message", "prompt_file",
 ]
 
 
@@ -347,6 +375,31 @@ def _write_composition_csv(path: Path, records: list[dict[str, Any]]) -> None:
                     "source_words_per_page": r.get("_source_words_per_page", ""),
                     "label": "MEASURED chars / ESTIMATED tokens",
                 })
+
+
+def _write_prompt_summary_csv(path: Path, records: list[dict[str, Any]]) -> None:
+    cols = [
+        "scenario",
+        "prompt_characters",
+        "estimated_input_tokens",
+        "measured_input_tokens",
+        "output_tokens",
+        "prompt_file",
+    ]
+    with path.open("w", encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
+        w.writeheader()
+        for r in records:
+            w.writerow({
+                "scenario": r.get("scenario_key", ""),
+                "prompt_characters": r.get("prompt_chars", ""),
+                "estimated_input_tokens": r.get("estimated_input_tokens", ""),
+                "measured_input_tokens": (
+                    "" if r.get("measured_input_tokens") is None else r.get("measured_input_tokens")),
+                "output_tokens": (
+                    "" if r.get("measured_output_tokens") is None else r.get("measured_output_tokens")),
+                "prompt_file": r.get("prompt_file", ""),
+            })
 
 
 def _write_projection_csv(path: Path, records: list[dict[str, Any]],
@@ -651,6 +704,8 @@ def run(args: argparse.Namespace) -> int:
     )
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    prompts_dir = out_dir / "prompts"
+    prompts_dir.mkdir(parents=True, exist_ok=True)
 
     provider: Any | None = None
     engine_runtime, model_name = "dry-run", ""
@@ -682,7 +737,8 @@ def run(args: argparse.Namespace) -> int:
                             chars_per_token=args.chars_per_token, provider=provider,
                             engine_runtime=engine_runtime, model_name=model_name,
                             num_ctx_requested=args.num_ctx,
-                            effective_num_ctx=effective_num_ctx)
+                            effective_num_ctx=effective_num_ctx,
+                            prompts_dir=prompts_dir)
         records.append(rec)
         trunc = " TRUNCATED?" if rec.get("truncation_suspected") else ""
         print(f"  - {sc.key:24s} status={rec['status']:<12s} prompt_chars={rec['prompt_chars']:>8,} "
@@ -692,9 +748,10 @@ def run(args: argparse.Namespace) -> int:
 
     agg = _aggregate(records, assumptions, allow_timeout_evidence=args.allow_timeout_evidence)
 
-    # Write all six artifacts.
+    # Write all benchmark artifacts.
     _write_results_csv(out_dir / "neev_validation_results.csv", records)
     _write_composition_csv(out_dir / "prompt_composition_report.csv", records)
+    _write_prompt_summary_csv(prompts_dir / "prompt_summary.csv", records)
     _write_projection_csv(out_dir / "neev_capacity_projection.csv", records, assumptions)
     _write_projection_md(out_dir / "neev_capacity_projection.md", agg, assumptions,
                          args.dry_run, records)
