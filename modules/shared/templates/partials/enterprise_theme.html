@@ -515,7 +515,22 @@ tr.row-approved { background-color: #d1e7dd !important; }
 .ecs-exec-kpi[data-ecs-framework-kpi]::after { content: '↗'; position: absolute; top: 3px; right: 6px; font-size: 0.58rem; opacity: 0.45; }
 .ecs-exec-kpi[data-ecs-framework-kpi] { position: relative; }
 .ecs-kpi-drill-search { max-width: 320px; }
+
+/* Embedded mode (?embed=1): used when a page is rendered inside an aggregator
+   tab iframe (navigation regrouping). Hides the left sidebar and expands the
+   main content so the sub-page fills the tab panel. Purely presentational and
+   additive — the page and its routes are unchanged when not embedded. */
+body.ecs-embed .ecs-sidebar,
+body.ecs-embed .sidebar { display: none !important; }
+body.ecs-embed .ecs-workspace-main,
+body.ecs-embed .col-md-10.ecs-workspace-main { flex: 0 0 100% !important; max-width: 100% !important; }
+body.ecs-embed { background: #fff !important; }
 </style>
+<script>
+/* Toggle embedded mode as early as possible so the sidebar never flashes in a
+   tab iframe. Additive: no effect unless the URL carries ?embed=1. */
+(function(){try{var p=new URLSearchParams(window.location.search);if(p.get('embed')==='1'){var apply=function(){document.body&&document.body.classList.add('ecs-embed');};if(document.body){apply();}else{document.addEventListener('DOMContentLoaded',apply);}}}catch(e){}})();
+</script>
 {% include "partials/ecs_executive_table_system.html" %}
 {% include "partials/evidence_workflow_system.html" %}
 {% include "partials/raise_exception_modal.html" %}

@@ -1,0 +1,72 @@
+<!DOCTYPE html><html><head><title>{{ agg.title }} — ECS</title>
+{% include "partials/mvp_styles.html" %}
+<style>
+/* ECS tab aggregator — horizontal tabs over existing sub-pages (embedded via iframe).
+   Reuses the standard ECS light main panel; tabs match Bootstrap nav-tabs styling. */
+.ecs-agg-tabs{border-bottom:2px solid #e5e7eb;margin-bottom:0;flex:0 0 auto;}
+.ecs-agg-tabs .nav-link{font-size:.85rem;font-weight:600;color:#475569;border:none;border-bottom:3px solid transparent;border-radius:0;padding:.5rem .9rem;}
+.ecs-agg-tabs .nav-link:hover{color:#1e3a8a;background:#f8fafc;}
+.ecs-agg-tabs .nav-link.active{color:#1e3a8a;background:transparent;border-bottom-color:#2563eb;}
+.ecs-agg-frame-wrap{flex:1 1 auto;min-height:70vh;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 .4rem .4rem;overflow:hidden;background:#fff;}
+.ecs-agg-frame{width:100%;height:100%;min-height:70vh;border:0;display:block;}
+.ecs-agg-desc{font-size:.82rem;color:#64748b;margin:.15rem 0 .6rem;}
+</style>
+</head>
+<body class="bg-light ecs-cap-tab-aggregator" data-nav-module="{{ nav_module }}">
+<div class="container-fluid h-100"><div class="row h-100">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main d-flex flex-column">
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
+
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-1 flex-shrink-0">
+<h1 class="ecs-workspace-title h5 mb-0">{{ agg.title }}</h1>
+{% if agg.badge %}<span class="badge bg-secondary">{{ agg.badge }}</span>{% endif %}
+</div>
+{% if agg.subtitle %}<p class="ecs-agg-desc flex-shrink-0">{{ agg.subtitle }}</p>{% endif %}
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+
+<ul class="nav nav-tabs ecs-agg-tabs" id="ecsAggTabs" role="tablist">
+{% for tab in agg.tabs %}
+<li class="nav-item" role="presentation">
+<button class="nav-link{% if loop.first %} active{% endif %}" id="ecsagg-tab-{{ tab.id }}"
+  data-bs-toggle="tab" data-bs-target="#ecsagg-pane-{{ tab.id }}" type="button" role="tab"
+  data-agg-src="{{ tab.url }}{% if '?' in tab.url %}&{% else %}?{% endif %}role={{ role }}&user={{ user }}&embed=1"
+  aria-selected="{{ 'true' if loop.first else 'false' }}">{{ tab.label }}</button>
+</li>
+{% endfor %}
+</ul>
+
+<div class="tab-content ecs-agg-frame-wrap">
+{% for tab in agg.tabs %}
+<div class="tab-pane fade{% if loop.first %} show active{% endif %} h-100" id="ecsagg-pane-{{ tab.id }}" role="tabpanel" aria-labelledby="ecsagg-tab-{{ tab.id }}">
+<iframe class="ecs-agg-frame" data-agg-frame="{{ tab.id }}" title="{{ tab.label }}"
+  {% if loop.first %}src="{{ tab.url }}{% if '?' in tab.url %}&{% else %}?{% endif %}role={{ role }}&user={{ user }}&embed=1"{% endif %}
+  loading="lazy"></iframe>
+</div>
+{% endfor %}
+</div>
+
+<p class="small text-muted mt-1 mb-0 flex-shrink-0">Each tab opens an existing ECS page. Direct links remain available:
+{% for tab in agg.tabs %}<a href="{{ tab.url }}{{ q }}">{{ tab.label }}</a>{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+
+</div></div></div>
+
+<script>
+(function () {
+  // Lazy-load each tab's iframe the first time its tab is shown (keeps the
+  // aggregator light and avoids loading all sub-pages up front). Pure UX glue;
+  // no backend calls of its own.
+  var tabButtons = document.querySelectorAll('#ecsAggTabs [data-bs-toggle="tab"]');
+  Array.prototype.forEach.call(tabButtons, function (btn) {
+    btn.addEventListener('shown.bs.tab', function () {
+      var targetSel = btn.getAttribute('data-bs-target');
+      var pane = targetSel ? document.querySelector(targetSel) : null;
+      var frame = pane ? pane.querySelector('iframe[data-agg-frame]') : null;
+      if (frame && !frame.getAttribute('src')) {
+        frame.setAttribute('src', btn.getAttribute('data-agg-src'));
+      }
+    });
+  });
+})();
+</script>
+</body></html>

@@ -1532,6 +1532,10 @@ from app.routes_ecs_benchmark import register_ecs_benchmark_routes
 
 register_ecs_benchmark_routes(app, templates)
 
+from app.routes_nav_aggregators import register_nav_aggregator_routes
+
+register_nav_aggregator_routes(app, templates)
+
 
 @app.get("/api/evidence-workflow/summary")
 def api_evidence_workflow_summary(role: str = "owner", user: str = "User"):

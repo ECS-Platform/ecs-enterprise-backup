@@ -16,7 +16,8 @@
 {% set dash_open = nav_active in ['main_dashboard','role_dashboard'] %}
 {% set ops_open = nav_module in ['predefined_queries','evidence_explorer','integrations','evidence_story'] %}
 {% set gov_open = nav_module in ['gov_audit_readiness','audit_prep','evidence_health','evidence_approval'] %}
-{% set admin_open = nav_module in ['scheduler','upload','integration_health','onboarding','reuse','lifecycle',
+{% set admin_open = nav_module in ['admin_evidence','admin_application_management','scheduler','upload',
+  'integration_health','onboarding','reuse','lifecycle',
   'completeness','comparison','search','gov_inventory','gov_control_coverage','gov_framework_coverage',
   'ai_assistant','gov_assistant','ai_ops_assistant','framework_loader','framework_admin','gov_scorecard',
   'gov_exec_summary','gov_reuse','gov_lifecycle','gov_scheduler'] %}
@@ -91,28 +92,16 @@
 </button>
 <div id="nav-admin" class="collapse{% if admin_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
-<a href="/mvp/scheduler{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'scheduler' %} is-active{% endif %}">Scheduler {{ nav_badge(nav_counters.modules.scheduler if nav_counters is defined else 0, nav_counters.module_tooltips.scheduler if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/integration-health{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'integration_health' %} is-active{% endif %}">Integration Health</a>
-{% if perm_can_upload|default(role == 'owner') %}
-<a href="/mvp/upload{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'upload' %} is-active{% endif %}">Bulk Upload {{ nav_badge(nav_counters.modules.upload if nav_counters is defined else 0, nav_counters.module_tooltips.upload if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-{% endif %}
-<a href="/mvp/onboarding{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'onboarding' %} is-active{% endif %}">Application Onboarding {{ nav_badge(nav_counters.modules.onboarding if nav_counters is defined else 0, nav_counters.module_tooltips.onboarding if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/platform/inventory{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'gov_inventory' %} is-active{% endif %}">Application Inventory</a>
-<a href="/mvp/reuse{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'reuse' %} is-active{% endif %}">Evidence Reuse {{ nav_badge(nav_counters.modules.reuse if nav_counters is defined else 0, nav_counters.module_tooltips.reuse if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/lifecycle{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'lifecycle' %} is-active{% endif %}">Lifecycle {{ nav_badge(nav_counters.modules.lifecycle if nav_counters is defined else 0, nav_counters.module_tooltips.lifecycle if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/completeness{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'completeness' %} is-active{% endif %}">Completeness {{ nav_badge(nav_counters.modules.completeness if nav_counters is defined else 0, nav_counters.module_tooltips.completeness if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/comparison{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'comparison' %} is-active{% endif %}">App Comparison {{ nav_badge(nav_counters.modules.comparison if nav_counters is defined else 0, nav_counters.module_tooltips.comparison if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/search{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'search' %} is-active{% endif %}">Search {{ nav_badge(nav_counters.modules.search if nav_counters is defined else 0, nav_counters.module_tooltips.search if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+{# Consolidated to 4 children (UX regrouping). Underlying pages remain reachable
+   by their original URLs and appear as horizontal tabs on the aggregator pages.
+   Evidence      -> Scheduler · Bulk Upload · Evidence Reuse · Completeness
+   App Mgmt      -> Application Onboarding · Application Inventory · App Comparison #}
+{% set _admin_evidence_active = nav_module in ['admin_evidence','scheduler','upload','reuse','completeness'] %}
+{% set _admin_appmgmt_active = nav_module in ['admin_application_management','onboarding','gov_inventory','comparison'] %}
+<a href="/mvp/admin/evidence{{ q }}" class="ecs-sidebar-btn{% if _admin_evidence_active %} is-active{% endif %}">Evidence {{ nav_badge(nav_counters.modules.scheduler if nav_counters is defined else 0, nav_counters.module_tooltips.scheduler if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/admin/application-management{{ q }}" class="ecs-sidebar-btn{% if _admin_appmgmt_active %} is-active{% endif %}">Application Management {{ nav_badge(nav_counters.modules.onboarding if nav_counters is defined else 0, nav_counters.module_tooltips.onboarding if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 <a href="/mvp/platform/control-coverage{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'gov_control_coverage' %} is-active{% endif %}">Control Coverage</a>
 <a href="/mvp/platform/framework-coverage{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'gov_framework_coverage' %} is-active{% endif %}">Framework Coverage</a>
-<a href="/mvp/ai-assistant{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'ai_assistant' %} is-active{% endif %}">AI Assistant</a>
-<a href="/mvp/framework-loader{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'framework_loader' %} is-active{% endif %}">Framework Loader</a>
-{% if perm_can_manage_frameworks|default(false) %}
-<a href="/mvp/framework-admin{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-admin{% if nav_module == 'framework_admin' %} is-active{% endif %}">Framework Administration</a>
-<a href="/mvp/framework-admin{{ q }}&wizard=1" class="ecs-sidebar-btn ecs-sidebar-btn-accent">+ Add New Framework</a>
-{% elif role == 'auditor' %}
-<a href="/mvp/framework-admin{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'framework_admin' %} is-active{% endif %}">Framework Onboarding Review</a>
-{% endif %}
 </div>
 </div>
 </div>
