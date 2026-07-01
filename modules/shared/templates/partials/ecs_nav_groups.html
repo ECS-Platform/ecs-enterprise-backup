@@ -117,6 +117,13 @@
 </div>
 </div>
 
+{# ------------------------------------------------------- 5. AI SDLC GOVERNANCE
+   ECS-native AI SDLC demo module (mock/demo data). Surfaced as a first-class,
+   always-visible left-nav group for the CIO/MD demo. All AI SDLC routes were
+   already registered in app/main.py; this only makes the existing nav group
+   (partials/ecs_nav_ai_sdlc.html) visible outside the hidden Phase 2 block. #}
+{% include "partials/ecs_nav_ai_sdlc.html" %}
+
 {# ============================================================================
    PHASE 2 — HIDDEN BY DEFAULT (routes/pages/services fully preserved).
    Re-enable by passing show_phase2_nav=True. Pages remain reachable by URL even
@@ -179,8 +186,8 @@
 </div>
 </div>
 
-{# AI SDLC Governance (Phase 2) #}
-{% include "partials/ecs_nav_ai_sdlc.html" %}
+{# AI SDLC Governance is now a first-class always-visible group (see group 5 above),
+   so it is intentionally not repeated inside the Phase 2 block. #}
 
 {% endif %}{# end show_phase2_nav #}
 
