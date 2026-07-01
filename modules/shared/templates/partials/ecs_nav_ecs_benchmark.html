@@ -1,0 +1,14 @@
+{# ECS Benchmark — demo/simulation navigation (mock data only). #}
+{% set _navb = nav_module|default('', true) %}
+{% set ecsbm_open = _navb == 'ecs_benchmark' %}
+<div class="ecs-nav-group">
+<button class="ecs-nav-group-toggle{% if ecsbm_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-ecs-benchmark" aria-expanded="{{ 'true' if ecsbm_open else 'false' }}">
+<span class="ecs-nav-group-label">ECS Benchmark</span>
+<span class="ecs-nav-group-chevron">▾</span>
+</button>
+<div id="nav-ecs-benchmark" class="collapse{% if ecsbm_open %} show{% endif %}">
+<div class="ecs-nav-group-items">
+<a href="/mvp/ecs-benchmark{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'ecs_benchmark' %} is-active{% endif %}">Benchmark Simulation</a>
+</div>
+</div>
+</div>

@@ -1528,6 +1528,10 @@ from app.routes_grc_demo import register_grc_demo_routes
 
 register_grc_demo_routes(app)
 
+from app.routes_ecs_benchmark import register_ecs_benchmark_routes
+
+register_ecs_benchmark_routes(app, templates)
+
 
 @app.get("/api/evidence-workflow/summary")
 def api_evidence_workflow_summary(role: str = "owner", user: str = "User"):

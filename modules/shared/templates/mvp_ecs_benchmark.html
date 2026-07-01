@@ -1,0 +1,418 @@
+<!DOCTYPE html><html><head><title>ECS Benchmark — Simulation</title>
+{% include "partials/mvp_styles.html" %}
+<style>
+/* ECS Benchmark demo — self-contained styling (no external libs beyond Bootstrap). */
+.ecsbm-hero{background:linear-gradient(135deg,#1e3a8a,#3730a3);color:#fff;border-radius:.6rem;padding:1rem 1.25rem;margin-bottom:1rem;}
+.ecsbm-hero h1{font-size:1.35rem;font-weight:700;margin:0;}
+.ecsbm-hero .sub{opacity:.85;font-size:.85rem;}
+.ecsbm-chip{display:inline-block;font-size:.7rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;letter-spacing:.02em;}
+.ecsbm-chip-idle{background:#e2e8f0;color:#475569;}
+.ecsbm-chip-running{background:#fef3c7;color:#92400e;}
+.ecsbm-chip-complete{background:#dcfce7;color:#166534;}
+.ecsbm-step{display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border-radius:.4rem;border:1px solid #e5e7eb;margin-bottom:.35rem;background:#fff;transition:background .2s,border-color .2s;}
+.ecsbm-step .ecsbm-dot{width:1.1rem;height:1.1rem;border-radius:50%;border:2px solid #cbd5e1;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#fff;}
+.ecsbm-step.is-active{border-color:#2563eb;background:#eff6ff;}
+.ecsbm-step.is-active .ecsbm-dot{border-color:#2563eb;background:#2563eb;}
+.ecsbm-step.is-done{border-color:#86efac;}
+.ecsbm-step.is-done .ecsbm-dot{border-color:#16a34a;background:#16a34a;}
+.ecsbm-step .ecsbm-spin{width:.8rem;height:.8rem;border:2px solid rgba(255,255,255,.5);border-top-color:#fff;border-radius:50%;animation:ecsbm-spin .7s linear infinite;}
+@keyframes ecsbm-spin{to{transform:rotate(360deg);}}
+.ecsbm-metric{border:1px solid #e5e7eb;border-radius:.5rem;padding:.6rem .75rem;height:100%;background:#fff;}
+.ecsbm-metric .lbl{font-size:.7rem;text-transform:uppercase;color:#64748b;letter-spacing:.03em;}
+.ecsbm-metric .val{font-size:1.25rem;font-weight:700;color:#0f172a;}
+.ecsbm-metric.is-pending .val{color:#94a3b8;}
+.ecsbm-savings{background:#ecfdf5;border:1px solid #a7f3d0;}
+.ecsbm-note{background:#fffbeb;border:1px solid #fde68a;border-radius:.5rem;padding:.6rem .85rem;font-size:.82rem;color:#78350f;}
+.ecsbm-table td,.ecsbm-table th{font-size:.8rem;vertical-align:middle;}
+.ecsbm-runtime{border:1px solid #e5e7eb;border-radius:.5rem;background:#0f172a;color:#e2e8f0;padding:.75rem 1rem;}
+.ecsbm-runtime .rt-val{font-size:1.35rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.ecsbm-runtime .rt-lbl{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;opacity:.7;}
+.ecsbm-method li{font-size:.83rem;margin-bottom:.2rem;}
+</style>
+</head>
+<body class="bg-light ecs-cap-ecs-benchmark">
+<div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+
+<div class="ecsbm-hero d-flex flex-wrap align-items-center justify-content-between">
+<div>
+<h1>ECS Benchmark</h1>
+<div class="sub">AI workload, token sizing, and capacity planning simulation</div>
+</div>
+<span class="badge bg-light text-dark">DEMO SIMULATION</span>
+</div>
+
+{# ---- Note: demo-only, no live execution ---- #}
+<div class="ecsbm-note mb-3">
+<strong>This screen is a demo simulation.</strong> It does not execute the live benchmark on this machine.
+Actual benchmark scripts are available under <code>scripts/</code> and benchmark evidence is stored under
+<code>benchmark_outputs/</code> when run on a suitable machine.
+</div>
+
+<div class="row g-3">
+{# ---- LEFT: control + runtime + timeline ---- #}
+<div class="col-lg-5">
+<div class="card mb-3">
+<div class="card-body">
+<div class="d-flex align-items-center justify-content-between mb-2">
+<h2 class="h6 mb-0">Benchmark Execution</h2>
+<span class="ecsbm-chip ecsbm-chip-idle" id="ecsbmStatusChip">Idle</span>
+</div>
+<button type="button" class="btn btn-primary btn-sm" id="ecsbmStartBtn">▶ Start Benchmark</button>
+<button type="button" class="btn btn-outline-secondary btn-sm d-none" id="ecsbmResetBtn">Reset</button>
+
+<div class="row g-2 mt-2">
+<div class="col-4"><div class="ecsbm-runtime text-center"><div class="rt-val" id="ecsbmElapsed">0.0s</div><div class="rt-lbl">Elapsed</div></div></div>
+<div class="col-4"><div class="ecsbm-runtime text-center"><div class="rt-val" id="ecsbmPct">0%</div><div class="rt-lbl">Progress</div></div></div>
+<div class="col-4"><div class="ecsbm-runtime text-center"><div class="rt-val" id="ecsbmStepNo">0/9</div><div class="rt-lbl">Step</div></div></div>
+</div>
+
+<div class="progress mt-2" style="height:.5rem;">
+<div class="progress-bar progress-bar-striped" id="ecsbmBar" role="progressbar" style="width:0%"></div>
+</div>
+<div class="small text-muted mt-1" id="ecsbmCurrentStep">Status: Idle — click Start Benchmark to run the simulation.</div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-body">
+<h2 class="h6">Execution Timeline</h2>
+<div id="ecsbmTimeline">
+{# Steps are also declared in JS (ECSBM_STEPS); kept in sync for a no-JS fallback view. #}
+<div class="ecsbm-step" data-step="0"><span class="ecsbm-dot"></span><span>Initializing benchmark profile</span></div>
+<div class="ecsbm-step" data-step="1"><span class="ecsbm-dot"></span><span>Building prompt via Prompt Builder</span></div>
+<div class="ecsbm-step" data-step="2"><span class="ecsbm-dot"></span><span>Loading application/control/framework metadata</span></div>
+<div class="ecsbm-step" data-step="3"><span class="ecsbm-dot"></span><span>Generating representative evidence context</span></div>
+<div class="ecsbm-step" data-step="4"><span class="ecsbm-dot"></span><span>Applying num_ctx and max_output settings</span></div>
+<div class="ecsbm-step" data-step="5"><span class="ecsbm-dot"></span><span>Sending prompt to local LLM provider</span></div>
+<div class="ecsbm-step" data-step="6"><span class="ecsbm-dot"></span><span>Capturing input/output token metrics</span></div>
+<div class="ecsbm-step" data-step="7"><span class="ecsbm-dot"></span><span>Generating benchmark report</span></div>
+<div class="ecsbm-step" data-step="8"><span class="ecsbm-dot"></span><span>Benchmark complete</span></div>
+</div>
+</div>
+</div>
+</div>
+
+{# ---- RIGHT: result cards ---- #}
+<div class="col-lg-7">
+<div class="card h-100">
+<div class="card-body">
+<div class="d-flex align-items-center justify-content-between mb-2">
+<h2 class="h6 mb-0">Benchmark Results</h2>
+<span class="small text-muted" id="ecsbmResultsHint">Awaiting run…</span>
+</div>
+<div class="row g-2">
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Input Tokens</div><div class="val" data-metric="input_tokens">—</div></div></div>
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Output Tokens</div><div class="val" data-metric="output_tokens">—</div></div></div>
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Total Tokens</div><div class="val" data-metric="total_tokens">—</div></div></div>
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Context Window</div><div class="val" data-metric="context_window">—</div></div></div>
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Output Cap</div><div class="val" data-metric="output_cap">—</div></div></div>
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Truncation Suspected</div><div class="val" data-metric="truncation">—</div></div></div>
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Estimated GSU</div><div class="val" data-metric="gsu">—</div></div></div>
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Est. Monthly Cost</div><div class="val" data-metric="monthly_cost">—</div></div></div>
+<div class="col-6 col-xl-4"><div class="ecsbm-metric is-pending"><div class="lbl">Profile</div><div class="val" data-metric="profile" style="font-size:.95rem;">—</div></div></div>
+</div>
+<p class="small text-muted mb-0 mt-2">Values shown after a run reflect the <em>Small Assessment</em> demo profile (deterministic mock measurement).</p>
+</div>
+</div>
+</div>
+</div>
+
+{# ---- Scenarios table ---- #}
+<div class="card mt-3">
+<div class="card-body">
+<h2 class="h6">Benchmark Scenarios (representative token sizing)</h2>
+<div class="table-responsive">
+<table class="table table-sm table-hover ecsbm-table mb-0">
+<thead class="table-light">
+<tr>
+<th>Scenario</th><th class="text-end">Apps</th><th class="text-end">Timeout</th>
+<th class="text-end">num_ctx</th><th class="text-end">Max Output</th>
+<th class="text-end">Est. Input</th><th class="text-end">Measured Input</th>
+<th class="text-end">Measured Output</th><th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small Assessment</td><td class="text-end">1</td><td class="text-end">180 sec</td>
+<td class="text-end">8,192</td><td class="text-end">512</td>
+<td class="text-end">4,926</td><td class="text-end">5,157</td><td class="text-end">311</td>
+<td><span class="badge bg-success">Measured</span></td>
+</tr>
+<tr>
+<td>16K / 1K Validation</td><td class="text-end">1</td><td class="text-end">600 sec</td>
+<td class="text-end">16,384</td><td class="text-end">1,024</td>
+<td class="text-end">25,617</td><td class="text-end">16,384</td><td class="text-end">1,024</td>
+<td><span class="badge bg-warning text-dark">Measured / Context limited</span></td>
+</tr>
+<tr>
+<td>Enterprise Planning</td><td class="text-end">50</td><td class="text-end">600 sec</td>
+<td class="text-end">40,960</td><td class="text-end">3,000</td>
+<td class="text-end">50,175</td><td class="text-end text-muted">Planning</td><td class="text-end text-muted">Planning</td>
+<td><span class="badge bg-info text-dark">Extrapolated</span></td>
+</tr>
+<tr>
+<td>Large Repository 100 Apps</td><td class="text-end">100</td><td class="text-end">600 sec</td>
+<td class="text-end">40,960</td><td class="text-end">3,000</td>
+<td class="text-end">50,169</td><td class="text-end text-muted">Planning</td><td class="text-end text-muted">Planning</td>
+<td><span class="badge bg-secondary">Simulated</span></td>
+</tr>
+<tr>
+<td>Large Repository 200 Apps</td><td class="text-end">200</td><td class="text-end">900 sec</td>
+<td class="text-end">40,960</td><td class="text-end">3,000</td>
+<td class="text-end">56,393</td><td class="text-end text-muted">Planning</td><td class="text-end text-muted">Planning</td>
+<td><span class="badge bg-secondary">Simulated</span></td>
+</tr>
+<tr>
+<td>Large Repository 500+ Apps</td><td class="text-end">500+</td><td class="text-end">1200 sec</td>
+<td class="text-end">65,536</td><td class="text-end">3,000</td>
+<td class="text-end">60,341</td><td class="text-end text-muted">Planning</td><td class="text-end text-muted">Planning</td>
+<td><span class="badge bg-secondary">Simulated</span></td>
+</tr>
+<tr>
+<td>Large Repository 1000+ Apps</td><td class="text-end">1000+</td><td class="text-end">1800 sec</td>
+<td class="text-end">65,536</td><td class="text-end">4,000</td>
+<td class="text-end">70,000</td><td class="text-end text-muted">Planning</td><td class="text-end text-muted">Planning</td>
+<td><span class="badge bg-dark">Future sensitivity</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<div class="row g-3 mt-0">
+{# ---- Methodology ---- #}
+<div class="col-lg-6">
+<div class="card h-100">
+<div class="card-body ecsbm-method">
+<h2 class="h6">Benchmark Methodology</h2>
+<ul class="mb-0">
+<li><strong>Prompt-construction benchmark</strong> — measures realistic prompt sizing from the ECS Prompt Builder.</li>
+<li><strong>Local Ollama token measurement</strong> — input/output tokens captured from a local LLM run (on a suitable machine).</li>
+<li><strong>RAG-informed simulated context</strong> — representative evidence context modelled from repository structure.</li>
+<li><strong>No live RAG/PGVector/object-storage</strong> in this demo screen.</li>
+<li><strong>Enterprise values are engineering planning extrapolations</strong>, not live measurements.</li>
+</ul>
+</div>
+</div>
+</div>
+
+{# ---- Cost comparison ---- #}
+<div class="col-lg-6">
+<div class="card h-100">
+<div class="card-body">
+<h2 class="h6">Cost Comparison — Original Assumption vs Benchmark-Backed Planning</h2>
+<div class="table-responsive">
+<table class="table table-sm ecsbm-table mb-2">
+<thead class="table-light"><tr><th>Metric</th><th class="text-end">Original assumption</th><th class="text-end">Benchmark-backed planning</th></tr></thead>
+<tbody>
+<tr><td>Token profile</td><td class="text-end">125K in / 50K out</td><td class="text-end">50K in / 3K out</td></tr>
+<tr><td>Weighted TPM</td><td class="text-end">1,725,000</td><td class="text-end">231,000</td></tr>
+<tr><td>GSU</td><td class="text-end">11</td><td class="text-end">2</td></tr>
+<tr><td>Annual cost</td><td class="text-end">₹2.866 Cr</td><td class="text-end">₹0.521 Cr</td></tr>
+</tbody>
+</table>
+</div>
+<div class="row g-2">
+<div class="col-6"><div class="ecsbm-metric ecsbm-savings"><div class="lbl">Annual Savings</div><div class="val text-success">₹2.345 Cr</div></div></div>
+<div class="col-6"><div class="ecsbm-metric"><div class="lbl">Monthly Revised Cost</div><div class="val">₹4.34 lakh/mo</div></div></div>
+</div>
+<p class="small text-muted mb-0 mt-2">Figures are planning estimates for stakeholder illustration; see <code>docs/benchmarks/</code> for source analysis.</p>
+</div>
+</div>
+</div>
+</div>
+
+</div>{# /ecs-workspace-main #}
+</div></div>{# /row /container #}
+
+<script>
+(function () {
+  // ============================================================================
+  // ECS Benchmark — FRONTEND SIMULATION ONLY.
+  // No network calls, no backend benchmark scripts, no Ollama / PGVector / RAG.
+  // Uses setTimeout to animate a deterministic, mock execution timeline.
+  // ============================================================================
+  var ECSBM_STEPS = [
+    "Initializing benchmark profile",
+    "Building prompt via Prompt Builder",
+    "Loading application/control/framework metadata",
+    "Generating representative evidence context",
+    "Applying num_ctx and max_output settings",
+    "Sending prompt to local LLM provider",
+    "Capturing input/output token metrics",
+    "Generating benchmark report",
+    "Benchmark complete"
+  ];
+  // Per-step simulated durations (ms). Deterministic; purely cosmetic.
+  var ECSBM_DURATIONS = [500, 700, 650, 800, 550, 1200, 700, 650, 400];
+
+  // Deterministic mock result for the Small Assessment demo profile.
+  var ECSBM_RESULT = {
+    input_tokens: "5,157",
+    output_tokens: "311",
+    total_tokens: "5,468",
+    context_window: "8,192",
+    output_cap: "512",
+    truncation: "No",
+    gsu: "2",
+    monthly_cost: "\u20B94.34 lakh",
+    profile: "Small Assessment"
+  };
+
+  var startBtn = document.getElementById("ecsbmStartBtn");
+  var resetBtn = document.getElementById("ecsbmResetBtn");
+  var chip = document.getElementById("ecsbmStatusChip");
+  var bar = document.getElementById("ecsbmBar");
+  var pctEl = document.getElementById("ecsbmPct");
+  var elapsedEl = document.getElementById("ecsbmElapsed");
+  var stepNoEl = document.getElementById("ecsbmStepNo");
+  var currentStepEl = document.getElementById("ecsbmCurrentStep");
+  var resultsHint = document.getElementById("ecsbmResultsHint");
+  var stepEls = Array.prototype.slice.call(document.querySelectorAll("#ecsbmTimeline .ecsbm-step"));
+  var metricEls = {};
+  Array.prototype.forEach.call(document.querySelectorAll("[data-metric]"), function (el) {
+    metricEls[el.getAttribute("data-metric")] = el;
+  });
+
+  var timers = [];
+  var tickTimer = null;
+  var startedAt = 0;
+  var running = false;
+
+  function setChip(state, label) {
+    chip.className = "ecsbm-chip ecsbm-chip-" + state;
+    chip.textContent = label;
+  }
+
+  function resetSteps() {
+    stepEls.forEach(function (el) {
+      el.classList.remove("is-active", "is-done");
+      var dot = el.querySelector(".ecsbm-dot");
+      if (dot) dot.innerHTML = "";
+    });
+  }
+
+  function clearMetrics() {
+    Object.keys(metricEls).forEach(function (k) {
+      metricEls[k].textContent = "\u2014";
+      metricEls[k].closest(".ecsbm-metric").classList.add("is-pending");
+    });
+    resultsHint.textContent = "Awaiting run\u2026";
+  }
+
+  function fillMetrics() {
+    Object.keys(ECSBM_RESULT).forEach(function (k) {
+      if (metricEls[k]) {
+        metricEls[k].textContent = ECSBM_RESULT[k];
+        metricEls[k].closest(".ecsbm-metric").classList.remove("is-pending");
+      }
+    });
+    resultsHint.textContent = "Small Assessment profile \u2014 measured (mock)";
+  }
+
+  function startTick() {
+    startedAt = Date.now();
+    tickTimer = setInterval(function () {
+      elapsedEl.textContent = ((Date.now() - startedAt) / 1000).toFixed(1) + "s";
+    }, 100);
+  }
+
+  function stopTick() {
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  }
+
+  function clearTimers() {
+    timers.forEach(function (t) { clearTimeout(t); });
+    timers = [];
+    stopTick();
+  }
+
+  function activateStep(i) {
+    if (i > 0) {
+      var prev = stepEls[i - 1];
+      if (prev) {
+        prev.classList.remove("is-active");
+        prev.classList.add("is-done");
+        var pd = prev.querySelector(".ecsbm-dot");
+        if (pd) pd.innerHTML = "\u2713";
+      }
+    }
+    var cur = stepEls[i];
+    if (cur) {
+      cur.classList.add("is-active");
+      var cd = cur.querySelector(".ecsbm-dot");
+      if (cd && i < ECSBM_STEPS.length - 1) cd.innerHTML = '<span class="ecsbm-spin"></span>';
+    }
+    var isLast = i === ECSBM_STEPS.length - 1;
+    stepNoEl.textContent = (i + 1) + "/" + ECSBM_STEPS.length;
+    var pct = Math.round(((i + 1) / ECSBM_STEPS.length) * 100);
+    pctEl.textContent = pct + "%";
+    bar.style.width = pct + "%";
+    currentStepEl.textContent = "Current step: " + ECSBM_STEPS[i];
+
+    if (isLast) {
+      // Mark final step done and finish.
+      cur.classList.remove("is-active");
+      cur.classList.add("is-done");
+      var fd = cur.querySelector(".ecsbm-dot");
+      if (fd) fd.innerHTML = "\u2713";
+      bar.classList.remove("progress-bar-striped");
+      setChip("complete", "Complete");
+      currentStepEl.textContent = "Status: Complete \u2014 benchmark report generated (demo).";
+      fillMetrics();
+      stopTick();
+      running = false;
+      resetBtn.classList.remove("d-none");
+      startBtn.disabled = false;
+      startBtn.textContent = "\u25B6 Run Again";
+    }
+  }
+
+  function run() {
+    if (running) return;
+    running = true;
+    clearTimers();
+    resetSteps();
+    clearMetrics();
+    setChip("running", "Running");
+    startBtn.disabled = true;
+    resetBtn.classList.add("d-none");
+    bar.classList.add("progress-bar-striped");
+    bar.style.width = "0%";
+    pctEl.textContent = "0%";
+    stepNoEl.textContent = "0/" + ECSBM_STEPS.length;
+    startTick();
+
+    var cumulative = 0;
+    ECSBM_STEPS.forEach(function (_step, i) {
+      var t = setTimeout(function () { activateStep(i); }, cumulative);
+      timers.push(t);
+      cumulative += ECSBM_DURATIONS[i] || 600;
+    });
+  }
+
+  function resetAll() {
+    clearTimers();
+    running = false;
+    resetSteps();
+    clearMetrics();
+    setChip("idle", "Idle");
+    bar.style.width = "0%";
+    bar.classList.remove("progress-bar-striped");
+    pctEl.textContent = "0%";
+    elapsedEl.textContent = "0.0s";
+    stepNoEl.textContent = "0/" + ECSBM_STEPS.length;
+    currentStepEl.textContent = "Status: Idle \u2014 click Start Benchmark to run the simulation.";
+    resetBtn.classList.add("d-none");
+    startBtn.disabled = false;
+    startBtn.textContent = "\u25B6 Start Benchmark";
+  }
+
+  if (startBtn) startBtn.addEventListener("click", run);
+  if (resetBtn) resetBtn.addEventListener("click", resetAll);
+})();
+</script>
+</body></html>
