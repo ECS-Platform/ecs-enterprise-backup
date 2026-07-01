@@ -23,7 +23,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.auth import events
 from app.auth.context import AuthenticatedUser
-from app.auth.demo import demo_mode
+from app.auth.demo import auth_bypassed, demo_mode
 from app.auth.errors import AuthenticationError
 
 
@@ -55,6 +55,35 @@ def _is_public(path: str, public: list[str]) -> bool:
     return False
 
 
+def _demo_principal_from_request(request: Request) -> AuthenticatedUser | None:
+    """Build a lightweight demo principal from the ?role=&user= query params.
+
+    LOCAL/DEMO ONLY — used exclusively by the ECS_LOCAL_AUTH_BYPASS branch so the
+    identity chosen at /login (which redirects with role/user query params) is
+    reflected downstream instead of an anonymous request. Never validates a token
+    and never runs in production (the caller is gated on the bypass flags).
+    Returns None when no role/user is present so behaviour matches the anonymous
+    demo pass-through for token-less API calls.
+    """
+    try:
+        role = (request.query_params.get("role") or "").strip()
+        user = (request.query_params.get("user") or "").strip()
+    except Exception:  # noqa: BLE001 - never let identity synthesis break a demo request
+        return None
+    if not role and not user:
+        return None
+    username = user or role or "demo"
+    return AuthenticatedUser(
+        user_id=f"local::{username}",
+        username=username,
+        display_name=user or role.replace("_", " ").title() or "Demo User",
+        email=f"{username}@local.demo",
+        roles=(role,) if role else (),
+        groups=(),
+        auth_source="local_bypass",
+    )
+
+
 class AuthenticationMiddleware(BaseHTTPMiddleware):
     def __init__(self, app) -> None:
         super().__init__(app)
@@ -74,12 +103,22 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 self._provider = None
 
     async def dispatch(self, request: Request, call_next):
-        # GLOBAL DEMO MODE (default OFF): when on, authentication is bypassed for
-        # every route so the full left-navigation is reachable without tokens.
-        # Checked first and read per-request so it works regardless of config
-        # loading / startup order. Demo-only; no production behaviour changes.
-        if demo_mode():
-            request.state.principal = None
+        # LOCAL/DEMO AUTH BYPASS (default OFF): when DEMO_MODE or
+        # ECS_LOCAL_AUTH_BYPASS is on, authentication is bypassed for every route
+        # so the app is reachable through a browser without a live IdP minting
+        # Bearer tokens (the /login flow only redirects; it does not set a
+        # token/cookie). Checked first and read per-request so it works
+        # regardless of config loading / startup order. NON-PRODUCTION ONLY —
+        # with both flags off this branch is skipped and production auth is
+        # enforced exactly as before.
+        if auth_bypassed():
+            # DEMO_MODE keeps the original anonymous pass-through (principal=None)
+            # for full backward compatibility. ECS_LOCAL_AUTH_BYPASS additionally
+            # synthesises a principal from the ?role=&user= query so the chosen
+            # login identity flows to downstream code that reads the principal.
+            request.state.principal = (
+                None if demo_mode() else _demo_principal_from_request(request)
+            )
             return await call_next(request)
 
         # Pass-through when auth is disabled — preserves legacy behaviour exactly.
