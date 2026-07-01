@@ -20,7 +20,7 @@
   {'id':'overview','label':'Overview'},{'id':'models','label':'Models'},{'id':'prompts','label':'Prompts'},
   {'id':'risks','label':'Risks'},{'id':'controls','label':'Controls'},{'id':'evidence','label':'Evidence'},
   {'id':'exceptions','label':'Exceptions'},{'id':'approvals','label':'Approvals'},{'id':'audit','label':'Audit History'},
-  {'id':'knowledge','label':'Knowledge Base'}
+  {'id':'knowledge','label':'Knowledge Base'},{'id':'registry','label':'Model & Prompt Registry'}
 ] %}
 
 <div class="aisdlc-banner flex-shrink-0">
@@ -230,8 +230,31 @@
 {% endfor %}
 {{ governance_pane_end() }}
 
+{{ governance_pane('registry', 'Model & Prompt Registry', 'Redirecting to registry') }}
+<p class="small text-muted mb-0">Opening Model &amp; Prompt Registry…</p>
+{{ governance_pane_end() }}
+
 {{ governance_workspace_close() }}
 </div></div></div>
 {% include "partials/ecs_governance_table_framework.html" %}
-{% include "partials/ai_sdlc_drill_modal.html" %}
+<script>
+(function () {
+  var registryHref = '/mvp/ai-registry{{ q }}';
+  document.querySelectorAll('.ecs-workspace-tab[data-workspace-tab="registry"]').forEach(function (btn) {
+    if (btn.dataset.registryNavBound) return;
+    btn.dataset.registryNavBound = '1';
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      window.location.href = registryHref;
+    });
+  });
+  document.querySelectorAll('.ecs-workspace-tab-select').forEach(function (sel) {
+    if (sel.dataset.registryNavBound) return;
+    sel.dataset.registryNavBound = '1';
+    sel.addEventListener('change', function () {
+      if (sel.value === 'registry') window.location.href = registryHref;
+    });
+  });
+})();
+</script>
 </body></html>

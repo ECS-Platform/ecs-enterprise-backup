@@ -11,6 +11,7 @@
 {% from "partials/execution_engine_panel.html" import execution_engine_panel %}
 {% include "partials/ecs_governance_chrome.html" %}
 
+<div class="flex-grow-1" style="min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:0.25rem;">
 <div class="aisdlc-banner flex-shrink-0 mb-2"><div>
 <h2>{{ v.title }}</h2>
 <div class="sub">{{ v.subtitle }}</div>
@@ -39,6 +40,7 @@
 
 <h6 class="small text-muted text-uppercase mb-1 mt-3">Application Onboarding Results</h6>
 <div id="ecsObApplicationTable"></div>
+</div>
 </div>
 
 </div></div></div>

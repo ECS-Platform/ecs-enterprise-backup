@@ -1,6 +1,76 @@
 <!DOCTYPE html><html><head><title>Model & Prompt Registry — ECS</title>
 {% include "partials/mvp_styles.html" %}
 {% include "partials/ai_sdlc_styles.html" %}
+<style>
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] {
+  table-layout: fixed;
+  width: 100%;
+}
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] th,
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] td {
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+  line-height: 1.2;
+}
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] th:nth-child(1),
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] td:nth-child(1) {
+  width: 24%;
+  min-width: 11rem;
+}
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] th:nth-child(2),
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] td:nth-child(2) {
+  width: 43%;
+}
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] th:nth-child(3),
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] td:nth-child(3) {
+  width: 33%;
+}
+.ecs-cap-ai-registry .ecs-gov-col-applications .ecs-gov-app-list,
+.ecs-cap-ai-registry .ecs-gov-col-prompts .ecs-gov-app-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ecs-cap-ai-registry .ecs-gov-col-applications .ecs-gov-app-list li,
+.ecs-cap-ai-registry .ecs-gov-col-prompts .ecs-gov-app-list li {
+  margin: 0;
+}
+.ecs-cap-ai-registry .ecs-gov-col-applications .ecs-gov-tag,
+.ecs-cap-ai-registry .ecs-gov-col-prompts .ecs-gov-tag {
+  display: inline-block;
+  max-width: 100%;
+  font-size: 0.66rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: 999px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] .ecs-gov-app-cell {
+  max-height: 4.2rem;
+  overflow: hidden;
+}
+.ecs-cap-ai-registry table[data-export-name="registry-relationships"] .ecs-gov-app-cell.is-expanded {
+  max-height: none;
+}
+.ecs-cap-ai-registry .ecs-registry-show-more {
+  margin-top: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #4338ca;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-decoration: underline;
+}
+@media (max-width: 1200px) {
+  .ecs-cap-ai-registry table[data-export-name="registry-relationships"] {
+    table-layout: auto;
+  }
+}
+</style>
 </head>
 <body class="bg-light ecs-governance-page ecs-cap-ai-registry" data-nav-module="ai_registry"><div class="container-fluid h-100"><div class="row h-100">
 {% include "partials/mvp_sidebar.html" %}
@@ -193,5 +263,37 @@
 {{ governance_workspace_close() }}
 </div></div></div>
 {% include "partials/ecs_governance_table_framework.html" %}
-{% include "partials/ai_sdlc_drill_modal.html" %}
+<script>
+(function () {
+  function bindRegistryShowMore() {
+    var table = document.querySelector('table[data-export-name="registry-relationships"]');
+    if (!table) return;
+    var cells = table.querySelectorAll('.ecs-gov-col-applications .ecs-gov-app-cell, .ecs-gov-col-prompts .ecs-gov-app-cell');
+    cells.forEach(function (cell) {
+      var existing = cell.parentElement.querySelector('.ecs-registry-show-more');
+      if (existing) existing.remove();
+      cell.classList.remove('is-expanded');
+      if (cell.scrollHeight <= cell.clientHeight + 2) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ecs-registry-show-more';
+      btn.textContent = 'Show More';
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var expanded = cell.classList.toggle('is-expanded');
+        btn.textContent = expanded ? 'Show Less' : 'Show More';
+      });
+      cell.parentElement.appendChild(btn);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindRegistryShowMore);
+  } else {
+    bindRegistryShowMore();
+  }
+  window.addEventListener('resize', bindRegistryShowMore);
+})();
+</script>
 </body></html>

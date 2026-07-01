@@ -29,6 +29,20 @@
   var lastDrill = { kind: 'sdlc', release: '', stage: '' };
   var drillOrigin = null;
 
+  function cleanupModalArtifacts(force) {
+    var backdrops = document.querySelectorAll('.modal-backdrop');
+    if (force || !modalEl.classList.contains('show')) {
+      backdrops.forEach(function (bd) { bd.remove(); });
+    } else if (backdrops.length > 1) {
+      for (var i = 0; i < backdrops.length - 1; i += 1) backdrops[i].remove();
+    }
+    if (!document.querySelector('.modal.show')) {
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+    }
+  }
+
   function getNavModule() {
     return (document.body && document.body.dataset.navModule) || '';
   }
@@ -57,6 +71,8 @@
   modalEl.addEventListener('hidden.bs.modal', function () {
     restoreDrillOrigin();
     if (backBtn) backBtn.classList.add('d-none');
+    cleanupModalArtifacts(true);
+    setTimeout(function () { cleanupModalArtifacts(true); }, 0);
   });
 
   function esc(s) {
@@ -1415,6 +1431,7 @@
     titleEl.textContent = 'Loading…';
     bodyEl.innerHTML = '<div class="text-muted small">Loading…</div>';
     setLink(null);
+    cleanupModalArtifacts(false);
     modal.show();
     fetch(url).then(function (r) { return r.json(); }).then(function (j) {
       var p = j.payload || j.data || {};

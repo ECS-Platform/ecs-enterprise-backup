@@ -15,16 +15,22 @@ body.ecs-enterprise-body { background: #f4f6f9; }
 .ecs-sidebar {
   background: var(--ecs-sidebar) !important;
   min-height: 100vh;
+  height: 100vh;
   padding: 0;
   flex: 0 0 auto;
+  position: sticky;
+  top: 0;
 }
 .ecs-sidebar-inner {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   padding: 1rem 0.75rem;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
 }
 .ecs-sidebar-brand {
   font-size: 1.05rem;
