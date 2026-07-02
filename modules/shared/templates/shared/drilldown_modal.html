@@ -11,4 +11,5 @@
 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
 </div>
 </div></div></div>
-<script src="/static/ecs/js/drilldown_engine.js"></script>
+<script>window.__ecsRole = window.__ecsRole || {{ (role | default('cio')) | tojson }};</script>
+<script src="/static/ecs/js/drilldown_engine.js?v={{ asset_ver('js/drilldown_engine.js') }}"></script>

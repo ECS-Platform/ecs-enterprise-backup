@@ -1,0 +1,340 @@
+{
+  "groups": {
+    "Executive Overview": [
+      {
+        "label": "\u2605 ROI &amp; Value Realization",
+        "url": "/mvp/roi",
+        "nested": false
+      },
+      {
+        "label": "Main Dashboard",
+        "url": "/dashboard",
+        "nested": false
+      },
+      {
+        "label": "Evidence Analytics",
+        "url": "/dashboard/cio",
+        "nested": false
+      },
+      {
+        "label": "Vertical Head Dashboard",
+        "url": "/dashboard/vertical-head",
+        "nested": false
+      },
+      {
+        "label": "Compliance Dashboard",
+        "url": "/dashboard/compliance-head",
+        "nested": false
+      },
+      {
+        "label": "Functional Head Dashboard",
+        "url": "/dashboard/functional-head",
+        "nested": false
+      },
+      {
+        "label": "Demo Overview \u25cf",
+        "url": "/mvp/demo-overview",
+        "nested": false
+      },
+      {
+        "label": "Enterprise",
+        "url": "/mvp/enterprise",
+        "nested": false
+      },
+      {
+        "label": "Pan India",
+        "url": "/mvp/pan-india",
+        "nested": false
+      },
+      {
+        "label": "Reports",
+        "url": "/mvp/reports",
+        "nested": false
+      },
+      {
+        "label": "Trends",
+        "url": "/mvp/trends",
+        "nested": false
+      }
+    ],
+    "Frameworks": [
+      {
+        "label": "/framework/",
+        "url": "/framework/",
+        "nested": true
+      },
+      {
+        "label": "Framework Loader",
+        "url": "/mvp/framework-loader",
+        "nested": true
+      },
+      {
+        "label": "Framework Administration",
+        "url": "/mvp/framework-admin",
+        "nested": true
+      },
+      {
+        "label": "+ Add New Framework",
+        "url": "/mvp/framework-admin",
+        "nested": true
+      },
+      {
+        "label": "Framework Onboarding Review",
+        "url": "/mvp/framework-admin",
+        "nested": true
+      }
+    ],
+    "Operations": [
+      {
+        "label": "Scheduler",
+        "url": "/mvp/scheduler",
+        "nested": false
+      },
+      {
+        "label": "Predefined Queries",
+        "url": "/mvp/predefined-queries",
+        "nested": false
+      },
+      {
+        "label": "Integration Health",
+        "url": "/mvp/integration-health",
+        "nested": false
+      },
+      {
+        "label": "Evidence Explorer",
+        "url": "/mvp/evidence-explorer",
+        "nested": false
+      },
+      {
+        "label": "AI Ops Assistant",
+        "url": "/mvp/ai-ops-assistant",
+        "nested": false
+      },
+      {
+        "label": "Bulk Upload",
+        "url": "/mvp/upload",
+        "nested": false
+      },
+      {
+        "label": "Integrations",
+        "url": "/mvp/integrations",
+        "nested": false
+      },
+      {
+        "label": "Onboarding",
+        "url": "/mvp/onboarding",
+        "nested": false
+      }
+    ],
+    "Governance": [
+      {
+        "label": "Audit Prep",
+        "url": "/mvp/audit-prep",
+        "nested": false
+      },
+      {
+        "label": "Evidence Health",
+        "url": "/mvp/evidence-health",
+        "nested": false
+      },
+      {
+        "label": "Evidence Reuse",
+        "url": "/mvp/reuse",
+        "nested": false
+      },
+      {
+        "label": "Lifecycle",
+        "url": "/mvp/lifecycle",
+        "nested": false
+      },
+      {
+        "label": "Completeness",
+        "url": "/mvp/completeness",
+        "nested": false
+      },
+      {
+        "label": "App Comparison",
+        "url": "/mvp/comparison",
+        "nested": false
+      },
+      {
+        "label": "Search",
+        "url": "/mvp/search",
+        "nested": false
+      },
+      {
+        "label": "Evidence Approval Analytics",
+        "url": "/mvp/evidence-approval",
+        "nested": false
+      }
+    ],
+    "Evidence Governance": [
+      {
+        "label": "Role Scorecard \u25cf",
+        "url": "/mvp/platform/scorecard",
+        "nested": false
+      },
+      {
+        "label": "Executive Summary \u25cf",
+        "url": "/mvp/platform/executive-summary",
+        "nested": false
+      },
+      {
+        "label": "Audit Readiness",
+        "url": "/mvp/platform/audit-readiness",
+        "nested": false
+      },
+      {
+        "label": "Application Onboarding",
+        "url": "/mvp/platform/onboarding",
+        "nested": false
+      },
+      {
+        "label": "Application Inventory",
+        "url": "/mvp/platform/inventory",
+        "nested": false
+      },
+      {
+        "label": "Control Coverage",
+        "url": "/mvp/platform/control-coverage",
+        "nested": false
+      },
+      {
+        "label": "Framework Coverage",
+        "url": "/mvp/platform/framework-coverage",
+        "nested": false
+      },
+      {
+        "label": "Evidence Reuse",
+        "url": "/mvp/platform/evidence-reuse",
+        "nested": false
+      },
+      {
+        "label": "Evidence Lifecycle",
+        "url": "/mvp/platform/evidence-lifecycle",
+        "nested": false
+      },
+      {
+        "label": "Collection Scheduler",
+        "url": "/mvp/platform/scheduler",
+        "nested": false
+      },
+      {
+        "label": "AI Assistant",
+        "url": "/mvp/platform/assistant",
+        "nested": false
+      },
+      {
+        "label": "AI Assistant (Chat)",
+        "url": "/mvp/ai-assistant",
+        "nested": false
+      }
+    ],
+    "Enterprise GRC": [
+      {
+        "label": "Risk Register",
+        "url": "/mvp/risk-register",
+        "nested": false
+      },
+      {
+        "label": "Exceptions / TD",
+        "url": "/mvp/exceptions",
+        "nested": false
+      },
+      {
+        "label": "Exception Governance",
+        "url": "/mvp/exception-governance",
+        "nested": false
+      },
+      {
+        "label": "CMDB / Assets",
+        "url": "/mvp/cmdb",
+        "nested": false
+      },
+      {
+        "label": "Regulatory Mapping",
+        "url": "/mvp/regulatory",
+        "nested": false
+      },
+      {
+        "label": "Executive Heatmaps",
+        "url": "/mvp/heatmaps",
+        "nested": false
+      },
+      {
+        "label": "Integrations Hub",
+        "url": "/mvp/integrations-hub",
+        "nested": false
+      },
+      {
+        "label": "Cross-Tool Correlation",
+        "url": "/mvp/correlation",
+        "nested": false
+      },
+      {
+        "label": "Governance Analytics",
+        "url": "/mvp/governance-analytics",
+        "nested": false
+      }
+    ],
+    "AI SDLC Governance": [
+      {
+        "label": "Home",
+        "url": "/mvp/ai-sdlc",
+        "nested": false
+      },
+      {
+        "label": "AI SDLC Control Tower",
+        "url": "/mvp/ai-sdlc/control-tower",
+        "nested": false
+      },
+      {
+        "label": "Application Onboarding",
+        "url": "/mvp/ai-sdlc/onboarding",
+        "nested": false
+      },
+      {
+        "label": "Requirements",
+        "url": "/mvp/ai-sdlc/requirements",
+        "nested": false
+      },
+      {
+        "label": "Design",
+        "url": "/mvp/ai-sdlc/design",
+        "nested": false
+      },
+      {
+        "label": "Development",
+        "url": "/mvp/ai-sdlc/development",
+        "nested": false
+      },
+      {
+        "label": "Testing",
+        "url": "/mvp/ai-sdlc/testing",
+        "nested": false
+      },
+      {
+        "label": "Go-Live",
+        "url": "/mvp/ai-sdlc/golive",
+        "nested": false
+      },
+      {
+        "label": "Evidence Collection",
+        "url": "/mvp/ai-sdlc/evidence",
+        "nested": false
+      },
+      {
+        "label": "Findings &amp; Remediation",
+        "url": "/mvp/ai-sdlc/findings",
+        "nested": false
+      },
+      {
+        "label": "Reports",
+        "url": "/mvp/ai-sdlc/reports",
+        "nested": false
+      }
+    ]
+  },
+  "total_links": 64,
+  "total_groups": 7
+}

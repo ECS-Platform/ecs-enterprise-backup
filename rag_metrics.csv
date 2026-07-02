@@ -1,0 +1,57 @@
+timestamp,request_id,question,model_name,provider,retrieval_mode,retrieved_documents,retrieved_chunks,prompt_size_chars,input_tokens,output_tokens,total_tokens,retrieval_latency_ms,prompt_build_latency_ms,llm_latency_ms,end_to_end_latency_ms
+2026-06-25T14:07:12.330270+00:00,7a3706ad-76a8-4612-a3f1-7d5e7c3d5341,Show PCI-DSS evidence for Mobile Banking.,,,repository,0,0,0,0,0,0,5438,0,0,37301
+2026-06-25T14:09:12.297475+00:00,2f95a075-6735-46a4-941a-e8d999a1fc9c,Show PCI-DSS evidence for Mobile Banking.,,,repository,0,0,0,0,0,0,2730,0,0,4960
+2026-06-25T14:09:17.260410+00:00,fd829d26-44b3-4808-b175-6b0b89d3e984,What SOC2 controls are covered for Payments Gateway?,,,repository,0,0,0,0,0,0,2703,0,0,4926
+2026-06-25T14:09:22.188400+00:00,aa6a3bee-23d3-4ee9-bd1f-06869325fa37,List rejected evidence for Loan Origination.,,,repository,0,0,0,0,0,0,2713,0,0,4915
+2026-06-25T14:09:27.106059+00:00,84a745c7-26cb-4406-900e-80cea2781e8f,Show audit readiness gaps for Corporate Banking.,,,repository,0,0,0,0,0,0,2721,0,0,4900
+2026-06-25T14:09:32.008125+00:00,f3a16103-151a-4336-9c2c-98978542baae,Which evidence is reused across frameworks for Treasury Ops?,,,repository,0,0,0,0,0,0,2714,0,0,4919
+2026-06-25T14:09:36.929016+00:00,d87b986c-cd08-4830-bdca-5dd3f901c8bb,Show recent Jenkins build evidence for Mobile Banking.,,,repository,0,0,0,0,0,0,2723,0,0,4928
+2026-06-25T14:09:41.859491+00:00,20b43cd4-a54f-46c3-b1f3-db6b0ec329c9,Show Jira change records for Payments Gateway.,,,repository,0,0,0,0,0,0,2709,0,0,4914
+2026-06-26T04:57:27.713660+00:00,0bb598e1-0027-4ac4-a16f-743a653213c9,Provide RBI C-SITE readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,5355,0,0,39684
+2026-06-26T04:58:07.402336+00:00,a04cff13-3789-477a-b5c2-07afb10031bb,Provide PCI DSS readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,5343,0,0,39482
+2026-06-26T05:07:47.469118+00:00,fa46a49e-e74c-420e-bac1-026eb2242447,Provide RBI C-SITE readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,5352,0,0,39674
+2026-06-26T05:08:27.148752+00:00,e92764ea-e4ff-4fa0-b6c9-7c2fdeae9609,Provide PCI DSS readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,5353,0,0,39564
+2026-06-26T05:09:06.720262+00:00,52c81db7-fa72-4096-974f-9fc4fa803e84,Provide DPSC readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,5353,0,0,36895
+2026-06-26T05:09:43.623293+00:00,008460ec-5fd6-46ed-865d-6c784a1b70f3,Provide ITGRC readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,5364,0,0,36903
+2026-06-26T05:20:46.408323+00:00,2d500c88-6fb8-4e95-be81-2eaaf66b45c8,Provide RBI C-SITE readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,2702,0,0,5027
+2026-06-26T05:21:06.408835+00:00,6480a154-d7c0-4fad-ad24-054e410bce2b,Provide PCI DSS readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,2693,0,0,4969
+2026-06-26T05:21:26.409188+00:00,70985216-aa4f-41cf-acc8-aa405fb5808b,Provide DPSC readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,2692,0,0,5015
+2026-06-26T05:21:46.409720+00:00,8d81c97d-fe79-4f18-bfa1-d4adabdd52bb,Provide ITGRC readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,2711,0,0,4946
+2026-06-26T06:14:44.347369+00:00,497b9980-9542-469e-89ff-632df034757a,Provide RBI C-SITE readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,68,0,0,337
+2026-06-26T06:15:04.345756+00:00,34f95101-5eeb-4872-ae7a-d3822c0e6437,Provide PCI DSS readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,16,0,0,111
+2026-06-26T06:15:24.343872+00:00,47c1b88f-8336-41f9-ac7f-8e43cdc899b9,Provide DPSC readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,20,0,0,120
+2026-06-26T06:15:44.343730+00:00,60b2cde9-d46b-42b6-9cb7-3fc62238f046,Provide ITGRC readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,19,0,0,105
+2026-06-26T06:16:04.341676+00:00,9b6b74ed-c693-4409-9e3b-bdc93328ba45,Provide CMDB readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,18,0,0,111
+2026-06-26T06:16:24.338223+00:00,0fcdb1e2-d2cd-411e-9adc-fdd468a3aee0,Provide VAPT readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,16,0,0,115
+2026-06-26T06:16:44.338317+00:00,532f2e75-6fff-472a-827f-cae9d4495a06,Provide enterprise consolidated readiness assessment across frameworks with citations.,,,repository,0,0,0,0,0,0,15,0,0,111
+2026-06-26T06:17:30.621535+00:00,59394b6d-e24a-4d2b-b611-a450a3622cb1,Provide RBI C-SITE readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,53,0,0,249
+2026-06-26T06:17:50.621702+00:00,2d785483-d7da-4a4d-a0f9-8fe35c353850,Provide PCI DSS readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,15,0,0,102
+2026-06-26T06:18:10.619601+00:00,3aa99a35-9e19-4e20-8e4e-3e9d82112fb9,Provide DPSC readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,15,0,0,108
+2026-06-26T06:18:30.618182+00:00,7e7cda3e-0d06-4cb5-8c88-4f486054b485,Provide ITGRC readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,15,0,0,98
+2026-06-26T06:18:50.618457+00:00,2bf54bdb-e22d-42a7-84b6-c47ba291a53f,Provide CMDB readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,24,0,0,130
+2026-06-26T06:19:10.615830+00:00,c1567206-148a-4ce4-b640-be9bd73512f7,Provide VAPT readiness assessment with cited ECS evidence.,,,repository,0,0,0,0,0,0,29,0,0,155
+2026-06-26T06:19:30.614492+00:00,9bd89e3e-d81d-434a-9401-57d1e242d43d,Provide enterprise consolidated readiness assessment across frameworks with citations.,,,repository,0,0,0,0,0,0,16,0,0,116
+2026-06-26T07:23:38.959195+00:00,b04e3082-abf1-4298-8b3f-05ee5459bcbf,Provide an enterprise readiness assessment.,,,vector,5,5,0,0,0,0,142,0,0,166161
+2026-06-26T08:30:14.122870+00:00,4187a1ef-5ac2-46d6-9042-a2f5e628c64a,test,qwen3:8b,ollama,vector,1,1,436,272,213,485,1118,0,18391,19825
+2026-06-26T08:31:26.952921+00:00,750ed3a3-0839-40c0-bb71-1950a7c0d96e,Provide RBI C-SITE readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,696,379,323,702,1933,0,26741,28952
+2026-06-26T08:31:55.929550+00:00,b0382968-5c58-42c1-8200-1731eb0653aa,Provide PCI DSS readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,693,378,811,1189,2211,0,64869,67204
+2026-06-26T08:33:03.159208+00:00,76554c9b-5264-4c9c-8295-20084c3bc0f3,Provide DPSC readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,293,382,675,2321,0,33173,35600
+2026-06-26T08:33:38.785447+00:00,8ebda341-860d-4775-a89c-8ab64a966da7,Provide ITGRC readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,522,294,423,717,2206,0,35163,37465
+2026-06-26T08:34:16.269234+00:00,73b290e6-bcd6-4c7b-848a-2e11c20cf4b0,Provide CMDB readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,293,396,689,2103,0,34247,36437
+2026-06-26T08:34:52.738942+00:00,3f21f14f-e8ab-4fd9-b685-448bfa7d06a4,Provide VAPT readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,293,405,698,2093,0,33983,36180
+2026-06-26T08:35:28.943757+00:00,4025649b-324d-4583-bd10-1a18ef6f1b59,Provide enterprise consolidated readiness assessment across frameworks with citations.,,,vector,5,5,0,0,0,0,2186,0,0,172313
+2026-06-26T08:42:49.261294+00:00,6be8c801-83b6-49e6-9d0d-eee3020b1b23,What evidence exists?,qwen3:8b,ollama,vector,1,1,453,280,66,346,218,0,8476,9013
+2026-06-26T08:43:02.580946+00:00,87c86561-b7ab-4046-9d30-eba05ef729d6,Provide RBI C-SITE readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,696,385,8,393,2203,0,4746,7696
+2026-06-26T08:43:22.581282+00:00,50f39ea4-331c-4e17-b6ec-724d3a67406e,Provide PCI DSS readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,693,384,69,453,1950,0,8515,10564
+2026-06-26T08:43:42.579736+00:00,1bbac9bc-32a3-4402-9cda-3372759d3fdd,Provide DPSC readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,299,73,372,1977,0,9731,11824
+2026-06-26T08:44:02.577082+00:00,2c5138f8-24b8-4437-965a-07e2a10c8dfb,Provide ITGRC readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,522,300,65,365,1983,0,8689,10761
+2026-06-26T08:44:22.577419+00:00,82237603-eee3-436d-9f26-e8d880b647c9,Provide CMDB readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,299,8,307,1964,0,4653,6708
+2026-06-26T08:44:42.575959+00:00,526bdb8e-fe9b-4a0c-8372-17db2db5aef1,Provide VAPT readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,299,8,307,1884,0,4723,6694
+2026-06-26T08:45:02.571828+00:00,95525331-422b-427b-8e08-e0aacf783a48,Provide enterprise consolidated readiness assessment across frameworks with citations.,qwen3:8b,ollama,vector,5,5,718,383,64,447,2112,0,8068,10277
+2026-06-26T08:51:56.031812+00:00,a8fecec5-16a9-4c47-b6b1-f2b74439685d,Provide RBI C-SITE readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,696,385,8,393,134,0,5541,5862
+2026-06-26T08:52:16.032065+00:00,1a2b65d9-1538-49c2-a7bb-25a93b851eb1,Provide PCI DSS readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,693,384,64,448,70,0,8137,8295
+2026-06-26T08:52:36.029616+00:00,57689086-368a-4214-9a88-0dc7d89d99ec,Provide DPSC readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,299,73,372,1916,0,8635,10639
+2026-06-26T08:52:56.028079+00:00,c1240905-be7b-4032-98f6-df280c33ba71,Provide ITGRC readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,522,300,65,365,1873,0,8198,10149
+2026-06-26T08:53:16.028176+00:00,de67f2af-14df-4881-a529-f340616dab61,Provide CMDB readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,299,8,307,1906,0,5062,7049
+2026-06-26T08:53:36.025658+00:00,c79b8059-aaa2-41a8-ba7e-8880348ed124,Provide VAPT readiness assessment with cited ECS evidence.,qwen3:8b,ollama,vector,5,5,521,299,8,307,1925,0,4945,6950
+2026-06-26T08:53:56.024391+00:00,74eebc5d-d09b-4a0e-90dc-4b2e4333a5f5,Provide enterprise consolidated readiness assessment across frameworks with citations.,qwen3:8b,ollama,vector,5,5,718,383,64,447,1907,0,8290,10287

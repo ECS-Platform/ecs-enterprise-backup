@@ -1,0 +1,86 @@
+<!DOCTYPE html><html><head><title>Integration Health</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-ih-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
+.ecs-ih-up { background:#16a34a; } .ecs-ih-down { background:#dc2626; } .ecs-ih-idle { background:#9ca3af; }
+.ecs-ih-card { border:1px solid #e5e7eb; border-radius:8px; padding:12px; background:#fff; }
+.ecs-ih-num { font-size:1.5rem; font-weight:700; }
+.ecs-ih-mono { font-family:ui-monospace,monospace; font-size:0.72rem; }
+</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<h1 class="ecs-workspace-title h5 mb-0">Integration Health</h1>
+<form method="post" action="/mvp/platform/sync-all">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-primary btn-sm" type="submit">Sync All Sources</button>
+</form>
+</div>
+<p class="small text-muted mb-2">Live connectivity, evidence repository status, and collection history for self-hosted source systems.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+
+{% if not overview.repository_ok %}
+<div class="alert alert-warning py-2 px-3 small mb-3">
+<strong>Evidence repository not reachable.</strong> {{ overview.repository_error or 'Start the postgres service.' }}
+Connector health below is still live; collection requires the database.
+</div>
+{% endif %}
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-ih-card"><div class="text-muted small">Total Evidence</div><div class="ecs-ih-num">{{ overview.counts.total }}</div></div></div>
+<div class="col-md-3"><div class="ecs-ih-card"><div class="text-muted small">Repository</div><div class="ecs-ih-num">{% if overview.repository_ok %}<span class="text-success">Online</span>{% else %}<span class="text-danger">Offline</span>{% endif %}</div></div></div>
+<div class="col-md-3"><div class="ecs-ih-card"><div class="text-muted small">Source Systems</div><div class="ecs-ih-num">{{ overview.counts.by_source|length }}</div></div></div>
+<div class="col-md-3"><div class="ecs-ih-card"><div class="text-muted small">Sync Runs Logged</div><div class="ecs-ih-num">{{ overview.sync_runs|length }}</div></div></div>
+</div>
+
+<h2 class="h6 mt-3">Connectors</h2>
+<table class="table table-sm table-hover bg-white">
+<thead><tr><th>Connector</th><th>Type</th><th>Status</th><th>Auth</th><th>Latency</th><th>Detail</th><th>Evidence</th><th class="text-end">Action</th></tr></thead>
+<tbody>
+{% for c in overview.connectors %}
+<tr>
+<td><strong>{{ c.name }}</strong></td>
+<td class="small text-muted">{{ c.type }}</td>
+<td>{% if c.connected %}<span class="ecs-ih-dot ecs-ih-up"></span>Connected{% elif c.detail == 'disabled' %}<span class="ecs-ih-dot ecs-ih-idle"></span>Disabled{% else %}<span class="ecs-ih-dot ecs-ih-down"></span>Down{% endif %}</td>
+<td>{% if c.authenticated %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+<td class="small">{{ c.latency_ms or 0 }} ms</td>
+<td class="small text-muted">{{ c.detail }}</td>
+<td class="small">{{ overview.counts.by_source.get(c.name, 0) }}</td>
+<td class="text-end">
+{% if c.name in connectors %}
+<form method="post" action="/mvp/platform/sync/{{ c.name }}" class="d-inline">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-outline-primary btn-sm py-0" type="submit">Sync Now</button>
+</form>
+{% else %}<span class="small text-muted">—</span>{% endif %}
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+<div class="row">
+<div class="col-md-6">
+<h2 class="h6 mt-3">Recent Sync Runs</h2>
+<table class="table table-sm bg-white"><thead><tr><th>Connector</th><th>Started</th><th>Result</th><th>Items</th></tr></thead><tbody>
+{% for s in overview.sync_runs %}
+<tr><td>{{ s.connector }}</td><td class="ecs-ih-mono">{{ s.started_at }}</td>
+<td>{% if s.ok %}<span class="badge bg-success">OK</span>{% else %}<span class="badge bg-danger">FAIL</span>{% endif %}</td>
+<td>{{ s.collected }}</td></tr>
+{% else %}<tr><td colspan="4" class="text-muted small">No sync runs yet.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+<div class="col-md-6">
+<h2 class="h6 mt-3">Audit Log <span class="small text-muted">(evidence collection operations)</span></h2>
+<table class="table table-sm bg-white"><thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Resource</th></tr></thead><tbody>
+{% for a in overview.audit %}
+<tr><td class="ecs-ih-mono">{{ a.created_at }}</td><td>{{ a.actor }}</td><td class="small">{{ a.action }}</td><td class="small">{{ a.resource }}</td></tr>
+{% else %}<tr><td colspan="4" class="text-muted small">No audit entries yet.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+</div>
+
+<p class="small text-muted mt-2"><a href="/mvp/evidence-explorer?role={{ role }}&user={{ user }}">Open Evidence Explorer →</a></p>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

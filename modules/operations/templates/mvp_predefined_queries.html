@@ -1,0 +1,154 @@
+<!DOCTYPE html><html><head><title>Predefined Queries</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-pq-query { font-family: ui-monospace, monospace; font-size: 0.72rem; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ecs-pq-fw { font-size: 0.72rem; max-width: 200px; }
+.ecs-pq-filter-bar .form-select, .ecs-pq-filter-bar .form-control { font-size: 0.78rem; }
+</style></head>
+<body class="bg-light ecs-cap-predefined-queries"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5">Predefined Queries</h1>
+<p class="small text-muted mb-2">Centralized access to predefined control queries across all frameworks. Source: <code>{{ module_view.validation.excel_path|default('ECS_Query_Driven_Control_Library_Consolidated.xlsx') }}</code></p>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if module_view.validation.errors_found and not module_view.validation.excel_loaded %}
+<div class="alert alert-warning py-2 px-3 small mb-2">
+<strong>Control library not fully loaded.</strong>
+{% for err in module_view.validation.errors_found[:3] %}<div>{{ err }}</div>{% endfor %}
+</div>
+{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{{ workspace_exec_strip(module_view) }}
+
+<form method="get" class="ecs-pq-filter-bar row g-2 align-items-end mb-3">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<div class="col-md-3">
+<label class="form-label small mb-0">Search</label>
+<input type="search" name="q" class="form-control form-control-sm" value="{{ module_view.search|default('') }}" placeholder="Control ID, name, query, technology…">
+</div>
+<div class="col-md-3">
+<label class="form-label small mb-0">Framework</label>
+<select name="framework" class="form-select form-select-sm">
+{% for fw in module_view.framework_options %}
+<option value="{{ fw }}"{% if module_view.framework_filter == fw %} selected{% endif %}>{{ fw }}</option>
+{% endfor %}
+</select>
+</div>
+<div class="col-md-2">
+<label class="form-label small mb-0">Sort</label>
+<select name="sort" class="form-select form-select-sm">
+<option value="control_id"{% if module_view.sort_by == 'control_id' %} selected{% endif %}>Control ID</option>
+<option value="control_name"{% if module_view.sort_by == 'control_name' %} selected{% endif %}>Control Name</option>
+<option value="technology"{% if module_view.sort_by == 'technology' %} selected{% endif %}>Technology</option>
+<option value="status"{% if module_view.sort_by == 'status' %} selected{% endif %}>Status</option>
+</select>
+</div>
+<div class="col-md-2">
+<label class="form-label small mb-0">Order</label>
+<select name="dir" class="form-select form-select-sm">
+<option value="asc"{% if module_view.sort_dir == 'asc' %} selected{% endif %}>Ascending</option>
+<option value="desc"{% if module_view.sort_dir == 'desc' %} selected{% endif %}>Descending</option>
+</select>
+</div>
+<div class="col-md-2">
+<button type="submit" class="btn btn-primary btn-sm w-100">Apply</button>
+</div>
+</form>
+
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('catalog', true) }}
+<div class="d-flex justify-content-between align-items-center mb-2">
+<span class="small text-muted">Showing {{ module_view.pagination.start }}–{{ module_view.pagination.end }} of {{ module_view.pagination.total }} controls</span>
+<span class="badge bg-secondary">10 per page</span>
+</div>
+<div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
+<table class="table table-sm table-bordered bg-white ecs-fit-table mb-0">
+<thead><tr>
+<th>Control ID</th><th>Control Name</th><th>Framework Coverage</th><th>Technology</th><th>Query</th><th>Status</th><th>Last Execution</th><th>Actions</th>
+</tr></thead>
+<tbody>
+{% if module_view.rows %}
+{% for r in module_view.rows %}
+<tr>
+<td><strong>{{ r.control_id }}</strong></td>
+<td>{{ r.control_name }}</td>
+<td class="ecs-pq-fw">{{ r.framework_coverage or '—' }}</td>
+<td>{% if r.technology %}<span class="badge bg-{% if r.technology == 'Unknown' %}warning text-dark{% else %}info{% endif %}">{{ r.technology }}</span>{% else %}—{% endif %}</td>
+<td class="ecs-pq-query" title="{{ r.query|e }}">{% if r.query %}{{ r.query }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+<td><span class="badge bg-{% if r.status == 'Ready' %}success{% elif r.status == 'Manual' %}secondary{% elif r.status == 'Unsupported Technology' %}warning text-dark{% else %}light text-dark border{% endif %}" title="{{ r.capability_reason|default('') }}">{{ r.status }}</span></td>
+<td class="small">{{ r.last_execution }}</td>
+<td class="text-nowrap">
+<a href="/mvp/predefined-queries/detail?control_id={{ r.control_id|urlencode }}&role={{ role }}&user={{ user|urlencode }}" class="btn btn-outline-primary btn-sm">View</a>
+{% if r.live_execution_enabled %}
+<form method="post" action="/mvp/predefined-queries/run" class="d-inline">
+<input type="hidden" name="control_id" value="{{ r.control_id }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="return_to" value="detail">
+<button type="submit" class="btn btn-outline-success btn-sm">Run Query</button>
+</form>
+{% elif r.predefined %}
+<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Live execution not enabled for this control">Run Query</button>
+{% endif %}
+</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="8" class="text-center text-muted py-4">No controls match the current filters.</td></tr>
+{% endif %}
+</tbody>
+</table>
+</div>
+
+{% if module_view.pagination.pages > 1 %}
+<nav class="mt-2" aria-label="Predefined queries pagination">
+<ul class="pagination pagination-sm mb-0">
+{% if module_view.pagination.has_prev %}
+<li class="page-item"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ module_view.pagination.prev_page }}">Prev</a></li>
+{% endif %}
+{% for p in range(1, module_view.pagination.pages + 1) %}
+{% if p <= 7 or p == module_view.pagination.pages %}
+<li class="page-item{% if p == module_view.pagination.page %} active{% endif %}"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ p }}">{{ p }}</a></li>
+{% endif %}
+{% endfor %}
+{% if module_view.pagination.has_next %}
+<li class="page-item"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ module_view.pagination.next_page }}">Next</a></li>
+{% endif %}
+</ul>
+</nav>
+{% endif %}
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('history', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Execution History</h6>
+<div class="table-responsive ecs-ops-table-wrap mb-2">
+<table class="table table-sm table-bordered bg-white mb-0">
+<thead><tr><th>Control ID</th><th>Timestamp</th><th>User</th><th>Status</th><th>Result</th></tr></thead>
+<tbody>
+{% if module_view.execution_history_rows %}
+{% for h in module_view.execution_history_rows %}
+<tr>
+<td><a href="/mvp/predefined-queries/detail?control_id={{ h.control_id|urlencode }}&role={{ role }}&user={{ user|urlencode }}">{{ h.control_id }}</a></td>
+<td class="small">{{ h.execution_time }}</td>
+<td class="small">{{ h.user }}</td>
+<td><span class="badge bg-{% if h.status == 'Success' %}success{% else %}danger{% endif %}">{{ h.status }}</span></td>
+<td class="small ecs-pq-query" title="{{ (h.result or h.error_message or '')|e }}">{{ (h.result or h.error_message or '—')[:100] }}{% if (h.result or h.error_message or '')|length > 100 %}…{% endif %}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="5" class="text-center text-muted py-3">No executions recorded yet.</td></tr>
+{% endif %}
+</tbody>
+</table>
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('manual', false) }}
+<h6 class="small text-muted text-uppercase mb-1">Manual Controls ({{ module_view.manual_count }})</h6>
+<p class="small text-muted">Controls without a predefined query in the Excel source file.</p>
+{{ workspace_pane_end() }}
+
+</div></div></div>
+</body></html>

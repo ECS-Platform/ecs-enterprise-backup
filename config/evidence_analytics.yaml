@@ -1,0 +1,107 @@
+# ECS Evidence Analytics & Observation Assist Foundation — configuration (Phase 5.5).
+#
+# DETERMINISTIC, NON-LLM. Auditor-productivity analytics that COMPOSE the Phase 5.4
+# evidence intelligence engines (app/evidence_intel). Changing these values changes
+# analytics OUTPUT only; never workflow/RBAC/audit/dashboard/schema/RAG.
+#
+# Every engine is DISABLED by default. New engines (Timeline, Search DSL, Portfolio)
+# have their own flags; capabilities that EXTEND Phase 5.4 reuse the 5.4 flags:
+#   * Difference Engine      -> EVIDENCE_CHANGE_DETECTION_ENABLED
+#   * Evidence Quality Engine-> SUFFICIENCY_ENGINE_ENABLED
+#   * Closure Assistant      -> OBSERVATION_READINESS_ENABLED
+
+evidence_analytics:
+  # ---- New feature flags (default false). Env overrides win. -----------------
+  timeline_enabled:   ${EVIDENCE_TIMELINE_ENABLED:-false}
+  search_dsl_enabled: ${EVIDENCE_SEARCH_DSL_ENABLED:-false}
+  portfolio_enabled:  ${EVIDENCE_PORTFOLIO_ENABLED:-false}
+
+  # ---- Timeline engine ------------------------------------------------------
+  timeline:
+    # Canonical event ordering when timestamps tie.
+    event_priority:
+      evidence_created:    0
+      evidence_updated:    1
+      evidence_submitted:  2
+      evidence_approved:   3
+      evidence_rejected:   3
+      evidence_reopened:   4
+      observation_closed:  5
+      observation_reopened: 6
+    # A quality drop of >= this many points across versions = "declining quality".
+    quality_decline_threshold: 10
+
+  # ---- Evidence Quality Engine (Capability C) -------------------------------
+  # Composes 5.4 sufficiency + reuse, then adds version_stability + source_reliability.
+  quality:
+    weights:
+      sufficiency:        0.45   # delegated 5.4 aggregate (freshness/completeness/...)
+      reuse_confidence:   0.15
+      version_stability:  0.20   # fewer churny versions / no recent major change = stable
+      source_reliability: 0.20
+    bands:
+      green_min: 80
+      amber_min: 55
+    # Source reliability by source_system (0-100). Unknown -> default.
+    source_reliability_scores:
+      gitea:       90
+      github:      90
+      gitlab:      90
+      azure_devops: 88
+      sonarqube:   92
+      jenkins:     85
+      jira:        80
+      confluence:  75
+      servicenow:  82
+      sharepoint:  70
+      prisma:      88
+      manual:      50
+      default:     60
+    # Version stability: penalty per version beyond the first, and per major change.
+    version_penalty_per_extra: 8
+    major_change_penalty:      25
+
+  # ---- Observation Closure Assistant (Capability D) -------------------------
+  closure:
+    # Recommended-action templates keyed by detected blocker.
+    actions:
+      no_evidence:        "Attach supporting evidence for the observation"
+      no_approved:        "Obtain auditor approval for submitted evidence"
+      no_remediation:     "Attach a remediation plan or assign a remediation owner"
+      stale_evidence:     "Refresh stale evidence (re-collect or re-upload)"
+      no_control:         "Map the observation to a control"
+      dependencies:       "Resolve outstanding dependency blockers"
+
+  # ---- Search DSL (Capability E) --------------------------------------------
+  dsl:
+    # Allow-listed fields (maps to evidence_intel.query filterable fields).
+    allowed_fields:
+      - framework
+      - application
+      - observation
+      - control
+      - owner
+      - status
+      - approval_status
+      - evidence_type
+      - source_system
+      - year
+      - audit_year
+      - upload_date
+      - age          # numeric, days (operators > < >= <=)
+      - quality      # numeric, 0-100 (operators > < >= <=)
+      - approved     # boolean (true/false)
+      - reused       # boolean (true/false)
+    # Allowed operators.
+    operators: ["=", "!=", ">", "<", ">=", "<="]
+    max_conditions: 20
+
+  # ---- Portfolio analytics (Capability F) -----------------------------------
+  portfolio:
+    # Staleness threshold (days) — evidence older than this counts as stale.
+    stale_after_days: 90
+    # Approval SLA target (days) from submit to approval.
+    approval_sla_days: 14
+    # Simple deterministic closure forecast: avg days per remaining blocker.
+    days_per_blocker: 7
+    personas: [application_owner, functional_head, vertical_head, cio]

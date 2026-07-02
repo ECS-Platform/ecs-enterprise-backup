@@ -35,6 +35,8 @@
 {{ persona_profile(persona) }}
 </div>
 
+{% include "partials/ecs_framework_filter.html" %}
+
 {% if notice %}<div class="alert alert-warning py-2 mb-2">{{ notice }}</div>{% endif %}
 {% from "partials/evidence_workflow_macros.html" import workflow_counter_strip, workflow_analytics_cards, workflow_queue_pills, workflow_summary_cards %}
 {% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary, framework_name, true) }}{% endif %}

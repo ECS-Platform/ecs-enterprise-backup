@@ -146,11 +146,13 @@
   border: 1px solid #cbd5e1;
 }
 
-/* Chart + table balance */
-.chart-container-compact,
-.ecs-bar-chart {
-  max-height: 72px !important;
-}
+/* Chart + table balance.
+   NOTE: the previous `max-height: 72px !important` here crushed every compact bar
+   chart to 72px while the JS renderer sizes bars to ~150px, causing bars to overflow
+   upward out of the container (the "upside-down / top-anchored" defect) and clipping
+   axis labels/values. Executive-readable chart heights are owned by the chart system
+   (executive_charts_system.html / ecs_chart_standard.html). This block no longer
+   constrains chart heights. */
 .compact-chart-grid {
   max-width: 100%;
 }

@@ -1,0 +1,99 @@
+<!DOCTYPE html><html><head><title>ECS AI Assistant</title>{% include "partials/mvp_styles.html" %}
+<style>
+.cite{border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;margin-bottom:6px}
+.cite .ref{font-weight:700;color:#2563eb}
+.mono{font-family:ui-monospace,monospace;font-size:.72rem}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.up{background:#16a34a}.down{background:#9ca3af}
+.chat-q{background:#eff6ff;border-radius:10px;padding:8px 12px;margin-bottom:6px}
+.chat-a{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px}
+</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">ECS AI Assistant <span class="badge bg-info">Evidence-Grounded RAG</span></h1>
+<p class="small text-muted mb-2">Ask free-form questions. Answers are grounded only in the ECS evidence repository (Jira, Jenkins, SonarQube, Gitea) and governance data, with inline citations. Pipeline: RBAC → retrieval (pgvector) → reuse &amp; framework mapping → context assembly → Gemini → cited response.</p>
+
+{# ---- status bar ---- #}
+<div class="card mb-2"><div class="card-body py-2 small d-flex flex-wrap gap-3 align-items-center">
+<span><span class="dot {{ 'up' if status.provider_configured else 'down' }}"></span>Gemini: <strong>{{ status.model or 'n/a' }}</strong></span>
+<span><span class="dot {{ 'up' if status.vector_ready else 'down' }}"></span>Vector index: <strong>{{ status.vector_count }}</strong> chunks · {{ status.indexed_pct }}% of {{ status.evidence_count }} evidence</span>
+<span class="badge bg-{{ 'success' if status.ready else 'secondary' }}">{{ 'RAG ready' if status.ready else 'Key required' }}</span>
+<form method="post" action="/mvp/ai-assistant/reindex" class="ms-auto d-inline">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<button class="btn btn-outline-primary btn-sm py-0" {{ 'disabled' if not status.provider_configured }}>Re-index Evidence</button>
+</form>
+</div></div>
+{% if not status.provider_configured %}
+<div class="alert alert-warning py-2 px-3 small mb-2">Set <code>GEMINI_API_KEY</code> in <code>.env</code> and restart the <code>ecs</code> service to enable Gemini answers. Retrieval, citations, RBAC and framework mapping still work in deterministic fallback mode.</div>
+{% endif %}
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+
+{# ---- query form with filters ---- #}
+<form method="get" action="/mvp/ai-assistant" class="mb-2">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<div class="row g-2">
+  <div class="col-md-7">
+    <input class="form-control" name="q" value="{{ q }}" placeholder="Ask about evidence, controls, reuse, readiness, audit history…">
+  </div>
+  <div class="col-md-2">
+    <select class="form-select" name="application">
+      <option value="">All applications</option>
+      {% for a in apps %}<option value="{{ a }}" {{ 'selected' if selected.application==a }}>{{ a }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <select class="form-select" name="framework">
+      <option value="">All frameworks</option>
+      {% for f in fw_options %}<option value="{{ f }}" {{ 'selected' if selected.framework==f }}>{{ f }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-1"><button class="btn btn-primary w-100" type="submit">Ask</button></div>
+</div>
+</form>
+<div class="mb-3 small">Examples:
+{% for s in examples %}
+<a class="badge bg-light text-dark" href="/mvp/ai-assistant?role={{ role }}&user={{ user }}&q={{ s|urlencode }}">{{ s }}</a>
+{% endfor %}
+</div>
+
+{% if answer %}
+<div class="chat-q small"><strong>You:</strong> {{ q }}
+{% if selected.application %}<span class="badge bg-secondary">app: {{ selected.application }}</span>{% endif %}
+{% if selected.framework %}<span class="badge bg-secondary">framework: {{ selected.framework }}</span>{% endif %}
+</div>
+<div class="chat-a mb-2">
+<div class="text-muted small mb-1">
+<span class="badge bg-{{ 'success' if answer.mode=='rag' else 'secondary' }}">{{ answer.mode }}</span>
+{% if answer.retrieval_mode %}<span class="badge bg-light text-dark">retrieval: {{ answer.retrieval_mode }}</span>{% endif %}
+{% if answer.rbac %}<span class="badge bg-light text-dark">rbac: {{ answer.rbac.rbac_role }}{% if answer.rbac.scope_filter %} (scoped){% else %} (enterprise){% endif %}</span>{% endif %}
+</div>
+<p class="mb-1" style="white-space:pre-wrap">{{ answer.answer }}</p>
+{% if answer.fallback_used %}<div class="small text-muted">↳ deterministic fallback (no LLM key); citations below are live from the repository.</div>{% endif %}
+</div>
+
+{% if answer.facts %}
+<h2 class="h6">Grounding Facts</h2>
+<ul class="small">{% for f in answer.facts %}<li>{{ f }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if answer.citations %}
+<h2 class="h6">Cited Evidence ({{ answer.citations|length }})</h2>
+{% for c in answer.citations %}
+<div class="cite">
+<span class="ref">[{{ c.ref }}]</span>
+<span class="badge bg-dark">{{ c.source_system|capitalize }} {{ c.object_type|replace('_',' ')|capitalize }}</span>
+{% if c.title %}<strong>{{ c.title }}</strong>{% endif %}
+{% if c.application %}<span class="badge bg-light text-dark">{{ c.application }}</span>{% endif %}
+<span class="badge bg-{{ 'success' if c.review_status=='Approved' else 'danger' if c.review_status=='Rejected' else 'warning' if c.review_status=='UnderReview' else 'secondary' }}">{{ c.review_status }}</span>
+{% if c.url %}<a class="small" href="{{ c.url }}" target="_blank" rel="noopener">open ↗</a>{% endif %}
+<div class="mono text-muted">id={{ c.evidence_uid }} · collected={{ c.collected_timestamp }}</div>
+<div class="small">Frameworks: {% for fw in c.frameworks %}<span class="badge bg-info me-1">{{ fw }} {{ c.framework_refs[fw] }}</span>{% else %}<span class="text-muted">none</span>{% endfor %}</div>
+</div>
+{% endfor %}
+{% else %}
+<div class="alert alert-secondary small">No evidence matched this query under your access scope.</div>
+{% endif %}
+{% endif %}
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

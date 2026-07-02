@@ -1,0 +1,54 @@
+<!DOCTYPE html><html><head><title>Executive Summary</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:12px;background:#fff}.ecs-kpi .n{font-size:1.7rem;font-weight:800}
+.bar{height:8px;border-radius:4px;background:#e5e7eb;overflow:hidden}.bar>span{display:block;height:100%}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">Executive Summary</h1>
+<p class="small text-muted mb-2">One-screen posture for the CIO — portfolio, evidence, coverage, reuse efficiency, and audit readiness across the organization.</p>
+{% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Applications</div><div class="n">{{ data.applications or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Evidence Records</div><div class="n">{{ data.total_evidence or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Audit Readiness</div><div class="n text-{{ 'success' if data.readiness_band=='Ready' else 'warning' if data.readiness_band=='At Risk' else 'danger' }}">{{ data.readiness_score or 0 }}%</div><div class="small text-muted">{{ data.readiness_band }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Evidence Reuse</div><div class="n text-primary">{{ data.reuse_pct or 0 }}%</div><div class="small text-muted">{{ data.reuse_savings or 0 }} ops saved</div></div></div>
+</div>
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Control Coverage</div><div class="n">{{ data.control_coverage_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Control Gaps</div><div class="n text-danger">{{ data.control_gaps or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Framework Coverage</div><div class="n">{{ data.framework_coverage_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Correlation Chains</div><div class="n">{{ data.correlation_chains or 0 }}</div></div></div>
+</div>
+
+<div class="row">
+<div class="col-md-5">
+<h2 class="h6">Portfolio by Criticality</h2>
+<table class="table table-sm bg-white"><tbody>
+{% for k, v in data.by_criticality.items() %}<tr><td class="small">{{ k }}</td><td class="text-end small">{{ v }}</td></tr>{% endfor %}
+</tbody></table>
+<h2 class="h6 mt-2">Evidence by Source</h2>
+<table class="table table-sm bg-white"><tbody>
+{% for k, v in data.by_source.items() %}<tr><td class="small">{{ k }}</td><td class="text-end small">{{ v }}</td></tr>
+{% else %}<tr><td class="small text-muted">No evidence.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+<div class="col-md-7">
+<h2 class="h6">Framework Coverage</h2>
+<table class="table table-sm bg-white align-middle"><thead><tr><th>Framework</th><th style="width:45%">Coverage</th><th class="text-end">%</th></tr></thead><tbody>
+{% for f in data.frameworks %}
+<tr><td class="small">{{ f.framework_code }}</td><td><div class="bar"><span style="width:{{ f.coverage_pct }}%;background:{{ '#16a34a' if f.coverage_pct>=80 else '#f59e0b' if f.coverage_pct>=50 else '#dc2626' }}"></span></div></td><td class="text-end small">{{ f.coverage_pct }}%</td></tr>
+{% else %}<tr><td colspan="3" class="text-muted small">No frameworks.</td></tr>{% endfor %}
+</tbody></table>
+<h2 class="h6 mt-2">Most-Ready Applications</h2>
+<table class="table table-sm bg-white"><thead><tr><th>Application</th><th class="text-end">Score</th><th>Band</th></tr></thead><tbody>
+{% for a in data.top_apps %}
+<tr><td class="small">{{ a.application }}</td><td class="text-end small">{{ a.score }}%</td><td><span class="badge bg-{{ 'success' if a.band=='Ready' else 'warning' if a.band=='At Risk' else 'danger' }}">{{ a.band }}</span></td></tr>
+{% else %}<tr><td colspan="3" class="text-muted small">No data.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+</div>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

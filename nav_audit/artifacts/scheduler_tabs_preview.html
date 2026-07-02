@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset=utf-8>
+<style>
+.ecs-workspace-tabs{display:flex;gap:.3rem;flex-wrap:wrap;padding:.4rem;background:#fff}
+.ecs-workspace-tab{border-radius:6px;padding:.3rem .6rem;font-size:.72rem;line-height:1.2;white-space:nowrap}
+/* ── P1 HOTFIX: Scheduler sub-navigation tab visibility (scheduler-only) ──────
+   Scoped strictly under the Scheduler page body class (.ecs-cap-scheduler) so it
+   CANNOT affect Executive Overview, Enterprise, Pan India, Reports, Trends,
+   Governance, Framework pages, or any other workspace-tab usage. Loaded after
+   mvp_styles.html on this page, so it deterministically wins regardless of any
+   stale-cache state. Values mirror the WCAG-AA tab standard (all states >= 4.5:1).
+   Inactive #0F172A/#E2E8F0 (14.5:1) · Active #FFFFFF/#2563EB (5.2:1) ·
+   Hover #FFFFFF/#1D4ED8 (6.7:1). */
+.ecs-cap-scheduler .ecs-workspace-tab {
+  background: #E2E8F0;
+  color: #0F172A;
+  border: 1px solid #CBD5E1;
+  font-weight: 600;
+}
+.ecs-cap-scheduler .ecs-workspace-tab:hover {
+  background: #1D4ED8;
+  border-color: #1D4ED8;
+  color: #FFFFFF;
+}
+.ecs-cap-scheduler .ecs-workspace-tab:focus-visible {
+  outline: 2px solid #93C5FD;
+  outline-offset: 2px;
+}
+.ecs-cap-scheduler .ecs-workspace-tab.is-active,
+.ecs-cap-scheduler .ecs-workspace-tab[aria-selected="true"] {
+  background: #2563EB;
+  border-color: #2563EB;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+.ecs-cap-scheduler .ecs-workspace-tab.is-active:hover {
+  background: #1D4ED8;
+  border-color: #1D4ED8;
+}
+
+</style></head><body class="ecs-cap-scheduler"><nav class="ecs-workspace-tabs ecs-workspace-tabs-governance mb-2">';
+    tabs.forEach(function (t, i) {
+      h += '<button type="button" class="ecs-workspace-tab' + (i === 0 ? ' is-active' : '') + '" data-workspace-tab="' + uid + '-' + t.id + '">' + esc(t.label) + '</button>';
+    });
+    h += '</nav></body></html>

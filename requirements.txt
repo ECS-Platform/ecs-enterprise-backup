@@ -2,3 +2,11 @@ fastapi
 uvicorn
 jinja2
 python-multipart
+openpyxl
+psycopg2-binary
+# Environment loading (.env -> os.environ) for demo-mode flags at startup
+python-dotenv
+# ECS platform foundation
+pyyaml
+# Authentication foundation (Phase 1: Azure AD / OIDC / JWT validation)
+pyjwt[crypto]

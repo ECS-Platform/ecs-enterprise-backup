@@ -1,0 +1,67 @@
+Menu,Submenu,Route,HTTP Status,Template,Working(Y/N),Comments
+Executive Overview,★ ROI &amp; Value Realization,/mvp/roi,200,mvp_roi_center.html,Y,OK
+Executive Overview,Main Dashboard,/dashboard,200,(shared/handler),Y,OK
+Executive Overview,Evidence Analytics,/dashboard/cio,200,(shared/handler),Y,OK
+Executive Overview,Vertical Head Dashboard,/dashboard/vertical-head,200,dashboard_vertical_head.html,Y,OK
+Executive Overview,Compliance Dashboard,/dashboard/compliance-head,200,dashboard_compliance_head.html,Y,OK
+Executive Overview,Functional Head Dashboard,/dashboard/functional-head,200,dashboard_functional_head.html,Y,OK
+Executive Overview,Demo Overview ●,/mvp/demo-overview,200,mvp_demo_overview.html,Y,OK
+Executive Overview,Enterprise,/mvp/enterprise,200,mvp_enterprise.html,Y,OK
+Executive Overview,Pan India,/mvp/pan-india,200,mvp_pan_india.html,Y,OK
+Executive Overview,Reports,/mvp/reports,200,mvp_reports.html,Y,OK
+Executive Overview,Trends,/mvp/trends,200,(shared/handler),Y,OK
+Frameworks,/framework/ — PCI-DSS,/framework/PCI-DSS,200,mvp_framework.html,Y,OK
+Frameworks,/framework/ — ISO27001,/framework/ISO27001,200,mvp_framework.html,Y,OK
+Frameworks,/framework/ — SOC2,/framework/SOC2,200,mvp_framework.html,Y,OK
+Frameworks,/framework/ — RBI-CSF,/framework/RBI-CSF,200,mvp_framework.html,Y,OK
+Frameworks,/framework/ — AI-SDLC,/framework/AI-SDLC,200,mvp_framework.html,Y,OK
+Frameworks,Framework Loader,/mvp/framework-loader,200,framework_loader.html,Y,OK
+Frameworks,Framework Administration,/mvp/framework-admin,200,(shared/handler),Y,OK
+Operations,Scheduler,/mvp/scheduler,200,mvp_scheduler.html,Y,OK
+Operations,Predefined Queries,/mvp/predefined-queries,200,mvp_predefined_queries.html,Y,OK
+Operations,Integration Health,/mvp/integration-health,200,(shared/handler),Y,OK
+Operations,Evidence Explorer,/mvp/evidence-explorer,200,(shared/handler),Y,OK
+Operations,AI Ops Assistant,/mvp/ai-ops-assistant,200,mvp_ai_ops_assistant.html,Y,OK
+Operations,Bulk Upload,/mvp/upload,200,mvp_bulk_upload.html,Y,OK
+Operations,Integrations,/mvp/integrations,200,(shared/handler),Y,OK
+Operations,Onboarding,/mvp/onboarding,200,mvp_onboarding.html,Y,OK
+Governance,Audit Prep,/mvp/audit-prep,200,(shared/handler),Y,OK
+Governance,Evidence Health,/mvp/evidence-health,200,mvp_evidence_health.html,Y,OK
+Governance,Evidence Reuse,/mvp/reuse,200,mvp_reuse.html,Y,OK
+Governance,Lifecycle,/mvp/lifecycle,200,(shared/handler),Y,OK
+Governance,Completeness,/mvp/completeness,200,mvp_completeness.html,Y,OK
+Governance,App Comparison,/mvp/comparison,200,mvp_comparison.html,Y,OK
+Governance,Search,/mvp/search,200,mvp_search.html,Y,OK
+Governance,Evidence Approval Analytics,/mvp/evidence-approval,200,mvp_evidence_approval.html,Y,OK
+Evidence Governance,Role Scorecard ●,/mvp/platform/scorecard,200,(shared/handler),Y,OK
+Evidence Governance,Executive Summary ●,/mvp/platform/executive-summary,200,(shared/handler),Y,OK
+Evidence Governance,Audit Readiness,/mvp/platform/audit-readiness,200,(shared/handler),Y,OK
+Evidence Governance,Application Onboarding,/mvp/platform/onboarding,200,(shared/handler),Y,OK
+Evidence Governance,Application Inventory,/mvp/platform/inventory,200,(shared/handler),Y,OK
+Evidence Governance,Control Coverage,/mvp/platform/control-coverage,200,(shared/handler),Y,OK
+Evidence Governance,Framework Coverage,/mvp/platform/framework-coverage,200,(shared/handler),Y,OK
+Evidence Governance,Evidence Reuse,/mvp/platform/evidence-reuse,200,(shared/handler),Y,OK
+Evidence Governance,Evidence Lifecycle,/mvp/platform/evidence-lifecycle,200,(shared/handler),Y,OK
+Evidence Governance,Collection Scheduler,/mvp/platform/scheduler,200,(shared/handler),Y,OK
+Evidence Governance,AI Assistant,/mvp/platform/assistant,200,(shared/handler),Y,OK
+Evidence Governance,AI Assistant (Chat),/mvp/ai-assistant,200,(shared/handler),Y,OK
+Enterprise GRC,Risk Register,/mvp/risk-register,200,(shared/handler),Y,OK
+Enterprise GRC,Exceptions / TD,/mvp/exceptions,200,mvp_exceptions.html,Y,OK
+Enterprise GRC,Exception Governance,/mvp/exception-governance,200,mvp_exception_governance.html,Y,OK
+Enterprise GRC,CMDB / Assets,/mvp/cmdb,200,mvp_cmdb.html,Y,OK
+Enterprise GRC,Regulatory Mapping,/mvp/regulatory,200,mvp_regulatory.html,Y,OK
+Enterprise GRC,Executive Heatmaps,/mvp/heatmaps,200,mvp_heatmaps.html,Y,OK
+Enterprise GRC,Integrations Hub,/mvp/integrations-hub,200,mvp_integrations_hub.html,Y,OK
+Enterprise GRC,Cross-Tool Correlation,/mvp/correlation,200,mvp_correlation.html,Y,OK
+Enterprise GRC,Governance Analytics,/mvp/governance-analytics,200,mvp_governance_analytics.html,Y,OK
+AI SDLC Governance,Home,/mvp/ai-sdlc,200,mvp_ai_sdlc_home.html,Y,OK
+AI SDLC Governance,AI SDLC Control Tower,/mvp/ai-sdlc/control-tower,200,mvp_ai_sdlc_control_tower.html,Y,OK
+AI SDLC Governance,Application Onboarding,/mvp/ai-sdlc/onboarding,200,mvp_ai_sdlc_worklist.html,Y,OK
+AI SDLC Governance,Requirements,/mvp/ai-sdlc/requirements,200,mvp_ai_sdlc_worklist.html,Y,OK
+AI SDLC Governance,Design,/mvp/ai-sdlc/design,200,mvp_ai_sdlc_worklist.html,Y,OK
+AI SDLC Governance,Development,/mvp/ai-sdlc/development,200,mvp_ai_sdlc_worklist.html,Y,OK
+AI SDLC Governance,Testing,/mvp/ai-sdlc/testing,200,mvp_ai_sdlc_worklist.html,Y,OK
+AI SDLC Governance,Go-Live,/mvp/ai-sdlc/golive,200,mvp_ai_sdlc_worklist.html,Y,OK
+AI SDLC Governance,Evidence Collection,/mvp/ai-sdlc/evidence,200,mvp_ai_sdlc_worklist.html,Y,OK
+AI SDLC Governance,Findings &amp; Remediation,/mvp/ai-sdlc/findings,200,mvp_ai_sdlc_worklist.html,Y,OK
+AI SDLC Governance,Reports,/mvp/ai-sdlc/reports,200,mvp_ai_sdlc_reports.html,Y,OK

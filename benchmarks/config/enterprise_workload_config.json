@@ -1,0 +1,64 @@
+{
+  "role": "cio",
+  "user": "benchmark-runner",
+  "concurrency": 1,
+  "max_requests_per_minute": 3,
+  "output_dir": "benchmarks/output",
+  "run_sync_once": false,
+  "reindex_before_run": false,
+  "profile_keys": [],
+  "categories": [],
+  "memory_guard_min_mb": 512,
+  "benchmark_mode": "standard",
+  "ollama": {
+    "num_predict": 2048,
+    "num_ctx": 32768,
+    "timeout_seconds": 600
+  },
+  "benchmark_optimization": {
+    "enabled": true,
+    "candidate_settings": [
+      { "label": "safe_16k_512", "num_ctx": 16384, "num_predict": 512, "timeout_seconds": 180, "pan_india_context_scale": 0.25 },
+      { "label": "balanced_24k_1024", "num_ctx": 24576, "num_predict": 1024, "timeout_seconds": 300, "pan_india_context_scale": 0.50 },
+      { "label": "extended_32k_2048", "num_ctx": 32768, "num_predict": 2048, "timeout_seconds": 600, "pan_india_context_scale": 0.75 }
+    ]
+  },
+  "worst_case_assumptions": {},
+  "pan_india_assumptions": {
+    "applications": 500,
+    "frameworks": 15,
+    "control_domains": 10,
+    "controls_per_framework": 100,
+    "evidence_files_per_control": 2,
+    "historical_observations_per_framework": 50,
+    "risk_exception_records_per_framework": 25,
+    "evidence_reuse_mappings_per_framework": 100,
+    "lines_of_business": 10,
+    "source_systems": 10,
+    "output_weighting_factor": 9,
+    "peak_requests_per_minute": 3,
+    "target_input_tokens": 125000,
+    "target_output_tokens": 50000,
+    "input_token_target_low": 75000,
+    "input_token_target_high": 125000,
+    "output_token_target_low": 25000,
+    "output_token_target_high": 50000,
+    "max_rows_per_block": 450,
+    "chars_per_token": 4.0
+  },
+  "capacity_assumptions": {
+    "concurrent_users": 50,
+    "requests_per_user_per_day": 8,
+    "working_hours_per_day": 9.0,
+    "working_days_per_month": 22,
+    "months_per_year": 12,
+    "peak_to_average_factor": 3.0,
+    "embedding_dimensions": 768,
+    "bytes_per_dimension": 4,
+    "vector_index_overhead_factor": 1.3,
+    "avg_chunk_bytes": 1200,
+    "new_chunks_per_day": 5000,
+    "cost_per_1k_input_tokens": 0.0,
+    "cost_per_1k_output_tokens": 0.0
+  }
+}

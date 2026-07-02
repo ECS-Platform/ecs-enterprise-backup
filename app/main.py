@@ -1,4 +1,10 @@
 
+# IMPORTANT: load .env into os.environ BEFORE any other app/* or modules/*
+# import so DEMO_MODE / ECS_AUTH_ENABLED are available when authentication,
+# RBAC and page guards initialise. Must remain the first import.
+from app import env_bootstrap as _env_bootstrap  # noqa: F401  (side-effect: loads .env)
+
+import os
 from contextlib import asynccontextmanager
 from urllib.parse import quote
 
@@ -88,19 +94,166 @@ def _redirect_with_toast(
 @asynccontextmanager
 async def ecs_lifespan(application: FastAPI):
     from modules.shared.services.ecs_logging import configure_logging, log_platform_ready, mark_startup_complete
+    from modules.shared.services import ecs_logging as _ecs_log
+    from app.env_bootstrap import ENV_STATUS
 
     configure_logging()
+    # ---- ECS Startup banner: surface demo-mode flags loaded from .env ----
+    _ecs_log.info("ECSStartup", "ECS Startup")
+    _ecs_log.info("ECSStartup", f"DEMO_MODE={os.environ.get('DEMO_MODE', '')}")
+    _ecs_log.info("ECSStartup", f"ECS_AUTH_ENABLED={os.environ.get('ECS_AUTH_ENABLED', '')}")
+    _ecs_log.info("ECSStartup",
+                  f".env loaded={ENV_STATUS.get('loaded')} via {ENV_STATUS.get('parser')}")
     refresh_repository_from_frameworks(source="startup")
     seed_demo_workflow_state()
     from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
     self_heal_governance()
+    from modules.operations.engines.predefined_queries_engine import validate_startup
+    from modules.shared.services import ecs_logging
+
+    pq_report = validate_startup()
+    for line in pq_report.get("log_lines", []):
+        ecs_logging.info("PredefinedQueries", line)
+
+    # ---- Environment configuration validation (YAML-driven UAT/SIT/PROD) ----
+    # Logs the active environment and validates its configuration. Fails startup
+    # with meaningful errors in strict environments (sit/uat/prod) or when
+    # ECS_VALIDATE_CONFIG is truthy. Never blocks the local demo. Opt out with
+    # ECS_VALIDATE_CONFIG=off.
+    try:
+        from config.environment_loader import active_environment
+        from config.config_validation import validate_environment
+
+        env_name = active_environment()
+        rep = validate_environment(env_name)
+        ecs_logging.info(
+            "ECSEnvironment",
+            f"Active environment: {env_name} "
+            f"({rep.checks_run} checks, {len(rep.errors)} errors, {len(rep.warnings)} warnings)",
+        )
+        for warn in rep.warnings:
+            ecs_logging.info("ECSEnvironment", f"warn: {warn}")
+        for err in rep.errors:
+            ecs_logging.info("ECSEnvironment", f"ERROR: {err}")
+
+        _flag = os.environ.get("ECS_VALIDATE_CONFIG", "").strip().lower()
+        _opt_out = _flag in {"off", "0", "false", "no"}
+        _force = _flag in {"1", "true", "yes", "strict", "on"}
+        _strict_env = env_name in {"sit", "uat", "prod"}
+        if rep.errors and not _opt_out and (_force or _strict_env):
+            raise RuntimeError(
+                f"ECS environment '{env_name}' configuration is invalid: "
+                + "; ".join(rep.errors)
+            )
+    except RuntimeError:
+        raise
+    except Exception as _env_exc:  # noqa: BLE001 - validation must never crash a healthy demo
+        ecs_logging.info("ECSEnvironment", f"environment validation skipped: {_env_exc}")
+
+    # Best-effort evidence repository schema init (never blocks startup).
+    try:
+        from ecs_platform.ingestion import init_repository
+
+        repo_status = init_repository()
+        if repo_status.get("ok"):
+            ecs_logging.info("ECSPlatform", "Evidence repository schema ready")
+            from ecs_platform.governance import init_governance_schema
+
+            gov_status = init_governance_schema()
+            if gov_status.get("ok"):
+                ecs_logging.info("ECSPlatform", "Governance schema ready")
+            else:
+                ecs_logging.info("ECSPlatform", f"Governance schema skipped: {gov_status.get('error', '')}")
+        else:
+            ecs_logging.info("ECSPlatform", f"Evidence repository unavailable: {repo_status.get('error', '')}")
+    except Exception as exc:  # noqa: BLE001
+        ecs_logging.info("ECSPlatform", f"Evidence repository init skipped: {exc}")
+
+    # Phase 4 Step 3: durable observation hydration (flag-gated, best-effort).
+    # Reloads persisted observations into in-memory state so the lifecycle survives
+    # restart without any dashboard change. No-op when OBSERVATIONS_DURABLE_ENABLED
+    # is off; never blocks startup.
+    try:
+        from app.observations.store import durable_observations_enabled, hydrate_into_memory
+
+        if durable_observations_enabled():
+            n = hydrate_into_memory()
+            ecs_logging.info("ECSPlatform", f"Durable observations hydrated: {n} record(s)")
+    except Exception as exc:  # noqa: BLE001
+        ecs_logging.info("ECSPlatform", f"Observation hydration skipped: {exc}")
+
+    # LLM-RAG startup validation (non-fatal): report whether Gemini is configured
+    # and reachable, plus how much of the repository is indexed. Secrets never logged.
+    try:
+        from ecs_platform.rag import rag_status
+
+        st = rag_status()
+        if st.get("provider_configured"):
+            ecs_logging.info("ECSPlatform",
+                             f"LLM-RAG ready: provider={st['provider']} model={st['model']} "
+                             f"vector_chunks={st['vector_count']} indexed={st['indexed_pct']}%")
+            # Warm local models in the background so the first query isn't a cold start.
+            import threading
+
+            from ecs_platform.rag import warm_models
+
+            threading.Thread(target=warm_models, daemon=True).start()
+        else:
+            ecs_logging.info("ECSPlatform",
+                             "LLM-RAG disabled: provider not configured (assistant uses deterministic fallback)")
+    except Exception as exc:  # noqa: BLE001
+        ecs_logging.info("ECSPlatform", f"LLM-RAG status check skipped: {exc}")
+
     mark_startup_complete()
     log_platform_ready(host="127.0.0.1", port=8000)
     yield
 
 
 app = FastAPI(title="ECS Consolidated Demo V13", lifespan=ecs_lifespan)
+
+
+@app.middleware("http")
+async def _no_cache_html(request, call_next):
+    """Force browsers to revalidate dynamic HTML pages.
+
+    Page templates carry inline <style>/<script>, so a cached HTML page keeps
+    rendering stale CSS/JS even after a fix is deployed (observed: Chrome showing
+    the pre-fix sidebar while Safari showed the corrected layout). Sending
+    no-cache on HTML guarantees the browser re-fetches the current markup.
+    Static assets under /static keep their own caching (versioned via ?v=).
+    """
+    response = await call_next(request)
+    try:
+        ctype = response.headers.get("content-type", "")
+        if ctype.startswith("text/html") and not request.url.path.startswith("/static"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+    except Exception:
+        pass
+    return response
+
+
 app.mount("/static/ecs", StaticFiles(directory="modules/shared/static"), name="ecs_static")
+
+# ---- Phase 1: Authentication foundation (Azure AD / OIDC / JWT) ----
+# Installs central auth middleware (pass-through when auth is disabled in config)
+# and maps authentication failures to proper HTTP responses. No authorization
+# (RBAC) decisions are made here.
+from app.auth import register_authentication
+from app.auth.errors import AuthenticationError as _AuthError
+from fastapi.responses import JSONResponse as _JSONResponse
+
+register_authentication(app)
+
+
+@app.exception_handler(_AuthError)
+async def _auth_exception_handler(request: Request, exc: _AuthError):
+    headers = {"WWW-Authenticate": "Bearer"} if exc.http_status == 401 else {}
+    return _JSONResponse(
+        {"error": "unauthorized", "reason": exc.reason, "detail": exc.detail},
+        status_code=exc.http_status,
+        headers=headers,
+    )
 
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
@@ -119,6 +272,30 @@ templates = Jinja2Templates(
 )
 templates.env.globals["review_url"] = review_url
 templates.env.globals["review_url_for_ev"] = review_url_for_ev
+
+
+def asset_ver(rel_path: str) -> str:
+    """Cache-busting version token for a static asset (file mtime).
+
+    Static JS/CSS is served without Cache-Control and at an unversioned URL, so
+    browsers cache it indefinitely and keep running stale code after a deploy.
+    Appending ?v=<mtime> forces a fresh fetch whenever the file changes.
+    """
+    import os
+    candidates = [
+        os.path.join("modules/shared/static", rel_path),
+        os.path.join("static", rel_path),
+        os.path.join("app/static", rel_path),
+    ]
+    for path in candidates:
+        try:
+            return str(int(os.path.getmtime(path)))
+        except OSError:
+            continue
+    return "1"
+
+
+templates.env.globals["asset_ver"] = asset_ver
 
 # Re-export shared state for backward compatibility with existing code paths
 PCI_DSS_MOCK_EVIDENCES = ecs_state.PCI_DSS_MOCK_EVIDENCES
@@ -262,6 +439,21 @@ def logout():
     return RedirectResponse("/", status_code=303)
 
 
+@app.get("/access-denied", response_class=HTMLResponse)
+def access_denied(page: str = "", role: str = "", user: str = "", home: str = "/"):
+    """Lightweight, reusable access-denied page (Phase 2 Step 2C).
+
+    Rendered when page authorization denies a browser request. Standalone HTML so it
+    never depends on a role-specific template context."""
+    from app.auth.page_guard import _access_denied_html
+
+    reason = f"Role '{role or 'unknown'}' is not authorized for '{page or 'this page'}'."
+    return HTMLResponse(
+        _access_denied_html(user=user, role=role, page=page, reason=reason, home=home or "/"),
+        status_code=403,
+    )
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(
     request: Request,
@@ -270,6 +462,12 @@ def dashboard(
     response: str = "",
     notice: str = "",
 ):
+    from app.auth.scope import apply_scope
+
+    # Phase 2 Step 3: scope-filter the owner work queue to the principal's assigned
+    # applications (flag-gated; pass-through when off or for enterprise roles).
+    owner_queue = build_owner_work_queue() if role == "owner" else []
+    owner_queue = apply_scope(request, owner_queue, fallback_role=role)
     ctx = {
         "frameworks": frameworks.keys(),
         "scheduler_data": scheduler_data,
@@ -278,7 +476,7 @@ def dashboard(
         "response": response,
         "notice": notice,
         "rejected_controls": rejected_controls,
-        "owner_work_queue": build_owner_work_queue() if role == "owner" else [],
+        "owner_work_queue": owner_queue,
         "auditor_review_queue": build_auditor_review_queue() if role == "auditor" else [],
         "closed_observations_queue": build_closed_observations_queue() if role == "auditor" else [],
         "work_queue_summary": work_queue_summary(),
@@ -297,6 +495,12 @@ def cio_dashboard(
     user: str = "CIO",
     response: str = "",
 ):
+    from app.auth.page_guard import guard_page
+
+    deny = guard_page(request, "dashboard.cio", fallback_role=role, user=user,
+                      home=f"/dashboard?role={role}&user={user}", page_label="CIO dashboard")
+    if deny:
+        return deny
     from modules.executive_overview.engines.demo_metrics import display_framework_maturity
 
     analytics = build_evidence_analytics()
@@ -541,6 +745,7 @@ def evidence_review_page(
 
 @app.post("/evidence/review/close-observation")
 def evidence_review_close_observation(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -572,10 +777,22 @@ def evidence_review_close_observation(
             "closed_at": ts,
             "detail": "Manually closed by auditor",
         }
+        from app.observations.store import persist_close
+
+        persist_close(observation_id, closed_by=user, role=role,
+                      detail={"framework": framework_name, "control": control_name})
         closed.append(observation_id)
     obs = observation_id or (closed[0] if closed else "")
     body = f"Observation {obs} closed successfully." if obs else "Observation closed."
     tp = toast_payload("approved", framework=framework_name, control=control_name, observation_id=obs, detail=body)
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "observation.close", resource=obs or key,
+        fallback_actor=user, fallback_role=role,
+        before_state={"status": "Open"}, after_state={"status": "Closed"},
+        detail={"framework": framework_name, "control": control_name,
+                "observation_id": obs})
     return _review_redirect(
         framework_name, role, user, body, control_name, evidence_id,
         toast="approved", obs_id=obs or tp["observation_id"],
@@ -598,6 +815,7 @@ def _review_redirect(framework_name: str, role: str, user: str, notice: str, con
 
 @app.post("/evidence/review/submit")
 def evidence_review_submit(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -610,6 +828,7 @@ def evidence_review_submit(
     if deny:
         return deny
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
     if key in approved_controls:
         return _review_redirect(framework_name, role, user, "Cannot resubmit: observation is closed.", control_name, evidence_id)
     was_rejected = key in rejected_controls
@@ -648,11 +867,20 @@ def evidence_review_submit(
     notice = "Resubmitted to Auditor for review." if was_rejected else "Submitted To Auditor — Pending Auditor Review."
     tp = toast_payload("submitted", framework=framework_name, control=control_name)
     record_transition(key, "submitted", user, role, tp["body"])
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "evidence.submit", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Pending Auditor Review"},
+        detail={"framework": framework_name, "control": control_name,
+                "evidence_id": evidence_id, "resubmission": was_rejected})
     return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="submitted", obs_id=tp["observation_id"])
 
 
 @app.post("/evidence/review/approve")
 def evidence_review_approve(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -665,6 +893,7 @@ def evidence_review_approve(
     if deny:
         return deny
     return approve(
+        request,
         control_name=control_name,
         framework_name=framework_name,
         role=role,
@@ -676,6 +905,7 @@ def evidence_review_approve(
 
 @app.post("/evidence/review/reject")
 def evidence_review_reject(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -689,6 +919,7 @@ def evidence_review_reject(
     if deny:
         return deny
     return reject(
+        request,
         control_name=control_name,
         framework_name=framework_name,
         role=role,
@@ -767,6 +998,7 @@ def evidence_review_request_reupload(
 
 @app.post("/evidence/review/reject-internal")
 def evidence_review_reject_internal(
+    request: Request,
     framework_name: str = Form(...),
     control_name: str = Form(...),
     evidence_id: str = Form(...),
@@ -774,6 +1006,12 @@ def evidence_review_reject_internal(
     user: str = Form(...),
     reject_reason: str = Form(...),
 ):
+    from app.auth.mutation_guard import guard_mutation
+
+    deny = guard_mutation(request, "can_upload_evidence", fallback_role=role,
+                          deny_redirect_to=f"/framework/{framework_name}", role=role, user=user)
+    if deny:
+        return deny
     from datetime import datetime, timezone
 
     reason = reject_reason.strip()
@@ -882,6 +1120,7 @@ def evidence_review_reevaluate(
 
 @app.post("/submit")
 def submit(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
@@ -894,6 +1133,7 @@ def submit(
     if deny:
         return deny
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
     if key in approved_controls:
         notice = "Cannot resubmit: observation is closed and auditor approved."
         return _workflow_redirect(role, user, framework_name, return_to, notice)
@@ -933,11 +1173,20 @@ def submit(
     notice = f"Evidence resubmitted for {control_name}." if was_rejected else f"Submitted {control_name} to auditor review."
     tp = toast_payload("submitted", framework=framework_name, control=control_name)
     record_transition(key, "submitted", user, role, tp["body"])
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "evidence.submit", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Pending Auditor Review"},
+        detail={"framework": framework_name, "control": control_name,
+                "resubmission": was_rejected})
     return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="submitted", obs_id=tp["observation_id"])
 
 
 @app.post("/approve")
 def approve(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
@@ -951,6 +1200,7 @@ def approve(
     if deny:
         return deny
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
     from datetime import datetime, timezone
 
     approved_controls[key] = {
@@ -977,6 +1227,14 @@ def approve(
         tp["body"] = f"Observation {closed[0]} closed successfully."
         tp["observation_id"] = closed[0]
     record_transition(key, "approved", user, role, tp["body"])
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "evidence.approve", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Auditor Approved"},
+        detail={"framework": framework_name, "control": control_name,
+                "observation_id": tp.get("observation_id", "")})
     if return_to == "review" and evidence_id:
         return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="approved", obs_id=tp["observation_id"])
     return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="approved", obs_id=tp["observation_id"])
@@ -984,6 +1242,7 @@ def approve(
 
 @app.post("/reject")
 def reject(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
@@ -999,6 +1258,7 @@ def reject(
         return deny
     reason = reject_reason.strip()
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
 
     if not reason:
         return _workflow_redirect(role, user, framework_name, return_to, "Reject reason is required.")
@@ -1020,6 +1280,14 @@ def reject(
 
     tp = toast_payload("rejected", framework=framework_name, control=control_name, detail=reason[:120])
     record_transition(key, "rejected", user, role, reason)
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "evidence.reject", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Rejected"},
+        detail={"framework": framework_name, "control": control_name,
+                "reason": reason[:240]})
     if return_to == "review" and evidence_id:
         return _review_redirect(framework_name, role, user, tp["body"], control_name, evidence_id, toast="rejected", obs_id=tp["observation_id"])
     return _workflow_redirect(role, user, framework_name, return_to, tp["body"], toast="rejected", obs_id=tp["observation_id"])
@@ -1081,17 +1349,32 @@ def workflow_upload_version(
 
 @app.post("/workflow/escalate")
 def workflow_escalate(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
     user: str = Form(...),
 ):
+    from app.auth.mutation_guard import guard_mutation
+
+    deny = guard_mutation(request, "can_escalate", fallback_role=role,
+                          deny_redirect_to="/dashboard", role=role, user=user)
+    if deny:
+        return deny
     key = control_key(framework_name, control_name)
+    _audit_before = {"status": control_status(framework_name, control_name)}
     ecs_state.escalated_controls[key] = {
         "escalated_by": user,
         "reason": "Escalated to compliance leadership for high-risk review.",
     }
     log_event("Observation Escalated", user, framework_name, control_name, "Marked high-risk escalation")
+    from app.audit.workflow import audit_workflow_action
+
+    audit_workflow_action(
+        request, "observation.escalate", resource=key,
+        fallback_actor=user, fallback_role=role,
+        before_state=_audit_before, after_state={"status": "Escalated"},
+        detail={"framework": framework_name, "control": control_name})
     return _workflow_redirect(role, user, "", "dashboard", f"Escalated {control_name} to leadership queue.")
 
 
@@ -1121,12 +1404,14 @@ def workflow_clarify(
 
 @app.post("/workflow/close")
 def workflow_close(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
     user: str = Form(...),
 ):
     return approve(
+        request,
         control_name=control_name,
         framework_name=framework_name,
         role=role,
@@ -1137,6 +1422,7 @@ def workflow_close(
 
 @app.post("/workflow/leadership/review")
 def workflow_leadership_review(
+    request: Request,
     control_name: str = Form(...),
     framework_name: str = Form(...),
     role: str = Form(...),
@@ -1154,6 +1440,7 @@ def workflow_leadership_review(
 
     if action in ("approve_closure", "approve"):
         return approve(
+            request,
             control_name=control_name,
             framework_name=framework_name,
             role=role,
@@ -1161,6 +1448,12 @@ def workflow_leadership_review(
             return_to="dashboard",
         )
     if action == "send_back" or action == "reopen":
+        from app.auth.mutation_guard import guard_mutation
+
+        deny = guard_mutation(request, "can_escalate", fallback_role=role,
+                              deny_redirect_to=base, role=role, user=user)
+        if deny:
+            return deny
         rejected_controls[key] = {
             "reason": f"{role} requested remediation — sent back for App Owner action.",
             "rejected_by": user,
@@ -1170,8 +1463,32 @@ def workflow_leadership_review(
         if key in ecs_state.escalated_controls:
             del ecs_state.escalated_controls[key]
         log_event("Leadership Send Back", user, framework_name, control_name, action)
+        from app.audit.workflow import audit_workflow_action
+
+        audit_workflow_action(
+            request, "observation.reopen", resource=key,
+            fallback_actor=user, fallback_role=role,
+            before_state={"status": "Closed"}, after_state={"status": "Open"},
+            detail={"framework": framework_name, "control": control_name, "action": action})
+        from app.observations.store import durable_observations_enabled, persist_reopen
+        from modules.shared.services.evidence_workflow_engine import observation_id_for
+
+        if durable_observations_enabled():
+            _oid = observation_id_for(framework_name, control_name)
+            # Keep durable + in-memory consistent on reopen (memory previously left
+            # the closure record in place; we only change this when durability is on).
+            if _oid in ecs_state.closed_observations:
+                del ecs_state.closed_observations[_oid]
+            persist_reopen(_oid, reopened_by=user, role=role,
+                           detail={"framework": framework_name, "control": control_name})
         return RedirectResponse(url=f"{base}&notice={quote('Observation sent back to App Owner.')}", status_code=303)
     if action == "escalate_governance":
+        from app.auth.mutation_guard import guard_mutation
+
+        deny = guard_mutation(request, "can_escalate", fallback_role=role,
+                              deny_redirect_to=base, role=role, user=user)
+        if deny:
+            return deny
         ecs_state.escalated_controls[key] = {
             "escalated_by": user,
             "reason": "Escalated to enterprise governance board by CIO.",
@@ -1195,6 +1512,14 @@ def workflow_leadership_review(
 register_mvp_routes(app, templates)
 register_evidence_routes(app, templates)
 
+from app.routes_platform import register_platform_routes
+
+register_platform_routes(app, templates)
+
+from app.routes_governance import register_governance_routes
+
+register_governance_routes(app, templates)
+
 from app.routes_ai_sdlc_governance import register_ai_sdlc_routes
 
 register_ai_sdlc_routes(app, templates)
@@ -1202,6 +1527,14 @@ register_ai_sdlc_routes(app, templates)
 from app.routes_grc_demo import register_grc_demo_routes
 
 register_grc_demo_routes(app)
+
+from app.routes_ecs_benchmark import register_ecs_benchmark_routes
+
+register_ecs_benchmark_routes(app, templates)
+
+from app.routes_nav_aggregators import register_nav_aggregator_routes
+
+register_nav_aggregator_routes(app, templates)
 
 
 @app.get("/api/evidence-workflow/summary")

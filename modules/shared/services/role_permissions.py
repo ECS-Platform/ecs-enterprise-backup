@@ -1,10 +1,68 @@
-"""Centralized ECS role permissions — audit governance workflow."""
+"""Centralized ECS role permissions — audit governance workflow.
+
+Phase 2 Step 2A: these capability predicates can DELEGATE to the consolidated
+PolicyEngine (app/auth/authz.py) instead of their legacy set-membership logic.
+Delegation is gated by the ECS_RBAC_DELEGATION_ENABLED kill switch (default FALSE),
+so runtime behavior is unchanged until explicitly enabled. Every legacy body is
+preserved verbatim as the default path; a differential parity test asserts that
+legacy_result == delegated_result for every role and capability.
+
+Phase 2 Step 2B: RBAC_ENFORCEMENT_ENABLED (default FALSE) ALSO activates the same
+parity-equivalent engine-backed decision path here. The enforcement foundation
+(app/auth/enforcement.py) additionally derives the effective role from the
+authenticated principal at the route layer; these predicates keep their (role) ->
+bool contract unchanged.
+"""
 
 from __future__ import annotations
 
+import os
 from urllib.parse import quote
 
 from fastapi.responses import RedirectResponse
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 Step 2A — delegation kill switch.
+#   Default FALSE: every predicate uses its legacy body (no behavior change).
+#   Set ECS_RBAC_DELEGATION_ENABLED=true to route through the PolicyEngine.
+#
+# Phase 2 Step 2B — enforcement foundation.
+#   RBAC_ENFORCEMENT_ENABLED also routes these predicates through the SAME
+#   parity-tested PolicyEngine legacy-compat path, so enabling enforcement implies
+#   the engine-backed decision logic for a given role. The decision is identical to
+#   legacy for any fixed role (parity-tested); enforcement changes WHERE the role
+#   comes from at the route layer (app/auth/enforcement.resolve_effective_role),
+#   not the per-role verdict here. Signatures and return values are unchanged.
+# ---------------------------------------------------------------------------
+def _delegation_enabled() -> bool:
+    if str(os.environ.get("ECS_RBAC_DELEGATION_ENABLED", "")).strip().lower() in {
+        "1", "true", "yes", "on",
+    }:
+        return True
+    # Step 2B: enforcement implies engine-backed (parity-equivalent) decisions.
+    return str(os.environ.get("RBAC_ENFORCEMENT_ENABLED", "")).strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+def _delegate(capability: str, role: str):
+    """Return the PolicyEngine verdict for a capability, or None to use legacy.
+
+    Delegates through the engine's LEGACY-COMPAT path (can_legacy), which is
+    byte-for-byte identical to the historical predicate (parity-tested). None is
+    returned whenever delegation/enforcement is disabled or the engine cannot
+    answer, so the caller falls back to the verbatim legacy logic. Never raises.
+    """
+    if not _delegation_enabled():
+        return None
+    try:
+        from app.auth.authz import get_policy_engine
+
+        return bool(get_policy_engine().can_legacy(role, capability))
+    except Exception:  # noqa: BLE001 - any engine error => legacy fallback
+        return None
+
 
 EXECUTIVE_ROLES = frozenset({
     "cio", "vertical_head", "compliance_head", "compliance_officer", "functional_head",
@@ -45,26 +103,41 @@ def normalize_role(role: str) -> str:
 
 
 def can_raise_exception(role: str) -> bool:
+    d = _delegate("can_raise_exception", role)
+    if d is not None:
+        return d
     r = normalize_role(role)
     return r in {"owner", "auditor", "compliance_head", "cio", "vertical_head", "enterprise_admin"}
 
 
 def can_export_reports(role: str) -> bool:
+    d = _delegate("can_export_reports", role)
+    if d is not None:
+        return d
     return normalize_role(role) in {
         "owner", "auditor", "cio", "vertical_head", "compliance_head", "enterprise_admin",
     }
 
 
 def can_manage_frameworks(role: str) -> bool:
+    d = _delegate("can_manage_frameworks", role)
+    if d is not None:
+        return d
     from modules.frameworks.engines.framework_onboarding_engine import can_manage_framework_onboarding
     return can_manage_framework_onboarding(role)
 
 
 def can_upload_evidence(role: str) -> bool:
+    d = _delegate("can_upload_evidence", role)
+    if d is not None:
+        return d
     return normalize_role(role) in OPERATIONAL_UPLOAD_ROLES
 
 
 def can_submit_to_auditor(role: str) -> bool:
+    d = _delegate("can_submit_to_auditor", role)
+    if d is not None:
+        return d
     return can_upload_evidence(role)
 
 
@@ -77,21 +150,43 @@ def is_executive_readonly(role: str) -> bool:
 
 
 def can_review_evidence(role: str) -> bool:
+    d = _delegate("can_review_evidence", role)
+    if d is not None:
+        return d
     return normalize_role(role) in AUDITOR_GOVERNANCE_ROLES | {"auditor"}
 
 
 def can_assign_owner(role: str) -> bool:
+    d = _delegate("can_assign_owner", role)
+    if d is not None:
+        return d
     r = normalize_role(role)
     return r in {"owner", "auditor", "compliance_head", "enterprise_admin"}
 
 
 def can_escalate(role: str) -> bool:
+    d = _delegate("can_escalate", role)
+    if d is not None:
+        return d
     r = normalize_role(role)
     return r in {"owner", "auditor", "cio", "vertical_head", "compliance_head", "enterprise_admin"}
 
 
 def can_request_reupload(role: str) -> bool:
+    d = _delegate("can_request_reupload", role)
+    if d is not None:
+        return d
     return is_auditor(role)
+
+
+def can_admin_platform(role: str) -> bool:
+    """Phase 2 Step 2D-critical: platform administration (connector sync, RAG
+    reindex/warm). New capability (no prior predicate) restricted to administrators.
+    Mirrors the rbac_legacy_compat set so the delegated and fallback paths agree."""
+    d = _delegate("can_admin_platform", role)
+    if d is not None:
+        return d
+    return normalize_role(role) in {"system_admin", "enterprise_admin", "admin"}
 
 
 def action_allowed(role: str, action: str) -> bool:

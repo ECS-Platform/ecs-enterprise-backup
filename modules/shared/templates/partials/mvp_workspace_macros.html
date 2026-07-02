@@ -3,9 +3,9 @@
 {% endmacro %}
 
 {% macro governance_workspace_tabs(tabs) %}
-<nav class="ecs-workspace-tabs ecs-workspace-tabs-governance" aria-label="Governance workspace">
+<nav class="ecs-workspace-tabs ecs-workspace-tabs-governance" role="tablist" aria-label="Governance workspace">
 {% for t in tabs %}
-<button type="button" class="ecs-workspace-tab{% if loop.first %} is-active{% endif %}" data-workspace-tab="{{ t.id }}">{{ t.label }}</button>
+<button type="button" role="tab" class="ecs-workspace-tab{% if loop.first %} is-active{% endif %}" aria-selected="{{ 'true' if loop.first else 'false' }}" data-workspace-tab="{{ t.id }}">{{ t.label }}</button>
 {% endfor %}
 </nav>
 <select class="ecs-workspace-tab-select form-select form-select-sm" aria-label="Workspace section">
@@ -146,9 +146,9 @@
 
 {% macro workspace_tab_nav(workspace) %}
 {% if workspace is defined and workspace.tabs %}
-<nav class="ecs-workspace-tabs mb-2" aria-label="Module sections">
+<nav class="ecs-workspace-tabs mb-2" role="tablist" aria-label="Module sections">
 {% for t in workspace.tabs %}
-<button type="button" class="ecs-workspace-tab{% if loop.first %} is-active{% endif %}" data-workspace-tab="{{ t.id }}">{{ t.label }}</button>
+<button type="button" role="tab" class="ecs-workspace-tab{% if loop.first %} is-active{% endif %}" aria-selected="{{ 'true' if loop.first else 'false' }}" data-workspace-tab="{{ t.id }}">{{ t.label }}</button>
 {% endfor %}
 </nav>
 {% endif %}

@@ -1,0 +1,202 @@
+# ECS Role-Based Access Control policy.
+# Every API and chatbot query is filtered through this policy.
+
+rbac:
+  enabled: true
+  default_role: application_owner
+
+  roles:
+    admin:
+      description: Full platform administration.
+      scope: enterprise
+      can: ["*"]
+    cio:
+      description: Enterprise-wide analytics and posture.
+      scope: enterprise
+      can: [read_evidence, read_analytics, read_connectors, read_lineage]
+    vertical_head:
+      description: Aggregated evidence across owned vertical.
+      scope: vertical
+      can: [read_evidence, read_analytics, read_lineage]
+    functional_head:
+      description: Aggregated evidence across owned function.
+      scope: function
+      can: [read_evidence, read_analytics, read_lineage]
+    compliance_officer:
+      description: Framework and control compliance oversight.
+      scope: enterprise
+      can: [read_evidence, read_analytics, read_lineage, read_framework]
+    security_officer:
+      description: Security findings, vulnerabilities, hotspots.
+      scope: enterprise
+      can: [read_evidence, read_security, read_lineage]
+    control_owner:
+      description: Evidence for owned controls.
+      scope: control
+      can: [read_evidence, read_lineage]
+    auditor:
+      description: Read-only oversight across the enterprise (audit function).
+      scope: enterprise
+      can: [read_evidence, read_lineage, export_evidence, read_analytics, read_framework]
+    application_owner:
+      description: Evidence for assigned applications only.
+      scope: application
+      can: [read_evidence, read_lineage, collect_evidence]
+
+  # Scope dimensions used to filter evidence rows/vectors per role.
+  scope_filters:
+    enterprise: {}                       # no restriction
+    vertical: {field: vertical, source: user_assignments}
+    function: {field: function, source: user_assignments}
+    application: {field: application, source: user_assignments}
+    control: {field: control, source: user_assignments}
+    assigned: {field: application, source: auditor_assignments}
+
+# ===========================================================================
+# Phase 2 — Step 1: Canonical permission catalog (ADDITIVE, NOT YET ENFORCED).
+#
+# This block is the single source of truth for the future consolidated
+# PolicyEngine (app/auth/authz.py). It is intentionally separate from the legacy
+# `rbac:` block above so that nothing currently reading `rbac.roles` /
+# `rbac.scope_filters` changes behavior. No route, dashboard, or API consumes
+# `rbac_catalog` yet — enforcement is wired in later, separately-approved steps.
+# ===========================================================================
+rbac_catalog:
+  version: 1
+  default_role: application_owner
+
+  # ---- Permission catalog: verb.resource identifiers ----------------------
+  permissions:
+    evidence.read:        Read evidence records
+    evidence.collect:     Trigger evidence collection
+    evidence.upload:      Upload or replace evidence
+    evidence.submit:      Submit evidence to auditor review
+    evidence.review:      Review evidence (auditor)
+    evidence.approve:     Approve evidence
+    evidence.reject:      Reject evidence
+    evidence.export:      Export evidence / reports
+    observation.close:    Close an observation
+    observation.reupload: Request evidence re-upload
+    exception.raise:      Raise a governance exception
+    exception.approve:    Approve / reject an exception
+    framework.read:       Read framework / control library
+    framework.manage:     Import / manage frameworks
+    framework.review:     Review framework onboarding
+    connector.sync:       Run a connector sync
+    analytics.read:       Read analytics / dashboards
+    security.read:        Read security findings
+    lineage.read:         Read evidence lineage
+    rag.read:             Query the AI assistant
+    rag.admin:            Reindex / warm the RAG store
+    admin.all:            Full platform administration
+
+  # ---- Dashboard (page) identifiers used by require_page() -----------------
+  pages:
+    dashboard.cio:        CIO executive dashboard
+    dashboard.auditor:    Auditor dashboard
+    dashboard.compliance: Compliance dashboard
+    dashboard.security:   Security dashboard
+    dashboard.owner:      Application Owner dashboard
+    dashboard.vertical:   Vertical Head dashboard
+    dashboard.functional: Functional Head dashboard
+
+  # ---- Role -> permissions. Mirrors the legacy `rbac.roles.can` intent but
+  #      expressed in the canonical verb.resource vocabulary. "*" = all. -----
+  roles:
+    system_admin:
+      permissions: ["*"]
+      pages: ["*"]
+    cio:
+      permissions: [evidence.read, evidence.export, analytics.read, lineage.read,
+                    framework.read, rag.read, exception.raise, exception.approve]
+      pages: [dashboard.cio]
+    auditor:
+      permissions: [evidence.read, evidence.review, evidence.approve, evidence.reject,
+                    evidence.export, observation.close, observation.reupload,
+                    analytics.read, framework.read, framework.review, lineage.read,
+                    rag.read, exception.approve]
+      pages: [dashboard.auditor]
+    application_owner:
+      permissions: [evidence.read, evidence.collect, evidence.upload, evidence.submit,
+                    lineage.read, rag.read, exception.raise]
+      pages: [dashboard.owner]
+    compliance_officer:
+      permissions: [evidence.read, evidence.export, analytics.read, framework.read,
+                    framework.manage, lineage.read, rag.read, exception.raise]
+      pages: [dashboard.compliance]
+    security_officer:
+      permissions: [evidence.read, security.read, analytics.read, lineage.read, rag.read]
+      pages: [dashboard.security]
+    vertical_head:
+      permissions: [evidence.read, evidence.export, analytics.read, lineage.read, rag.read]
+      pages: [dashboard.vertical]
+    functional_head:
+      permissions: [evidence.read, evidence.export, analytics.read, lineage.read, rag.read]
+      pages: [dashboard.functional]
+    control_owner:
+      permissions: [evidence.read, evidence.collect, lineage.read, rag.read]
+      pages: []
+
+  # ---- Scope dimension per role (mirrors legacy scope) --------------------
+  role_scope:
+    system_admin: enterprise
+    cio: enterprise
+    auditor: enterprise
+    compliance_officer: enterprise
+    security_officer: enterprise
+    vertical_head: vertical
+    functional_head: function
+    application_owner: application
+    control_owner: control
+
+# ===========================================================================
+# Phase 2 — Step 2A: LEGACY COMPATIBILITY catalog (BUG-FOR-BUG MIRROR).
+#
+# This block exists ONLY so the compatibility shims can delegate to the
+# PolicyEngine while producing results byte-for-byte identical to the historical
+# role_permissions.py / framework_onboarding_engine.py predicates. It deliberately
+# reproduces legacy behavior, INCLUDING known flaws and inconsistencies (see
+# docs/ECS_RBAC_LEGACY_FLAWS.md). It is NOT the target model — the canonical
+# `rbac_catalog` above is. These flaws are corrected in a later RBAC
+# Rationalization phase, never here.
+#
+# Semantics: each capability lists the LEGACY-NORMALIZED role names that the
+# original predicate accepted. `aliases` reproduces legacy normalize_role()
+# (note: distinct from the canonical alias map). `default_role` reproduces the
+# legacy `(role or "owner")` fallback. Unknown roles are normalized to
+# themselves (legacy returns them unchanged), so they match only if listed.
+# ===========================================================================
+rbac_legacy_compat:
+  version: 1
+  # Reproduces role_permissions.normalize_role() EXACTLY (its quirks included).
+  default_role: owner
+  aliases:
+    compliance_officer: compliance_head
+    security_officer: compliance_head
+    operations_owner: owner
+    ai_governance_owner: cio
+    ai_sdlc_owner: owner
+    framework_owner: compliance_head
+
+  # capability -> exact set of legacy-normalized roles the predicate accepted.
+  capabilities:
+    can_upload_evidence: [owner]
+    can_submit_to_auditor: [owner]
+    can_review_evidence: [auditor, enterprise_admin]
+    can_export_reports: [owner, auditor, cio, vertical_head, compliance_head, enterprise_admin]
+    can_manage_frameworks: [cio, compliance_head, enterprise_admin, admin]
+    can_assign_owner: [owner, auditor, compliance_head, enterprise_admin]
+    can_escalate: [owner, auditor, cio, vertical_head, compliance_head, enterprise_admin]
+    can_request_reupload: [auditor]
+    can_raise_exception: [owner, auditor, compliance_head, cio, vertical_head, enterprise_admin]
+    # Engine D (framework onboarding)
+    can_manage_framework_onboarding: [cio, compliance_head, enterprise_admin, admin]
+    can_review_framework_onboarding: [auditor, enterprise_admin, admin, cio, compliance_head]
+    can_reuse_evidence_decision: [owner, auditor, cio, compliance_head, enterprise_admin, admin]
+    # Phase 2 Step 2D-critical — platform administration (connector sync, RAG
+    # reindex/warm). Restricted to administrators (system_admin / enterprise_admin
+    # / admin). This is a NEW capability with no prior predicate, so there is no
+    # legacy behavior to preserve; it only takes effect when mutation enforcement
+    # is enabled. NOTE: legacy normalization maps system_admin -> system_admin, so
+    # all three admin spellings are listed for the legacy-compat path.
+    can_admin_platform: [system_admin, enterprise_admin, admin]

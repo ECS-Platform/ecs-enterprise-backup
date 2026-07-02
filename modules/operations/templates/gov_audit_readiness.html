@@ -1,0 +1,48 @@
+<!DOCTYPE html><html><head><title>Audit Readiness</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fff}.ecs-kpi .n{font-size:1.4rem;font-weight:700}
+.gauge{font-size:2.6rem;font-weight:800;line-height:1}.bar{height:8px;border-radius:4px;background:#e5e7eb;overflow:hidden}.bar>span{display:block;height:100%}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">Audit Readiness</h1>
+<p class="small text-muted mb-2">Composite readiness score = 50% control coverage + 30% approved evidence + 20% evidence freshness. Answers the Audit Head's core question: <em>"If the auditor walked in today, are we ready?"</em></p>
+{% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
+
+<div class="row g-2 mb-3 align-items-stretch">
+<div class="col-md-3"><div class="ecs-kpi text-center">
+{% set band=data.band %}
+<div class="gauge text-{{ 'success' if band=='Ready' else 'warning' if band=='At Risk' else 'danger' }}">{{ data.score or 0 }}%</div>
+<div class="badge bg-{{ 'success' if band=='Ready' else 'warning' if band=='At Risk' else 'danger' }} mt-1">{{ band }}</div>
+</div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Control Coverage</div><div class="n">{{ data.coverage_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Approved Evidence</div><div class="n">{{ data.approval_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Freshness</div><div class="n">{{ data.fresh_pct or 0 }}%</div></div></div>
+</div>
+<p class="small text-muted">{{ data.gaps or 0 }} open control gaps · {{ data.expired or 0 }} expired evidence items.</p>
+
+<h2 class="h6 mt-2">Readiness by Application</h2>
+<table class="table table-sm bg-white align-middle">
+<thead><tr><th>Application</th><th style="width:25%">Score</th><th class="text-end">Controls</th><th class="text-end">Evidence</th><th class="text-end">Approved</th><th>Band</th></tr></thead>
+<tbody>
+{% for a in data.per_app %}
+<tr>
+<td class="small"><strong>{{ a.application }}</strong></td>
+<td><div class="bar"><span style="width:{{ a.score }}%;background:{{ '#16a34a' if a.band=='Ready' else '#f59e0b' if a.band=='At Risk' else '#dc2626' }}"></span></div><span class="small text-muted">{{ a.score }}%</span></td>
+<td class="text-end small">{{ a.controls }}</td>
+<td class="text-end small">{{ a.evidence }}</td>
+<td class="text-end small">{{ a.approved }}</td>
+<td><span class="badge bg-{{ 'success' if a.band=='Ready' else 'warning' if a.band=='At Risk' else 'danger' }}">{{ a.band }}</span></td>
+</tr>
+{% else %}<tr><td colspan="6" class="text-muted small text-center py-3">No application evidence yet.</td></tr>{% endfor %}
+</tbody>
+</table>
+
+<h2 class="h6 mt-2">Coverage by Framework</h2>
+<table class="table table-sm bg-white"><thead><tr><th>Framework</th><th class="text-end">Coverage</th><th class="text-end">Covered / Expected</th></tr></thead><tbody>
+{% for f in data.frameworks %}
+<tr><td class="small">{{ f.framework_code }}</td><td class="text-end small">{{ f.coverage_pct }}%</td><td class="text-end small">{{ f.covered_controls }} / {{ f.expected_controls }}</td></tr>
+{% else %}<tr><td colspan="3" class="text-muted small">No frameworks.</td></tr>{% endfor %}
+</tbody></table>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

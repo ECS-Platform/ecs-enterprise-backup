@@ -14,6 +14,13 @@
     return m ? parseFloat(m[1]) : 0;
   }
 
+  // KPI cards bind count to their displayed value (e.g. "94.5%", "12 days").
+  // Sanitize to a plain integer so the backend (count param) never 422s.
+  function safeCount(v) {
+    var m = String(v == null ? '' : v).replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+    return m ? Math.round(parseFloat(m[1])) : 0;
+  }
+
   function slug(s) {
     return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   }
@@ -31,14 +38,29 @@
     return decodeURIComponent(window.location.pathname.split('/framework/')[1] || '').split('?')[0];
   }
 
-  function tableHtml(rows, cols, wrapClass) {
+  var __ecsTblSeq = 0;
+
+  function tableHtml(rows, cols, wrapClass, opts) {
     if (!rows || !rows.length) return '<p class="text-muted mb-0">No supporting records.</p>';
-    var h = '<div class="ecs-kpi-drill-toolbar mb-2">' +
-      '<input type="search" class="form-control form-control-sm ecs-kpi-drill-search" placeholder="Search records…">' +
-      '<div class="text-muted small mt-1 ecs-kpi-drill-count">' + rows.length + ' records</div></div>';
+    opts = opts || {};
+    var tid = 'ecsDrillTbl' + (++__ecsTblSeq);
+    var h = '<div class="ecs-kpi-drill-toolbar mb-2 d-flex flex-wrap align-items-center gap-2">' +
+      '<input type="search" class="form-control form-control-sm ecs-kpi-drill-search" style="max-width:240px" placeholder="Search records…">' +
+      '<span class="text-muted small ecs-kpi-drill-count">' + rows.length + ' records</span>';
+    if (opts.exports) {
+      h += '<span class="ms-auto"></span>' +
+        '<button type="button" class="btn btn-outline-success btn-sm py-0 ecs-drill-export" data-fmt="csv" data-tbl="' + tid + '">CSV</button>' +
+        '<button type="button" class="btn btn-outline-success btn-sm py-0 ecs-drill-export" data-fmt="xlsx" data-tbl="' + tid + '">XLSX</button>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm py-0 ecs-drill-export" data-fmt="pdf" data-tbl="' + tid + '">PDF</button>';
+    }
+    h += '</div>';
     h += '<div class="table-responsive ecs-paginated-wrap ecs-fit-view ecs-kpi-drill-table-wrap ' + (wrapClass || '') + '">' +
-      '<table class="table table-sm ecs-paginated-table ecs-compact-table ecs-force-paginate mb-0"><thead><tr>';
-    cols.forEach(function (c) { h += '<th>' + esc(String(c).replace(/_/g, ' ')) + '</th>'; });
+      '<table id="' + tid + '" class="table table-sm ecs-paginated-table ecs-compact-table ecs-force-paginate mb-0"' +
+      (opts.sortable ? ' data-ecs-drill-sortable="1"' : '') + '><thead><tr>';
+    cols.forEach(function (c) {
+      h += '<th' + (opts.sortable ? ' data-col="' + esc(c) + '" style="cursor:pointer"' : '') + '>' +
+        esc(String(c).replace(/_/g, ' ')) + (opts.sortable ? ' <span style="opacity:.35">\u2195</span>' : '') + '</th>';
+    });
     h += '</tr></thead><tbody>';
     rows.forEach(function (r) {
       h += '<tr>';
@@ -170,22 +192,110 @@
     bodyEl.querySelectorAll('.ecs-kpi-drill-search').forEach(function (_, i, list) {
       attachSearch(bodyEl);
     });
+    attachExports(bodyEl);
+    attachSort(bodyEl);
     if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
 
+  function tableToMatrix(table) {
+    var head = Array.from(table.tHead ? table.tHead.rows[0].cells : []).map(function (c) {
+      return c.textContent.replace(/\u2195/g, '').trim();
+    });
+    var rows = Array.from(table.tBodies[0] ? table.tBodies[0].rows : []).filter(function (tr) {
+      return tr.style.display !== 'none';
+    }).map(function (tr) { return Array.from(tr.cells).map(function (c) { return c.textContent.trim(); }); });
+    return { head: head, rows: rows };
+  }
+
+  function dl(name, text, mime) {
+    var b = new Blob([text], { type: mime });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function attachExports(bodyEl) {
+    bodyEl.querySelectorAll('.ecs-drill-export').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var table = document.getElementById(btn.getAttribute('data-tbl'));
+        if (!table) return;
+        var m = tableToMatrix(table), fmt = btn.getAttribute('data-fmt');
+        var title = (document.getElementById('ecsUniversalDrillTitle') || {}).textContent || 'drilldown';
+        var base = slug(title) || 'drilldown';
+        if (fmt === 'csv') {
+          var esc2 = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+          var csv = m.head.map(esc2).join(',') + '\n' + m.rows.map(function (r) { return r.map(esc2).join(','); }).join('\n');
+          dl(base + '.csv', csv, 'text/csv');
+        } else if (fmt === 'xlsx') {
+          var x = '<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Drilldown"><Table>';
+          x += '<Row>' + m.head.map(function (hh) { return '<Cell><Data ss:Type="String">' + esc(hh) + '</Data></Cell>'; }).join('') + '</Row>';
+          m.rows.forEach(function (r) { x += '<Row>' + r.map(function (v) { return '<Cell><Data ss:Type="String">' + esc(v) + '</Data></Cell>'; }).join('') + '</Row>'; });
+          x += '</Table></Worksheet></Workbook>';
+          dl(base + '.xls', x, 'application/vnd.ms-excel');
+        } else {
+          var w = window.open('', '_blank');
+          var html = '<h3>' + esc(title) + ' (' + m.rows.length + ' rows)</h3>' +
+            '<table border=1 cellspacing=0 cellpadding=4 style="border-collapse:collapse;font:12px sans-serif"><tr>' +
+            m.head.map(function (hh) { return '<th>' + esc(hh) + '</th>'; }).join('') + '</tr>';
+          m.rows.slice(0, 2000).forEach(function (r) { html += '<tr>' + r.map(function (v) { return '<td>' + esc(v) + '</td>'; }).join('') + '</tr>'; });
+          html += '</table>';
+          w.document.write(html); w.document.close(); w.focus(); w.print();
+        }
+      });
+    });
+  }
+
+  function attachSort(bodyEl) {
+    bodyEl.querySelectorAll('table[data-ecs-drill-sortable] thead th[data-col]').forEach(function (th, idx) {
+      th.addEventListener('click', function () {
+        var table = th.closest('table'), tb = table.tBodies[0];
+        if (!tb) return;
+        var dir = th.getAttribute('data-dir') === 'asc' ? -1 : 1;
+        table.querySelectorAll('thead th').forEach(function (x) { x.removeAttribute('data-dir'); });
+        th.setAttribute('data-dir', dir === 1 ? 'asc' : 'desc');
+        var rows = Array.from(tb.rows);
+        rows.sort(function (a, b) {
+          var x = a.cells[idx].textContent.trim(), y = b.cells[idx].textContent.trim();
+          var nx = parseFloat(x.replace(/[^0-9.\-]/g, '')), ny = parseFloat(y.replace(/[^0-9.\-]/g, ''));
+          if (!isNaN(nx) && !isNaN(ny) && x.match(/\d/) && y.match(/\d/)) return (nx - ny) * dir;
+          return x < y ? -dir : (x > y ? dir : 0);
+        });
+        rows.forEach(function (r) { tb.appendChild(r); });
+        if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+      });
+    });
+  }
+
+  var EMPTY_DEFAULT = 'No records found for this selection.';
+  var ERROR_DEFAULT = 'Unable to load records. Please try again.';
+
+  function emptyStateHtml(msg) {
+    return '<div class="ecs-drill-empty text-center py-4">' +
+      '<div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128202;</div>' +
+      '<p class="mb-0 text-muted">' + esc(msg || EMPTY_DEFAULT) + '</p></div>';
+  }
+
+  function errorStateHtml(msg) {
+    return '<div class="ecs-drill-error text-center py-4">' +
+      '<div class="mb-2" style="font-size:1.6rem;opacity:.6;">&#9888;&#65039;</div>' +
+      '<p class="mb-0 text-danger">' + esc(msg || ERROR_DEFAULT) + '</p></div>';
+  }
+
   function renderResponse(j, title) {
-    if (!j.ok) {
-      showModal(title, '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>');
+    if (!j || (!j.ok && !(j.rows && j.rows.length))) {
+      showModal(title, emptyStateHtml(EMPTY_DEFAULT));
       return;
     }
     var meta = '';
+    if (j.note) meta += '<div class="alert alert-secondary py-1 px-2 small mb-2">' + esc(j.note) + '</div>';
     if (j.trace_count) meta += '<span class="badge bg-info text-dark me-1">Trace: ' + j.trace_count + ' displayed</span>';
     if (j.row_count) meta += '<span class="badge bg-secondary">' + j.row_count + ' supporting records</span>';
     var html = metricTraceHtml(j.metric_trace);
     html += detailHtml(j.detail);
     if (meta) html += '<p class="mb-2">' + meta + '</p>';
-    html += tableHtml(j.rows, j.columns || ['application', 'framework', 'control', 'owner', 'status', 'evidence']);
+    html += tableHtml(j.rows, j.columns || ['application', 'framework', 'control', 'owner', 'status', 'evidence'],
+      '', { exports: true, sortable: true });
     html += sectionsHtml(j.sections);
     if (j.metric_trace && j.metric_trace.top_rejection_reasons) {
       html += '<h6 class="text-muted small text-uppercase mt-2 mb-1">Top Rejection Reasons</h6>';
@@ -199,13 +309,44 @@
     if (bodyEl) bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
     var modalEl = document.getElementById('ecsUniversalDrillModal');
     if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    fetch(url).then(function (r) { return r.json(); }).then(function (j) { renderResponse(j, title); })
-      .catch(function () { showModal(title, '<p class="text-danger">Request failed.</p>'); });
+
+    // Failsafe: the spinner must always terminate. Hard timeout guarantees the
+    // loader is replaced with an actionable message even if the request hangs.
+    var settled = false;
+    var timer = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      showModal(title, errorStateHtml('Request timed out. ' + ERROR_DEFAULT));
+    }, 12000);
+
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
+      .then(function (r) {
+        if (!r.ok) { var err = new Error('HTTP ' + r.status); err.__http = r.status; throw err; }
+        return r.json();
+      })
+      .then(function (j) {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+        // Guard render: a rendering exception must surface as an error state,
+        // never as the persistent "Loading" message (root cause of the stuck modal).
+        try { renderResponse(j, title); }
+        catch (renderErr) {
+          if (window.console && console.error) console.error('[ecs-drill] render failed', renderErr, j);
+          showModal(title, errorStateHtml('Could not display records. ' + ERROR_DEFAULT));
+        }
+      })
+      .catch(function (e) {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+        if (window.console && console.error) console.error('[ecs-drill] fetch failed', url, e);
+        showModal(title, errorStateHtml(ERROR_DEFAULT));
+      });
   }
 
   window.ecsOpenUniversalKpiDrill = function (page, metric, label, count, framework) {
     var url = '/api/ecs/universal-drill?scope=kpi&page=' + encodeURIComponent(page || '') +
-      '&metric=' + encodeURIComponent(metric || '') + '&count=' + encodeURIComponent(count || 0) +
+      '&metric=' + encodeURIComponent(metric || '') + '&count=' + safeCount(count) +
       '&framework=' + encodeURIComponent(framework || '') + '&label=' + encodeURIComponent(label || '') +
       '&role=' + encodeURIComponent(window.__ecsRole || 'cio');
     fetchJson(url, label || metric);
@@ -220,7 +361,7 @@
   window.ecsOpenUniversalChartDrill = function (page, chart, element, count) {
     fetchJson('/api/ecs/universal-drill?scope=chart&page=' + encodeURIComponent(page || '') +
       '&chart=' + encodeURIComponent(chart || '') + '&element=' + encodeURIComponent(element || '') +
-      '&count=' + encodeURIComponent(count || 0) +
+      '&count=' + safeCount(count) +
       '&role=' + encodeURIComponent(window.__ecsRole || 'cio'), chart + ' — ' + element);
   };
 
@@ -232,7 +373,7 @@
 
   window.ecsOpenEnterpriseWorkflowDrill = function (metric, label, count) {
     fetchJson('/api/ecs/workflow-drill?metric=' + encodeURIComponent(metric || '') +
-      '&count=' + encodeURIComponent(count || 0) + '&role=' + encodeURIComponent(window.__ecsRole || 'cio'),
+      '&count=' + safeCount(count) + '&role=' + encodeURIComponent(window.__ecsRole || 'cio'),
       label || metric);
   };
 
@@ -360,6 +501,7 @@
     var page = pageScope();
     document.querySelectorAll(
       '.ecs-trend-bar-fill, .demo-heat-cell, .ecs-insight-bar, .ecs-chart-bar, ' +
+      '.ecs-bar-col, .ecs-hbar-row, .ecs-hbar, ' +
       '[data-ecs-chart-point], .aisdlc-heat-cell, .aisdlc-chart-bar .bar, .aisdlc-chart-month, ' +
       '.ecs-heat-cell, .heatmap-cell'
     ).forEach(function (el, idx) {
@@ -373,11 +515,16 @@
         el.setAttribute('data-ecs-heatmap-fw', fw);
         el.setAttribute('data-ecs-heatmap-pct', pct);
       } else {
+        var lblEl = el.querySelector ? el.querySelector('.ecs-bar-lbl, .ecs-hbar-label') : null;
+        var chartHost = el.closest('[data-chart-id]') || el.closest('[id]');
+        var chartId = (el.closest('[data-chart-id]') && el.closest('[data-chart-id]').getAttribute('data-chart-id')) ||
+          (chartHost && chartHost.id) || 'chart';
+        var element = (lblEl && lblEl.textContent.trim()) || el.getAttribute('data-label') ||
+          el.getAttribute('title') || (el.textContent || '').trim().split('\n')[0] || ('point-' + idx);
         el.setAttribute('data-ecs-universal-chart', '');
         el.setAttribute('data-ecs-universal-page', page);
-        el.setAttribute('data-ecs-universal-chart-id', (el.closest('[data-chart-id]') || {}).getAttribute ?
-          el.closest('[data-chart-id]').getAttribute('data-chart-id') : 'chart');
-        el.setAttribute('data-ecs-universal-element', el.getAttribute('title') || el.textContent.trim() || ('point-' + idx));
+        el.setAttribute('data-ecs-universal-chart-id', chartId);
+        el.setAttribute('data-ecs-universal-element', element);
         el.setAttribute('data-ecs-universal-count', String(parseCount(el.textContent) || 25));
       }
       el.style.cursor = 'pointer';

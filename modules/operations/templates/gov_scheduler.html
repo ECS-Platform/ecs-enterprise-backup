@@ -1,0 +1,41 @@
+<!DOCTYPE html><html><head><title>Collection Scheduler</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fff}.ecs-kpi .n{font-size:1.4rem;font-weight:700}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">Collection Scheduler</h1>
+<p class="small text-muted mb-2">Recurring evidence collection keeps proof fresh. Schedules define which connector/application runs at what cadence, with next-run tracking so audit evidence never goes stale.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Schedules</div><div class="n">{{ data.total or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Enabled</div><div class="n text-success">{{ data.enabled or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Due Now</div><div class="n text-warning">{{ data.due or 0 }}</div></div></div>
+</div>
+
+<div class="card mb-3"><div class="card-body py-2">
+<form method="post" action="/mvp/platform/scheduler" class="row g-2 align-items-end">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+<div class="col-md-3"><label class="form-label small mb-0">Name *</label><input class="form-control form-control-sm" name="name" required placeholder="Daily Gitea sync"></div>
+<div class="col-md-2"><label class="form-label small mb-0">Connector</label><select class="form-select form-select-sm" name="connector">{% for c in connectors %}<option>{{ c }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label class="form-label small mb-0">Application</label><input class="form-control form-control-sm" name="app_slug" placeholder="(all)"></div>
+<div class="col-md-2"><label class="form-label small mb-0">Frequency</label><select class="form-select form-select-sm" name="frequency"><option>Hourly</option><option selected>Daily</option><option>Weekly</option><option>Monthly</option></select></div>
+<div class="col-md-3"><button class="btn btn-primary btn-sm" type="submit">+ Add Schedule</button></div>
+</form>
+</div></div>
+
+<table class="table table-sm table-hover bg-white align-middle">
+<thead><tr><th>Name</th><th>Connector</th><th>Application</th><th>Frequency</th><th>Owner</th><th>Last Run</th><th>Next Run</th><th>Status</th></tr></thead>
+<tbody>
+{% for s in data.schedules %}
+<tr><td class="small"><strong>{{ s.name }}</strong></td><td class="small">{{ s.connector or '—' }}</td><td class="small">{{ s.app_slug or 'all' }}</td>
+<td><span class="badge bg-info">{{ s.frequency }}</span></td><td class="small">{{ s.owner or '—' }}</td>
+<td class="small text-muted">{{ s.last_run or 'never' }}</td><td class="small text-muted">{{ s.next_run or '—' }}</td>
+<td>{% if s.enabled %}<span class="badge bg-success">Enabled</span>{% else %}<span class="badge bg-secondary">Paused</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8" class="text-muted small text-center py-3">No schedules yet — add one above.</td></tr>{% endfor %}
+</tbody>
+</table>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

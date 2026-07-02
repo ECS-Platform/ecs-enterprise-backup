@@ -1,0 +1,49 @@
+# ECS LLM Layer Configuration
+# Provider is selected here; switching providers requires no code change.
+
+llm:
+  # provider: ollama (local) | gemini | openai | azure_openai | claude
+  # Switch back to Gemini any time with ECS_LLM_PROVIDER=gemini (impl kept intact).
+  provider: ${ECS_LLM_PROVIDER:-ollama}
+  model: ${ECS_LLM_MODEL:-qwen3:8b}
+  embedding_model: ${ECS_EMBEDDING_MODEL:-nomic-embed-text}
+  temperature: ${ECS_LLM_TEMPERATURE:-0.1}
+  max_output_tokens: ${ECS_LLM_MAX_TOKENS:-2048}
+  request_timeout_sec: ${ECS_LLM_TIMEOUT:-180}
+  # Keep local models resident between requests (Ollama). "-1" = forever, "0" = unload.
+  keep_alive: ${ECS_OLLAMA_KEEP_ALIVE:-30m}
+
+  providers:
+    ollama:
+      # Keyless local daemon. From the dockerized app, reach the host via
+      # host.docker.internal; override with OLLAMA_URL for a remote/in-cluster daemon.
+      base_url: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      model: ${OLLAMA_MODEL:-qwen3:8b}
+      # Optional generation/context limits (provider resolution tier 3). Blank ->
+      # provider fallback (num_predict=512, num_ctx omitted), preserving current
+      # behavior. Precedence: env (ECS_LLM_MAX_TOKENS / ECS_LLM_CONTEXT_WINDOW) >
+      # benchmark config > these values > provider fallback.
+      num_predict:
+      num_ctx:
+    gemini:
+      api_key_env: GEMINI_API_KEY
+      base_url: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com}
+    openai:
+      api_key_env: OPENAI_API_KEY
+      base_url: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+    azure_openai:
+      api_key_env: AZURE_OPENAI_API_KEY
+      base_url: ${AZURE_OPENAI_ENDPOINT:-}
+      api_version: ${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
+      deployment_env: AZURE_OPENAI_DEPLOYMENT
+    claude:
+      api_key_env: ANTHROPIC_API_KEY
+      base_url: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+
+# RAG behavior — grounded answers only.
+rag:
+  top_k: ${ECS_RAG_TOP_K:-8}
+  min_score: ${ECS_RAG_MIN_SCORE:-0.0}
+  require_citations: true
+  refuse_without_evidence: true
+  max_context_chunks: ${ECS_RAG_MAX_CHUNKS:-12}

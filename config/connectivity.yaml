@@ -1,0 +1,103 @@
+# ECS Application Connectivity Readiness & Connector Certification — configuration.
+#
+# Phase 5.3. DETERMINISTIC, NON-LLM. This file defines the policy used by the
+# connectivity assessment and certification engines. Changing these values changes
+# assessment OUTPUT only; it never changes connector runtime, RBAC, auth, audit,
+# workflow, dashboards, or RAG.
+#
+# Both engines are DISABLED by default. When disabled they return a neutral,
+# clearly-marked "disabled" result and perform no assessment.
+#
+# IMPORTANT: No assessment in this framework performs production network calls by
+# default. Network/DNS/TLS probing uses an injectable probe interface whose default
+# implementation is OFFLINE (it analyzes configuration only and reports UNKNOWN for
+# live checks). Live probing is opt-in by the caller supplying a real probe.
+
+connectivity:
+  # ---- Feature flags (default false). Env overrides win. --------------------
+  assessment_enabled:    ${CONNECTIVITY_ASSESSMENT_ENABLED:-false}
+  certification_enabled: ${CONNECTOR_CERTIFICATION_ENABLED:-false}
+
+  # ---- Default ports by connectivity/protocol type --------------------------
+  default_ports:
+    https:       443
+    http:        80
+    rest_api:    443
+    soap_api:    443
+    database:    5432
+    file_share:  445
+    agent:       0      # agent-based; no inbound port assessed
+    manual:      0      # manual upload; no network assessed
+
+  # ---- TLS expiry thresholds (days) -----------------------------------------
+  tls:
+    warn_within_days: 30    # cert expiring within N days -> WARNING
+    min_tls_version:  "1.2"
+
+  # ---- Readiness scoring weights (per category; renormalized defensively) ----
+  scoring:
+    weights:
+      connectivity:   0.30   # DNS + network + port
+      authentication: 0.25
+      tls:            0.15
+      discovery:      0.20
+      configuration:  0.10
+    # Score band thresholds (Green/Amber/Red).
+    bands:
+      green_min: 80
+      amber_min: 55
+
+  # ---- Certification thresholds ---------------------------------------------
+  certification:
+    certified_min:           85   # >= -> Certified
+    partially_certified_min: 55   # >= and < certified_min -> Partially Certified
+    # Hard gates: if any of these categories is a definite FAIL, cap certification
+    # at "Not Certified" regardless of score.
+    hard_fail_categories: [authentication, configuration]
+
+  # ---- Risk classification thresholds (based on weighted gap severity) -------
+  risk:
+    # gap_score is 0 (no gaps) .. 100 (severe gaps). Higher = riskier.
+    critical_min: 75
+    high_min:     50
+    medium_min:   25
+    # Per-category gap weighting for the overall onboarding risk.
+    gap_weights:
+      connectivity:   0.35
+      authentication: 0.30
+      discovery:      0.25
+      configuration:  0.10
+
+  # ---- Evidence discovery capability map ------------------------------------
+  # For each known connector type, the evidence categories ECS can discover when
+  # the connector is correctly configured. Used to score discovery readiness.
+  discovery_capabilities:
+    jira:         [projects, issues, stories, epics, approvals, comments, workflow_states]
+    github:       [repositories, commits, pull_requests, review_approvals, branch_protections, releases]
+    gitlab:       [repositories, commits, merge_requests, approvals, pipelines]
+    azure_devops: [repositories, pull_requests, pipelines, releases]
+    confluence:   [spaces, pages, attachments, architecture_documents, policies]
+    sharepoint:   [policies, documents, evidence_files]
+    servicenow:   [incidents, change_requests, problem_records, cab_approvals]
+    gitea:        [repositories, commits, pull_requests, review_approvals, branch_protections, releases]
+    sonarqube:    [quality_gates, coverage, vulnerabilities, code_smells, security_hotspots]
+    jenkins:      [jobs, builds, test_results, artifacts]
+    teams:        [governance_channels, approval_messages, meeting_artifacts]
+    figma:        [design_projects, design_files, design_reviews, prototypes]
+    prisma:       [cloud_findings, compliance_violations, risk_reports]
+
+  # ---- Authentication requirement map ---------------------------------------
+  # Required configuration fields per authentication type. Presence (non-empty)
+  # of the mapped env vars / config keys determines authentication readiness.
+  auth_requirements:
+    oauth:           [client_id_env, client_secret_env, tenant_id_env]
+    oauth2:          [client_id_env, client_secret_env]
+    pat:             [token_env]
+    token:           [token_env]
+    service_account: [username_env, password_env]
+    basic:           [username_env, password_env]
+    ldap:            [username_env, password_env]
+    kerberos:        [username_env]
+    saml:            [client_id_env]
+    jwt:             [token_env]
+    prisma_credentials: [access_key_env, secret_key_env]

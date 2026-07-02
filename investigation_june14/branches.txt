@@ -1,0 +1,13 @@
+* cursor/predefined-queries-module
+  main
+  remotes/old-origin/HEAD -> old-origin/main
+  remotes/old-origin/adip-ai-sdlc-june6-stable
+  remotes/old-origin/adip-stable-june6
+  remotes/old-origin/ecs-june3-backup
+  remotes/old-origin/feature/ai-sdlc
+  remotes/old-origin/feature/ai-sdlc-backup
+  remotes/old-origin/feature/ai-sdlc-folderized
+  remotes/old-origin/main
+  remotes/origin/HEAD -> origin/main
+  remotes/origin/cursor/predefined-queries-module
+  remotes/origin/main

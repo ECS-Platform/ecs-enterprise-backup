@@ -1,6 +1,12 @@
-{# AI SDLC Governance — workflow execution navigation #}
+{# AI SDLC Governance — workflow execution navigation.
+   Consolidated to 4 children (UX regrouping). The 5 stage workspaces
+   (Requirements..Go-Live) are grouped under "Phases" as horizontal tabs.
+   Onboarding / Evidence Collection / Findings remain reachable by their
+   original URLs and from the AI SDLC Home page cards. #}
 {% set _nav = nav_module|default('', true) %}
 {% set ai_sdlc_open = _nav.startswith('ai_sdlc') or _nav in ['ai_governance', 'sdlc_gates', 'ai_registry', 'governance_quality'] %}
+{% set _phases_active = nav_module in ['ai_sdlc_phases','ai_sdlc_requirements','ai_sdlc_design','ai_sdlc_development','ai_sdlc_testing','ai_sdlc_golive'] %}
+{% set _reports_active = nav_module in ['ai_sdlc_reports','ai_sdlc_evidence','ai_sdlc_findings'] %}
 <div class="ecs-nav-group">
 <button class="ecs-nav-group-toggle{% if ai_sdlc_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-ai-sdlc" aria-expanded="{{ 'true' if ai_sdlc_open else 'false' }}">
 <span class="ecs-nav-group-label">AI SDLC Governance</span>
@@ -9,17 +15,9 @@
 <div id="nav-ai-sdlc" class="collapse{% if ai_sdlc_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
 <a href="/mvp/ai-sdlc{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'ai_sdlc_home' %} is-active{% endif %}">Home</a>
-<a href="/mvp/ai-governance{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_governance' %} is-active{% endif %}">AI Governance Posture</a>
-<a href="/mvp/ai-sdlc/control-tower{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_control_tower' %} is-active{% endif %}">AI SDLC Control Tower</a>
-<a href="/mvp/ai-sdlc/onboarding{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_onboarding' %} is-active{% endif %}">Application Onboarding</a>
-<a href="/mvp/ai-sdlc/requirements{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_requirements' %} is-active{% endif %}">Requirements</a>
-<a href="/mvp/ai-sdlc/design{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_design' %} is-active{% endif %}">Design</a>
-<a href="/mvp/ai-sdlc/development{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_development' %} is-active{% endif %}">Development</a>
-<a href="/mvp/ai-sdlc/testing{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_testing' %} is-active{% endif %}">Testing</a>
-<a href="/mvp/ai-sdlc/golive{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_golive' %} is-active{% endif %}">Go-Live</a>
-<a href="/mvp/ai-sdlc/evidence{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_evidence' %} is-active{% endif %}">Evidence Collection</a>
-<a href="/mvp/ai-sdlc/findings{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_findings' %} is-active{% endif %}">Findings &amp; Remediation</a>
-<a href="/mvp/ai-sdlc/reports{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_reports' %} is-active{% endif %}">Reports</a>
+<a href="/mvp/ai-sdlc/control-tower{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_sdlc_control_tower' %} is-active{% endif %}">Control Tower</a>
+<a href="/mvp/ai-sdlc/phases{{ q }}" class="ecs-sidebar-btn{% if _phases_active %} is-active{% endif %}">Phases</a>
+<a href="/mvp/ai-sdlc/reports{{ q }}" class="ecs-sidebar-btn{% if _reports_active %} is-active{% endif %}">Reports</a>
 </div>
 </div>
 </div>

@@ -1,0 +1,9 @@
+{
+  "dataset_size": 120,
+  "question_set_path": "benchmarks/config/rag_queries.json",
+  "top_k": 8,
+  "role": "cio",
+  "user": "benchmark-runner",
+  "output_dir": "benchmarks/output",
+  "reindex_before_run": false
+}

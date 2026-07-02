@@ -200,6 +200,21 @@ def apply_upload(
     history.append({"date": ts, "action": new_status, "actor": user, "remarks": filename or comments})
     ecs_state.missing_evidence_registry[observation_id] = rec
 
+    # Phase 4 Step 3: mirror the observation update to the durable store (flag-gated).
+    try:
+        from app.observations.store import persist_observation
+
+        persist_observation(
+            observation_id, title=rec.get("control") or rec.get("control_id", ""),
+            application_id=rec.get("application", ""), framework=rec.get("framework", ""),
+            control_id=rec.get("control_id", ""),
+            description=rec.get("control_description", "") or rec.get("missing_evidence", ""),
+            severity=rec.get("observation_severity", "") or rec.get("risk", ""),
+            status=new_status, owner=rec.get("remediation_owner", "") or user,
+            due_date=rec.get("due_date", ""), actor=user)
+    except Exception:  # noqa: BLE001 - durability must never break upload
+        pass
+
     if submit_type == "submit_review":
         from modules.frameworks.engines.framework_catalog import resolve_framework_name
         fw = resolve_framework_name(rec["framework"])

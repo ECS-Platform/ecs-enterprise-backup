@@ -319,8 +319,17 @@
     if (bodyEl) bodyEl.innerHTML = '<div class="text-muted">Loading…</div>';
     var modalEl = document.getElementById('ecsFrameworkKpiDrillModal');
     if (modalEl && typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    fetch(url).then(function(r){ return r.json(); }).then(function(j){
-      if (!j.ok) { showModal(title, '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'); return; }
+    var fwEmptyState = '<div class="text-center py-4"><div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128202;</div>' +
+      '<p class="mb-0 text-muted">No records found for this selection.</p></div>';
+    var fwErrorState = '<div class="text-center py-4"><div class="mb-2" style="font-size:1.6rem;opacity:.6;">&#9888;&#65039;</div>' +
+      '<p class="mb-0 text-danger">Unable to load records. Please try again.</p></div>';
+    // Failsafe: spinner must always terminate.
+    var settled = false;
+    var timer = setTimeout(function(){ if (settled) return; settled = true; showModal(title, fwErrorState); }, 12000);
+    fetch(url).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function(j){
+      if (settled) return; settled = true; clearTimeout(timer);
+      if (!j || (!j.ok && !(j.rows && j.rows.length))) { showModal(title, fwEmptyState); return; }
+      try {
       lastFetchKind = url.indexOf('/api/framework/workflow-drill') >= 0 ? 'workflow' : 'other';
       var scope = pageScope();
       var baseRows = Array.isArray(j.rows) ? j.rows : [];
@@ -352,7 +361,15 @@
       );
       html += sectionsHtml(j.sections);
       showModal(j.title || title, html);
-    }).catch(function(){ showModal(title, '<p class="text-danger">Request failed.</p>'); });
+      } catch(renderErr) {
+        if (window.console && console.error) console.error('[ecs-framework-kpi] render failed', renderErr, j);
+        showModal(title, fwErrorState);
+      }
+    }).catch(function(e){
+      if (settled) return; settled = true; clearTimeout(timer);
+      if (window.console && console.error) console.error('[ecs-framework-kpi] fetch failed', url, e);
+      showModal(title, fwErrorState);
+    });
   }
 
   function openControlledRequirementDoc(framework, controlId) {

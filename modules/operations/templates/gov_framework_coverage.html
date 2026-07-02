@@ -1,0 +1,33 @@
+<!DOCTYPE html><html><head><title>Framework Coverage</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fff}.ecs-kpi .n{font-size:1.4rem;font-weight:700}
+.bar{height:10px;border-radius:5px;background:#e5e7eb;overflow:hidden}.bar>span{display:block;height:100%}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">Framework Coverage</h1>
+<p class="small text-muted mb-2">Roll-up of control coverage per compliance framework (SOC 2, ISO 27001, PCI-DSS, RBI-CSF, …). Shows how close each framework is to fully evidenced.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Overall Coverage</div><div class="n text-primary">{{ data.overall_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Frameworks Tracked</div><div class="n">{{ data.frameworks|length }}</div></div></div>
+</div>
+
+<table class="table table-sm bg-white align-middle">
+<thead><tr><th>Framework</th><th style="width:35%">Coverage</th><th class="text-end">Covered / Expected</th><th class="text-end">Evidence</th></tr></thead>
+<tbody>
+{% for f in data.frameworks %}
+{% set p = f.coverage_pct %}
+<tr>
+<td><strong>{{ f.framework_code }}</strong></td>
+<td><div class="bar"><span style="width:{{ p }}%;background:{{ '#16a34a' if p>=80 else '#f59e0b' if p>=50 else '#dc2626' }}"></span></div><span class="small text-muted">{{ p }}%</span></td>
+<td class="text-end small">{{ f.covered_controls }} / {{ f.expected_controls }}</td>
+<td class="text-end small">{{ f.evidence_count }}</td>
+</tr>
+{% else %}<tr><td colspan="4" class="text-muted small text-center py-3">No frameworks in catalog — seed governance data.</td></tr>{% endfor %}
+</tbody>
+</table>
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

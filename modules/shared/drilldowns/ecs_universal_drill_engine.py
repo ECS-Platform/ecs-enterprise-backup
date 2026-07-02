@@ -118,8 +118,34 @@ def _sections(rows: list[dict], metric: str) -> dict[str, list[dict]]:
     }
 
 
-def _normalize_columns(rows: list[dict]) -> None:
+def _rows_to_dicts(rows: list[Any], columns: list[str]) -> list[dict[str, Any]]:
+    """Coerce list-shaped rows (lists-of-lists) into column-keyed dicts.
+
+    Some engines (e.g. audit-prep) emit ``rows`` as positional lists with a
+    parallel ``columns`` header list. Convert those into dicts keyed by a
+    snake_cased column name so the universal renderer can display them. Rows that
+    are already dicts pass through unchanged.
+    """
+    if not rows:
+        return []
+    keys = [str(c).lower().replace(" ", "_") for c in (columns or [])]
+    out: list[dict[str, Any]] = []
     for r in rows:
+        if isinstance(r, dict):
+            out.append(r)
+        elif isinstance(r, (list, tuple)):
+            row_keys = keys if len(keys) >= len(r) else keys + [f"col_{i}" for i in range(len(keys), len(r))]
+            out.append({row_keys[i]: r[i] for i in range(len(r))})
+        else:
+            out.append({"value": r})
+    return out
+
+
+def _normalize_columns(rows: list[Any]) -> None:
+    """Ensure every dict row carries the universal columns. Tolerant of non-dicts."""
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
         for c in UNIVERSAL_COLUMNS:
             r.setdefault(c, "—")
 
@@ -187,13 +213,21 @@ def _delegate_kpi(page: str, metric: str, role: str, framework: str, count: int)
         from modules.governance.engines.audit_schedule_engine import build_kpi_drilldowns
         drills = build_kpi_drilldowns()
         block = drills.get(metric_l) or drills.get(metric) or {}
-        rows = block.get("rows") or []
+        raw_rows = block.get("rows") or []
+        cols = block.get("columns") or []
         target = _target_rows(count)
+        # Audit-prep blocks store rows as lists-of-lists with a parallel `columns`
+        # list. Convert to column-keyed dicts so downstream rendering/normalisation
+        # works. If the metric isn't in the audit-prep map, fall through to the
+        # generic generator (return None) so realistic mock data is produced.
+        if not raw_rows and not cols:
+            return None
+        dict_rows = _rows_to_dicts(raw_rows, cols)
         return {
             "ok": True,
             "title": block.get("title") or metric.replace("_", " ").title(),
-            "rows": ensure_drill_rows(rows, target, metric=metric_l),
-            "columns": block.get("columns") or UNIVERSAL_COLUMNS,
+            "rows": ensure_drill_rows(dict_rows, target, metric=metric_l),
+            "columns": [c.lower().replace(" ", "_") for c in cols] if cols else UNIVERSAL_COLUMNS,
         }
 
     if page_l in ("trends", "trend", "analytics"):

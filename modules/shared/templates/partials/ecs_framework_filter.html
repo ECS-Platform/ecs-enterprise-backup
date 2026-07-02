@@ -1,0 +1,22 @@
+{# ============================================================================
+   ECS framework filter — horizontal in-page selector (replaces the left-nav
+   Frameworks list). Uses the EXISTING `frameworks` context list and the
+   EXISTING /framework/<name> route. No new routes are created.
+   "All Frameworks" routes to the existing aggregate framework-coverage page.
+   Renders nothing if `frameworks` is not in context.
+   ========================================================================== #}
+{% if frameworks is defined and frameworks %}
+{% set _q = '?role=' ~ (role|default('cio')) ~ '&user=' ~ (user|default('User')) %}
+<div class="ecs-framework-filter" role="tablist" aria-label="Framework filter"
+     style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;margin:0.25rem 0 0.75rem;padding:0.4rem 0.5rem;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
+<span style="font-size:0.7rem;font-weight:700;letter-spacing:0.06em;color:#6b7280;text-transform:uppercase;margin-right:0.25rem;">Framework</span>
+<a href="/mvp/platform/framework-coverage{{ _q }}" role="tab"
+   class="ecs-fw-filter-pill{% if framework_name is not defined or not framework_name %} is-active{% endif %}"
+   style="font-size:0.78rem;font-weight:600;padding:0.28rem 0.7rem;border-radius:999px;text-decoration:none;border:1px solid #d1d5db;{% if framework_name is not defined or not framework_name %}background:#111827;color:#fff;border-color:#111827;{% else %}background:#f9fafb;color:#374151;{% endif %}">All Frameworks</a>
+{% for fw in frameworks %}
+<a href="/framework/{{ fw }}{{ _q }}" role="tab"
+   class="ecs-fw-filter-pill{% if framework_name is defined and framework_name == fw %} is-active{% endif %}"
+   style="font-size:0.78rem;font-weight:600;padding:0.28rem 0.7rem;border-radius:999px;text-decoration:none;border:1px solid #d1d5db;{% if framework_name is defined and framework_name == fw %}background:#111827;color:#fff;border-color:#111827;{% else %}background:#f9fafb;color:#374151;{% endif %}">{{ fw }}</a>
+{% endfor %}
+</div>
+{% endif %}

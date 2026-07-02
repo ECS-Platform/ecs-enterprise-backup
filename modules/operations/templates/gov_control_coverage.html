@@ -1,0 +1,38 @@
+<!DOCTYPE html><html><head><title>Control Coverage</title>{% include "partials/mvp_styles.html" %}
+<style>.ecs-kpi{border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fff}.ecs-kpi .n{font-size:1.4rem;font-weight:700}</style></head>
+<body class="bg-light"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<h1 class="ecs-workspace-title h5 mb-1">Control Coverage</h1>
+<p class="small text-muted mb-2">For every control in the ECS catalog, is there at least one piece of collected evidence? Gaps highlight controls with no proof — the compliance team's remediation worklist.</p>
+{% if notice %}<div class="alert alert-info py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
+
+<div class="row g-2 mb-3">
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Coverage</div><div class="n text-primary">{{ data.coverage_pct or 0 }}%</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Catalog Controls</div><div class="n">{{ data.total_controls or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Covered</div><div class="n text-success">{{ data.covered or 0 }}</div></div></div>
+<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Gaps</div><div class="n text-danger">{{ data.gaps or 0 }}</div></div></div>
+</div>
+
+<table class="table table-sm table-hover bg-white">
+<thead><tr><th>Control</th><th>Domain</th><th>Framework</th><th class="text-end">Evidence</th><th class="text-end">Apps</th><th>Status</th></tr></thead>
+<tbody>
+{% for c in data.controls %}
+<tr class="{{ '' if c.status=='Covered' else 'table-warning' }}">
+<td><strong>{{ c.control_id }}</strong><div class="small text-muted">{{ c.name }}</div></td>
+<td class="small">{{ c.domain or '—' }}</td>
+<td class="small">{{ c.framework_code or '—' }}</td>
+<td class="text-end small">{{ c.evidence_count }}</td>
+<td class="text-end small">{{ c.app_count }}</td>
+<td><span class="badge bg-{{ 'success' if c.status=='Covered' else 'danger' }}">{{ c.status }}</span></td>
+</tr>
+{% else %}<tr><td colspan="6" class="text-muted small text-center py-3">Control catalog is empty — seed governance data.</td></tr>{% endfor %}
+</tbody>
+</table>
+{% if data.discovered_controls %}
+<p class="small text-muted">Evidence also maps to controls outside the catalog: {{ data.discovered_controls|join(', ') }}</p>
+{% endif %}
+</div></div></div>
+{% include "partials/mvp_scripts.html" ignore missing %}
+</body></html>

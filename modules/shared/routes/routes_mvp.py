@@ -30,6 +30,23 @@ from modules.shared.services.enterprise_context import enterprise_widgets_contex
 from modules.executive_overview.engines.demo_metrics import REUSE_METRICS
 
 
+def _safe_count(value) -> int:
+    """Parse a count query param that the UI may send as a formatted KPI value.
+
+    KPI cards bind data-*-count to their *displayed* value (e.g. "94.5%", "12 days",
+    "3.2d", "45,000"). Declaring the query param as ``int`` makes FastAPI reject these
+    with HTTP 422 before the route body (and its fallback) can run. Accept the raw
+    string and extract the leading numeric portion, defaulting to 0.
+    """
+    if value is None:
+        return 0
+    if isinstance(value, (int, float)):
+        return int(value)
+    import re
+    m = re.search(r"\d+(?:\.\d+)?", str(value).replace(",", ""))
+    return int(float(m.group(0))) if m else 0
+
+
 def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_module: str = "", analytics_filters: dict | None = None):
     ctx = {
         "frameworks": ecs_state.frameworks.keys(),
@@ -44,6 +61,12 @@ def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_m
     ctx.update(enterprise_widgets_context(role, page_module=page_module, user=user, analytics_filters=analytics_filters))
     ctx["module_view"] = ctx.get("module_view") or {}
     ctx["reuse_metrics"] = REUSE_METRICS
+    # Executive demo dark theme activates only when the global DEMO_MODE flag is on.
+    try:
+        from app.auth.demo import demo_mode
+        ctx["demo_mode"] = demo_mode()
+    except Exception:  # noqa: BLE001
+        ctx["demo_mode"] = False
     return ctx
 
 
@@ -78,6 +101,8 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "evidence_approval": "/mvp/evidence-approval",
         "exception_governance": "/mvp/exception-governance",
         "ai_ops_assistant": "/mvp/ai-ops-assistant",
+        "predefined_queries": "/mvp/predefined-queries",
+        "roi": "/mvp/roi",
     }
     base = paths.get(module, "/dashboard")
     return RedirectResponse(url=f"{base}?role={role}&user={user}&notice={quote(notice)}", status_code=303)
@@ -108,6 +133,11 @@ def chat_redirect(role: str, user: str, response: str, framework_name: str = "")
 def register_mvp_routes(app, templates):
     @app.get("/dashboard/vertical-head", response_class=HTMLResponse)
     def vertical_head_dashboard(request: Request, role: str = "vertical_head", user: str = "VerticalHead", response: str = ""):
+        from app.auth.page_guard import guard_page
+        deny = guard_page(request, "dashboard.vertical", fallback_role=role, user=user,
+                          home=f"/dashboard?role={role}&user={user}", page_label="Vertical Head dashboard")
+        if deny:
+            return deny
         ctx = _base_ctx(role, user, response)
         ctx["analytics"] = ecs_state.build_evidence_analytics()
         ctx["enterprise"] = enterprise_dashboard()
@@ -116,6 +146,14 @@ def register_mvp_routes(app, templates):
 
     @app.get("/dashboard/compliance-head", response_class=HTMLResponse)
     def compliance_head_dashboard(request: Request, role: str = "compliance_head", user: str = "ComplianceHead", response: str = ""):
+        from app.auth.page_guard import guard_page
+        # Shared landing page: compliance officers and security officers both use it
+        # (login routes security_officer here). Any-of avoids an RBAC catalog change.
+        deny = guard_page(request, ["dashboard.compliance", "dashboard.security"],
+                          fallback_role=role, user=user,
+                          home=f"/dashboard?role={role}&user={user}", page_label="Compliance dashboard")
+        if deny:
+            return deny
         ctx = _base_ctx(role, user, response)
         ctx["analytics"] = ecs_state.build_evidence_analytics()
         ctx["completeness"] = completeness_report()
@@ -124,6 +162,11 @@ def register_mvp_routes(app, templates):
 
     @app.get("/dashboard/functional-head", response_class=HTMLResponse)
     def functional_head_dashboard(request: Request, role: str = "functional_head", user: str = "FunctionalHead", response: str = ""):
+        from app.auth.page_guard import guard_page
+        deny = guard_page(request, "dashboard.functional", fallback_role=role, user=user,
+                          home=f"/dashboard?role={role}&user={user}", page_label="Functional Head dashboard")
+        if deny:
+            return deny
         ctx = _base_ctx(role, user, response)
         ctx["analytics"] = ecs_state.build_evidence_analytics()
         ctx["enterprise"] = enterprise_dashboard()
@@ -144,13 +187,141 @@ def register_mvp_routes(app, templates):
         ctx = _base_ctx(role, user, unquote(response) if response else "", notice, page_module="ai_ops_assistant")
         return templates.TemplateResponse(request, "mvp_ai_ops_assistant.html", ctx)
 
+    @app.get("/mvp/predefined-queries", response_class=HTMLResponse)
+    def mvp_predefined_queries(
+        request: Request,
+        role: str = "owner",
+        user: str = "User",
+        response: str = "",
+        notice: str = "",
+        q: str = "",
+        framework: str = "All Frameworks",
+        page: int = 1,
+        sort: str = "control_id",
+        dir: str = "asc",
+    ):
+        from modules.operations.engines.predefined_queries_engine import get_predefined_queries_dashboard
+
+        ctx = _base_ctx(role, user, response, notice, page_module="predefined_queries")
+        ctx["module_view"] = get_predefined_queries_dashboard(
+            search=q,
+            framework=framework,
+            page=page,
+            per_page=10,
+            sort_by=sort,
+            sort_dir=dir,
+        )
+        ctx["module_view"]["purpose"] = "Predefined Queries — centralized catalog of control queries loaded from the ECS Query Driven Control Library."
+        ctx["module_view"]["module"] = "predefined_queries"
+        ctx["module_view"]["role"] = role
+        return templates.TemplateResponse(request, "mvp_predefined_queries.html", ctx)
+
+    @app.get("/mvp/predefined-queries/detail", response_class=HTMLResponse)
+    def mvp_predefined_query_detail(
+        request: Request,
+        control_id: str = "",
+        role: str = "owner",
+        user: str = "User",
+        notice: str = "",
+    ):
+        from modules.operations.engines.predefined_queries_engine import (
+            derive_runtime_state,
+            get_control_by_id,
+            prepare_execution,
+        )
+
+        ctx = _base_ctx(role, user, "", notice, page_module="predefined_queries")
+        control = get_control_by_id(control_id) if control_id else None
+        if not control:
+            ctx["control"] = {"control_id": control_id or "—", "control_name": "Not Found"}
+            ctx["error_message"] = "Control not found in the predefined query library."
+            ctx["execution_prep"] = {"ok": False}
+            ctx["runtime"] = derive_runtime_state(None)
+        else:
+            ctx["control"] = control
+            ctx["error_message"] = ""
+            ctx["execution_prep"] = prepare_execution(control_id, user)
+            # Trustability: the banner is derived from durable runtime signals,
+            # not the (possibly stale) URL notice. A successful run clears the
+            # stale notice so SUCCESS can never appear next to a failure/connector
+            # warning.
+            runtime = derive_runtime_state(control)
+            ctx["runtime"] = runtime
+            if runtime["suppress_notice"]:
+                ctx["notice"] = ""
+        return templates.TemplateResponse(request, "mvp_predefined_query_detail.html", ctx)
+
+    @app.post("/mvp/predefined-queries/prepare", response_class=JSONResponse)
+    def mvp_predefined_query_prepare(
+        control_id: str = Form(""),
+        role: str = Form("owner"),
+        user: str = Form("User"),
+    ):
+        from modules.operations.engines.predefined_queries_engine import prepare_execution
+
+        result = prepare_execution(control_id, user)
+        return JSONResponse(result)
+
+    @app.post("/mvp/predefined-queries/run")
+    def mvp_predefined_query_run(
+        control_id: str = Form(""),
+        role: str = Form("owner"),
+        user: str = Form("User"),
+        return_to: str = Form("detail"),
+    ):
+        from modules.operations.engines.predefined_queries_engine import run_predefined_query
+
+        try:
+            outcome = run_predefined_query(control_id, user)
+        except Exception as exc:  # noqa: BLE001 — never surface a 500 / stack trace to the demo
+            outcome = {
+                "ok": False,
+                "error": "Query execution failed",
+                "error_type": "unexpected_error",
+                "reason": str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__,
+                "action": "Review the connector configuration and try again.",
+            }
+        if outcome.get("ok"):
+            notice = outcome.get("message", "Query executed successfully")
+        else:
+            # Build a graceful, single-line notice: "Query Execution Failed — Reason … Action …"
+            parts = [outcome.get("error") or "Query Execution Failed"]
+            if outcome.get("reason"):
+                parts.append(f"Reason: {outcome['reason']}")
+            if outcome.get("action"):
+                parts.append(f"Action: {outcome['action']}")
+            notice = " — ".join(parts)
+        dest = (
+            f"/mvp/predefined-queries?role={role}&user={user}&notice={quote(notice)}"
+            if return_to == "catalog"
+            else f"/mvp/predefined-queries/detail?control_id={quote(control_id)}&role={role}&user={user}&notice={quote(notice)}"
+        )
+        return RedirectResponse(url=dest, status_code=303)
+
+    @app.get("/mvp/evidence-story", response_class=HTMLResponse)
+    def mvp_evidence_reuse_story(request: Request, role: str = "owner", user: str = "User"):
+        """Phase-1 value chain: Query -> Evidence -> Reuse -> Readiness -> Observations."""
+        from modules.operations.engines.evidence_reuse_story_engine import (
+            build_evidence_reuse_story,
+        )
+
+        ctx = _base_ctx(role, user, page_module="evidence_story")
+        ctx["story"] = build_evidence_reuse_story()
+        return templates.TemplateResponse(request, "mvp_evidence_reuse_story.html", ctx)
+
     @app.get("/api/demo/kpi-drill")
     def api_demo_kpi_drill(metric: str = ""):
         from modules.executive_overview.engines.demo_kpi_drill_engine import drill_demo_kpi
+        from modules.shared.services.drilldown_engine import _fallback_body
 
-        if not metric:
-            return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
-        return drill_demo_kpi(metric)
+        try:
+            body = drill_demo_kpi(metric or "applications")
+            if not isinstance(body, dict) or not body.get("ok", True) or not body.get("rows"):
+                raise ValueError("empty demo drill")
+        except Exception:  # noqa: BLE001 - never 500 a drill
+            body = _fallback_body(scope="kpi", page="demo", metric=metric, label=metric,
+                                  count=0, framework="", role="cio")
+        return JSONResponse(body)
 
     @app.get("/mvp/reports/view/{report_type}", response_class=HTMLResponse)
     def mvp_report_view(request: Request, report_type: str, role: str = "cio", user: str = "cio@bank.com"):
@@ -162,6 +333,21 @@ def register_mvp_routes(app, templates):
         ctx = _base_ctx(role, user, page_module="reports")
         ctx["report"] = report
         return templates.TemplateResponse(request, "mvp_ecs_report.html", ctx)
+
+    @app.get("/mvp/roi", response_class=HTMLResponse)
+    def mvp_roi_center(request: Request, role: str = "cio", user: str = "cio@bank.com", response: str = "", notice: str = "", scenario: str = ""):
+        """Executive ROI & Value Realization Center (deterministic, read-only)."""
+        from app.roi import build_roi_center, roi_enabled
+
+        ctx = _base_ctx(role, user, response, notice, page_module="roi")
+        ctx["nav_module"] = "roi"
+        ctx["roi_enabled"] = roi_enabled()
+        # force=True so the page renders fully in demos even before the flag is set;
+        # the master flag still controls nav visibility / availability messaging.
+        # Scenario chooses which model is active on initial render; all three are
+        # also emitted in the payload so the UI toggle can switch instantly.
+        ctx["roi"] = build_roi_center(force=True, scenario=(scenario or None))
+        return templates.TemplateResponse(request, "mvp_roi_center.html", ctx)
 
     @app.get("/mvp/ai-ops-assistant/summary/{mode}", response_class=HTMLResponse)
     def mvp_ai_ops_summary(request: Request, mode: str, scenario: str = "net_banking", role: str = "cio", user: str = "cio@bank.com"):
@@ -175,21 +361,32 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_ai_ops_summary.html", ctx)
 
     @app.get("/api/module-kpi/drill")
-    def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: int = 0):
+    def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: str = ""):
         from modules.shared.drilldowns.module_kpi_drill_engine import drill_module_kpi
+        from modules.shared.services.drilldown_engine import _fallback_body
 
-        if not module:
-            return JSONResponse({"ok": False, "error": "module required"}, status_code=400)
-        body = drill_module_kpi(module, metric, role)
-        if count:
-            from modules.shared.utils.demo_data_standards import ensure_drill_rows
-            from modules.shared.drilldowns.ecs_universal_drill_engine import _target_rows
+        count = _safe_count(count)
+        try:
+            body = drill_module_kpi(module or "operations", metric, role)
+            # Predefined Queries returns authoritative, KPI-specific rows (with
+            # honest empty-states). Bypass the generic count-padding / fallback
+            # so its drilldowns are never fabricated or unrelated.
+            if (module or "") == "predefined_queries" and isinstance(body, dict) and body.get("ok"):
+                return JSONResponse(body)
+            if count:
+                from modules.shared.utils.demo_data_standards import ensure_drill_rows
+                from modules.shared.drilldowns.ecs_universal_drill_engine import _target_rows
 
-            target = _target_rows(count)
-            body["rows"] = ensure_drill_rows(body.get("rows", []), target, metric=metric or module)
-            body["trace_count"] = count
-            body["row_count"] = len(body["rows"])
-        return body
+                target = _target_rows(count)
+                body["rows"] = ensure_drill_rows(body.get("rows", []), target, metric=metric or module)
+                body["trace_count"] = count
+                body["row_count"] = len(body["rows"])
+            if not isinstance(body, dict) or not body.get("ok", True) or not body.get("rows"):
+                raise ValueError("empty module drill")
+        except Exception:  # noqa: BLE001 - never 500 a drill
+            body = _fallback_body(scope="kpi", page=module, metric=metric, label=metric,
+                                  count=count, framework="", role=role)
+        return JSONResponse(body)
 
     @app.get("/api/ecs/universal-drill")
     def api_ecs_universal_drill(
@@ -200,7 +397,7 @@ def register_mvp_routes(app, templates):
         element: str = "",
         type: str = "",
         id: str = "",
-        count: int = 0,
+        count: str = "",
         role: str = "cio",
         framework: str = "",
         label: str = "",
@@ -209,29 +406,43 @@ def register_mvp_routes(app, templates):
     ):
         from modules.shared.services.drilldown_engine import drill_metric
 
-        return JSONResponse(drill_metric(
-            scope,
-            page=page,
-            metric=metric,
-            chart=chart,
-            element=element,
-            row_type=type,
-            row_id=id,
-            count=count,
-            role=role,
-            framework=framework,
-            label=label,
-            application=application,
-            readiness_pct=readiness_pct,
-        ))
+        count = _safe_count(count)
+        try:
+            body = drill_metric(
+                scope,
+                page=page,
+                metric=metric,
+                chart=chart,
+                element=element,
+                row_type=type,
+                row_id=id,
+                count=count,
+                role=role,
+                framework=framework,
+                label=label,
+                application=application,
+                readiness_pct=readiness_pct,
+            )
+        except Exception:  # noqa: BLE001 - last-resort guard; never 500 a drill
+            from modules.shared.services.drilldown_engine import _fallback_body
+            body = _fallback_body(scope=scope, page=page, metric=metric or chart,
+                                  label=label or element or id, count=count,
+                                  framework=framework, role=role)
+        return JSONResponse(body)
 
     @app.get("/api/ecs/workflow-drill")
-    def api_ecs_workflow_drill(metric: str = "", count: int = 0, role: str = "cio"):
-        from modules.shared.services.drilldown_engine import drill_workflow
+    def api_ecs_workflow_drill(metric: str = "", count: str = "", role: str = "cio"):
+        from modules.shared.services.drilldown_engine import _fallback_body, drill_workflow
 
-        if not metric:
-            return JSONResponse({"ok": False, "error": "metric required"}, status_code=400)
-        return JSONResponse(drill_workflow(role, metric, count))
+        count = _safe_count(count)
+        try:
+            body = drill_workflow(role, metric or "workflow", count)
+            if not isinstance(body, dict) or not body.get("ok", True) or not body.get("rows"):
+                raise ValueError("empty workflow drill")
+        except Exception:  # noqa: BLE001 - never 500 a drill
+            body = _fallback_body(scope="workflow", page="enterprise", metric=metric,
+                                  label=metric, count=count, framework="", role=role)
+        return JSONResponse(body)
 
     @app.post("/mvp/scheduler/run")
     def mvp_scheduler_run(role: str = Form(...), user: str = Form(...)):
@@ -403,23 +614,33 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/onboarding/simulate")
     async def api_onboarding_simulate(request: Request):
+        from app.auth.mutation_guard import guard_mutation
         from modules.operations.engines.onboarding_engine import simulate_onboarding
 
         try:
             payload = await request.json()
         except Exception:
             payload = {}
+        deny = guard_mutation(request, "can_manage_framework_onboarding",
+                              fallback_role=payload.get("role", "cio"), response="json")
+        if deny:
+            return deny
         result = simulate_onboarding(payload)
         return JSONResponse(result)
 
     @app.post("/api/onboarding/export")
     async def api_onboarding_export(request: Request):
+        from app.auth.mutation_guard import guard_mutation
         from modules.operations.engines.onboarding_engine import export_onboarding_summary, simulate_onboarding
 
         try:
             payload = await request.json()
         except Exception:
             payload = {}
+        deny = guard_mutation(request, "can_manage_framework_onboarding",
+                              fallback_role=payload.get("role", "cio"), response="json")
+        if deny:
+            return deny
         result = payload.get("result") or simulate_onboarding(payload)
         app_name = result.get("metadata", {}).get("application_name", "application")
         safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in app_name)
@@ -782,17 +1003,27 @@ def register_mvp_routes(app, templates):
 
     @app.post("/api/framework-onboarding/lifecycle")
     async def api_framework_onboarding_lifecycle(request: Request):
+        from app.auth.mutation_guard import guard_mutation
         from modules.frameworks.engines.framework_onboarding_engine import advance_lifecycle
 
         body = await request.json()
+        deny = guard_mutation(request, "can_manage_framework_onboarding",
+                              fallback_role=body.get("role", "cio"), response="json")
+        if deny:
+            return deny
         msg = advance_lifecycle(body.get("framework_id", ""), body.get("action", ""), body.get("user", "User"), body.get("role", "cio"))
         return JSONResponse({"ok": True, "message": msg})
 
     @app.post("/api/framework-onboarding/reuse-decision")
     async def api_framework_reuse_decision(request: Request):
+        from app.auth.mutation_guard import guard_mutation
         from modules.frameworks.engines.framework_onboarding_engine import apply_evidence_reuse
 
         body = await request.json()
+        deny = guard_mutation(request, "can_reuse_evidence_decision",
+                              fallback_role=body.get("role", "owner"), response="json")
+        if deny:
+            return deny
         msg = apply_evidence_reuse(
             body.get("framework_id", ""), body.get("control_id", ""),
             body.get("decision", "reuse"), body.get("user", "User"), body.get("role", "owner"),
@@ -1097,6 +1328,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/mvp/workflow/assign-owner")
     def workflow_assign_owner_post(
+        request: Request,
         role: str = Form(...),
         user: str = Form(...),
         framework: str = Form(""),
@@ -1109,7 +1341,14 @@ def register_mvp_routes(app, templates):
         comments: str = Form(""),
         return_module: str = Form("audit_prep"),
     ):
+        from app.auth.mutation_guard import guard_mutation
         from modules.governance.engines.operational_workflows import _return_url, process_assign_owner
+
+        deny = guard_mutation(request, "can_assign_owner", fallback_role=role,
+                              deny_redirect_to=_return_url(role, user, return_module),
+                              role=role, user=user)
+        if deny:
+            return deny
 
         notice = process_assign_owner(
             framework=framework,

@@ -23,15 +23,22 @@
     return vals;
   }
 
-  var FILTER_STORAGE_KEY = 'ecs_global_filters';
+  // Filter state is scoped PER MODULE so that a filter chosen on one dashboard
+  // (e.g. Application=Net Banking on Reports) never bleeds into a different
+  // module whose dataset has no matching rows — which previously zeroed out
+  // every child tab and produced "No records match the current filters."
+  function moduleKey() {
+    var mod = (dataset && dataset.module) || (loadDataset() || {}).module || 'global';
+    return 'ecs_filters::' + mod;
+  }
 
   function saveFilterState(vals) {
-    try { sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(vals)); } catch(e) {}
+    try { sessionStorage.setItem(moduleKey(), JSON.stringify(vals)); } catch(e) {}
   }
 
   function restoreFilterState() {
     try {
-      var raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+      var raw = sessionStorage.getItem(moduleKey());
       if (!raw) return;
       var vals = JSON.parse(raw);
       document.querySelectorAll('[data-ecs-workspace-filters] .ecs-ws-filter').forEach(function(sel){
@@ -52,29 +59,50 @@
     var status = v.status || '';
     var region = v.region || '';
     var severity = v.severity || '';
+    // A filter dimension is only enforced when the row actually carries that
+    // dimension. Rows that do not model a dimension (e.g. framework-level rows
+    // have no `application`) are NOT excluded by that filter — otherwise an
+    // application filter would zero out the frameworks/business-unit tabs.
     if (fw && fw.indexOf('All ') !== 0) {
-      if (r.framework !== fw && String(r.framework_mapping || '').indexOf(fw) === -1 && r.source_framework !== fw) return false;
+      var hasFw = r.framework != null || r.framework_mapping != null || r.source_framework != null;
+      // Row-side wildcard framework values (e.g. "All Frameworks") span every
+      // framework and must always match an active framework filter.
+      var rfw = String(r.framework || '');
+      var rfwWild = rfw === 'All Frameworks' || rfw === 'All' || rfw === 'Enterprise-wide';
+      if (hasFw && !rfwWild && r.framework !== fw && String(r.framework_mapping || '').indexOf(fw) === -1 && r.source_framework !== fw) return false;
     }
-    if (app && app.indexOf('All ') !== 0 && r.application !== app) return false;
-    if (owner && owner.indexOf('All ') !== 0 && r.owner !== owner) return false;
+    if (app && app.indexOf('All ') !== 0 && r.application != null) {
+      // Wildcard/aggregate application values always match (framework-level or
+      // enterprise-wide rows apply across every application).
+      var ra = String(r.application);
+      var raWild = ra === 'All Applications' || ra === 'All' || ra === 'Enterprise-wide' || ra === '—' || ra === '';
+      if (!raWild && ra !== app) return false;
+    }
+    if (owner && owner.indexOf('All ') !== 0 && r.owner != null && r.owner !== owner) return false;
     if (region && region.indexOf('All ') !== 0) {
       var rg = r.region || r.zone || '';
       if (rg && rg !== region && String(rg).indexOf(region) === -1) return false;
     }
     if (severity && severity.indexOf('All ') !== 0) {
       var sev = r.severity || r.residual_risk || r.risk || r.risk_level || '';
-      if (severity === 'High') { if (sev !== 'High' && sev !== 'Critical') return false; }
-      else if (sev !== severity) return false;
+      if (sev) {
+        if (severity === 'High') { if (sev !== 'High' && sev !== 'Critical') return false; }
+        else if (sev !== severity) return false;
+      }
     }
     if (risk && risk.indexOf('All ') !== 0) {
       var rr = r.risk || r.risk_level || r.residual_risk || '';
-      if (risk === 'High') { if (rr !== 'High' && rr !== 'Critical') return false; }
-      else if (rr !== risk) return false;
+      if (rr) {
+        if (risk === 'High') { if (rr !== 'High' && rr !== 'Critical') return false; }
+        else if (rr !== risk) return false;
+      }
     }
     if (status && status.indexOf('All ') !== 0) {
       var cands = [r.status, r.health, r.issue, r.reuse_status, r.stage, r.evidence_status].filter(Boolean);
-      var hit = cands.some(function(st){ return String(st).toLowerCase().indexOf(status.toLowerCase()) !== -1; });
-      if (!hit) return false;
+      if (cands.length) {
+        var hit = cands.some(function(st){ return String(st).toLowerCase().indexOf(status.toLowerCase()) !== -1; });
+        if (!hit) return false;
+      }
     }
     return true;
   }
@@ -737,8 +765,8 @@
   });
 
   document.addEventListener('DOMContentLoaded', function() {
-    restoreFilterState();
     dataset = loadDataset();
+    restoreFilterState();
     if (dataset) applyAll();
   });
 })();

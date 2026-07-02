@@ -1,0 +1,161 @@
+<style>
+/* =========================================================================
+   ECS UNIVERSAL CONTRAST ENGINE  (DEMO_MODE only — loaded after the dark theme)
+   One shared helper that guarantees readable contrast everywhere.
+
+   Phase 2 contrast law:
+     dark surface (luminance < 50%)  -> text #F8FAFC / #CBD5E1
+     light surface (luminance > 50%) -> text #0F172A / #1E293B
+   Never light-on-light or dark-on-dark.
+
+   Palette:
+     bg #0B1220 · panel #111827 · card #1E293B · text #F8FAFC / #CBD5E1
+     muted #94A3B8 · accent #38BDF8 · positive #22C55E · warning #F59E0B
+     critical #EF4444
+   ========================================================================= */
+:root{
+  --ax-bg:#0B1220; --ax-panel:#111827; --ax-card:#1E293B;
+  --ax-text:#F8FAFC; --ax-text2:#CBD5E1; --ax-muted:#94A3B8;
+  --ax-accent:#38BDF8; --ax-pos:#22C55E; --ax-warn:#F59E0B; --ax-crit:#EF4444;
+  --ax-ink:#0F172A; --ax-ink2:#1E293B; --ax-ink-muted:#475569;
+  --ax-row:#FFFFFF; --ax-row-alt:#F8FAFC; --ax-grid:rgba(15,23,42,.15);
+  --ax-hover:#E2E8F0;
+}
+
+/* ---------------------------------------------------------------------------
+   PHASE 2 — universal contrast law on dark surfaces.
+   Bootstrap muted/secondary become readable light-gray on the dark page.
+--------------------------------------------------------------------------- */
+.text-muted, .text-secondary{ color:var(--ax-text2)!important; }
+small.text-muted, .small.text-muted{ color:var(--ax-muted)!important; }
+.text-light{ color:var(--ax-text)!important; }
+
+/* ---------------------------------------------------------------------------
+   PHASE 3 — TABLE STANDARDIZATION (applies to every Bootstrap/custom table).
+   Dark header · white rows · dark row text · striped alt · subtle grid · hover.
+   White "report" tables sit on the dark page intentionally for max legibility.
+--------------------------------------------------------------------------- */
+table.table, table.demo-table, table.ecs-table-modern, table.ecs-risk-table,
+table.ecs-paginated-table, table.roi-deck-table{
+  background:var(--ax-row)!important; color:var(--ax-ink)!important;
+  border-color:var(--ax-grid)!important;
+}
+.table > thead, .table thead tr{ background:var(--ax-card)!important; }
+.table thead th, table.demo-table thead th, .ecs-table-modern thead th,
+.ecs-risk-table thead th, table.table-light thead th, .table-light th,
+.roi-deck-table thead th{
+  background:var(--ax-card)!important; color:var(--ax-text)!important;
+  border-color:var(--ax-grid)!important; font-weight:700!important;
+  border-bottom:2px solid rgba(255,255,255,.12)!important;
+}
+.table tbody td, .table tbody th, table.demo-table tbody td,
+.ecs-table-modern tbody td, .ecs-risk-table tbody td, .roi-deck-table tbody td{
+  background:var(--ax-row)!important; color:var(--ax-ink)!important;
+  border-color:var(--ax-grid)!important;
+}
+.table tbody td strong, .table tbody td b, .table .col-app, .table .col-app strong,
+table.demo-table tbody td strong, table.demo-table tbody td b,
+table.demo-table .col-app, table.demo-table .col-app strong,
+table.ecs-paginated-table tbody td strong, table.ecs-paginated-table tbody td b,
+.ecs-top-risk-applications .col-app, .ecs-top-risk-applications .col-app strong,
+table.ecs-table-modern tbody td strong, table.ecs-risk-table tbody td strong{
+  color:var(--ax-ink)!important; font-weight:700!important;
+}
+/* striped alternate rows */
+.table-striped > tbody > tr:nth-of-type(odd) > *,
+.table tbody tr:nth-of-type(even) > *{ background:var(--ax-row-alt)!important; color:var(--ax-ink)!important; }
+/* hover */
+.table-hover > tbody > tr:hover > *, .table tbody tr:hover > *,
+table.demo-table tbody tr:hover > *{ background:var(--ax-hover)!important; color:var(--ax-ink)!important; }
+/* total / emphasis rows keep dark-on-light readable */
+.roi-deck-tr-total td{ background:var(--ax-row-alt)!important; }
+.roi-deck-tr-total .roi-deck-net{ color:#9A6700!important; }
+.roi-deck-net{ color:#166534!important; font-weight:800!important; }
+/* muted text inside white tables must go dark, not light */
+.table .text-muted, .table small.text-muted, table.demo-table .text-muted{
+  color:var(--ax-ink-muted)!important;
+}
+/* links inside white tables */
+.table a{ color:#1D4ED8!important; }
+/* code chips inside white tables */
+.table code{ color:#0F172A!important; background:#EEF2F7!important; }
+
+/* badges always retain their semantic colors (do not let table rules flatten them) */
+.badge.bg-success, .sev-Low, .badge-Low{ background:#16a34a!important; color:#fff!important; }
+.badge.bg-danger, .sev-Critical, .badge-Critical{ background:#dc2626!important; color:#fff!important; }
+.badge.bg-warning, .sev-High, .badge-High{ background:#f59e0b!important; color:#1f2937!important; }
+.badge.bg-primary, .sev-Medium, .badge-Medium{ background:#2563eb!important; color:#fff!important; }
+.badge.bg-secondary{ background:#475569!important; color:#fff!important; }
+.badge.bg-info{ background:#0891b2!important; color:#fff!important; }
+
+/* ---------------------------------------------------------------------------
+   PHASE 4 — CHART STANDARDIZATION (axis, legend, value labels).
+   Charts live on dark cards -> labels light & >=14px & opaque.
+--------------------------------------------------------------------------- */
+.chart-axis, .axis-label, .chart-legend, .legend-item, .chart-value,
+.bar-label, .pie-label, .trend-label, .ecs-chart-label, .ecs-axis,
+.recharts-text, .apexcharts-text, svg text.tick, .c-axis-x, .c-axis-y{
+  fill:var(--ax-text)!important; color:var(--ax-text)!important;
+  font-size:14px!important; opacity:1!important;
+}
+.chart-legend, .legend-item, .ecs-chart-legend{ color:var(--ax-text2)!important; font-size:14px!important; }
+/* ROI bar chart value labels (already gold) + axis */
+.roi-bar-val{ color:var(--ax-warn)!important; }
+.roi-bar-x{ color:var(--ax-text2)!important; font-size:clamp(14px,1.6vw,1.25rem)!important; }
+/* heatmap: labels readable; data cells keep tone colors with white text */
+.demo-heat-label{ background:var(--ax-card)!important; color:var(--ax-text)!important; }
+.demo-heat-cell{ color:#fff!important; }
+.demo-heat-cell.tone-empty{ background:#334155!important; color:var(--ax-text2)!important; }
+/* generic mini-bars stay visible */
+.demo-mini-bar{ background:#33415588!important; }
+
+/* ---------------------------------------------------------------------------
+   PHASE 5 — KPI STANDARDIZATION.
+   Dark KPI cards -> value #F8FAFC / label #CBD5E1.
+   Explicitly-white KPI cards -> value #0F172A / label #475569.
+--------------------------------------------------------------------------- */
+.demo-kpi, .ecs-kpi-modern, .kpi-card, .ecs-kpi, .roi-kpi1, .roi-execsum-cell,
+.ecs-kpi-clickable{
+  background:var(--ax-card)!important; border-color:rgba(255,255,255,.12)!important;
+}
+.demo-kpi .v, .ecs-kpi-value, .kpi-value, .roi-kpi1-val, .roi-execsum-val{
+  color:var(--ax-text)!important; font-weight:700!important;
+}
+.demo-kpi .l, .ecs-kpi-label, .kpi-label, .roi-kpi1-lbl, .roi-execsum-lbl{
+  color:var(--ax-text2)!important; font-weight:500!important;
+}
+/* white-card override: any KPI explicitly on a white/light bg flips to dark text */
+.kpi-card.bg-white .kpi-value, .ecs-kpi-modern.bg-white .ecs-kpi-value,
+.bg-white .kpi-value, .bg-white .ecs-kpi-value{ color:var(--ax-ink)!important; }
+.kpi-card.bg-white .kpi-label, .bg-white .ecs-kpi-label{ color:var(--ax-ink-muted)!important; }
+
+/* ---------------------------------------------------------------------------
+   PHASE 6/7/8/9 — page-specific guarantees (Enterprise, Analytics,
+   Governance Analytics, Integrations). These pages render tables/labels via
+   the classes already covered above; the rules below close remaining gaps.
+--------------------------------------------------------------------------- */
+/* Enterprise Open Gaps: ensure thead labels are visible even if styled inline */
+.ecs-enterprise-table thead th, #tab-gaps thead th, .open-gaps-table thead th{
+  background:var(--ax-card)!important; color:var(--ax-text)!important;
+}
+/* Enterprise Analytics small framework labels (PCI DSS / DPSC / DB/OS Baselining) */
+.analytics-label, .ecs-analytics-label, .framework-chip, .ecs-fw-chip{
+  color:var(--ax-ink2)!important; font-weight:600!important;
+}
+.bg-white .analytics-label, .bg-white .ecs-analytics-label{ color:#334155!important; }
+/* Governance Analytics timeline/event cells: white cell + dark text */
+.timeline-cell, .event-cell, .ecs-timeline td, .ecs-event-table td,
+.governance-analytics-table td{
+  background:var(--ax-row)!important; color:var(--ax-ink)!important;
+}
+/* Integrations: connector chart labels + dependency matrix */
+.connector-label, .dependency-label, .matrix-label, .integration-chart text,
+.dependency-matrix td, .dependency-matrix th{ color:var(--ax-ink)!important; }
+.dependency-matrix th{ background:var(--ax-card)!important; color:var(--ax-text)!important; }
+
+/* ---------------------------------------------------------------------------
+   Safety net: no dark text on the dark page background outside cards/tables.
+--------------------------------------------------------------------------- */
+.ecs-workspace-main .text-dark:not(.table .text-dark):not(td):not(th){ color:var(--ax-text)!important; }
+.ecs-workspace-main .text-black:not(.table *){ color:var(--ax-text)!important; }
+</style>

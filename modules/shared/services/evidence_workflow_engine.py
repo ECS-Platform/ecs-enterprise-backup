@@ -326,6 +326,14 @@ def close_observations_for_control(
             rec.setdefault("history", []).append({
                 "date": ts, "action": "Observation Closed", "actor": user, "remarks": detail,
             })
+        # Phase 4 Step 3: mirror closure to the durable store (flag-gated, best-effort).
+        try:
+            from app.observations.store import persist_close
+
+            persist_close(oid, closed_by=user, role=role, detail={
+                "framework": fw, "control": control, "control_id": control_id})
+        except Exception:  # noqa: BLE001 - durability must never break close
+            pass
         closed.append(oid)
 
     _close(obs_id, "Auditor approved evidence — observation closed automatically")

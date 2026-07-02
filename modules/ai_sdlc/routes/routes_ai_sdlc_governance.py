@@ -252,11 +252,19 @@ def register_ai_sdlc_routes(app, templates):
 
     @app.post("/api/ai-sdlc/workflow/action")
     async def api_workflow_action(request: Request):
+        from app.auth.mutation_guard import guard_mutation
+
         body = await request.json()
         action = (body.get("action") or "").lower()
         actor = body.get("user") or "CIO"
         item_id = body.get("item_id") or ""
         item_type = body.get("item_type") or ""
+        # Per-action capability: uploads require owner upload rights, all other
+        # governance workflow actions (review/approve/reject/...) require review rights.
+        _cap = "can_upload_evidence" if action == "upload" else "can_review_evidence"
+        deny = guard_mutation(request, _cap, fallback_role=body.get("role", ""), response="json")
+        if deny:
+            return deny
         if action == "upload":
             result = workflow_action(
                 "upload",

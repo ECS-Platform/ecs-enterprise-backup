@@ -6,10 +6,25 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        curl \
+        git \
+        docker.io \
+        docker-cli \
+        ca-certificates \
+        procps \
+        iproute2 \
+        netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY modules ./modules
+COPY demo-data ./demo-data
+COPY ecs_platform ./ecs_platform
+COPY config ./config
 
 EXPOSE 8000
 

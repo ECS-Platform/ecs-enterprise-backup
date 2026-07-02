@@ -5,3 +5,5 @@
 {% include "partials/executive_dashboard_client.html" %}
 {% include "partials/mvp_capability_styles.html" %}
 {% include "partials/mvp_workspace_styles.html" %}
+{% if demo_mode|default(false) %}{% include "partials/demo_dark_theme.html" %}{% endif %}
+{% if demo_mode|default(false) %}{% include "partials/accessibility_theme.html" %}{% endif %}

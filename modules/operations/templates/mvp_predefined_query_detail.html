@@ -1,0 +1,193 @@
+<!DOCTYPE html><html><head><title>{{ control.control_id }} — Predefined Query</title>{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-pq-detail-query { font-family: ui-monospace, monospace; font-size: 0.82rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 12px; white-space: pre-wrap; word-break: break-word; }
+.ecs-pq-meta dt { font-size: 0.72rem; color: #64748b; }
+.ecs-pq-meta dd { font-size: 0.85rem; }
+.ecs-pq-tabs .nav-link { font-size: 0.82rem; padding: 0.4rem 0.9rem; }
+.ecs-pq-tab-pane { padding-top: 1rem; }
+</style></head>
+<body class="bg-light ecs-cap-predefined-queries"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<div class="d-flex align-items-center gap-2 mb-2">
+<a href="/mvp/predefined-queries?role={{ role }}&user={{ user|urlencode }}" class="btn btn-outline-secondary btn-sm">← Back to Catalog</a>
+<h1 class="ecs-workspace-title h5 mb-0">{{ control.control_id }}</h1>
+</div>
+<p class="small text-muted mb-3">{{ control.control_name }}</p>
+{# ===================== TRUSTABILITY — RUNTIME-DERIVED BANNER =====================
+   The banner reflects ACTUAL runtime state (latest_execution / latest_result /
+   execution_history), never the stale URL notice. A successful run (or any
+   existing evidence) renders SUCCESS and suppresses every failure / connector /
+   dependency message, so contradictory states (e.g. "SUCCESS" + "SonarQube
+   unreachable") can never appear together. #}
+{% if runtime and runtime.success %}
+<div class="alert alert-success py-2 px-3 small mb-2">
+<strong>✓ SUCCESS</strong>
+&nbsp;·&nbsp; Rows Returned: <strong>{{ runtime.rows_returned if runtime.rows_returned is not none else '—' }}</strong>
+&nbsp;·&nbsp; Duration: <strong>{{ runtime.duration_ms if runtime.duration_ms is not none else '—' }} ms</strong>
+{% if runtime.evidence_id %}&nbsp;·&nbsp; Evidence ID: <strong>{{ runtime.evidence_id }}</strong>{% endif %}
+{% if runtime.timestamp %}&nbsp;·&nbsp; <span class="text-muted">{{ runtime.timestamp }}</span>{% endif %}
+</div>
+{% elif runtime and runtime.failed %}
+<div class="alert alert-danger py-2 px-3 small mb-2">
+<strong>✕ Execution Failed</strong>
+<div class="mt-1"><strong>Exception:</strong> {{ runtime.error_message or 'Execution did not complete.' }}</div>
+<div><strong>Connector:</strong> {{ runtime.connector or '—' }} &nbsp;·&nbsp; <strong>Failure point:</strong> {{ runtime.failure_point or '—' }}</div>
+<div><strong>Suggested action:</strong> {{ runtime.suggested_action or 'Review the connector configuration and re-run the query.' }}</div>
+</div>
+{% elif notice %}
+{# No execution recorded yet — fall back to the transient action notice. #}
+<div class="alert alert-{% if 'successfully' in notice|lower %}success{% else %}warning{% endif %} py-2 px-3 small mb-2">{{ notice }}</div>
+{% endif %}
+
+{% if error_message %}
+<div class="alert alert-danger py-2 px-3 small">{{ error_message }}</div>
+{% else %}
+
+{% set exec = control.latest_execution %}
+<ul class="nav nav-tabs ecs-pq-tabs mb-0" id="ecsPqTabs" role="tablist">
+<li class="nav-item" role="presentation"><button class="nav-link active" id="tab-summary-btn" data-bs-toggle="tab" data-bs-target="#tab-summary" type="button" role="tab" aria-controls="tab-summary" aria-selected="true">Summary</button></li>
+<li class="nav-item" role="presentation"><button class="nav-link" id="tab-query-btn" data-bs-toggle="tab" data-bs-target="#tab-query" type="button" role="tab" aria-controls="tab-query" aria-selected="false">Query</button></li>
+<li class="nav-item" role="presentation"><button class="nav-link" id="tab-result-btn" data-bs-toggle="tab" data-bs-target="#tab-result" type="button" role="tab" aria-controls="tab-result" aria-selected="false">Result</button></li>
+<li class="nav-item" role="presentation"><button class="nav-link" id="tab-evidence-btn" data-bs-toggle="tab" data-bs-target="#tab-evidence" type="button" role="tab" aria-controls="tab-evidence" aria-selected="false">Evidence</button></li>
+<li class="nav-item" role="presentation"><button class="nav-link" id="tab-audit-btn" data-bs-toggle="tab" data-bs-target="#tab-audit" type="button" role="tab" aria-controls="tab-audit" aria-selected="false">Audit Trail</button></li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-3" id="ecsPqTabContent">
+
+{# ============================= TAB 1 — SUMMARY ============================= #}
+<div class="tab-pane fade show active ecs-pq-tab-pane" id="tab-summary" role="tabpanel" aria-labelledby="tab-summary-btn">
+<div class="row g-3">
+<div class="col-md-8">
+<dl class="row ecs-pq-meta mb-0">
+<dt class="col-sm-4">Control ID</dt><dd class="col-sm-8">{{ control.control_id }}</dd>
+<dt class="col-sm-4">Control Name</dt><dd class="col-sm-8">{{ control.control_name }}</dd>
+<dt class="col-sm-4">Framework</dt><dd class="col-sm-8">{{ control.framework_coverage or '—' }}</dd>
+<dt class="col-sm-4">Technology</dt><dd class="col-sm-8">{% if control.technology %}<span class="badge bg-{% if control.technology == 'Unknown' %}warning text-dark{% else %}info{% endif %}">{{ control.technology }}</span>{% else %}—{% endif %}</dd>
+<dt class="col-sm-4">Risk</dt><dd class="col-sm-8">{{ control.risk or 'Not classified' }}</dd>
+<dt class="col-sm-4">Purpose</dt><dd class="col-sm-8">{{ control.description or '—' }}</dd>
+<dt class="col-sm-4">Evidence Type</dt><dd class="col-sm-8">{{ control.evidence_type or '—' }}</dd>
+<dt class="col-sm-4">Execution Status</dt><dd class="col-sm-8"><span class="badge bg-{% if control.status == 'Ready' %}success{% elif control.status == 'Manual' %}secondary{% elif control.status == 'Unsupported Technology' %}warning text-dark{% else %}light text-dark border{% endif %}">{{ control.status }}</span>{% if control.capability_reason %}<div class="small text-muted mt-1">{{ control.capability_reason }}</div>{% endif %}</dd>
+</dl>
+</div>
+<div class="col-md-4">
+<div class="card border-0 shadow-sm">
+<div class="card-body py-3">
+<h6 class="small text-muted text-uppercase mb-2">Execution</h6>
+{% if control.predefined and execution_prep.execution_enabled %}
+<form method="post" action="/mvp/predefined-queries/run" class="mb-2">
+<input type="hidden" name="control_id" value="{{ control.control_id }}">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="return_to" value="detail">
+<button type="submit" class="btn btn-primary btn-sm w-100">Run Query</button>
+</form>
+<p class="small text-muted mb-0">Live demo execution via {{ control.technology }} connector.</p>
+{% else %}
+<button type="button" class="btn btn-primary btn-sm w-100 mb-2" disabled title="Live execution not enabled for this control">Run Query</button>
+<p class="small text-muted mb-0">Live execution is enabled only for selected demo controls.</p>
+{% endif %}
+{# Suppress capability/prep warnings once a successful run/evidence exists (Rule 2 & 7). #}
+{% if execution_prep and not execution_prep.ok and not (runtime and runtime.success) %}
+<div class="alert alert-warning py-1 px-2 small mt-2 mb-0">{{ execution_prep.error }}</div>
+{% endif %}
+</div>
+</div>
+</div>
+</div>
+</div>
+
+{# ============================== TAB 2 — QUERY ============================== #}
+<div class="tab-pane fade ecs-pq-tab-pane" id="tab-query" role="tabpanel" aria-labelledby="tab-query-btn">
+<div class="d-flex align-items-center gap-2 mb-2">
+<h6 class="small text-muted text-uppercase mb-0">Query Definition</h6>
+{% if control.technology %}<span class="badge bg-light text-dark border">{{ control.technology }}</span>{% endif %}
+<span class="badge bg-secondary">Read-only</span>
+</div>
+{% if control.query %}
+<div class="ecs-pq-detail-query mb-0">{{ control.query }}</div>
+{% else %}
+<div class="alert alert-secondary py-2 px-3 small mb-0">No predefined query — manual evidence collection required for this control.</div>
+{% endif %}
+</div>
+
+{# ============================== TAB 3 — RESULT ============================= #}
+<div class="tab-pane fade ecs-pq-tab-pane" id="tab-result" role="tabpanel" aria-labelledby="tab-result-btn">
+<h6 class="small text-muted text-uppercase mb-2">Latest Execution Result</h6>
+{% if exec %}
+<div class="mb-2">
+{% if exec.status == 'Success' %}
+<span class="badge bg-success">PASS</span>
+{% else %}
+<span class="badge bg-danger">FAIL</span>
+{% endif %}
+<span class="text-muted small ms-2">{{ exec.execution_time }}</span>
+</div>
+<dl class="row ecs-pq-meta mb-2">
+<dt class="col-sm-3">Rows Returned</dt><dd class="col-sm-9">{{ exec.rows_returned }}</dd>
+<dt class="col-sm-3">Duration</dt><dd class="col-sm-9">{{ exec.duration_ms }} ms</dd>
+<dt class="col-sm-3">Executed By</dt><dd class="col-sm-9">{{ exec.user or '—' }}</dd>
+</dl>
+<h6 class="small text-muted text-uppercase mb-1">Key Findings / Output</h6>
+<pre class="ecs-pq-detail-query mb-0">{{ exec.result or exec.error_message or '—' }}</pre>
+{% else %}
+<div class="alert alert-secondary py-2 px-3 small mb-0">No execution results yet. Run the query from the Summary tab to generate a result.</div>
+{% endif %}
+</div>
+
+{# ============================= TAB 4 — EVIDENCE =========================== #}
+<div class="tab-pane fade ecs-pq-tab-pane" id="tab-evidence" role="tabpanel" aria-labelledby="tab-evidence-btn">
+<h6 class="small text-muted text-uppercase mb-2">Evidence Records</h6>
+{% if control.latest_result and control.latest_result.evidence_id %}
+<div class="table-responsive mb-0">
+<table class="table table-sm table-bordered bg-white mb-0">
+<thead><tr><th>Evidence ID</th><th>Framework</th><th>Evidence Type</th><th>Generated</th></tr></thead>
+<tbody>
+<tr>
+<td class="small"><strong>{{ control.latest_result.evidence_id }}</strong></td>
+<td class="small">{{ control.framework_coverage or '—' }}</td>
+<td class="small">{{ control.evidence_type or '—' }}</td>
+<td class="small">{{ exec.execution_time if exec else '—' }}</td>
+</tr>
+</tbody>
+</table>
+</div>
+{% else %}
+<div class="ecs-drill-empty text-center py-4">
+<div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128203;</div>
+<p class="mb-0 text-muted">No evidence has been generated for this control yet.</p>
+</div>
+{% endif %}
+</div>
+
+{# =========================== TAB 5 — AUDIT TRAIL ========================== #}
+<div class="tab-pane fade ecs-pq-tab-pane" id="tab-audit" role="tabpanel" aria-labelledby="tab-audit-btn">
+<h6 class="small text-muted text-uppercase mb-2">Execution History</h6>
+<div class="table-responsive mb-0">
+<table class="table table-sm table-bordered bg-white mb-0">
+<thead><tr><th>Execution ID</th><th>Time</th><th>User</th><th>Status</th><th>Duration</th><th>Result</th></tr></thead>
+<tbody>
+{% if control.execution_history %}
+{% for h in control.execution_history %}
+<tr>
+<td class="small">{{ h.execution_id }}</td>
+<td class="small">{{ h.execution_time }}</td>
+<td class="small">{{ h.user }}</td>
+<td><span class="badge bg-{% if h.status == 'Success' %}success{% else %}danger{% endif %}">{{ h.status }}</span></td>
+<td class="small">{{ h.duration_ms }} ms</td>
+<td class="small ecs-pq-query" title="{{ (h.result or h.error_message or '')|e }}">{{ (h.result or h.error_message or '—')[:80] }}{% if (h.result or h.error_message or '')|length > 80 %}…{% endif %}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="6" class="text-center text-muted py-3">No execution history recorded.</td></tr>
+{% endif %}
+</tbody>
+</table>
+</div>
+</div>
+
+</div>{# /tab-content #}
+
+{% endif %}
+</div></div></div>
+</body></html>

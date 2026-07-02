@@ -1,0 +1,37 @@
+# =============================================================================
+# ECS ENVIRONMENT — UAT (User Acceptance Test)
+# =============================================================================
+# Deep-merged over _base.yaml. Populate with the UAT landscape.
+# Secrets are NEVER placed here — set the *_env environment variables instead.
+# =============================================================================
+
+environment: uat
+tenant: "${ECS_TENANT:-uat}"
+region: "${ECS_REGION:-in-mumbai-uat}"
+
+applications:
+  netbanking:    {host: "${APP_NETBANKING_HOST:-netbanking.uat.bank.local}", port: "${APP_NETBANKING_PORT:-443}", base_url: "${APP_NETBANKING_URL:-https://netbanking.uat.bank.local}"}
+  mobilebanking: {host: "${APP_MOBILEBANKING_HOST:-mobile.uat.bank.local}",  port: "${APP_MOBILEBANKING_PORT:-443}", base_url: "${APP_MOBILEBANKING_URL:-https://mobile.uat.bank.local}"}
+  payments:      {host: "${APP_PAYMENTS_HOST:-payments.uat.bank.local}",     port: "${APP_PAYMENTS_PORT:-443}", base_url: "${APP_PAYMENTS_URL:-https://payments.uat.bank.local}"}
+  cbs:           {host: "${APP_CBS_HOST:-cbs.uat.bank.local}",               port: "${APP_CBS_PORT:-443}", base_url: "${APP_CBS_URL:-https://cbs.uat.bank.local}"}
+  upi:           {host: "${APP_UPI_HOST:-upi.uat.bank.local}",               port: "${APP_UPI_PORT:-443}", base_url: "${APP_UPI_URL:-https://upi.uat.bank.local}"}
+
+databases:
+  postgres: {host: "${ECS_REPO_PG_HOST:-pg.uat.bank.local}", port: "${ECS_REPO_PG_PORT:-5432}", database: "${ECS_REPO_PG_DATABASE:-ecs_repository_uat}"}
+  oracle:   {host: "${DB_ORACLE_HOST:-oracle.uat.bank.local}", service: "${DB_ORACLE_SERVICE:-ECSUAT}"}
+  mysql:    {host: "${DB_MYSQL_HOST:-mysql.uat.bank.local}"}
+
+connectors:
+  jira:       {url: "${JIRA_URL:-https://jira.uat.bank.local}",             enabled: "${ECS_JIRA_ENABLED:-true}"}
+  confluence: {url: "${CONFLUENCE_URL:-https://confluence.uat.bank.local}", enabled: "${ECS_CONFLUENCE_ENABLED:-true}"}
+  servicenow: {url: "${SNOW_URL:-https://uat.service-now.com}",             enabled: "${ECS_SNOW_ENABLED:-true}"}
+
+# Per the standard: UAT predefined-query execution targets.
+predefined_query_targets:
+  os_servers:          ["10.10.10.1", "10.10.10.2"]
+  db_servers:          ["10.10.20.1", "10.10.20.2"]
+  middleware_servers:  ["10.10.30.1", "10.10.30.2"]
+  appsec_targets:      ["netbanking.uat.bank.local", "payments.uat.bank.local"]
+
+reporting:
+  export_path: "${ECS_REPORT_EXPORT_PATH:-/var/ecs/exports/uat}"

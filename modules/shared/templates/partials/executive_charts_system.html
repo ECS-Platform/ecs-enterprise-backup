@@ -10,8 +10,11 @@
   --ecs-chart-red: #b4534a;
   --ecs-chart-muted: #94a3b8;
   --ecs-chart-track: #eef2f6;
-  --ecs-chart-max-h: 180px;
-  --ecs-chart-bar-w: 14px;
+  --ecs-chart-benchmark: #6366f1;
+  --ecs-chart-up: #16a34a;
+  --ecs-chart-down: #dc2626;
+  --ecs-chart-max-h: 280px;
+  --ecs-chart-bar-w: 26px;
 }
 
 .chart-card,
@@ -34,28 +37,28 @@
 
 .chart-card-title,
 .ecs-hub-chart-title {
-  font-size: 0.62rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ecs-chart-slate);
+  letter-spacing: 0.04em;
+  color: var(--ecs-chart-navy);
   line-height: 1.3;
 }
 
 .chart-card-subtitle {
-  font-size: 0.58rem;
+  font-size: 0.66rem;
   color: var(--ecs-chart-muted);
-  margin-top: 0.1rem;
+  margin-top: 0.15rem;
   line-height: 1.35;
 }
 
 .chart-container-compact {
   max-height: var(--ecs-chart-max-h);
   width: 100%;
-  max-width: 65%;
-  min-width: 180px;
-  overflow: hidden;
-  padding: 0.15rem 0 0.25rem;
+  max-width: 100%;
+  min-width: 220px;
+  overflow: visible;
+  padding: 1.4rem 0.25rem 0.35rem;
 }
 
 .compact-chart-grid {
@@ -70,45 +73,48 @@
   .chart-container-compact { max-width: 100%; }
 }
 
-/* Vertical mini bar charts */
+/* Vertical bar charts — executive footprint */
 .mini-bar-chart,
 .ecs-bar-chart {
   display: flex;
   align-items: flex-end;
-  justify-content: flex-start;
-  gap: 5px;
-  height: 72px;
-  max-height: 72px;
+  justify-content: space-around;
+  gap: 10px;
+  height: 200px;
+  max-height: 200px;
   flex-wrap: nowrap;
   overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.1rem 0 0.15rem;
+  overflow-y: visible;
+  padding: 1.3rem 0.25rem 0.2rem;
   scrollbar-width: thin;
+  position: relative;
 }
 
 .ecs-bar-col {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 22px;
-  max-width: 36px;
+  justify-content: flex-end;
+  min-width: 32px;
+  max-width: 72px;
   width: var(--ecs-chart-bar-w);
 }
 
 .ecs-bar-fill {
   width: var(--ecs-chart-bar-w);
   max-width: var(--ecs-chart-bar-w);
-  min-width: 8px;
-  border-radius: 3px 3px 0 0;
-  min-height: 3px;
+  min-width: 14px;
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
   background: var(--ecs-chart-blue);
-  opacity: 0.88;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  cursor: default;
+  opacity: 0.92;
+  transition: opacity 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+  box-shadow: inset 0 -2px 0 rgba(255,255,255,0.12);
 }
 
-.ecs-bar-fill:hover { opacity: 1; transform: translateY(-1px); }
+.ecs-bar-fill:hover { opacity: 1; transform: translateY(-2px); filter: brightness(1.08); }
 
 .ecs-bar-fill[data-tone="success"],
 .ecs-bar-fill.tone-success { background: var(--ecs-chart-green); }
@@ -124,22 +130,61 @@
 .ecs-bar-fill.tone-slate { background: var(--ecs-chart-slate); }
 
 .ecs-bar-val {
-  font-size: 0.55rem;
-  font-weight: 600;
-  color: var(--ecs-chart-slate);
-  margin-bottom: 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ecs-chart-navy);
+  margin-bottom: 4px;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .ecs-bar-lbl {
-  font-size: 0.5rem;
-  color: var(--ecs-chart-muted);
-  margin-top: 2px;
+  font-size: 0.64rem;
+  font-weight: 500;
+  color: var(--ecs-chart-slate);
+  margin-top: 5px;
   text-align: center;
-  line-height: 1.05;
+  line-height: 1.1;
   word-break: break-word;
-  max-width: 36px;
+  max-width: 72px;
 }
+
+/* Executive chart chrome: benchmark/average reference line + legend + trend */
+.ecs-chart-benchmark-line {
+  position: absolute;
+  left: 0; right: 0;
+  border-top: 2px dashed var(--ecs-chart-benchmark);
+  pointer-events: none;
+  z-index: 2;
+}
+.ecs-chart-benchmark-tag {
+  position: absolute;
+  right: 4px;
+  transform: translateY(-50%);
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: var(--ecs-chart-benchmark);
+  background: rgba(255,255,255,0.85);
+  padding: 0 4px;
+  border-radius: 3px;
+  z-index: 3;
+}
+.ecs-chart-legend {
+  display: flex; flex-wrap: wrap; gap: 0.4rem 1rem;
+  font-size: 0.62rem; color: var(--ecs-chart-slate);
+  margin: 0.15rem 0 0.4rem;
+  align-items: center;
+}
+.ecs-chart-legend .lg { display: inline-flex; align-items: center; gap: 0.3rem; }
+.ecs-chart-legend .sw { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+.ecs-chart-legend .sw.bm { width:14px; height:0; border-top:2px dashed var(--ecs-chart-benchmark); border-radius:0; }
+.ecs-trend-pill {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font-size: 0.6rem; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+}
+.ecs-trend-pill.up { color: var(--ecs-chart-up); background: rgba(22,163,74,0.10); }
+.ecs-trend-pill.down { color: var(--ecs-chart-down); background: rgba(220,38,38,0.10); }
+.ecs-trend-pill.flat { color: var(--ecs-chart-slate); background: rgba(71,85,105,0.10); }
 
 /* Trends page — compact executive bars (replaces giant % height blocks) */
 .trend-chart {
@@ -420,6 +465,7 @@
       barWidth: 16,
       extraClass: 'ecs-aging-bar-chart',
       labelEvery: 'auto',
+      axes: false,
       drill: { page: page || 'trends', chartId: chartId || 'trend' }
     };
     if (!overrides) return base;
@@ -429,23 +475,78 @@
     return out;
   };
 
+  /** "Nice" axis ceiling + tick step for a given max (e.g. 83 -> 100 by 20). */
+  function niceScale(maxVal, desiredTicks) {
+    var ticks = desiredTicks || 5;
+    if (!(maxVal > 0)) return { max: 1, step: 1, ticks: [0, 1] };
+    var rawStep = maxVal / ticks;
+    var mag = Math.pow(10, Math.floor(Math.log(rawStep) / Math.LN10));
+    var norm = rawStep / mag;
+    var niceNorm = norm <= 1 ? 1 : (norm <= 2 ? 2 : (norm <= 5 ? 5 : 10));
+    var step = niceNorm * mag;
+    var niceMax = Math.ceil(maxVal / step) * step;
+    var out = [];
+    for (var t = 0; t <= niceMax + 1e-9; t += step) out.push(Math.round(t * 100) / 100);
+    return { max: niceMax, step: step, ticks: out };
+  }
+
+  /** Build a rich, self-describing tooltip string. */
+  function richTip(item, opts, avg, suffix) {
+    if (item.tooltip) return item.tooltip;
+    var name = opts.metricName || opts.seriesLabel || 'Value';
+    var parts = [name];
+    parts.push((item.label != null ? item.label + ': ' : '') + item.value + suffix);
+    if (item.period) parts.push('Period: ' + item.period);
+    if (item.previous != null) {
+      parts.push('Previous: ' + item.previous + suffix);
+      var prev = Number(item.previous), cur = Number(item.value);
+      if (prev) {
+        var ch = Math.round((cur - prev) / Math.abs(prev) * 1000) / 10;
+        parts.push('Change: ' + (ch > 0 ? '+' : '') + ch + '%');
+      }
+    }
+    if (avg) parts.push('Avg: ' + (Math.round(avg * 10) / 10) + suffix);
+    if (item.context || opts.context) parts.push(item.context || opts.context);
+    return parts.join(' | ');
+  }
+
   /**
    * Compact vertical bar chart — platform standard.
-   * items: [{ label, value, tone?, tooltip? }]
+   * items: [{ label, value, tone?, tooltip?, previous?, period?, context? }]
+   * Accessibility opts (self-describing charts):
+   *   yLabel, xLabel, units, subtitle, metricName, context
+   * When yLabel/xLabel are provided the chart is framed with a rotated Y-axis
+   * label, an auto-scaled Y-axis (niceScale ticks), and an X-axis label.
    */
   window.ecsRenderCompactBarChart = function(target, items, opts) {
     opts = opts || {};
     var el = typeof target === 'string' ? document.getElementById(target) : target;
     if (!el) return;
     items = items || [];
-    var maxH = opts.maxHeight || 64;
-    var barW = opts.barWidth || 14;
-    var suffix = opts.suffix || '';
+    // Executive footprint defaults (larger, readable). Callers can still override.
+    var maxH = opts.maxHeight || 150;
+    var barW = opts.barWidth || 26;
+    var suffix = opts.suffix || opts.units || '';
     var labelKey = opts.labelKey || 'label';
     var valKey = opts.valKey || 'value';
     var toneKey = opts.toneKey || 'tone';
     var emptyMsg = opts.emptyMessage || 'No data for selected scope.';
     var drill = opts.drill;
+    // Accessibility / self-describing chrome.
+    // Every executive chart is self-describing by default: it shows a Y-axis label,
+    // an auto-scaled Y-axis with units, and an X-axis label. Callers may override any
+    // label, or opt out entirely with `axes: false` for sparkline-style micro charts.
+    var axesEnabled = opts.axes !== false;
+    var unitWord = opts.units || (suffix === '%' ? '%' : (suffix ? suffix : ''));
+    var yLabel = opts.yLabel || (axesEnabled
+      ? (opts.metricName || opts.seriesLabel || (suffix === '%' ? 'Value (%)' : 'Value'))
+      : '');
+    var xLabel = opts.xLabel || (axesEnabled ? (opts.categoryLabel || 'Category') : '');
+    var showAxes = axesEnabled && !!(yLabel || xLabel || opts.yScale);
+    // Executive chrome toggles (default ON unless explicitly disabled).
+    var showBenchmark = opts.benchmark !== false;
+    var showLegend = opts.legend !== false;
+    var showTrend = opts.trend !== false;
     var labelEvery = opts.labelEvery;
     if (labelEvery === 'auto') {
       labelEvery = items.length > 12 ? 3 : (items.length > 8 ? 2 : 1);
@@ -454,20 +555,31 @@
     }
 
     if (!items.length) {
-      el.innerHTML = '<span class="small text-muted" style="font-size:0.62rem">' + esc(emptyMsg) + '</span>';
+      el.innerHTML = '<span class="small text-muted" style="font-size:0.66rem">' + esc(emptyMsg) + '</span>';
       el.classList.add('mini-bar-chart');
       return;
     }
 
     var vals = items.map(function(i) { return Number(i[valKey]) || 0; });
-    var max = Math.max.apply(null, vals.concat([1]));
+    var dataMax = Math.max.apply(null, vals.concat([1]));
+    var avg = vals.reduce(function(a, b){ return a + b; }, 0) / vals.length;
+    // Auto-scaled axis ceiling so bar heights map to a readable Y-axis scale.
+    var scale = niceScale(dataMax, opts.yTicks || 5);
+    // When axes are shown bars scale to the nice max; otherwise to the data max
+    // (preserves legacy proportions for charts that opt out of axes).
+    var max = showAxes ? scale.max : dataMax;
+    // Trend = last vs first (month-over-month / period-over-period direction).
+    var first = vals[0], last = vals[vals.length - 1];
+    var deltaPct = first ? Math.round((last - first) / Math.abs(first) * 100) : 0;
+    var trendDir = deltaPct > 1 ? 'up' : (deltaPct < -1 ? 'down' : 'flat');
+    var trendArrow = trendDir === 'up' ? '\u25B2' : (trendDir === 'down' ? '\u25BC' : '\u25AC');
 
-    el.className = (opts.className || 'mini-bar-chart ecs-bar-chart') + (opts.extraClass ? ' ' + opts.extraClass : '');
-    el.innerHTML = items.map(function(i, idx) {
+    var barsHtml = items.map(function(i, idx) {
       var v = Number(i[valKey]) || 0;
-      var h = Math.max(3, Math.round((v / max) * maxH));
+      var h = Math.max(4, Math.round((v / max) * maxH));
       var tone = i[toneKey] || opts.defaultTone || 'blue';
-      var tip = i.tooltip || (i[labelKey] + ': ' + v + suffix);
+      var tipItem = { label: i[labelKey], value: v, previous: i.previous, period: i.period, context: i.context, tooltip: i.tooltip };
+      var tip = richTip(tipItem, opts, avg, suffix);
       var showLabel = (idx % labelEvery === 0 || idx === items.length - 1);
       var lblClass = showLabel ? '' : ' is-skipped';
       var drillAttrs = drill ? (
@@ -482,21 +594,139 @@
         '<div class="ecs-bar-fill tone-' + esc(tone) + '" data-tone="' + esc(tone) + '" style="height:' + h + 'px;width:' + barW + 'px;max-width:' + barW + 'px"></div>' +
         '<span class="ecs-bar-lbl' + lblClass + '">' + esc(showLabel ? i[labelKey] : '') + '</span></div>';
     }).join('');
+
+    // Benchmark/average reference line positioned within the plot area.
+    var benchHtml = '';
+    if (showBenchmark && avg > 0) {
+      var pad = 1.3 * 16; // matches container top padding (rem -> px approx)
+      var benchBottomPx = Math.round((avg / max) * maxH);
+      benchHtml = '<div class="ecs-chart-benchmark-line" style="bottom:' + (benchBottomPx + 24) + 'px"></div>' +
+        '<div class="ecs-chart-benchmark-tag" style="bottom:' + (benchBottomPx + 24) + 'px">avg ' + (Math.round(avg * 10) / 10) + suffix + '</div>';
+    }
+
+    // Y-axis scale ticks (only when axes requested) — gives every chart a visible scale.
+    var yscaleHtml = '';
+    if (showAxes && scale.ticks.length) {
+      var ti = scale.ticks.map(function(t) {
+        var pctFromBottom = max ? (t / max) * 100 : 0;
+        return '<div class="ecs-ytick" style="bottom:' + Math.min(100, pctFromBottom) + '%"><span>' +
+          esc(String(t) + suffix) + '</span></div>';
+      }).join('');
+      yscaleHtml = '<div class="ecs-chart-yscale" aria-hidden="true">' + ti + '</div>';
+    }
+
+    el.className = (opts.className || 'mini-bar-chart ecs-bar-chart') + (opts.extraClass ? ' ' + opts.extraClass : '');
+    el.innerHTML = yscaleHtml + benchHtml + barsHtml;
+
+    // Wrap the plot in a self-describing axis frame (rotated Y label + X label)
+    // when axis metadata is supplied. Idempotent: re-render replaces prior frame.
+    if (showAxes && el.parentNode) {
+      var frameId = el.id + '__frame';
+      var prevFrame = document.getElementById(frameId);
+      var frame = document.createElement('div');
+      frame.id = frameId;
+      frame.className = 'ecs-chart-frame';
+      var plot = document.createElement('div');
+      plot.className = 'ecs-chart-plot';
+      var refNode = prevFrame || el;
+      refNode.parentNode.insertBefore(frame, refNode);
+      if (yLabel) {
+        var yl = document.createElement('div');
+        yl.className = 'ecs-chart-yaxis-label';
+        var yUnit = (opts.units && yLabel.indexOf(opts.units) < 0) ? ' (' + opts.units + ')'
+          : ((unitWord === '%' && yLabel.indexOf('%') < 0) ? ' (%)' : '');
+        yl.textContent = yLabel + yUnit;
+        frame.appendChild(yl);
+      } else {
+        frame.appendChild(document.createElement('div'));
+      }
+      frame.appendChild(plot);
+      // spacer under Y-axis label column
+      frame.appendChild(document.createElement('div'));
+      if (xLabel) {
+        var xl = document.createElement('div');
+        xl.className = 'ecs-chart-xaxis-label';
+        xl.textContent = xLabel;
+        frame.appendChild(xl);
+      } else {
+        frame.appendChild(document.createElement('div'));
+      }
+      plot.appendChild(el);
+      if (prevFrame && prevFrame !== frame) prevFrame.remove();
+    }
+
+    // Legend + trend strip rendered just above the chart (sibling node).
+    // When framed, anchor the legend above the entire frame; else above the chart.
+    var legendAnchor = (showAxes ? document.getElementById(el.id + '__frame') : null) || el;
+
+    // Title fallback: ensure every chart has a visible title. If the enclosing card
+    // already provides one (.chart-card-title / .ecs-hub-chart-title) we leave it; only
+    // when none exists do we inject a title (from opts.title or the metric name).
+    var titleText = opts.title || opts.chartTitle ||
+      (opts.metricName ? opts.metricName + ' by ' + (opts.categoryLabel || 'category') : '');
+    var card = el.closest ? el.closest('.chart-card, .executive-analytics-card, .ecs-analytics-chart-card, .ecs-hub-chart') : null;
+    var existingTitleEl = card && card.querySelector ? card.querySelector('.chart-card-title, .ecs-hub-chart-title, .ecs-chart-title') : null;
+    var hasCardTitle = !!(existingTitleEl && existingTitleEl.textContent && existingTitleEl.textContent.trim());
+    if (titleText && !hasCardTitle && legendAnchor.parentNode) {
+      var titleId = el.id + '__title';
+      var oldTitle = document.getElementById(titleId);
+      if (oldTitle) oldTitle.remove();
+      var t = document.createElement('div');
+      t.id = titleId;
+      t.className = 'chart-card-title ecs-chart-title';
+      t.textContent = titleText;
+      legendAnchor.parentNode.insertBefore(t, legendAnchor);
+    }
+
+    if ((showLegend || showTrend) && legendAnchor.parentNode) {
+      var stripId = el.id + '__legend';
+      var old = document.getElementById(stripId);
+      if (old) old.remove();
+      var strip = document.createElement('div');
+      strip.id = stripId;
+      strip.className = 'ecs-chart-legend';
+      var html = '';
+      if (showLegend) {
+        html += '<span class="lg"><span class="sw" style="background:var(--ecs-chart-' +
+          esc(opts.defaultTone || (items[0] && items[0][toneKey]) || 'blue') + ')"></span>' +
+          esc(opts.seriesLabel || 'Value') + '</span>';
+        if (showBenchmark && avg > 0) html += '<span class="lg"><span class="sw bm"></span>Average</span>';
+      }
+      if (showTrend && items.length >= 2) {
+        html += '<span class="ecs-trend-pill ' + trendDir + '">' + trendArrow + ' ' +
+          (deltaPct > 0 ? '+' : '') + deltaPct + '% vs start</span>';
+      }
+      // Surface the chart subtitle/units inline with the legend when supplied.
+      if (opts.subtitle) {
+        html = '<span class="ecs-chart-helper" style="flex-basis:100%;color:var(--ecs-subtitle)">' +
+          esc(opts.subtitle) + (opts.units ? ' \u00b7 ' + esc(opts.units) : '') + '</span>' + html;
+      }
+      strip.innerHTML = html;
+      legendAnchor.parentNode.insertBefore(strip, legendAnchor);
+    }
   };
 
-  /** Slim horizontal bar rows */
+  /** Slim horizontal bar rows. opts: { units, metricName, subtitle, xLabel } */
   window.ecsRenderHorizontalBars = function(target, items, opts) {
     opts = opts || {};
     var el = typeof target === 'string' ? document.getElementById(target) : target;
     if (!el || !items || !items.length) return;
+    var suffix = opts.units || opts.suffix || '';
     var max = Math.max.apply(null, items.map(function(i){ return Number(i.value)||0; }).concat([1]));
-    el.innerHTML = items.map(function(i) {
+    var rows = items.map(function(i) {
       var pct = Math.round((Number(i.value)||0) / max * 100);
       var tone = i.tone || 'blue';
-      return '<div class="ecs-insight-bar mb-1" title="' + esc(i.label + ': ' + i.value) + '">' +
-        '<div class="ecs-insight-bar-label"><span>' + esc(i.label) + '</span><span>' + esc(i.value) + '</span></div>' +
+      var tip = richTip({ label: i.label, value: i.value, previous: i.previous, period: i.period, context: i.context, tooltip: i.tooltip }, opts, 0, suffix);
+      return '<div class="ecs-insight-bar mb-1" title="' + esc(tip) + '">' +
+        '<div class="ecs-insight-bar-label"><span>' + esc(i.label) + '</span><span>' + esc(String(i.value) + suffix) + '</span></div>' +
         '<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-' + tone + '" style="width:' + pct + '%"></div></div></div>';
     }).join('');
+    var head = '';
+    if (opts.subtitle || opts.xLabel) {
+      head = '<div class="ecs-chart-helper" style="color:var(--ecs-subtitle);margin-bottom:0.25rem">' +
+        esc(opts.subtitle || '') + (opts.xLabel ? (opts.subtitle ? ' \u00b7 ' : '') + esc(opts.xLabel) + (suffix ? ' (' + esc(suffix) + ')' : '') : '') + '</div>';
+    }
+    el.innerHTML = head + rows;
   };
 
   /** SVG sparkline */
@@ -528,3 +758,6 @@
   window.ecsChartPalette = PALETTE;
 })();
 </script>
+{# ECS chart accessibility standard MUST load after the chart system so its
+   WCAG token overrides win over the legacy low-contrast palette above. #}
+{% include "partials/ecs_chart_standard.html" %}

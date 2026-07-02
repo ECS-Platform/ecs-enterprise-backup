@@ -59,6 +59,7 @@ MODULE_PURPOSES = {
     "evidence_approval": "Evidence approval analytics — approved, rejected, pending validation, stale evidence, quality scorecards, and reviewer workload.",
     "exception_governance": "Exception governance dashboard — TD lifecycle, approval persistence, expiring exceptions, and CAB pending queue.",
     "ai_ops_assistant": "ECS AI Ops Assistant — banking governance copilot for incidents, audit, compliance, frameworks, evidence, and operations drilldowns.",
+    "predefined_queries": "Predefined Queries — centralized catalog of control queries from the ECS Query Driven Control Library across all frameworks.",
 }
 
 
@@ -95,6 +96,7 @@ def get_module_capability(module: str, role: str = "owner", analytics_filters: d
         "evidence_approval": _evidence_approval_view,
         "exception_governance": _exception_governance_view,
         "ai_ops_assistant": _ai_ops_assistant_view,
+        "predefined_queries": _predefined_queries_view,
     }
     fn = builders.get(module)
     if not fn:
@@ -716,6 +718,14 @@ def _ai_ops_assistant_view(role: str) -> dict:
     return view
 
 
+def _predefined_queries_view(role: str) -> dict:
+    from modules.operations.engines.predefined_queries_engine import get_predefined_queries_dashboard
+
+    view = get_predefined_queries_dashboard(per_page=10)
+    view["actions"] = []
+    return view
+
+
 def _actions_for(role: str, **flags) -> list[str]:
     """Return action keys allowed for role on this module type."""
     from modules.shared.services.role_permissions import filter_actions_for_role, is_auditor, is_executive_readonly
@@ -827,4 +837,6 @@ def module_counter_rows(module: str, role: str) -> int:
         return len([c for c in view.get("chains", []) if c.get("status") == "Open"])
     if module == "ai_ops_assistant":
         return len(view.get("incident_rows", []))
+    if module == "predefined_queries":
+        return view.get("all_predefined_count", len(rows))
     return len(rows)

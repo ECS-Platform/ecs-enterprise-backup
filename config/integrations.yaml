@@ -1,0 +1,192 @@
+# ECS External Integration Configuration
+# No URLs, credentials, or tokens are hardcoded. All sensitive values resolve
+# from environment variables at load time via ${ENV} / ${ENV:-default} syntax.
+# Tenants can be onboarded later by setting env vars and enabled: true — no code change.
+
+integrations:
+  # ---- Self-hostable systems (real connectivity in development) ----
+  gitea:
+    enabled: ${ECS_GITEA_ENABLED:-true}
+    type: gitea
+    base_url: ${GITEA_URL:-http://gitea:3000}
+    auth_type: token
+    token_env: GITEA_TOKEN
+    verify_ssl: ${ECS_GITEA_VERIFY_SSL:-true}
+    collect:
+      - repositories
+      - commits
+      - pull_requests
+      - review_approvals
+      - branch_protections
+      - releases
+
+  sonarqube:
+    enabled: ${ECS_SONAR_ENABLED:-true}
+    type: sonarqube
+    base_url: ${SONAR_URL:-http://sonarqube-demo:9000}
+    auth_type: token
+    token_env: SONAR_TOKEN
+    # Fallback basic auth for local demo if no token issued yet
+    username_env: ECS_SONAR_USER
+    password_env: ECS_SONAR_PASSWORD
+    verify_ssl: ${ECS_SONAR_VERIFY_SSL:-true}
+    collect:
+      - quality_gates
+      - coverage
+      - vulnerabilities
+      - code_smells
+      - security_hotspots
+
+  jenkins:
+    enabled: ${ECS_JENKINS_ENABLED:-true}
+    type: jenkins
+    base_url: ${JENKINS_URL:-http://jenkins:8080}
+    auth_type: basic
+    username_env: JENKINS_USER
+    password_env: JENKINS_TOKEN
+    verify_ssl: ${ECS_JENKINS_VERIFY_SSL:-true}
+    collect:
+      - jobs
+      - builds
+      - test_results
+      - artifacts
+
+  # ---- SaaS / enterprise systems (interface-complete, disabled until onboarded) ----
+  jira:
+    enabled: ${ECS_JIRA_ENABLED:-false}
+    type: jira
+    base_url: ${JIRA_URL:-}
+    auth_type: token            # token | oauth2 | basic
+    token_env: JIRA_TOKEN
+    username_env: JIRA_USER     # email for Atlassian Cloud basic/token
+    verify_ssl: true
+    collect:
+      - projects
+      - issues
+      - stories
+      - epics
+      - approvals
+      - comments
+      - workflow_states
+
+  github:
+    enabled: ${ECS_GITHUB_ENABLED:-false}
+    type: github
+    base_url: ${GITHUB_URL:-https://api.github.com}
+    org: ${GITHUB_ORG:-}
+    auth_type: token
+    token_env: GITHUB_TOKEN
+    verify_ssl: true
+    collect:
+      - repositories
+      - commits
+      - pull_requests
+      - review_approvals
+      - branch_protections
+      - releases
+
+  confluence:
+    enabled: ${ECS_CONFLUENCE_ENABLED:-false}
+    type: confluence
+    base_url: ${CONFLUENCE_URL:-}
+    auth_type: token
+    token_env: CONFLUENCE_TOKEN
+    username_env: CONFLUENCE_USER
+    verify_ssl: true
+    collect:
+      - spaces
+      - pages
+      - attachments
+      - architecture_documents
+      - policies
+
+  figma:
+    enabled: ${ECS_FIGMA_ENABLED:-false}
+    type: figma
+    base_url: ${FIGMA_URL:-https://api.figma.com}
+    auth_type: token            # Figma personal access token (X-Figma-Token header)
+    token_env: FIGMA_TOKEN
+    team_ids_env: FIGMA_TEAM_IDS  # one or more team ids, comma-separated
+    verify_ssl: true
+    collect:
+      - design_projects
+      - design_files
+      - design_reviews
+      - prototypes
+
+  servicenow:
+    enabled: ${ECS_SNOW_ENABLED:-false}
+    type: servicenow
+    base_url: ${SNOW_URL:-}
+    auth_type: basic
+    username_env: SNOW_USER
+    password_env: SNOW_PASSWORD
+    verify_ssl: true
+    collect:
+      - incidents
+      - change_requests
+      - problem_records
+      - cab_approvals
+
+  teams:
+    enabled: ${ECS_TEAMS_ENABLED:-false}
+    type: teams
+    base_url: ${MS_GRAPH_URL:-https://graph.microsoft.com/v1.0}
+    auth_type: oauth2_client_credentials
+    tenant_id_env: MS_TENANT_ID
+    client_id_env: MS_CLIENT_ID
+    client_secret_env: MS_CLIENT_SECRET
+    verify_ssl: true
+    collect:
+      - governance_channels
+      - approval_messages
+      - meeting_artifacts
+
+  sharepoint:
+    enabled: ${ECS_SHAREPOINT_ENABLED:-false}
+    type: sharepoint
+    base_url: ${MS_GRAPH_URL:-https://graph.microsoft.com/v1.0}
+    site_id_env: SHAREPOINT_SITE_ID
+    auth_type: oauth2_client_credentials
+    tenant_id_env: MS_TENANT_ID
+    client_id_env: MS_CLIENT_ID
+    client_secret_env: MS_CLIENT_SECRET
+    verify_ssl: true
+    collect:
+      - policies
+      - documents
+      - evidence_files
+
+  prisma_cloud:
+    enabled: ${ECS_PRISMA_ENABLED:-false}
+    type: prisma
+    base_url: ${PRISMA_URL:-}
+    auth_type: prisma_credentials
+    access_key_env: PRISMA_ACCESS_KEY
+    secret_key_env: PRISMA_SECRET_KEY
+    verify_ssl: true
+    collect:
+      - cloud_findings
+      - compliance_violations
+      - risk_reports
+
+  azure_devops:
+    enabled: ${ECS_AZDO_ENABLED:-false}
+    type: azure_devops
+    base_url: ${AZDO_URL:-https://dev.azure.com}
+    organization: ${AZDO_ORG:-}
+    auth_type: pat
+    token_env: AZDO_TOKEN
+    verify_ssl: true
+    collect:
+      - repositories
+      - pull_requests
+      - pipelines
+      - releases
+
+# Global connector defaults. Health checks fail fast (low timeout / no retry) so
+# the Integration Health page never hangs on an unreachable source.
+defaults:
+  timeout_sec: ${ECS_CONNECTOR_TIMEOUT:-10}
+  max_retries: ${ECS_CONNECTOR_RETRIES:-1}
+  page_size: ${ECS_CONNECTOR_PAGE_SIZE:-100}
