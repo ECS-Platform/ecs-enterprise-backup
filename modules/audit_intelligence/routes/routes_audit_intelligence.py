@@ -5,15 +5,57 @@ endpoints are JSON under ``/api/audit/`` and are thin wrappers over the M1-M3
 service facades (no new business logic here). Read endpoints are GET; state-
 changing actions (run/retry/cancel/transition/store/pack) are POST.
 
-Responses follow the house style: ``{"ok": bool, ...payload}``.
+Production hardening (see docs/DEVELOPER/PERFORMANCE_AND_HARDENING_GUIDE.md)
+--------------------------------------------------------------------------
+* **Uniform response shape.** Success: ``{"ok": true, ...payload}``.
+  Error: ``{"ok": false, "status": "error", "message": "...", "errors": [...]}``
+  (``error`` is retained as a legacy alias so older clients keep working).
+* **Safe exception handling.** Every endpoint is wrapped by :func:`_safe`, so an
+  unexpected error becomes a consistent JSON 500 — never a stack trace and never
+  a secret. Empty state is always valid JSON (empty list/object), never a crash.
+* **Bounded responses.** List endpoints paginate with a safe default limit and a
+  hard max so a single request can never return an unbounded payload.
 """
 
 from __future__ import annotations
 
+import functools
+import time as _time
 from typing import Any
 
 from fastapi import Body
 from fastapi.responses import JSONResponse
+
+#: Hard caps for paginated API responses (bound payload size / work).
+_MAX_LIMIT = 1000
+_DEFAULT_LIMIT = 200
+
+
+def _paginate(items: Any, limit: int, offset: int) -> tuple[list[Any], dict[str, Any]]:
+    """Return (page, page_meta) with clamped limit/offset. Deterministic + bounded.
+
+    Tolerates non-list / ``None`` inputs (treated as empty) and any invalid
+    limit/offset (coerced to safe defaults) so a bad query string can never crash
+    the endpoint or return an unbounded payload.
+    """
+    items = list(items) if isinstance(items, (list, tuple)) else ([] if items is None else list(items))
+    total = len(items)
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = _DEFAULT_LIMIT
+    try:
+        offset = max(0, int(offset))
+    except (TypeError, ValueError):
+        offset = 0
+    if limit <= 0:
+        limit = _DEFAULT_LIMIT
+    limit = min(limit, _MAX_LIMIT)
+    page = items[offset:offset + limit]
+    return page, {
+        "total": total, "limit": limit, "offset": offset,
+        "returned": len(page), "has_more": offset + limit < total,
+    }
 
 from modules.audit_intelligence.services import asset_service, mapping_service
 from modules.audit_intelligence.services import audit_repository_service as repo_svc
@@ -28,54 +70,118 @@ def _ok(payload: dict[str, Any] | None = None, **extra: Any) -> JSONResponse:
     return JSONResponse(body)
 
 
-def _err(message: str, status: int = 404) -> JSONResponse:
-    return JSONResponse({"ok": False, "error": message}, status_code=status)
+def _err(message: str, status: int = 404, errors: list[Any] | None = None) -> JSONResponse:
+    """Consistent error envelope.
+
+    Shape: ``{"ok": false, "status": "error", "message": ..., "errors": [...]}``.
+    ``error`` is kept as a legacy alias of ``message`` for backward compatibility.
+    """
+    msg = str(message)
+    return JSONResponse(
+        {
+            "ok": False,
+            "status": "error",
+            "message": msg,
+            "errors": errors if errors is not None else [msg],
+            "error": msg,  # legacy alias — do not remove without a client migration
+        },
+        status_code=status,
+    )
+
+
+def _safe(fn):
+    """Request-safe wrapper: any unexpected error → consistent 500 JSON (no stack,
+    no secret leakage). Keeps the audit API resilient in production."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - never leak a stack trace to clients
+            # Only the exception *type* is surfaced (never its message/args), so a
+            # secret embedded in an error string can never leak to a client.
+            return _err(
+                "internal_error",
+                status=500,
+                errors=[f"{fn.__name__}: {type(exc).__name__}"],
+            )
+    return wrapper
 
 
 def register_audit_intelligence_routes(app) -> None:
     # ----------------------------------------------------------------- mapping
+    @app.get("/api/audit/mapping")
+    @_safe
+    def api_mapping_root(query: str = "", technology: str = "", framework: str = "",
+                         limit: int = _DEFAULT_LIMIT, offset: int = 0):
+        """Mapping entry point: paginated flattened mapping rows + catalog stats.
+
+        Compatibility alias so ``/api/audit/mapping`` (without a sub-path) returns
+        a useful, bounded payload instead of 404.
+        """
+        full = mapping_service.search(query=query, technology=technology, framework=framework)
+        page, meta = _paginate(full, limit, offset)
+        return _ok(results=page, page=meta, stats=mapping_service.stats())
+
     @app.get("/api/audit/mapping/technologies")
+    @_safe
     def api_map_technologies():
         return _ok(technologies=mapping_service.technologies())
 
     @app.get("/api/audit/mapping/frameworks")
+    @_safe
     def api_map_frameworks():
         return _ok(frameworks=mapping_service.frameworks())
 
     @app.get("/api/audit/mapping/graph")
+    @_safe
     def api_map_graph():
         return _ok(graph=mapping_service.graph())
 
     @app.get("/api/audit/mapping/stats")
+    @_safe
     def api_map_stats():
         return _ok(stats=mapping_service.stats())
 
     @app.get("/api/audit/mapping/technology/{technology}")
+    @_safe
     def api_map_technology(technology: str):
         detail = mapping_service.technology_detail(technology)
         return _ok(detail=detail) if detail else _err(f"Unknown technology: {technology}")
 
     @app.get("/api/audit/mapping/framework/{framework}")
+    @_safe
     def api_map_framework(framework: str):
         detail = mapping_service.framework_detail(framework)
         return _ok(detail=detail) if detail else _err(f"Unknown framework: {framework}")
 
     @app.get("/api/audit/mapping/search")
-    def api_map_search(query: str = "", technology: str = "", framework: str = ""):
-        return _ok(results=mapping_service.search(query=query, technology=technology, framework=framework))
+    @_safe
+    def api_map_search(query: str = "", technology: str = "", framework: str = "",
+                       limit: int = _DEFAULT_LIMIT, offset: int = 0):
+        full = mapping_service.search(query=query, technology=technology, framework=framework)
+        page, meta = _paginate(full, limit, offset)
+        return _ok(results=page, page=meta)
 
     # ------------------------------------------------------------------ assets
     @app.get("/api/audit/assets")
-    def api_assets(docker_compose: bool = True, enterprise_grc: bool = False):
+    @_safe
+    def api_assets(docker_compose: bool = True, enterprise_grc: bool = False,
+                   limit: int = 200, offset: int = 0):
+        started = _time.perf_counter()
         assets = asset_service.discover_assets(
             include_docker_compose=docker_compose, include_enterprise_grc=enterprise_grc
         )
+        full = asset_service.inventory(assets)
+        page, meta = _paginate(full, limit, offset)
         return _ok(
-            inventory=asset_service.inventory(assets),
+            inventory=page,
             coverage=asset_service.coverage_summary(assets),
+            page=meta,
+            elapsed_ms=round((_time.perf_counter() - started) * 1000, 1),
         )
 
     @app.get("/api/audit/assets/technology-inventory")
+    @_safe
     def api_asset_tech_inventory(docker_compose: bool = True, enterprise_grc: bool = False):
         assets = asset_service.discover_assets(
             include_docker_compose=docker_compose, include_enterprise_grc=enterprise_grc
@@ -83,6 +189,7 @@ def register_audit_intelligence_routes(app) -> None:
         return _ok(technology_inventory=asset_service.technology_inventory(assets))
 
     @app.get("/api/audit/assets/fingerprints")
+    @_safe
     def api_asset_fingerprints(docker_compose: bool = True, enterprise_grc: bool = False):
         assets = asset_service.discover_assets(
             include_docker_compose=docker_compose, include_enterprise_grc=enterprise_grc
@@ -91,15 +198,20 @@ def register_audit_intelligence_routes(app) -> None:
 
     # -------------------------------------------------------------------- runs
     @app.get("/api/audit/runs")
-    def api_runs():
-        return _ok(runs=evidence_service.list_runs())
+    @_safe
+    def api_runs(limit: int = _DEFAULT_LIMIT, offset: int = 0):
+        full = evidence_service.list_runs()
+        page, meta = _paginate(full, limit, offset)
+        return _ok(runs=page, page=meta)
 
     @app.get("/api/audit/runs/{run_id}")
+    @_safe
     def api_run(run_id: str):
         run = evidence_service.get_run(run_id)
         return _ok(run=run) if run else _err(f"Unknown run: {run_id}")
 
     @app.post("/api/audit/runs")
+    @_safe
     def api_start_run(payload: dict[str, Any] = Body(default_factory=dict)):
         scope_kind = str(payload.get("scope_kind") or "")
         if not scope_kind:
@@ -114,6 +226,7 @@ def register_audit_intelligence_routes(app) -> None:
         return _ok(run=run)
 
     @app.post("/api/audit/runs/{run_id}/retry")
+    @_safe
     def api_retry_run(run_id: str):
         try:
             run = evidence_service.retry_run(run_id)
@@ -122,6 +235,7 @@ def register_audit_intelligence_routes(app) -> None:
         return _ok(run=run)
 
     @app.post("/api/audit/runs/{run_id}/cancel")
+    @_safe
     def api_cancel_run(run_id: str):
         try:
             run = evidence_service.cancel_run(run_id)
@@ -130,20 +244,25 @@ def register_audit_intelligence_routes(app) -> None:
         return _ok(run=run)
 
     @app.get("/api/audit/runs/{run_id}/validation")
+    @_safe
     def api_run_validation(run_id: str):
         result = evidence_service.validate_run(run_id)
         return _ok(validation=result) if result else _err(f"Unknown run: {run_id}")
 
     # ------------------------------------------------------------- repository
     @app.get("/api/audit/evidence")
+    @_safe
     def api_evidence_search(
         query: str = "", technology: str = "", framework: str = "",
         asset_id: str = "", verdict: str = "", tag: str = "", latest_only: bool = True,
+        limit: int = 200, offset: int = 0,
     ):
-        return _ok(evidence=repo_svc.repository_search(
+        full = repo_svc.repository_search(
             query=query, technology=technology, framework=framework,
             asset_id=asset_id, verdict=verdict, tag=tag, latest_only=latest_only,
-        ))
+        )
+        page, meta = _paginate(full, limit, offset)
+        return _ok(evidence=page, page=meta)
 
     @app.get("/api/audit/evidence/stats")
     def api_evidence_stats():
@@ -194,6 +313,7 @@ def register_audit_intelligence_routes(app) -> None:
 
     # ------------------------------------------------------------------ packs
     @app.get("/api/audit/packs/{pack_type}/{scope}")
+    @_safe
     def api_pack(pack_type: str, scope: str):
         pack = repo_svc.build_pack(pack_type, scope)
         return _ok(pack=pack) if pack is not None else _err(f"Unknown pack type: {pack_type}", status=400)
@@ -204,3 +324,58 @@ def register_audit_intelligence_routes(app) -> None:
         asset_ids = payload.get("asset_ids") or []
         pack = repo_svc.build_pack("application", scope, asset_ids=asset_ids)
         return _ok(pack=pack) if pack is not None else _err("could not build application pack", status=400)
+
+    # ------------------------------------------------------------- dashboards
+    @app.get("/api/audit/dashboard")
+    @_safe
+    def api_audit_dashboard():
+        """Composite executive-readiness dashboard payload.
+
+        Compatibility alias so clients can fetch the full dashboard from a single,
+        predictable endpoint (mirrors the /mvp/audit/executive-readiness page).
+        """
+        from modules.audit_intelligence.services import dashboard_service
+
+        return _ok(dashboard=dashboard_service.executive_readiness())
+
+    @app.get("/api/audit/dashboard/{section}")
+    @_safe
+    def api_audit_dashboard_section(section: str):
+        """A single dashboard section by name (e.g. risk_summary, framework_readiness)."""
+        from modules.audit_intelligence.services import dashboard_service
+
+        fn = getattr(dashboard_service, section, None)
+        if not callable(fn) or section.startswith("_") or section == "executive_readiness":
+            return _err(f"Unknown dashboard section: {section}", status=404)
+        return _ok(section=section, data=fn())
+
+    # ------------------------------------------------- integration adapters
+    @app.get("/api/audit/integrations")
+    @_safe
+    def api_integrations():
+        """Masked config for every enterprise integration adapter (no secrets)."""
+        from modules.operations import integrations
+
+        return _ok(integrations=integrations.masked_config_all(),
+                   adapters=integrations.list_adapters())
+
+    @app.get("/api/audit/integrations/health")
+    @_safe
+    def api_integrations_health():
+        """Config-based health for all adapters (no live calls in the skeleton)."""
+        from modules.operations import integrations
+
+        return _ok(health=integrations.health_check_all())
+
+    @app.get("/api/audit/integrations/{name}/health")
+    @_safe
+    def api_integration_health(name: str):
+        """Health for a single named adapter."""
+        from modules.operations import integrations
+
+        if name not in integrations.list_adapters():
+            return _err(f"Unknown integration: {name}", status=404)
+        import importlib
+
+        mod = importlib.import_module(f"modules.operations.integrations.{name}")
+        return _ok(name=name, health=mod.health_check())
