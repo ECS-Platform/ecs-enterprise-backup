@@ -58,14 +58,35 @@ def _new_run_id() -> str:
     return f"RUN-{uuid.uuid4().hex[:12]}"
 
 
+def _invalidate_dashboard_cache() -> None:
+    """Best-effort dashboard-cache drop after a run change (never raises)."""
+    try:
+        from modules.audit_intelligence.services import dashboard_service
+
+        dashboard_service.invalidate_dashboard_cache()
+    except Exception:  # noqa: BLE001 - cache invalidation must never raise
+        pass
+
+
 # --------------------------------------------------------------------------- #
 # In-memory run store (Milestone 3 adds durable persistence)
 # --------------------------------------------------------------------------- #
 _RUNS: dict[str, EvidenceRun] = {}
 
+#: Safety cap on retained runs (prevents unbounded memory growth in a long-lived
+#: process). Oldest runs are evicted first. Durable persistence lifts this.
+MAX_RETAINED_RUNS = 500
+
 
 def _store(run: EvidenceRun) -> EvidenceRun:
     _RUNS[run.run_id] = run
+    if len(_RUNS) > MAX_RETAINED_RUNS:
+        # Evict oldest by creation time.
+        for rid, _ in sorted(_RUNS.items(), key=lambda kv: kv[1].created_at)[
+            : len(_RUNS) - MAX_RETAINED_RUNS
+        ]:
+            _RUNS.pop(rid, None)
+    _invalidate_dashboard_cache()
     return run
 
 
@@ -80,6 +101,7 @@ def list_runs() -> list[EvidenceRun]:
 def reset_runs() -> None:
     """Clear the in-memory run store (used by tests)."""
     _RUNS.clear()
+    _invalidate_dashboard_cache()
 
 
 # --------------------------------------------------------------------------- #

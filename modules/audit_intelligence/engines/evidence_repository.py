@@ -26,14 +26,34 @@ from modules.audit_intelligence.models import EvidenceArtifact
 _STORE: dict[str, list[EvidenceArtifact]] = {}
 _TIMELINE: list[dict[str, Any]] = []
 
+#: Safety caps to bound in-memory growth (durable persistence lifts these).
+MAX_VERSIONS_PER_KEY = 50   # keep the most recent N versions of each evidence key
+MAX_TIMELINE_EVENTS = 5000  # keep the most recent N timeline events
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _invalidate_dashboard_cache() -> None:
+    """Best-effort: drop cached dashboard payloads after a repository change.
+
+    Kept dependency-light and failure-proof (a caching helper must never break a
+    write) via a lazy, guarded import. Caching is a pure optimisation — if this is
+    ever a no-op, correctness is preserved by the dashboard cache's short TTL.
+    """
+    try:
+        from modules.audit_intelligence.services import dashboard_service
+
+        dashboard_service.invalidate_dashboard_cache()
+    except Exception:  # noqa: BLE001 - cache invalidation must never raise
+        pass
+
+
 def reset_repository() -> None:
     _STORE.clear()
     _TIMELINE.clear()
+    _invalidate_dashboard_cache()
 
 
 def _hash_content(content: str) -> tuple[str, str, int]:
@@ -96,7 +116,10 @@ def store_evidence(
         collected_at=_now(),
         tags=tuple(tags),
     )
-    _STORE.setdefault(key, []).append(artifact)
+    versions = _STORE.setdefault(key, [])
+    versions.append(artifact)
+    if len(versions) > MAX_VERSIONS_PER_KEY:  # keep most recent N (version numbers still monotonic)
+        del versions[: len(versions) - MAX_VERSIONS_PER_KEY]
     _TIMELINE.append(
         {
             "at": artifact.collected_at,
@@ -109,6 +132,9 @@ def store_evidence(
             "event": "stored",
         }
     )
+    if len(_TIMELINE) > MAX_TIMELINE_EVENTS:
+        del _TIMELINE[: len(_TIMELINE) - MAX_TIMELINE_EVENTS]
+    _invalidate_dashboard_cache()
     return artifact
 
 

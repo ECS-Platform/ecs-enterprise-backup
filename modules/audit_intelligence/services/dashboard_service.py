@@ -19,6 +19,31 @@ from modules.audit_intelligence.engines import evidence_repository as repo
 from modules.audit_intelligence.engines import observation_generation as obs
 from modules.audit_intelligence.engines import technology_control_mapping as mapping
 from modules.audit_intelligence.services import asset_service
+from modules.shared.utils.simple_cache import TTLCache
+
+#: Short-TTL cache for the composite executive dashboard. The dashboard reads
+#: mutable stores (evidence repository, observations, runs), so we keep the TTL
+#: small AND invalidate explicitly whenever those stores change (see
+#: ``invalidate_dashboard_cache`` wired into the engines' reset/mutation hooks).
+#: This makes repeated dashboard hits cheap without ever serving stale data after
+#: a known mutation. ``generated_at`` is refreshed on every real recompute.
+_DASHBOARD_TTL_SECONDS = 30
+_dashboard_cache = TTLCache(ttl_seconds=_DASHBOARD_TTL_SECONDS, maxsize=4)
+_DASHBOARD_KEY = "executive_readiness"
+
+
+def invalidate_dashboard_cache() -> None:
+    """Drop any cached dashboard payloads. Cheap + idempotent.
+
+    Called by the evidence/observation/run engines after any state change so the
+    next dashboard request recomputes. Also exposed for tests and admin reset.
+    """
+    _dashboard_cache.clear()
+
+
+def reset_cache() -> None:
+    """Alias for :func:`invalidate_dashboard_cache` (uniform reset naming)."""
+    invalidate_dashboard_cache()
 
 
 def _pct(part: int, whole: int) -> float:
@@ -211,8 +236,7 @@ def evidence_freshness(stale_days: int = 30) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Composite executive view
 # --------------------------------------------------------------------------- #
-def executive_readiness() -> dict[str, Any]:
-    """Single composite payload powering the Executive Readiness dashboard."""
+def _build_executive_readiness() -> dict[str, Any]:
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "technology_coverage": technology_coverage(),
@@ -226,3 +250,15 @@ def executive_readiness() -> dict[str, Any]:
         "risk_summary": risk_summary(),
         "evidence_freshness": evidence_freshness(),
     }
+
+
+def executive_readiness(*, use_cache: bool = True) -> dict[str, Any]:
+    """Single composite payload powering the Executive Readiness dashboard.
+
+    Cached for a short TTL and invalidated on any evidence/observation/run
+    mutation, so repeated dashboard loads are cheap but never stale after a known
+    change. Pass ``use_cache=False`` to force a fresh recompute.
+    """
+    if not use_cache:
+        return _build_executive_readiness()
+    return _dashboard_cache.get_or_set(_DASHBOARD_KEY, _build_executive_readiness)
