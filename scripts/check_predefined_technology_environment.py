@@ -58,17 +58,95 @@ def docker_available() -> bool:
         return False
 
 
-def container_running(name: str) -> bool | None:
+def list_running_containers() -> list[dict[str, str]] | None:
+    """All running containers with their Compose service/project labels.
+
+    Returns a list of ``{"name", "service", "project"}`` dicts, or ``None`` when
+    Docker is unavailable. We deliberately do NOT filter by name here so detection
+    is independent of the Compose project prefix (``<project>-<service>-<index>``).
+    """
+    fmt = '{{.Names}}\t{{.Label "com.docker.compose.service"}}\t{{.Label "com.docker.compose.project"}}'
     try:
         r = subprocess.run(
-            ["docker", "ps", "--filter", f"name=^/{name}$", "--format", "{{.Names}}"],
+            ["docker", "ps", "--format", fmt],
             capture_output=True, text=True, timeout=8,
         )
         if r.returncode != 0:
             return None
-        return name in {line.strip() for line in r.stdout.splitlines() if line.strip()}
     except Exception:  # noqa: BLE001
         return None
+    containers: list[dict[str, str]] = []
+    for line in r.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        cname = parts[0].strip() if len(parts) > 0 else ""
+        service = parts[1].strip() if len(parts) > 1 else ""
+        project = parts[2].strip() if len(parts) > 2 else ""
+        if cname:
+            containers.append({"name": cname, "service": service, "project": project})
+    return containers
+
+
+def _container_name_matches(target: str, container_name: str) -> bool:
+    """True if a running container *name* plausibly belongs to ``target``.
+
+    Resilient to the Compose project prefix. Matches:
+      * exact name                         nginx-demo == nginx-demo
+      * project-prefixed compose name      ecs-nginx-demo-1 -> ...-nginx-demo-<n>
+      * prefix (startswith)                nginx-demo... / ecs-nginx-demo
+    """
+    if not target:
+        return False
+    if container_name == target:  # exact container name
+        return True
+    if container_name.startswith(target):  # e.g. nginx-demo-x, ecs-... (startswith target)
+        return True
+    if container_name.endswith(f"-{target}"):  # project-prefixed, no index suffix
+        return True
+    if f"-{target}-" in container_name:  # <project>-<service>-<index>, e.g. ecs-nginx-demo-1
+        return True
+    if container_name.startswith(f"ecs-{target}"):  # startswith("ecs-<target>") style
+        return True
+    return False
+
+
+def find_running_container(
+    target: str, running: list[dict[str, str]] | None
+) -> str | None:
+    """Return the matched running container name for ``target``, else ``None``.
+
+    ``target`` is the Compose service name / configured container short-name.
+    Matching order (most authoritative first):
+      1. exact Compose *service* label
+      2. exact container name
+      3. name heuristics (project prefix / startswith) via _container_name_matches
+    """
+    if not target or not running:
+        return None
+    for c in running:  # 1. authoritative: compose service label
+        if c.get("service") == target:
+            return c["name"]
+    for c in running:  # 2. exact container name
+        if c.get("name") == target:
+            return c["name"]
+    for c in running:  # 3. project-prefix / startswith heuristics
+        if _container_name_matches(target, c.get("name", "")):
+            return c["name"]
+    return None
+
+
+def container_running(name: str) -> bool | None:
+    """True/False if a container for ``name`` is running; None if Docker is down.
+
+    Resilient to the Compose project prefix: matches by exact container name,
+    Compose service label, and project-prefixed names. Diagnostics-only — does
+    not affect connectors.
+    """
+    running = list_running_containers()
+    if running is None:
+        return None
+    return find_running_container(name, running) is not None
 
 
 def _mask(value: Any) -> str:
@@ -110,6 +188,10 @@ def build_report(args) -> dict[str, Any]:
     do_docker = not args.no_docker_check
     docker_ok = docker_available() if do_docker else None
 
+    # List running containers ONCE (project-prefix agnostic) and reuse per target,
+    # so detection does not depend on the Compose project name.
+    running = list_running_containers() if do_docker else None
+
     checks: list[dict[str, Any]] = []
     for t in _targets():
         rec = dict(t)
@@ -118,15 +200,19 @@ def build_report(args) -> dict[str, Any]:
         if t["technology"] == "Oracle":
             expected = bool(args.expect_oracle)
         rec["expected"] = expected
-        if do_docker:
-            running = container_running(t["container"])
-            rec["container_status"] = (
-                "RUNNING" if running else ("NOT RUNNING" if running is False else "UNKNOWN")
-            )
-            rec["ok"] = (running is True) if expected else True
-        else:
+        if not do_docker:
             rec["container_status"] = None
+            rec["matched_container"] = None
             rec["ok"] = True
+        elif running is None:
+            rec["container_status"] = "UNKNOWN"
+            rec["matched_container"] = None
+            rec["ok"] = True  # cannot prove failure when Docker is unavailable
+        else:
+            matched = find_running_container(t["container"], running)
+            rec["matched_container"] = matched
+            rec["container_status"] = "RUNNING" if matched else "NOT RUNNING"
+            rec["ok"] = (matched is not None) if expected else True
         checks.append(rec)
 
     all_ok = all(c["ok"] for c in checks)
@@ -162,7 +248,9 @@ def render_text(report: dict[str, Any]) -> str:
             lines.append(f"  User: {c.get('user')}  Password: {c.get('password')}")
         if c.get("container_status") is not None:
             note = "" if c["expected"] else "  (optional; not expected unless --expect-oracle)"
-            lines.append(f"  Status: {c['container_status']}{note}")
+            matched = c.get("matched_container")
+            match_txt = f" (matched: {matched})" if matched and matched != c["container"] else ""
+            lines.append(f"  Status: {c['container_status']}{match_txt}{note}")
         lines.append("")
     lines.append("================================================================")
     lines.append(f"Overall: {'PASS' if report['ok'] else 'FAIL'}")

@@ -217,11 +217,104 @@ def test_login_mysql_success_with_mock(monkeypatch):
     assert "SELECT 1" in reason
 
 
-def test_container_running_mocked(monkeypatch):
-    class _R:
-        returncode = 0
-        stdout = "postgres-demo\n"
+def _mk_run(rows, returncode: int = 0):
+    """Fake subprocess.run yielding tab-separated `docker ps` rows.
 
-    monkeypatch.setattr(diag.subprocess, "run", lambda *a, **k: _R())
+    Each row is (name, compose_service_label, compose_project_label).
+    """
+    stdout = "".join(f"{n}\t{s}\t{p}\n" for (n, s, p) in rows)
+
+    class _R:
+        pass
+
+    def _run(*_a, **_k):
+        r = _R()
+        r.returncode = returncode
+        r.stdout = stdout
+        r.stderr = ""
+        return r
+
+    return _run
+
+
+# Realistic running set for the DB demo targets. Yugabyte uses Compose default
+# naming (ecs-yugabyte-1, service=yugabyte); postgres-demo / mysql-demo declare
+# container_name so name == service.
+_DB_ROWS = [
+    ("postgres-demo", "postgres-demo", "ecs"),
+    ("ecs-yugabyte-1", "yugabyte", "ecs"),
+    ("mysql-demo", "mysql-demo", "ecs"),
+]
+
+
+def test_container_running_mocked(monkeypatch):
+    """Back-compat: exact container name still detected; absent -> False."""
+    monkeypatch.setattr(diag.subprocess, "run", _mk_run(_DB_ROWS))
     assert diag.container_running("postgres-demo") is True
     assert diag.container_running("not-there") is False
+
+
+def test_db_detection_exact_names(monkeypatch):
+    monkeypatch.setattr(diag.subprocess, "run", _mk_run(_DB_ROWS))
+    assert diag.container_running("postgres-demo") is True
+    assert diag.container_running("mysql-demo") is True
+
+
+def test_db_detection_yugabyte_via_service_label(monkeypatch):
+    """`ecs-yugabyte-1` (service=yugabyte) is matched for target `yugabyte`."""
+    monkeypatch.setattr(diag.subprocess, "run", _mk_run(_DB_ROWS))
+    assert diag.container_running("yugabyte") is True
+    running = diag.list_running_containers()
+    assert diag.find_running_container("yugabyte", running) == "ecs-yugabyte-1"
+
+
+def test_db_detection_independent_of_project_prefix(monkeypatch):
+    rows = [
+        ("myproj-postgres-demo-1", "postgres-demo", "myproj"),
+        ("myproj-yugabyte-1", "yugabyte", "myproj"),
+        ("myproj-mysql-demo-1", "mysql-demo", "myproj"),
+    ]
+    monkeypatch.setattr(diag.subprocess, "run", _mk_run(rows))
+    assert diag.container_running("postgres-demo") is True
+    assert diag.container_running("yugabyte") is True
+    assert diag.container_running("mysql-demo") is True
+
+
+def test_db_detection_via_name_when_labels_absent(monkeypatch):
+    rows = [("ecs-yugabyte-1", "", ""), ("ecs-postgres-demo-1", "", "")]
+    monkeypatch.setattr(diag.subprocess, "run", _mk_run(rows))
+    assert diag.container_running("yugabyte") is True
+    assert diag.container_running("postgres-demo") is True
+
+
+def test_db_detection_absent_is_false(monkeypatch):
+    monkeypatch.setattr(diag.subprocess, "run", _mk_run(_DB_ROWS))
+    assert diag.container_running("sqlserver-demo") is False
+
+
+def test_db_detection_docker_down_is_none(monkeypatch):
+    def _boom(*_a, **_k):
+        raise FileNotFoundError("docker missing")
+
+    monkeypatch.setattr(diag.subprocess, "run", _boom)
+    assert diag.list_running_containers() is None
+    assert diag.container_running("postgres-demo") is None
+
+
+def test_db_detection_nonzero_returncode_is_none(monkeypatch):
+    monkeypatch.setattr(diag.subprocess, "run", _mk_run(_DB_ROWS, returncode=1))
+    assert diag.container_running("postgres-demo") is None
+
+
+def test_db_check_database_records_matched_container(monkeypatch):
+    """check_database() records the matched container name for yugabyte."""
+    monkeypatch.setattr(diag.subprocess, "run", _mk_run(_DB_ROWS))
+    monkeypatch.setattr(diag, "tcp_check", lambda *a, **k: False)  # no live DB
+    res = diag.check_database(
+        "YugabyteDB",
+        {"host": "localhost", "port": 5433, "database": "yugabyte", "user": "u",
+         "password": "p", "sslmode": ""},
+        "yugabyte", True, "sslmode", lambda cfg: (False, "n/a"),
+    )
+    assert res["container_status"] == "RUNNING"
+    assert res["matched_container"] == "ecs-yugabyte-1"

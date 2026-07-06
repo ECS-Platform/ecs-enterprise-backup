@@ -80,18 +80,95 @@ def docker_available() -> bool:
         return False
 
 
-def container_running(name: str) -> bool | None:
-    """True/False if the named container is running; None if Docker unavailable."""
+def list_running_containers() -> list[dict[str, str]] | None:
+    """All running containers with their Compose service/project labels.
+
+    Returns a list of ``{"name", "service", "project"}`` dicts, or ``None`` when
+    Docker is unavailable. We deliberately do NOT filter by name here so detection
+    is independent of the Compose project prefix (``<project>-<service>-<index>``).
+    """
+    fmt = '{{.Names}}\t{{.Label "com.docker.compose.service"}}\t{{.Label "com.docker.compose.project"}}'
     try:
         r = subprocess.run(
-            ["docker", "ps", "--filter", f"name=^/{name}$", "--format", "{{.Names}}"],
+            ["docker", "ps", "--format", fmt],
             capture_output=True, text=True, timeout=8,
         )
         if r.returncode != 0:
             return None
-        return name in {line.strip() for line in r.stdout.splitlines() if line.strip()}
     except Exception:  # noqa: BLE001
         return None
+    containers: list[dict[str, str]] = []
+    for line in r.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        cname = parts[0].strip() if len(parts) > 0 else ""
+        service = parts[1].strip() if len(parts) > 1 else ""
+        project = parts[2].strip() if len(parts) > 2 else ""
+        if cname:
+            containers.append({"name": cname, "service": service, "project": project})
+    return containers
+
+
+def _container_name_matches(target: str, container_name: str) -> bool:
+    """True if a running container *name* plausibly belongs to ``target``.
+
+    Resilient to the Compose project prefix. Matches:
+      * exact name                         postgres-demo == postgres-demo
+      * project-prefixed compose name      ecs-yugabyte-1 -> ...-yugabyte-<n>
+      * prefix (startswith)                yugabyte-demo / ecs-yugabyte
+    """
+    if not target:
+        return False
+    if container_name == target:  # exact container name
+        return True
+    if container_name.startswith(target):  # e.g. yugabyte-demo, ecs-yugabyte (startswith target)
+        return True
+    if container_name.endswith(f"-{target}"):  # project-prefixed, no index suffix
+        return True
+    if f"-{target}-" in container_name:  # <project>-<service>-<index>, e.g. ecs-yugabyte-1
+        return True
+    if container_name.startswith(f"ecs-{target}"):  # startswith("ecs-<target>") style
+        return True
+    return False
+
+
+def find_running_container(
+    target: str, running: list[dict[str, str]] | None
+) -> str | None:
+    """Return the matched running container name for ``target``, else ``None``.
+
+    ``target`` is the Compose service name / configured container short-name.
+    Matching order (most authoritative first):
+      1. exact Compose *service* label  (ecs-yugabyte-1 has service=yugabyte)
+      2. exact container name
+      3. name heuristics (project prefix / startswith) via _container_name_matches
+    """
+    if not target or not running:
+        return None
+    for c in running:  # 1. authoritative: compose service label
+        if c.get("service") == target:
+            return c["name"]
+    for c in running:  # 2. exact container name
+        if c.get("name") == target:
+            return c["name"]
+    for c in running:  # 3. project-prefix / startswith heuristics
+        if _container_name_matches(target, c.get("name", "")):
+            return c["name"]
+    return None
+
+
+def container_running(name: str) -> bool | None:
+    """True/False if a container for ``name`` is running; None if Docker is down.
+
+    Resilient to the Compose project prefix: matches by exact container name,
+    Compose service label, and project-prefixed names (e.g. ``ecs-yugabyte-1``
+    for service ``yugabyte``). Diagnostics-only — does not affect connectors.
+    """
+    running = list_running_containers()
+    if running is None:
+        return None
+    return find_running_container(name, running) is not None
 
 
 # --------------------------------------------------------------------------- #
@@ -222,6 +299,7 @@ def check_database(
         },
         "container": container,
         "container_status": None,
+        "matched_container": None,
         "tcp": None,
         "login": None,
         "reason": "",
@@ -229,10 +307,13 @@ def check_database(
     }
 
     if do_docker:
-        running = container_running(container)
-        result["container_status"] = (
-            "RUNNING" if running else ("NOT RUNNING" if running is False else "UNKNOWN")
-        )
+        running = list_running_containers()
+        if running is None:
+            result["container_status"] = "UNKNOWN"
+        else:
+            matched = find_running_container(container, running)
+            result["matched_container"] = matched
+            result["container_status"] = "RUNNING" if matched else "NOT RUNNING"
 
     tcp_ok = tcp_check(str(cfg.get("host")), int(cfg.get("port")))
     result["tcp"] = "PASS" if tcp_ok else "FAIL"
@@ -269,7 +350,9 @@ def _render_block(res: dict[str, Any]) -> str:
         "",
     ]
     if res["container_status"] is not None:
-        lines += ["Docker:", f"  Container {res['container']}: {res['container_status']}", ""]
+        matched = res.get("matched_container")
+        suffix = f" (matched: {matched})" if matched and matched != res["container"] else ""
+        lines += ["Docker:", f"  Container {res['container']}: {res['container_status']}{suffix}", ""]
     lines.append(f"TCP connectivity: {res['tcp']}")
     lines.append(f"Login check: {res['login']}")
     if res["login"] == "FAIL":

@@ -60,17 +60,96 @@ def docker_available() -> bool:
         return False
 
 
-def container_running(name: str) -> bool | None:
+def list_running_containers() -> list[dict[str, str]] | None:
+    """All running containers with their Compose service/project labels.
+
+    Returns a list of ``{"name", "service", "project"}`` dicts, or ``None`` when
+    Docker is unavailable. We deliberately do NOT filter by name here so detection
+    is independent of the Compose project prefix (``<project>-<service>-<index>``).
+    """
+    fmt = '{{.Names}}\t{{.Label "com.docker.compose.service"}}\t{{.Label "com.docker.compose.project"}}'
     try:
         r = subprocess.run(
-            ["docker", "ps", "--filter", f"name=^/{name}$", "--format", "{{.Names}}"],
+            ["docker", "ps", "--format", fmt],
             capture_output=True, text=True, timeout=8,
         )
         if r.returncode != 0:
             return None
-        return name in {ln.strip() for ln in r.stdout.splitlines() if ln.strip()}
     except Exception:  # noqa: BLE001
         return None
+    containers: list[dict[str, str]] = []
+    for line in r.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        name = parts[0].strip() if len(parts) > 0 else ""
+        service = parts[1].strip() if len(parts) > 1 else ""
+        project = parts[2].strip() if len(parts) > 2 else ""
+        if name:
+            containers.append({"name": name, "service": service, "project": project})
+    return containers
+
+
+def _container_name_matches(target: str, container_name: str) -> bool:
+    """True if a running container *name* plausibly belongs to ``target``.
+
+    Resilient to the Compose project prefix. Matches:
+      * exact name                         redis            == redis
+      * project-prefixed compose name      ecs-redis-1      -> ...-redis-<n>
+      * prefix (startswith)                ecs-redis...     / redis-demo
+    """
+    if not target:
+        return False
+    if container_name == target:  # exact container name
+        return True
+    if container_name.startswith(target):  # e.g. redis-demo, ecs-redis (startswith target)
+        return True
+    if container_name.endswith(f"-{target}"):  # project-prefixed, no index suffix
+        return True
+    if f"-{target}-" in container_name:  # <project>-<service>-<index>, e.g. ecs-redis-1
+        return True
+    # startswith("ecs-<target>") style: a leading "<prefix>-<target>" segment.
+    if container_name.startswith(f"ecs-{target}"):
+        return True
+    return False
+
+
+def find_running_container(
+    target: str, running: list[dict[str, str]] | None
+) -> str | None:
+    """Return the matched running container name for ``target``, else ``None``.
+
+    ``target`` is the Compose service name / configured container short-name.
+    Matching order (most authoritative first):
+      1. exact Compose *service* label  (ecs-redis-1 has service=redis)
+      2. exact container name
+      3. name heuristics (project prefix / startswith) via _container_name_matches
+    """
+    if not target or not running:
+        return None
+    for c in running:  # 1. authoritative: compose service label
+        if c.get("service") == target:
+            return c["name"]
+    for c in running:  # 2. exact container name
+        if c.get("name") == target:
+            return c["name"]
+    for c in running:  # 3. project-prefix / startswith heuristics
+        if _container_name_matches(target, c.get("name", "")):
+            return c["name"]
+    return None
+
+
+def container_running(name: str) -> bool | None:
+    """True/False if a container for ``name`` is running; None if Docker is down.
+
+    Kept for backward compatibility (and unit tests). Delegates to the resilient
+    matcher so exact names, Compose service labels, and project-prefixed names
+    (e.g. ``ecs-redis-1`` for service ``redis``) are all detected.
+    """
+    running = list_running_containers()
+    if running is None:
+        return None
+    return find_running_container(name, running) is not None
 
 
 def _mask(value: Any) -> str:
@@ -93,11 +172,18 @@ def build_report(args) -> dict[str, Any]:
     do_docker = not args.no_docker_check
     docker_ok = docker_available() if do_docker else None
 
-    def container_check(name: str) -> str | None:
+    # List running containers ONCE (project-prefix agnostic) and reuse for every
+    # technology, so detection does not depend on the Compose project name.
+    running = list_running_containers() if do_docker else None
+
+    def container_check(name: str) -> tuple[str | None, str | None]:
+        """Return (status, matched_container_name)."""
         if not do_docker:
-            return None
-        r = container_running(name)
-        return "RUNNING" if r else ("NOT RUNNING" if r is False else "UNKNOWN")
+            return None, None
+        if running is None:
+            return "UNKNOWN", None
+        matched = find_running_container(name, running)
+        return ("RUNNING" if matched else "NOT RUNNING"), matched
 
     redis = get_redis_config()
     apache = get_apache_config()
@@ -107,21 +193,30 @@ def build_report(args) -> dict[str, Any]:
     k8s = get_kubernetes_config()
     ocp = get_openshift_config()
 
+    def _container_entry(technology: str, container: str, profile: str, **extra: Any) -> dict[str, Any]:
+        status, matched = container_check(container)
+        entry: dict[str, Any] = {
+            "technology": technology,
+            "kind": extra.pop("kind", "container"),
+            "container": container,
+            "profile": profile,
+            "status": status,
+            "matched_container": matched,
+        }
+        entry.update(extra)
+        return entry
+
     checks: list[dict[str, Any]] = [
-        {"technology": "Redis", "kind": "container", "container": redis["container"],
-         "profile": "reuse existing redis", "password": _mask(redis["password"]),
-         "status": container_check(redis["container"])},
-        {"technology": "Apache HTTPD", "kind": "container", "container": apache["container"],
-         "profile": "apache-demo / infra-demo-extended", "status": container_check(apache["container"])},
-        {"technology": "Tomcat", "kind": "container", "container": tomcat["container"],
-         "profile": "tomcat-demo / infra-demo-extended", "status": container_check(tomcat["container"])},
-        {"technology": "MongoDB", "kind": "container", "container": mongo["container"],
-         "profile": "mongodb-demo / db-demo-extended", "database": mongo["database"],
-         "uri": _mask(mongo["uri"]), "status": container_check(mongo["container"])},
-        {"technology": "SQL Server", "kind": "database", "container": "sqlserver-demo",
-         "profile": "sqlserver-demo (optional/heavy)", "host": mssql["host"], "port": mssql["port"],
-         "database": mssql["database"], "user": mssql["user"], "password": _mask(mssql["password"]),
-         "status": container_check("sqlserver-demo")},
+        _container_entry("Redis", redis["container"], "reuse existing redis",
+                         password=_mask(redis["password"])),
+        _container_entry("Apache HTTPD", apache["container"], "apache-demo / infra-demo-extended"),
+        _container_entry("Tomcat", tomcat["container"], "tomcat-demo / infra-demo-extended"),
+        _container_entry("MongoDB", mongo["container"], "mongodb-demo / db-demo-extended",
+                         database=mongo["database"], uri=_mask(mongo["uri"])),
+        _container_entry("SQL Server", "sqlserver-demo", "sqlserver-demo (optional/heavy)",
+                         kind="database", host=mssql["host"], port=mssql["port"],
+                         database=mssql["database"], user=mssql["user"],
+                         password=_mask(mssql["password"])),
         {"technology": "Kubernetes", "kind": "cli", "binary": k8s["binary"],
          "kubeconfig": _mask(k8s["kubeconfig"]),
          "cli_available": which(k8s["binary"]) is not None},
@@ -173,7 +268,11 @@ def render_text(report: dict[str, Any]) -> str:
                 if secret in c:
                     lines.append(f"  {secret.capitalize()}: {c[secret]}")
             if c.get("status") is not None:
-                lines.append(f"  Status: {c['status']}")
+                matched = c.get("matched_container")
+                if matched and matched != c.get("container"):
+                    lines.append(f"  Status: {c['status']} (matched container: {matched})")
+                else:
+                    lines.append(f"  Status: {c['status']}")
         elif c["kind"] == "cli":
             lines.append(f"  Binary: {c['binary']}  Available: {'YES' if c['cli_available'] else 'NO'}")
             lines.append(f"  Kubeconfig: {c['kubeconfig']}")
