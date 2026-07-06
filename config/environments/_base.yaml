@@ -106,6 +106,43 @@ connectors:
     base_url:      "${ECS_ARCHER_BASE_URL:-}"
     api_token_env: ECS_ARCHER_API_TOKEN
     timeout_sec:   "${ECS_ARCHER_TIMEOUT_SECONDS:-30}"
+  # Additional enterprise integration adapters (config-driven; secrets via *_env).
+  sharepoint_graph:
+    tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"
+    client_id:         "${ECS_GRAPH_CLIENT_ID:-}"
+    client_secret_env: ECS_GRAPH_CLIENT_SECRET
+    site_id:           "${ECS_GRAPH_SITE_ID:-}"
+    drive_id:          "${ECS_GRAPH_DRIVE_ID:-}"
+    timeout_sec:       "${ECS_GRAPH_TIMEOUT_SECONDS:-30}"
+  jira_adapter:
+    base_url:      "${ECS_JIRA_BASE_URL:-}"
+    username:      "${ECS_JIRA_USERNAME:-}"
+    api_token_env: ECS_JIRA_API_TOKEN
+    timeout_sec:   "${ECS_JIRA_TIMEOUT_SECONDS:-30}"
+  confluence_adapter:
+    base_url:      "${ECS_CONFLUENCE_BASE_URL:-}"
+    username:      "${ECS_CONFLUENCE_USERNAME:-}"
+    api_token_env: ECS_CONFLUENCE_API_TOKEN
+    timeout_sec:   "${ECS_CONFLUENCE_TIMEOUT_SECONDS:-30}"
+  sonarqube_adapter:
+    base_url:   "${ECS_SONARQUBE_BASE_URL:-}"
+    token_env:  ECS_SONARQUBE_TOKEN
+    timeout_sec: "${ECS_SONARQUBE_TIMEOUT_SECONDS:-30}"
+  checkmarx:
+    base_url:          "${ECS_CHECKMARX_BASE_URL:-}"
+    client_id:         "${ECS_CHECKMARX_CLIENT_ID:-}"
+    client_secret_env: ECS_CHECKMARX_CLIENT_SECRET
+    timeout_sec:       "${ECS_CHECKMARX_TIMEOUT_SECONDS:-30}"
+  prisma_cloud:
+    base_url:       "${ECS_PRISMA_CLOUD_BASE_URL:-}"
+    access_key:     "${ECS_PRISMA_CLOUD_ACCESS_KEY:-}"
+    secret_key_env: ECS_PRISMA_CLOUD_SECRET_KEY
+    timeout_sec:    "${ECS_PRISMA_CLOUD_TIMEOUT_SECONDS:-30}"
+  tripwire:
+    base_url:     "${ECS_TRIPWIRE_BASE_URL:-}"
+    username:     "${ECS_TRIPWIRE_USERNAME:-}"
+    password_env: ECS_TRIPWIRE_PASSWORD
+    timeout_sec:  "${ECS_TRIPWIRE_TIMEOUT_SECONDS:-30}"
 
 # -----------------------------------------------------------------------------
 # FRAMEWORK TARGETS — per-framework scope of systems each control set assesses.

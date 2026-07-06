@@ -1,15 +1,22 @@
-"""ECS enterprise integration skeletons (config-driven; no real calls in tests).
+"""ECS enterprise integration adapters (config-driven; no real calls in tests).
 
-Currently ships integration *skeletons* only:
-  * servicenow_cmdb — ServiceNow CMDB asset/CI fetch interface + mapping stubs.
-  * archer          — Archer control/framework fetch interface + mapping stubs.
+Ships credential-externalised adapter *skeletons* for:
+  servicenow_cmdb, archer, sharepoint_graph, jira, confluence, sonarqube,
+  checkmarx, prisma_cloud, tripwire.
 
-Both are credential-externalised, never log secrets, and accept an injectable
-transport so unit tests can supply mocked responses without any network access.
+Every adapter:
+  * reads config from env / YAML only (never hard-coded, never logged),
+  * exposes a consistent interface — ``get_config()``, ``is_configured()``,
+    ``masked_config()``, ``health_check()``, ``fetch_*()``, ``normalize_*()``,
+  * accepts an injectable transport so unit tests supply mocked responses with no
+    network access, and
+  * returns the standard ``{ok, source, status, items, errors}`` shape (see
+    ``_base``).
 """
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 #: YAML sections that may hold integration config, in priority order.
@@ -37,3 +44,58 @@ def lookup_yaml_config(keys: tuple[str, ...]) -> dict[str, Any]:
             if isinstance(block, dict) and block:
                 return dict(block)
     return {}
+
+
+# --------------------------------------------------------------------------- #
+# Adapter registry
+# --------------------------------------------------------------------------- #
+#: Registered adapter modules, in a stable display order.
+ADAPTER_MODULES = (
+    "servicenow_cmdb",
+    "archer",
+    "sharepoint_graph",
+    "jira",
+    "confluence",
+    "sonarqube",
+    "checkmarx",
+    "prisma_cloud",
+    "tripwire",
+)
+
+
+def _adapter(name: str):
+    return importlib.import_module(f"modules.operations.integrations.{name}")
+
+
+def list_adapters() -> list[str]:
+    """Names of all registered integration adapters."""
+    return list(ADAPTER_MODULES)
+
+
+def masked_config_all() -> dict[str, Any]:
+    """Secret-safe config view for every adapter (never reveals secret values)."""
+    out: dict[str, Any] = {}
+    for name in ADAPTER_MODULES:
+        try:
+            out[name] = _adapter(name).masked_config()
+        except Exception as exc:  # noqa: BLE001 - one bad adapter must not break the rest
+            out[name] = {"integration": name, "error": type(exc).__name__}
+    return out
+
+
+def health_check_all() -> dict[str, Any]:
+    """Run every adapter's config-based health check (no live calls in the skeleton)."""
+    results: dict[str, Any] = {}
+    for name in ADAPTER_MODULES:
+        try:
+            results[name] = _adapter(name).health_check()
+        except Exception as exc:  # noqa: BLE001
+            results[name] = {"ok": False, "source": name, "status": "adapter_error",
+                             "items": [], "errors": [type(exc).__name__]}
+    configured = sum(1 for r in results.values() if r.get("configured"))
+    return {
+        "adapters": results,
+        "total": len(ADAPTER_MODULES),
+        "configured": configured,
+        "not_configured": len(ADAPTER_MODULES) - configured,
+    }

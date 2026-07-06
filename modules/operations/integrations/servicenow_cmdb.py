@@ -134,3 +134,50 @@ def _default_transport(method: str, url: str, headers: dict, params: dict) -> di
         "ServiceNow live transport is not wired in the skeleton. Inject a transport "
         "or provide a production HTTP client."
     )
+
+
+# --------------------------------------------------------------------------- #
+# Standard adapter interface (additive; consistent with the other adapters).
+# The original get_servicenow_config / config_status / ServiceNowCmdbClient /
+# map_ci_to_asset above are kept for backward compatibility.
+# --------------------------------------------------------------------------- #
+SOURCE = "servicenow_cmdb"
+
+
+def get_config() -> dict[str, Any]:
+    """Standard-interface alias for :func:`get_servicenow_config`."""
+    return get_servicenow_config()
+
+
+def is_configured() -> bool:
+    c = get_config()
+    return bool(c.get("base_url") and c.get("client_id") and c.get("client_secret"))
+
+
+def masked_config(cfg: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Secret-safe config view (SET/MISSING). Superset of legacy config_status()."""
+    cfg = cfg or get_config()
+    return {
+        "integration": "ServiceNow CMDB",
+        "base_url_configured": bool(cfg.get("base_url")),
+        "client_id": "SET" if cfg.get("client_id") else "MISSING",
+        "client_secret": "SET" if cfg.get("client_secret") else "MISSING",
+        "timeout_sec": cfg.get("timeout_sec"),
+        "ready": bool(cfg.get("base_url") and cfg.get("client_id") and cfg.get("client_secret")),
+    }
+
+
+def normalize_asset(record: dict[str, Any]) -> dict[str, Any]:
+    """Standard-interface alias for :func:`map_ci_to_asset`."""
+    return map_ci_to_asset(record)
+
+
+def health_check() -> dict[str, Any]:
+    """Config-based readiness (skeleton has no live probe). Never reveals secrets."""
+    from modules.operations.integrations import _base
+
+    if not is_configured():
+        return {**_base.not_configured_response(SOURCE), "configured": False,
+                "masked_config": masked_config()}
+    return {"ok": True, "source": SOURCE, "status": "ok", "configured": True,
+            "items": [], "errors": [], "masked_config": masked_config()}

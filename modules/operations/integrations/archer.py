@@ -128,3 +128,54 @@ def _default_transport(method: str, url: str, headers: dict, params: dict) -> di
         "Archer live transport is not wired in the skeleton. Inject a transport or "
         "provide a production HTTP client."
     )
+
+
+# --------------------------------------------------------------------------- #
+# Standard adapter interface (additive; consistent with the other adapters).
+# The original get_archer_config / config_status / ArcherClient above are kept
+# for backward compatibility and are now thin aliases of these.
+# --------------------------------------------------------------------------- #
+SOURCE = "archer"
+
+
+def get_config() -> dict[str, Any]:
+    """Standard-interface alias for :func:`get_archer_config`."""
+    return get_archer_config()
+
+
+def is_configured() -> bool:
+    c = get_config()
+    return bool(c.get("base_url") and c.get("api_token"))
+
+
+def masked_config(cfg: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Secret-safe config view (SET/MISSING). Superset of legacy config_status()."""
+    cfg = cfg or get_config()
+    return {
+        "integration": "Archer",
+        "base_url_configured": bool(cfg.get("base_url")),
+        "api_token": "SET" if cfg.get("api_token") else "MISSING",
+        "timeout_sec": cfg.get("timeout_sec"),
+        "ready": bool(cfg.get("base_url") and cfg.get("api_token")),
+    }
+
+
+def normalize_control(record: dict[str, Any]) -> dict[str, Any]:
+    """Standard-interface alias for :func:`map_archer_control`."""
+    return map_archer_control(record)
+
+
+def normalize_framework(record: dict[str, Any]) -> dict[str, Any]:
+    """Standard-interface alias for :func:`map_archer_framework`."""
+    return map_archer_framework(record)
+
+
+def health_check() -> dict[str, Any]:
+    """Config-based readiness (skeleton has no live probe). Never reveals secrets."""
+    from modules.operations.integrations import _base
+
+    if not is_configured():
+        return {**_base.not_configured_response(SOURCE), "configured": False,
+                "masked_config": masked_config()}
+    return {"ok": True, "source": SOURCE, "status": "ok", "configured": True,
+            "items": [], "errors": [], "masked_config": masked_config()}
