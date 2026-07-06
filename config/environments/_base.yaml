@@ -95,6 +95,17 @@ connectors:
   sonarqube:    {url: "${SONAR_URL:-http://sonarqube-demo:9000}",       enabled: "${ECS_SONAR_ENABLED:-true}"}
   prisma_cloud: {url: "${PRISMA_URL:-}",                                enabled: "${ECS_PRISMA_ENABLED:-false}"}
   figma:        {url: "${FIGMA_URL:-https://api.figma.com}",            enabled: "${ECS_FIGMA_ENABLED:-false}"}
+  # ServiceNow CMDB + Archer integration skeletons (config-driven; no secrets in
+  # YAML — credentials resolve from env vars named by *_env below).
+  servicenow_cmdb:
+    base_url:          "${ECS_SERVICENOW_BASE_URL:-}"
+    client_id_env:     ECS_SERVICENOW_CLIENT_ID
+    client_secret_env: ECS_SERVICENOW_CLIENT_SECRET
+    timeout_sec:       "${ECS_SERVICENOW_TIMEOUT_SECONDS:-30}"
+  archer:
+    base_url:      "${ECS_ARCHER_BASE_URL:-}"
+    api_token_env: ECS_ARCHER_API_TOKEN
+    timeout_sec:   "${ECS_ARCHER_TIMEOUT_SECONDS:-30}"
 
 # -----------------------------------------------------------------------------
 # FRAMEWORK TARGETS — per-framework scope of systems each control set assesses.
