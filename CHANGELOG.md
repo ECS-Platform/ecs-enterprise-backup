@@ -11,6 +11,14 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Audit Intelligence layer — Milestone 4** (REST API). New router
+  `modules/audit_intelligence/routes/routes_audit_intelligence.py` registered in
+  `app/main.py`, exposing read + action endpoints under `/api/audit/*` for
+  technology mapping, asset inventory, evidence runs (start/retry/cancel/validate),
+  the evidence repository (search/versions/timeline/stats), observation management
+  (list/summary/transition), evidence packs, and search/filtering. Thin wrappers
+  over the M1-M3 service facades; house `{"ok": …}` response style. Tests:
+  `tests/test_audit_intelligence_api.py` (FastAPI TestClient, offline).
 - **Audit Intelligence layer — Milestone 3** (Observation Generation, Evidence
   Repository, Evidence Packs; additive, deterministic, no LLM):
   - **Observation Generation** (`engines/observation_generation.py`) — converts

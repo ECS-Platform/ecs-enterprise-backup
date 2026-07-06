@@ -1536,6 +1536,13 @@ from app.routes_nav_aggregators import register_nav_aggregator_routes
 
 register_nav_aggregator_routes(app, templates)
 
+# Audit Intelligence REST API (Milestones 1-3 surfaced as /api/audit/*).
+from modules.audit_intelligence.routes.routes_audit_intelligence import (
+    register_audit_intelligence_routes,
+)
+
+register_audit_intelligence_routes(app)
+
 
 @app.get("/api/evidence-workflow/summary")
 def api_evidence_workflow_summary(role: str = "owner", user: str = "User"):
