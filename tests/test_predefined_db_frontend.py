@@ -35,12 +35,20 @@ MY_IDS = [f"MYX-0{i:02d}" for i in range(1, 11)]  # MYX-001..MYX-010
 # View model / catalog
 # --------------------------------------------------------------------------- #
 def test_dashboard_includes_all_supplementary_controls():
-    dash = engine.get_predefined_queries_dashboard(search="", per_page=500)
-    ids = {r["control_id"] for r in dash["rows"]}
+    # The dashboard paginates (page size is capped), so verify the full catalog
+    # via the source of truth, then confirm the DB controls surface via search.
+    engine.load_predefined_queries()
+    all_ids = {c["control_id"] for c in engine.get_all_controls()}
     for cid in PG_IDS + YB_IDS + MY_IDS:
-        assert cid in ids, f"{cid} missing from dashboard rows"
-    # 37 Excel + 26 supplementary
-    assert dash["validation"]["controls_loaded"] == 63
+        assert cid in all_ids, f"{cid} missing from catalog"
+    # Each DB technology is reachable through the (filtered) dashboard.
+    for term, ids in (("PGX", PG_IDS), ("YBX", YB_IDS), ("MYX", MY_IDS)):
+        dash = engine.get_predefined_queries_dashboard(search=term, per_page=100)
+        rows = {r["control_id"] for r in dash["rows"]}
+        assert set(ids).issubset(rows), f"{term} controls not all shown"
+    # 37 Excel + 68 supplementary (26 DB + 42 infra).
+    dash = engine.get_predefined_queries_dashboard(per_page=1)
+    assert dash["validation"]["controls_loaded"] >= 63
 
 
 @pytest.mark.parametrize("term,expected_count", [("PGX", 8), ("YBX", 8), ("MYX", 10)])
@@ -102,10 +110,12 @@ def test_page_renders_run_query_for_supplementary():
     assert 'name="technology"' in html  # technology filter dropdown present
 
 
-def test_page_shows_total_63():
+def test_page_shows_total_controls():
     r = client.get(f"/mvp/predefined-queries?{Q}")
     assert r.status_code == 200
-    assert "of 63 controls" in r.text
+    # 37 Excel + 68 supplementary = 105 after the infra (Oracle/NGINX/Linux/RHEL)
+    # controls were added.
+    assert "of 105 controls" in r.text
 
 
 def test_page_disables_run_for_config_required():

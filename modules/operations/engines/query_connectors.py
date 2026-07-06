@@ -195,6 +195,24 @@ def connector_for_technology(technology: str) -> BaseConnector | None:
             # PyMySQL not installed — degrade gracefully.
             return None
         return MySQLConnector(**get_mysql_config())
+    if technology == "Oracle":
+        try:
+            from modules.operations.engines.oracle_connector import OracleConnector, get_oracle_config
+        except ImportError:
+            return None
+        return OracleConnector(**get_oracle_config())
+    if technology == "NGINX":
+        from modules.operations.engines.linux_connector import LinuxConnector, get_nginx_config
+
+        return LinuxConnector(**get_nginx_config())
+    if technology == "Red Hat Enterprise Linux 8.x":
+        from modules.operations.engines.linux_connector import LinuxConnector, get_rhel_config
+
+        return LinuxConnector(**get_rhel_config(8))
+    if technology == "Red Hat Enterprise Linux 9.x":
+        from modules.operations.engines.linux_connector import LinuxConnector, get_rhel_config
+
+        return LinuxConnector(**get_rhel_config(9))
     if technology == "Linux":
         from modules.operations.engines.linux_connector import LinuxConnector, get_linux_config
 
@@ -211,8 +229,6 @@ def connector_for_technology(technology: str) -> BaseConnector | None:
         from modules.operations.engines.gitleaks_connector import GitLeaksConnector, get_gitleaks_config
 
         return GitLeaksConnector(**get_gitleaks_config())
-    if technology == "Oracle":
-        return DatabaseConnector(technology=technology)
-    if technology in ("Windows", "NGINX"):
+    if technology == "Windows":
         return SSHConnector(technology=technology)
     return None

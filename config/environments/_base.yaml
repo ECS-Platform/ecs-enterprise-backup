@@ -158,9 +158,34 @@ predefined_query_targets:
     password_env: ECS_MYSQL_PASSWORD
     ssl:      "${ECS_MYSQL_SSL:-false}"
     timeout_sec: "${ECS_MYSQL_TIMEOUT_SECONDS:-30}"
+  # Oracle Database — live execution requires an EXTERNAL Oracle endpoint (or an
+  # optional Oracle XE container on a 16/20 GB machine). No default local container.
+  # Endpoints/credentials come from env vars, never hard-coded here.
+  # service_name default FREEPDB1 matches the gvenzl/oracle-free demo image
+  # (docker compose --profile oracle-demo up -d oracle-demo).
+  oracle:
+    host:         "${ECS_ORACLE_HOST:-localhost}"
+    port:         "${ECS_ORACLE_PORT:-1521}"
+    service_name: "${ECS_ORACLE_SERVICE_NAME:-FREEPDB1}"
+    user:         "${ECS_ORACLE_USER:-ecs_user}"
+    password_env: ECS_ORACLE_PASSWORD
+    timeout_sec:  "${ECS_ORACLE_TIMEOUT_SECONDS:-30}"
   linux:
     container:   "${ECS_LINUX_CONTAINER:-ubuntu-demo}"
-    timeout_sec: "${ECS_LINUX_TIMEOUT_SEC:-30}"
+    timeout_sec: "${ECS_LINUX_TIMEOUT_SECONDS:-30}"
+  # NGINX — shell checks run via docker exec against an NGINX container. Remote
+  # SSH mode (ECS_NGINX_HOST/SSH_USER/SSH_KEY_PATH) is a documented future option.
+  nginx:
+    container:   "${ECS_NGINX_CONTAINER:-nginx-demo}"
+    timeout_sec: "${ECS_NGINX_TIMEOUT_SECONDS:-30}"
+  # RHEL 8.x / 9.x — shell checks via the same docker-exec connector against a
+  # Red Hat UBI container (no entitlement needed). Falls back to ECS_LINUX_CONTAINER.
+  rhel8:
+    container:   "${ECS_RHEL8_CONTAINER:-rhel8-demo}"
+    timeout_sec: "${ECS_RHEL_TIMEOUT_SECONDS:-30}"
+  rhel9:
+    container:   "${ECS_RHEL9_CONTAINER:-rhel9-demo}"
+    timeout_sec: "${ECS_RHEL_TIMEOUT_SECONDS:-30}"
   sonarqube:
     base_url:    "${ECS_SONAR_URL:-http://sonarqube-demo:9000}"
     user:        "${ECS_SONAR_USER:-admin}"

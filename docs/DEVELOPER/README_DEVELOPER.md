@@ -131,13 +131,25 @@ Local ports: PostgreSQL **5432**, YugabyteDB YSQL **5433**, MySQL (Aurora sim) *
 ```bash
 export PYTHONPATH="$PWD"           # Windows Git Bash: same command
 
+# Database-only runner:
 python scripts/run_predefined_db_query.py --list           # list DB controls + status
 python scripts/run_predefined_db_query.py --control PGX-001   # PostgreSQL
 python scripts/run_predefined_db_query.py --control YBX-001   # YugabyteDB
 python scripts/run_predefined_db_query.py --control MYX-001   # Aurora MySQL
+
+# General runner (all technologies: DB + Oracle + NGINX + Linux + RHEL):
+python scripts/run_predefined_query.py --list
+python scripts/run_predefined_query.py --list --technology Oracle
+python scripts/run_predefined_query.py --control ORX-001    # Oracle
+python scripts/run_predefined_query.py --control NGX-001    # NGINX
+python scripts/run_predefined_query.py --control LNX-001    # Linux
+python scripts/run_predefined_query.py --control RH8-001    # RHEL 8.x
+python scripts/run_predefined_query.py --control RH9-001    # RHEL 9.x
 ```
 
-Only allow-listed, read-only queries run. Details:
+Only allow-listed, read-only queries (and curated shell commands) run. Supported
+technologies: PostgreSQL, YugabyteDB, Aurora MySQL, Oracle, NGINX, Linux, Red Hat
+Enterprise Linux 8.x, and Red Hat Enterprise Linux 9.x. Details:
 [PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md).
 
 ---

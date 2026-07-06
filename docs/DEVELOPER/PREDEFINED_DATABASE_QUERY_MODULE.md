@@ -1,7 +1,9 @@
 # Predefined Database Query Module — Developer Guide
 
 **Applies to branch:** `cursor/predefined-queries-module`
-**Scope:** PostgreSQL, YugabyteDB (YSQL), and Aurora MySQL predefined read-only queries.
+**Scope:** Predefined read-only checks for databases (PostgreSQL, YugabyteDB/YSQL,
+Aurora MySQL, Oracle) and infrastructure (NGINX, Linux, Red Hat Enterprise Linux
+8.x, Red Hat Enterprise Linux 9.x).
 
 ---
 
@@ -12,16 +14,23 @@ baselining checks (SSL/TLS posture, privileges, extensions, replication, audit
 config, etc.) against enterprise databases, capture the output as **evidence**,
 and map it to compliance frameworks — without a human running SQL by hand.
 
-This guide covers the three SQL database technologies:
+This guide covers these technologies:
 
-| Technology | Wire protocol | Driver | Default port |
-|------------|---------------|--------|--------------|
+| Technology | Wire / execution | Driver / connector | Default port |
+|------------|------------------|--------------------|--------------|
 | PostgreSQL | PostgreSQL | `psycopg2` | 5432 |
 | YugabyteDB (YSQL) | PostgreSQL-compatible | `psycopg2` (reused) | 5433 |
 | Aurora MySQL | MySQL-compatible | `PyMySQL` | 3306 |
+| Oracle | Oracle Net | `python-oracledb` (thin) | 1521 |
+| NGINX | shell (docker exec) | Linux connector (reused) | n/a (container/SSH) |
+| Linux | shell (docker exec) | Linux connector | n/a (container/SSH) |
+| Red Hat Enterprise Linux 8.x | shell (docker exec) | Linux connector (reused) | n/a |
+| Red Hat Enterprise Linux 9.x | shell (docker exec) | Linux connector (reused) | n/a |
 
-All queries are **read-only** and enforced by a per-technology **allow-list** —
-only vetted queries can execute live.
+Database queries are **read-only** and enforced by a per-technology **exact-SQL
+allow-list**. Infrastructure (NGINX/Linux/RHEL) checks run **curated shell
+commands** from the code-defined catalog (never user input), gated by control id.
+Only vetted queries/commands can execute live.
 
 ---
 
@@ -46,6 +55,28 @@ roles/privileges · database sizes · user table list · extensions · `SHOW ssl
 `SHOW VARIABLES LIKE 'have_ssl';` · `require_secure_transport` · `log_bin` ·
 `server_audit%` · `mysql.user` accounts · `SELECT VERSION();` · `SHOW DATABASES;` ·
 `SHOW PROCESSLIST;` · grants summary · `SHOW VARIABLES LIKE '%ssl%'`.
+
+### Oracle (`ORX-001`..`ORX-010`)
+`v$version` · `v$database` open mode · `v$encryption_wallet` · `audit_trail`
+parameter · profile failed-login/password policy · privileged users · role grants ·
+tablespaces · datafile encryption · active sessions.
+
+### NGINX (`NGX-001`..`NGX-008`)
+`nginx -v` · `nginx -t` · TLS protocols/ciphers · `server_tokens` · access/error
+log config · enabled sites. (Shell commands executed inside the NGINX container.)
+
+### Linux (`LNX-001`..`LNX-008`)
+`/etc/os-release` · `uname -a` · running services · firewall status · SSH
+PermitRootLogin/PasswordAuthentication · sudoers · local users.
+
+### Red Hat Enterprise Linux 8.x (`RH8-001`..`RH8-008`)
+`/etc/redhat-release` · crypto policy · SELinux · firewalld · auditd · SSH
+settings · installed security updates (`dnf/yum updateinfo`). Technology label:
+**Red Hat Enterprise Linux 8.x**.
+
+### Red Hat Enterprise Linux 9.x (`RH9-001`..`RH9-008`)
+`/etc/redhat-release` · crypto policy · SELinux · firewalld · auditd · SSH
+settings · FIPS mode. Technology label: **Red Hat Enterprise Linux 9.x**.
 
 ---
 
@@ -164,8 +195,39 @@ ECS_MYSQL_SSL             (true|false; true requires TLS)
 ECS_MYSQL_TIMEOUT_SECONDS (default 30)
 ```
 
-Use **read-only** DB users. Passwords are read from the environment and are never
-logged.
+### Oracle
+```
+ECS_ORACLE_HOST            (default localhost)
+ECS_ORACLE_PORT            (default 1521)
+ECS_ORACLE_SERVICE_NAME    (default XEPDB1)
+ECS_ORACLE_USER            (default ecs_user)
+ECS_ORACLE_PASSWORD
+ECS_ORACLE_TIMEOUT_SECONDS (default 30)
+```
+Requires an **external Oracle endpoint** (or an optional Oracle XE container on a
+16/20 GB machine). No Oracle container starts by default.
+
+### NGINX
+```
+ECS_NGINX_CONTAINER        (default nginx-demo)   # docker-exec target
+ECS_NGINX_TIMEOUT_SECONDS  (default 30)
+# Future remote SSH mode (not yet executed):
+# ECS_NGINX_HOST / ECS_NGINX_SSH_USER / ECS_NGINX_SSH_KEY_PATH
+```
+
+### Linux / RHEL 8.x / RHEL 9.x
+```
+ECS_LINUX_CONTAINER        (default ubuntu-demo)  # shared by Linux + RHEL checks
+ECS_LINUX_TIMEOUT_SECONDS  (default 30)
+# Future remote SSH mode (not yet executed):
+# ECS_LINUX_HOST / ECS_LINUX_SSH_USER / ECS_LINUX_SSH_KEY_PATH
+```
+Linux, RHEL 8.x, and RHEL 9.x controls all run shell commands via the same
+docker-exec connector; the RHEL split is a catalog/label distinction (point
+`ECS_LINUX_CONTAINER` at the appropriate target).
+
+Use **read-only** DB/OS users. Passwords are read from the environment and are
+never logged.
 
 ---
 
@@ -217,23 +279,30 @@ For UAT / cloud connectivity, the network path from the **source**
 (developer laptop / VPN / ECS backend host) to the **database** must allow
 **outbound** access on the listener port:
 
-| Database | Port (TCP) |
-|----------|------------|
+| Target | Port (TCP) |
+|--------|------------|
 | PostgreSQL | **5432** |
 | Yugabyte YSQL | **5433** |
 | Aurora MySQL | **3306** |
+| Oracle | **1521** |
+| Remote Linux / NGINX via SSH (future mode) | **22** |
+| NGINX HTTP / HTTPS (as applicable) | 80 / 443 |
 
 Checklist:
 
-- Use **read-only** DB users; avoid DBA/admin users.
+- Use **read-only** DB/OS users; avoid DBA/admin users.
 - Ensure **DNS resolution** for cloud endpoints from the source host.
 - Ensure **VPN / bank network routing** is active.
-- Ensure the **database security group / firewall** allows the source subnet.
+- Ensure the **database/host security group / firewall** allows the source subnet.
 - Ensure **SSL/TLS mode** is configured as required by bank policy.
 - **AWS Aurora:** the RDS **security group inbound** must allow the
   client/VPN/ECS subnet on **TCP 3306**.
 - **Cloud PostgreSQL / Yugabyte:** allow the ECS backend/client subnet on the
   DB listener port (**5432 / 5433**).
+- **Oracle:** allow the source subnet to the listener on **TCP 1521** (and the
+  correct service name / PDB).
+- **NGINX / Linux / RHEL:** local checks use `docker exec` (no network port). For
+  remote hosts (future SSH mode), allow **TCP 22** to the target.
 - **UAT IPs/endpoints** go in environment YAML or `.env`, **not** hard-coded in
   source.
 

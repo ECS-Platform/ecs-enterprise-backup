@@ -7,6 +7,39 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## Unreleased
+
+### Added
+
+- Oracle predefined query catalog (ORX-001 to ORX-010) with a python-oracledb
+  connector (thin mode).
+- NGINX predefined query catalog (NGX-001 to NGX-008), executed via the existing
+  container shell connector.
+- Linux predefined query catalog (LNX-001 to LNX-008).
+- Red Hat Enterprise Linux 8.x predefined query catalog (RH8-001 to RH8-008),
+  technology label "Red Hat Enterprise Linux 8.x".
+- Red Hat Enterprise Linux 9.x predefined query catalog (RH9-001 to RH9-008),
+  technology label "Red Hat Enterprise Linux 9.x".
+- Predefined Queries page: Technology filter now includes Oracle, NGINX, Linux,
+  Red Hat Enterprise Linux 8.x, and Red Hat Enterprise Linux 9.x; Run Query works
+  for all of them through the same execution endpoint.
+- General CLI runner `scripts/run_predefined_query.py` (`--list`, `--control`,
+  `--technology`) covering all technologies (the database-only
+  `scripts/run_predefined_db_query.py` continues to work).
+- Config: `ECS_ORACLE_*`, `ECS_NGINX_*`, and `ECS_LINUX_*` variables; optional
+  `nginx-demo` local container under the `db-targets` compose profile.
+- `oracledb` added to `requirements.txt` (Oracle connector; degrades gracefully
+  when absent).
+
+### Notes
+
+- Oracle live execution requires an external Oracle endpoint (or an optional
+  Oracle XE container on a 16/20 GB machine); no Oracle container starts by
+  default. Firewall/network: Oracle TCP 1521; SSH TCP 22 for future remote
+  Linux/NGINX modes.
+
+---
+
 ## ecs-predefined-db-complete-v1
 
 Released: 2026-07-06

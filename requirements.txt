@@ -7,6 +7,10 @@ openpyxl
 psycopg2-binary
 # Aurora MySQL / MySQL 8 predefined-query connector (pure-Python driver)
 PyMySQL
+# Oracle predefined-query connector (python-oracledb thin mode; no Instant Client
+# needed). Only required when running Oracle predefined queries; the connector
+# degrades gracefully to a friendly "driver not installed" message if absent.
+oracledb
 # Environment loading (.env -> os.environ) for demo-mode flags at startup
 python-dotenv
 # ECS platform foundation

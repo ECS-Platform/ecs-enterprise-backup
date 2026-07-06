@@ -17,18 +17,87 @@ LINUX_CONTROL_COMMANDS: dict[str, str] = {
 }
 
 
+def _timeout_from(cfg: dict, *env_vars: str) -> int:
+    for key in ("timeout_sec",):
+        if cfg.get(key):
+            try:
+                return int(cfg[key])
+            except (TypeError, ValueError):
+                pass
+    for ev in env_vars:
+        val = os.environ.get(ev)
+        if val:
+            try:
+                return int(val)
+            except (TypeError, ValueError):
+                pass
+    return DEFAULT_TIMEOUT_SEC
+
+
 def get_linux_config() -> dict[str, Any]:
     """Linux target for predefined query execution.
 
     Resolution: active-environment YAML (predefined_query_targets.linux) ->
-    ECS_LINUX_* env var -> historical default.
+    ECS_LINUX_* env var -> historical default. Shared by generic Linux and the
+    explicit RHEL 8.x / 9.x technologies (all run shell commands via the same
+    docker-exec connector; the RHEL split is a catalog/label distinction).
     """
     from modules.operations.engines.query_connectors import get_predefined_target
 
     cfg = get_predefined_target("linux")
     return {
         "container": cfg.get("container") or os.environ.get("ECS_LINUX_CONTAINER", "ubuntu-demo"),
-        "timeout_sec": int(cfg.get("timeout_sec") or os.environ.get("ECS_LINUX_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
+        "timeout_sec": _timeout_from(cfg, "ECS_LINUX_TIMEOUT_SECONDS", "ECS_LINUX_TIMEOUT_SEC"),
+    }
+
+
+def get_nginx_config() -> dict[str, Any]:
+    """NGINX target for predefined query execution.
+
+    Reuses the LinuxConnector (docker exec) against an NGINX container. Resolution:
+    YAML (predefined_query_targets.nginx) -> ECS_NGINX_CONTAINER -> fallback
+    ECS_LINUX_CONTAINER -> default 'nginx-demo'. Remote SSH mode is a documented
+    future extension (ECS_NGINX_HOST / ECS_NGINX_SSH_USER / ECS_NGINX_SSH_KEY_PATH).
+    """
+    from modules.operations.engines.query_connectors import get_predefined_target
+
+    cfg = get_predefined_target("nginx")
+    container = (
+        cfg.get("container")
+        or os.environ.get("ECS_NGINX_CONTAINER")
+        or os.environ.get("ECS_LINUX_CONTAINER")
+        or "nginx-demo"
+    )
+    return {
+        "container": container,
+        "timeout_sec": _timeout_from(cfg, "ECS_NGINX_TIMEOUT_SECONDS", "ECS_NGINX_TIMEOUT_SEC"),
+    }
+
+
+def get_rhel_config(version: int) -> dict[str, Any]:
+    """RHEL 8.x / 9.x target for predefined shell checks (reuses LinuxConnector).
+
+    Resolution: YAML (predefined_query_targets.rhel8 / rhel9) ->
+    ECS_RHEL8_CONTAINER / ECS_RHEL9_CONTAINER -> fallback ECS_LINUX_CONTAINER ->
+    default 'rhel8-demo' / 'rhel9-demo'. The RHEL split is a target/label
+    distinction; the same docker-exec connector runs the commands.
+    """
+    from modules.operations.engines.query_connectors import get_predefined_target
+
+    key = "rhel8" if int(version) == 8 else "rhel9"
+    env_container = "ECS_RHEL8_CONTAINER" if int(version) == 8 else "ECS_RHEL9_CONTAINER"
+    default_container = f"rhel{int(version)}-demo"
+    cfg = get_predefined_target(key)
+    container = (
+        cfg.get("container")
+        or os.environ.get(env_container)
+        or os.environ.get("ECS_LINUX_CONTAINER")
+        or default_container
+    )
+    return {
+        "container": container,
+        "timeout_sec": _timeout_from(cfg, "ECS_RHEL_TIMEOUT_SECONDS", "ECS_LINUX_TIMEOUT_SECONDS",
+                                     "ECS_LINUX_TIMEOUT_SEC"),
     }
 
 

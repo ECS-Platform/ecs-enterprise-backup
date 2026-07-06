@@ -40,7 +40,8 @@ TECHNOLOGY_RULES: list[tuple[str, list[str]]] = [
     ("GitLeaks", ["gitleaks detect", "gitleaks"]),
     ("Trivy", ["trivy image", "trivy"]),
     ("SonarQube", ["/api/issues/search", "sonarqube"]),
-    ("NGINX", ["nginx -t", "nginx -T"]),
+    ("NGINX", ["nginx -t", "nginx -T", "nginx -v", "/etc/nginx", "sites-enabled", "ssl_protocols",
+               "ssl_ciphers", "server_tokens"]),
     # YugabyteDB (YSQL) — must precede PostgreSQL because YSQL is PG-wire
     # compatible; only the yb_servers() signature is Yugabyte-specific in text.
     ("YugabyteDB", ["yb_servers(", "yb_servers", "yugabyte"]),
@@ -93,12 +94,29 @@ ALLOWED_MYSQL_QUERIES: frozenset[str] = frozenset({
     "show variables like '%ssl%';",
 })
 
+ALLOWED_ORACLE_QUERIES: frozenset[str] = frozenset({
+    "select * from v$version;",
+    "select name, open_mode, database_role from v$database;",
+    "select wallet_type, status, wallet_order from v$encryption_wallet;",
+    "select name, value from v$parameter where name = 'audit_trail';",
+    "select profile, resource_name, limit from dba_profiles where resource_name in "
+    "('failed_login_attempts','password_lock_time','password_life_time');",
+    "select username, account_status, common, oracle_maintained from dba_users where "
+    "username in ('sys','system') or account_status <> 'open';",
+    "select grantee, granted_role, admin_option, default_role from dba_role_privs;",
+    "select tablespace_name, status, contents from dba_tablespaces;",
+    "select tablespace_name, encrypted from dba_tablespaces;",
+    "select username, status, machine, program from v$session where username is not null;",
+})
+
 try:
     from modules.operations.engines.supplementary_query_catalog import (
+        SHELL_CONTROL_IDS as _SHELL_CONTROL_IDS,
         SUPPLEMENTARY_QUERY_BY_ID as _SUPPLEMENTARY_QUERY_BY_ID,
     )
 except Exception:  # noqa: BLE001 - supplementary catalog is optional/additive
     _SUPPLEMENTARY_QUERY_BY_ID = {}
+    _SHELL_CONTROL_IDS = frozenset()
 
 # Curated set of controls wired for live execution. Extended with every
 # supplementary DB query (PGX-*, YBX-*, MYX-*) so the new connectors are runnable.
@@ -195,13 +213,21 @@ def detect_technology(query: str) -> str:
     return "Unknown"
 
 
+# Explicit RHEL technology labels (shell checks via the Linux connector).
+RHEL8_TECH = "Red Hat Enterprise Linux 8.x"
+RHEL9_TECH = "Red Hat Enterprise Linux 9.x"
+# Technologies executed as shell commands through the docker-exec Linux connector.
+_SHELL_TECHNOLOGIES: frozenset[str] = frozenset({"Linux", "NGINX", RHEL8_TECH, RHEL9_TECH})
+
 # Technologies that have a real, executable connector implementation.
 _IMPLEMENTED_CONNECTOR_TECH: frozenset[str] = frozenset(
-    {"PostgreSQL", "YugabyteDB", "Aurora MySQL", "Linux", "SonarQube", "Trivy", "GitLeaks"}
+    {"PostgreSQL", "YugabyteDB", "Aurora MySQL", "Oracle",
+     "Linux", "NGINX", RHEL8_TECH, RHEL9_TECH,
+     "SonarQube", "Trivy", "GitLeaks"}
 )
 # Technologies whose connector classes exist but are not yet runnable
-# (DatabaseConnector / SSHConnector / APIConnector raise NotImplementedError).
-_GENERIC_CONNECTOR_TECH: frozenset[str] = frozenset({"Oracle", "Windows", "NGINX"})
+# (SSHConnector raises NotImplementedError). Oracle/NGINX are now implemented.
+_GENERIC_CONNECTOR_TECH: frozenset[str] = frozenset({"Windows"})
 
 
 def _dependency_available(technology: str) -> bool:
@@ -218,6 +244,10 @@ def _dependency_available(technology: str) -> bool:
         return importlib.util.find_spec("psycopg2") is not None
     if technology == "Aurora MySQL":
         return importlib.util.find_spec("pymysql") is not None
+    if technology == "Oracle":
+        return importlib.util.find_spec("oracledb") is not None
+    # Shell technologies (Linux/NGINX/RHEL) run via the docker CLI at execution
+    # time; there is no importable Python dependency to gate on here.
     return True
 
 
@@ -253,6 +283,7 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
             "PostgreSQL": "psycopg2",
             "YugabyteDB": "psycopg2",
             "Aurora MySQL": "PyMySQL",
+            "Oracle": "python-oracledb",
         }
         dep = _driver_map.get(technology, "the required driver")
         return {"executable": False, "status": "Dependency Missing",
@@ -1108,6 +1139,98 @@ def run_mysql_query(control_id: str, user: str) -> dict[str, Any]:
     return _run_connector_query(control, user, "Aurora MySQL", query, connector)
 
 
+def run_oracle_query(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a predefined Oracle query from the catalog (python-oracledb)."""
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+
+    query = (control.get("query") or "").strip()
+    if not query:
+        return {"ok": False, "error": "Missing query for this control", "error_type": "missing_query"}
+
+    if control.get("technology") != "Oracle":
+        return {"ok": False, "error": "This control is not an Oracle control",
+                "error_type": "unsupported_technology"}
+
+    if _normalize_query_allowlist(query) not in ALLOWED_ORACLE_QUERIES:
+        return {"ok": False, "error": "This Oracle query is not enabled for live execution",
+                "error_type": "unsupported_query"}
+
+    try:
+        from modules.operations.engines.oracle_connector import OracleConnector, get_oracle_config
+    except ImportError as exc:
+        missing = getattr(exc, "name", "") or "oracledb"
+        return {
+            "ok": False,
+            "error": "Oracle connector unavailable",
+            "error_type": "connector_unavailable",
+            "reason": f"Required driver '{missing}' is not installed in this environment.",
+            "action": "Install python-oracledb, then retry.",
+        }
+
+    connector = OracleConnector(**get_oracle_config())
+    return _run_connector_query(control, user, "Oracle", query, connector)
+
+
+def run_shell_control(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a predefined shell-command control (Linux / NGINX / RHEL 8.x / 9.x).
+
+    Reuses the docker-exec Linux connector. The command comes exclusively from the
+    curated code-defined catalog (never user input) and the control must be in the
+    shell allow-list. NGINX targets its own container; Linux/RHEL share the Linux
+    container.
+    """
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+
+    technology = control.get("technology") or ""
+    if technology not in _SHELL_TECHNOLOGIES:
+        return {"ok": False, "error": f"This control is not a shell control ({technology})",
+                "error_type": "unsupported_technology"}
+
+    command = (control.get("query") or "").strip()
+    if not command:
+        return {"ok": False, "error": "Missing command for this control", "error_type": "missing_query"}
+
+    # Only curated catalog commands (by control id) may run.
+    if control_id not in _SHELL_CONTROL_IDS and control_id not in LINUX_CONTROL_COMMANDS_ALL:
+        return {"ok": False, "error": "This control is not enabled for live execution",
+                "error_type": "unsupported_query"}
+
+    from modules.operations.engines.linux_connector import (
+        LinuxConnector,
+        get_linux_config,
+        get_nginx_config,
+        get_rhel_config,
+    )
+
+    if technology == "NGINX":
+        connector = LinuxConnector(**get_nginx_config())
+    elif technology == RHEL8_TECH:
+        connector = LinuxConnector(**get_rhel_config(8))
+    elif technology == RHEL9_TECH:
+        connector = LinuxConnector(**get_rhel_config(9))
+    else:  # Linux
+        connector = LinuxConnector(**get_linux_config())
+    return _run_connector_query(control, user, technology, command, connector)
+
+
+# Set of control_ids whose Linux command is defined either in the legacy
+# LINUX_CONTROL_COMMANDS map or the supplementary shell catalog.
+def _linux_control_commands_all() -> frozenset[str]:
+    try:
+        from modules.operations.engines.linux_connector import LINUX_CONTROL_COMMANDS
+
+        return frozenset(LINUX_CONTROL_COMMANDS.keys())
+    except Exception:  # noqa: BLE001
+        return frozenset()
+
+
+LINUX_CONTROL_COMMANDS_ALL: frozenset[str] = _linux_control_commands_all()
+
+
 def _run_connector_query(control: dict[str, Any], user: str, technology: str, query: str, connector) -> dict[str, Any]:
     from modules.operations.engines.connector_common import complete_connector_execution
     from modules.operations.engines.query_connectors import ConnectorResult
@@ -1151,7 +1274,15 @@ def run_predefined_query(control_id: str, user: str) -> dict[str, Any]:
     if technology == "Aurora MySQL":
         return run_mysql_query(control_id, user)
 
+    if technology == "Oracle":
+        return run_oracle_query(control_id, user)
+
     query = (control.get("query") or "").strip()
+
+    # NGINX and the explicit RHEL 8.x / 9.x labels run curated shell commands via
+    # the same docker-exec connector as Linux (reuse, not duplication).
+    if technology in _SHELL_TECHNOLOGIES and technology != "Linux":
+        return run_shell_control(control_id, user)
 
     if technology == "Linux":
         from modules.operations.engines.linux_connector import (
