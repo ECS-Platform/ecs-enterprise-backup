@@ -6,10 +6,12 @@ predefined database query module.
 
 > Deep-dive for the database query module: [PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md).
 >
-> Audit-intelligence layer (Milestone 1):
-> [TECHNOLOGY_MAPPING_GUIDE.md](TECHNOLOGY_MAPPING_GUIDE.md) (Technology → Control →
-> Framework) and [ASSET_DISCOVERY_GUIDE.md](ASSET_DISCOVERY_GUIDE.md) (asset
-> discovery & fingerprinting).
+> Audit-intelligence layer:
+> M1 — [TECHNOLOGY_MAPPING_GUIDE.md](TECHNOLOGY_MAPPING_GUIDE.md) (Technology →
+> Control → Framework) and [ASSET_DISCOVERY_GUIDE.md](ASSET_DISCOVERY_GUIDE.md)
+> (asset discovery & fingerprinting).
+> M2 — [EVIDENCE_COLLECTION_GUIDE.md](EVIDENCE_COLLECTION_GUIDE.md) (orchestrator)
+> and [EVIDENCE_VALIDATION_GUIDE.md](EVIDENCE_VALIDATION_GUIDE.md) (validation).
 
 ---
 

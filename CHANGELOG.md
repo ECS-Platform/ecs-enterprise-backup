@@ -11,6 +11,25 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Audit Intelligence layer — Milestone 2** (Evidence Collection Orchestrator +
+  Evidence Validation Engine; additive, reuses the predefined-query engine as the
+  execution layer):
+  - **Evidence Collection Orchestrator** (`engines/evidence_orchestrator.py`) —
+    resolves a scope (asset / application / environment / framework / technology /
+    entire bank) to applicable controls, executes each via the existing engine
+    (pluggable executor for offline tests), and tracks per-control + overall
+    status (`Queued`/`Running`/`Completed`/`Failed`/`Partially Completed`/
+    `Connector Missing`/`Configuration Required`/`Cancelled`). Retry, cancel, an
+    audit trail, and scheduler hooks (`enqueue_scheduled_run`/`due_runs`).
+  - **Evidence Validation Engine** (`engines/evidence_validation.py`) —
+    deterministic (no LLM) verdicts `PASS`/`FAIL`/`WARNING`/`NOT APPLICABLE`,
+    control status, evidence-quality score, and aggregate compliance %.
+  - `services/evidence_service.py` facade; new models `EvidenceRun`,
+    `EvidenceRecord`, `ValidationResult` + statuses.
+  - Tests: `test_evidence_orchestrator.py`, `test_evidence_validation.py`,
+    `test_evidence_service.py`. Guides:
+    `docs/DEVELOPER/EVIDENCE_COLLECTION_GUIDE.md`,
+    `docs/DEVELOPER/EVIDENCE_VALIDATION_GUIDE.md`.
 - **Audit Intelligence layer — Milestone 1** (new package `modules/audit_intelligence/`,
   additive; the predefined-query platform is untouched and used read-only):
   - **Technology → Control → Framework mapping engine**
