@@ -323,10 +323,272 @@ RHEL9_QUERIES: list[dict[str, Any]] = [
 ]
 
 
+# ===========================================================================
+# EXTENDED technology expansion (Redis, Apache HTTPD, Tomcat, SQL Server,
+# MongoDB, Kubernetes, OpenShift). Data only; execution logic stays in the
+# connectors/engine. Each entry carries a `category` and `expected_evidence`.
+# ===========================================================================
+_FW_CACHE = "Middleware Baselining, ISO27001, RBI Cyber Security"
+_FW_CONTAINER = "Container Platform Baselining, ISO27001, RBI Cyber Security"
+
+
+def _ext_entry(cid: str, name: str, command: str, tech: str, desc: str, *,
+               framework: str, evidence: str, category: str) -> dict[str, Any]:
+    return {
+        "control_id": cid,
+        "control_name": name,
+        "framework_coverage": framework,
+        "query": command,
+        "description": desc,
+        "evidence_type": evidence,
+        "technology": tech,
+        "category": category,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Redis (executed via redis-cli inside the redis container — shell connector)
+# ---------------------------------------------------------------------------
+_REDIS = "Redis"
+
+
+def _redis_entry(cid: str, name: str, redis_cmd: str, desc: str, category: str) -> dict[str, Any]:
+    # Runs redis-cli inside the container; -a is added at execution time if a
+    # password is configured. Command text stays credential-free.
+    return _ext_entry(cid, name, f"redis-cli {redis_cmd}", _REDIS, desc,
+                      framework=_FW_CACHE, evidence="Redis configuration command output",
+                      category=category)
+
+
+REDIS_QUERIES: list[dict[str, Any]] = [
+    _redis_entry("RDX-001", "Redis Server Info", "INFO server", "Reports Redis version/build/server info.", "Inventory"),
+    _redis_entry("RDX-002", "Redis Persistence Config", "CONFIG GET save", "Shows RDB save points (persistence).", "Resilience"),
+    _redis_entry("RDX-003", "Redis AOF Enabled", "CONFIG GET appendonly", "Shows whether AOF persistence is enabled.", "Resilience"),
+    _redis_entry("RDX-004", "Redis Requirepass Set", "CONFIG GET requirepass", "Indicates whether an auth password is configured.", "Access Control"),
+    _redis_entry("RDX-005", "Redis Protected Mode", "CONFIG GET protected-mode", "Shows protected-mode setting.", "Access Control"),
+    _redis_entry("RDX-006", "Redis Bind Address", "CONFIG GET bind", "Shows the network interfaces Redis binds to.", "Network Security"),
+    _redis_entry("RDX-007", "Redis TLS Port", "CONFIG GET tls-port", "Shows whether a TLS port is configured.", "Encryption"),
+    _redis_entry("RDX-008", "Redis Maxmemory Policy", "CONFIG GET maxmemory-policy", "Shows the eviction policy.", "Resilience"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Apache HTTPD (shell via LinuxConnector against the apache container)
+# ---------------------------------------------------------------------------
+_APACHE = "Apache HTTPD"
+
+
+def _apache_entry(cid: str, name: str, cmd: str, desc: str, category: str) -> dict[str, Any]:
+    return _ext_entry(cid, name, cmd, _APACHE, desc, framework=_FW_CACHE,
+                      evidence="Apache HTTPD command output", category=category)
+
+
+APACHE_QUERIES: list[dict[str, Any]] = [
+    _apache_entry("APX-001", "Apache Version",
+                  "apachectl -v 2>&1 || httpd -v 2>&1 || apache2 -v 2>&1 || echo 'apache not available'",
+                  "Reports the Apache HTTPD version.", "Inventory"),
+    _apache_entry("APX-002", "Apache Config Test",
+                  "apachectl -t 2>&1 || httpd -t 2>&1 || echo 'apache not available'",
+                  "Validates the Apache configuration syntax.", "Configuration"),
+    _apache_entry("APX-003", "Apache Loaded Modules",
+                  "apachectl -M 2>/dev/null || httpd -M 2>/dev/null || echo 'apache not available'",
+                  "Lists loaded Apache modules.", "Configuration"),
+    _apache_entry("APX-004", "Apache ServerTokens",
+                  "grep -REi \"^\\s*ServerTokens\" /etc/httpd /etc/apache2 /usr/local/apache2/conf 2>/dev/null || true",
+                  "Shows the ServerTokens directive.", "Hardening"),
+    _apache_entry("APX-005", "Apache ServerSignature",
+                  "grep -REi \"^\\s*ServerSignature\" /etc/httpd /etc/apache2 /usr/local/apache2/conf 2>/dev/null || true",
+                  "Shows the ServerSignature directive.", "Hardening"),
+    _apache_entry("APX-006", "Apache SSL Protocols",
+                  "grep -RanEi \"SSLProtocol\" /etc/httpd /etc/apache2 /usr/local/apache2/conf 2>/dev/null || true",
+                  "Shows configured SSL/TLS protocols.", "Encryption"),
+    _apache_entry("APX-007", "Apache Access Log Config",
+                  "grep -RanEi \"CustomLog|TransferLog\" /etc/httpd /etc/apache2 /usr/local/apache2/conf 2>/dev/null || true",
+                  "Shows access log configuration.", "Logging"),
+    _apache_entry("APX-008", "Apache Error Log Config",
+                  "grep -RanEi \"ErrorLog\" /etc/httpd /etc/apache2 /usr/local/apache2/conf 2>/dev/null || true",
+                  "Shows error log configuration.", "Logging"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Tomcat (shell via LinuxConnector — filesystem/process/config checks)
+# ---------------------------------------------------------------------------
+_TOMCAT = "Tomcat"
+
+
+def _tomcat_entry(cid: str, name: str, cmd: str, desc: str, category: str) -> dict[str, Any]:
+    return _ext_entry(cid, name, cmd, _TOMCAT, desc, framework=_FW_CACHE,
+                      evidence="Tomcat command/config output", category=category)
+
+
+TOMCAT_QUERIES: list[dict[str, Any]] = [
+    _tomcat_entry("TCX-001", "Tomcat Version",
+                  "sh \"$CATALINA_HOME/bin/version.sh\" 2>/dev/null || "
+                  "find / -name version.sh -path '*tomcat*' 2>/dev/null | head -1 | xargs -r sh || "
+                  "echo 'tomcat not available'",
+                  "Reports the Tomcat version.", "Inventory"),
+    _tomcat_entry("TCX-002", "Tomcat Process Running",
+                  "ps -ef 2>/dev/null | grep -i '[c]atalina' || echo 'tomcat process not found'",
+                  "Checks whether a Tomcat/Catalina process is running.", "Availability"),
+    _tomcat_entry("TCX-003", "Tomcat server.xml Present",
+                  "find / -name server.xml -path '*conf*' 2>/dev/null | head -5 || echo 'server.xml not found'",
+                  "Locates Tomcat server.xml configuration.", "Configuration"),
+    _tomcat_entry("TCX-004", "Tomcat HTTP Connectors",
+                  "find / -name server.xml -path '*conf*' 2>/dev/null | head -1 | "
+                  "xargs -r grep -Ei \"<Connector\" 2>/dev/null || echo 'not available'",
+                  "Shows configured Connectors (ports/SSL).", "Network Security"),
+    _tomcat_entry("TCX-005", "Tomcat Manager App Present",
+                  "find / -type d -name manager -path '*webapps*' 2>/dev/null || echo 'manager app not found'",
+                  "Checks whether the manager webapp is deployed (should be restricted).", "Hardening"),
+    _tomcat_entry("TCX-006", "Tomcat Users Config",
+                  "find / -name tomcat-users.xml 2>/dev/null | head -3 || echo 'tomcat-users.xml not found'",
+                  "Locates tomcat-users.xml (role/user config).", "Access Control"),
+    _tomcat_entry("TCX-007", "Tomcat Shutdown Port",
+                  "find / -name server.xml -path '*conf*' 2>/dev/null | head -1 | "
+                  "xargs -r grep -Ei \"<Server \" 2>/dev/null || echo 'not available'",
+                  "Shows the Server shutdown port configuration.", "Hardening"),
+    _tomcat_entry("TCX-008", "Tomcat Access Valve Logging",
+                  "find / -name server.xml -path '*conf*' 2>/dev/null | head -1 | "
+                  "xargs -r grep -Ei \"AccessLogValve\" 2>/dev/null || echo 'not available'",
+                  "Checks for AccessLogValve (request logging).", "Logging"),
+]
+
+
+# ---------------------------------------------------------------------------
+# SQL Server (SQL via pyodbc — SQLServerConnector)
+# ---------------------------------------------------------------------------
+_MSSQL = "SQL Server"
+
+
+def _mssql_entry(cid: str, name: str, sql: str, desc: str, category: str) -> dict[str, Any]:
+    return _ext_entry(cid, name, sql, _MSSQL, desc, framework=_FW_DB,
+                      evidence="SQL Server query output", category=category)
+
+
+SQLSERVER_QUERIES: list[dict[str, Any]] = [
+    _mssql_entry("MSX-001", "SQL Server Version", "SELECT @@VERSION;", "Reports the SQL Server version.", "Inventory"),
+    _mssql_entry("MSX-002", "SQL Server Edition/Level",
+                 "SELECT SERVERPROPERTY('Edition') AS edition, SERVERPROPERTY('ProductLevel') AS level;",
+                 "Reports edition and product level.", "Inventory"),
+    _mssql_entry("MSX-003", "SQL Server Authentication Mode",
+                 "SELECT SERVERPROPERTY('IsIntegratedSecurityOnly') AS windows_auth_only;",
+                 "Shows whether Windows-only auth is enforced.", "Access Control"),
+    _mssql_entry("MSX-004", "SQL Server Logins",
+                 "SELECT name, type_desc, is_disabled FROM sys.server_principals "
+                 "WHERE type IN ('S','U','G');",
+                 "Enumerates server logins and status.", "Access Control"),
+    _mssql_entry("MSX-005", "SQL Server sysadmin Members",
+                 "SELECT p.name FROM sys.server_role_members m "
+                 "JOIN sys.server_principals r ON m.role_principal_id = r.principal_id "
+                 "JOIN sys.server_principals p ON m.member_principal_id = p.principal_id "
+                 "WHERE r.name = 'sysadmin';",
+                 "Lists members of the sysadmin fixed role.", "Access Control"),
+    _mssql_entry("MSX-006", "SQL Server Databases",
+                 "SELECT name, state_desc, recovery_model_desc FROM sys.databases;",
+                 "Lists databases with state and recovery model.", "Inventory"),
+    _mssql_entry("MSX-007", "SQL Server TDE Status",
+                 "SELECT DB_NAME(database_id) AS db, encryption_state FROM sys.dm_database_encryption_keys;",
+                 "Reports Transparent Data Encryption state.", "Encryption"),
+    _mssql_entry("MSX-008", "SQL Server Force Encryption",
+                 "SELECT value_in_use FROM sys.configurations WHERE name = 'remote admin connections';",
+                 "Sample security configuration value.", "Configuration"),
+    _mssql_entry("MSX-009", "SQL Server Audit Specifications",
+                 "SELECT name, is_state_enabled FROM sys.server_audit_specifications;",
+                 "Lists server audit specifications.", "Auditing"),
+    _mssql_entry("MSX-010", "SQL Server Failed Login Auditing",
+                 "SELECT value_in_use FROM sys.configurations WHERE name = 'default trace enabled';",
+                 "Shows whether the default trace (auditing) is enabled.", "Auditing"),
+]
+
+
+# ---------------------------------------------------------------------------
+# MongoDB (commands via pymongo — MongoDBConnector)
+# ---------------------------------------------------------------------------
+_MONGO = "MongoDB"
+
+
+def _mongo_entry(cid: str, name: str, command: str, desc: str, category: str) -> dict[str, Any]:
+    # `command` is a Mongo admin command name / JSON the connector runs via
+    # db.command(); kept as text for the catalog + allow-list.
+    return _ext_entry(cid, name, command, _MONGO, desc, framework=_FW_DB,
+                      evidence="MongoDB command output", category=category)
+
+
+MONGODB_QUERIES: list[dict[str, Any]] = [
+    _mongo_entry("MGX-001", "MongoDB Build Info", "buildInfo", "Reports MongoDB version/build info.", "Inventory"),
+    _mongo_entry("MGX-002", "MongoDB Server Status", "serverStatus", "Reports server status metrics.", "Availability"),
+    _mongo_entry("MGX-003", "MongoDB Auth Enabled", "getCmdLineOpts", "Shows command-line options incl. security.authorization.", "Access Control"),
+    _mongo_entry("MGX-004", "MongoDB TLS Config", "getParameter:sslMode", "Reports the TLS/SSL mode parameter.", "Encryption"),
+    _mongo_entry("MGX-005", "MongoDB Users", "usersInfo", "Lists database users (admin db).", "Access Control"),
+    _mongo_entry("MGX-006", "MongoDB Roles", "rolesInfo", "Lists custom roles (admin db).", "Access Control"),
+    _mongo_entry("MGX-007", "MongoDB Databases", "listDatabases", "Lists databases.", "Inventory"),
+    _mongo_entry("MGX-008", "MongoDB Audit Config", "getParameter:auditAuthorizationSuccess",
+                 "Reports the audit authorization-success parameter.", "Auditing"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Kubernetes (kubectl via KubernetesConnector)
+# ---------------------------------------------------------------------------
+_K8S = "Kubernetes"
+
+
+def _k8s_entry(cid: str, name: str, kubectl_args: str, desc: str, category: str) -> dict[str, Any]:
+    return _ext_entry(cid, name, f"kubectl {kubectl_args}", _K8S, desc,
+                      framework=_FW_CONTAINER, evidence="Kubernetes kubectl output", category=category)
+
+
+KUBERNETES_QUERIES: list[dict[str, Any]] = [
+    _k8s_entry("K8X-001", "Kubernetes Version", "version -o json", "Reports client/server versions.", "Inventory"),
+    _k8s_entry("K8X-002", "Kubernetes Nodes", "get nodes -o wide", "Lists cluster nodes.", "Inventory"),
+    _k8s_entry("K8X-003", "Kubernetes Namespaces", "get namespaces", "Lists namespaces.", "Inventory"),
+    _k8s_entry("K8X-004", "Kubernetes Cluster Roles", "get clusterroles", "Lists cluster roles (RBAC).", "Access Control"),
+    _k8s_entry("K8X-005", "Kubernetes Cluster Role Bindings", "get clusterrolebindings", "Lists cluster role bindings.", "Access Control"),
+    _k8s_entry("K8X-006", "Kubernetes Pod Security", "get pods --all-namespaces -o wide", "Lists pods across namespaces.", "Workload"),
+    _k8s_entry("K8X-007", "Kubernetes Network Policies", "get networkpolicies --all-namespaces", "Lists network policies.", "Network Security"),
+    _k8s_entry("K8X-008", "Kubernetes Secrets Inventory", "get secrets --all-namespaces", "Lists secret objects (names only).", "Access Control"),
+    _k8s_entry("K8X-009", "Kubernetes Service Accounts", "get serviceaccounts --all-namespaces", "Lists service accounts.", "Access Control"),
+    _k8s_entry("K8X-010", "Kubernetes PSP/PSA Labels", "get ns -o jsonpath={.items[*].metadata.labels}", "Shows namespace pod-security labels.", "Hardening"),
+]
+
+
+# ---------------------------------------------------------------------------
+# OpenShift (oc via OpenShiftConnector)
+# ---------------------------------------------------------------------------
+_OCP = "OpenShift"
+
+
+def _ocp_entry(cid: str, name: str, oc_args: str, desc: str, category: str) -> dict[str, Any]:
+    return _ext_entry(cid, name, f"oc {oc_args}", _OCP, desc,
+                      framework=_FW_CONTAINER, evidence="OpenShift oc output", category=category)
+
+
+OPENSHIFT_QUERIES: list[dict[str, Any]] = [
+    _ocp_entry("OCX-001", "OpenShift Version", "version -o json", "Reports oc/cluster versions.", "Inventory"),
+    _ocp_entry("OCX-002", "OpenShift Cluster Operators", "get clusteroperators", "Lists cluster operators and status.", "Availability"),
+    _ocp_entry("OCX-003", "OpenShift Nodes", "get nodes -o wide", "Lists cluster nodes.", "Inventory"),
+    _ocp_entry("OCX-004", "OpenShift Projects", "get projects", "Lists projects (namespaces).", "Inventory"),
+    _ocp_entry("OCX-005", "OpenShift Cluster Roles", "get clusterroles", "Lists cluster roles (RBAC).", "Access Control"),
+    _ocp_entry("OCX-006", "OpenShift Role Bindings", "get clusterrolebindings", "Lists cluster role bindings.", "Access Control"),
+    _ocp_entry("OCX-007", "OpenShift SCC", "get scc", "Lists Security Context Constraints.", "Hardening"),
+    _ocp_entry("OCX-008", "OpenShift OAuth Config", "get oauth cluster -o json", "Reports the cluster OAuth configuration.", "Access Control"),
+    _ocp_entry("OCX-009", "OpenShift Routes", "get routes --all-namespaces", "Lists exposed routes (TLS posture).", "Network Security"),
+    _ocp_entry("OCX-010", "OpenShift Image Policies", "get image.config.openshift.io/cluster -o json", "Reports cluster image policy config.", "Supply Chain"),
+]
+
+
 #: Database technologies use exact-SQL allow-lists; these run through DB connectors.
-_DB_CATALOG = POSTGRESQL_QUERIES + YUGABYTE_QUERIES + AURORA_MYSQL_QUERIES + ORACLE_QUERIES
-#: Shell technologies run curated commands via the docker-exec Linux connector.
-_SHELL_CATALOG = NGINX_QUERIES + LINUX_QUERIES + RHEL8_QUERIES + RHEL9_QUERIES
+_DB_CATALOG = (
+    POSTGRESQL_QUERIES + YUGABYTE_QUERIES + AURORA_MYSQL_QUERIES + ORACLE_QUERIES
+    + SQLSERVER_QUERIES + MONGODB_QUERIES
+)
+#: Shell/command technologies run curated commands via a command connector.
+_SHELL_CATALOG = (
+    NGINX_QUERIES + LINUX_QUERIES + RHEL8_QUERIES + RHEL9_QUERIES
+    + REDIS_QUERIES + APACHE_QUERIES + TOMCAT_QUERIES
+    + KUBERNETES_QUERIES + OPENSHIFT_QUERIES
+)
 _ALL_CATALOG = _DB_CATALOG + _SHELL_CATALOG
 
 

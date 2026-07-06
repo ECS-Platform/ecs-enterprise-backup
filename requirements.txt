@@ -11,6 +11,14 @@ PyMySQL
 # needed). Only required when running Oracle predefined queries; the connector
 # degrades gracefully to a friendly "driver not installed" message if absent.
 oracledb
+# MongoDB predefined-query connector. Optional at runtime; the connector degrades
+# gracefully to "driver not installed" when absent.
+pymongo
+# SQL Server predefined-query connector needs pyodbc + a system ODBC driver.
+# NOT listed here by default because pyodbc requires system ODBC headers to build
+# and SQL Server is an optional/heavy target. Install it explicitly when needed:
+#   pip install pyodbc   (plus the Microsoft ODBC Driver for SQL Server)
+# The connector degrades gracefully to a friendly message when pyodbc is absent.
 # Environment loading (.env -> os.environ) for demo-mode flags at startup
 python-dotenv
 # ECS platform foundation

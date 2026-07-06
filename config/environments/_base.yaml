@@ -186,6 +186,40 @@ predefined_query_targets:
   rhel9:
     container:   "${ECS_RHEL9_CONTAINER:-rhel9-demo}"
     timeout_sec: "${ECS_RHEL_TIMEOUT_SECONDS:-30}"
+  # --- Extended technology expansion (Redis / Apache / Tomcat / SQL Server /
+  #     MongoDB / Kubernetes / OpenShift). Endpoints/credentials from env only. ---
+  redis:
+    container:   "${ECS_REDIS_CONTAINER:-redis}"
+    host:        "${ECS_REDIS_HOST:-localhost}"
+    port:        "${ECS_REDIS_PORT:-6379}"
+    password_env: ECS_REDIS_PASSWORD
+    timeout_sec: "${ECS_REDIS_TIMEOUT_SECONDS:-30}"
+  apache:
+    container:   "${ECS_APACHE_CONTAINER:-apache-demo}"
+    timeout_sec: "${ECS_APACHE_TIMEOUT_SECONDS:-30}"
+  tomcat:
+    container:   "${ECS_TOMCAT_CONTAINER:-tomcat-demo}"
+    timeout_sec: "${ECS_TOMCAT_TIMEOUT_SECONDS:-30}"
+  sqlserver:
+    host:        "${ECS_SQLSERVER_HOST:-localhost}"
+    port:        "${ECS_SQLSERVER_PORT:-1433}"
+    database:    "${ECS_SQLSERVER_DATABASE:-master}"
+    user:        "${ECS_SQLSERVER_USERNAME:-sa}"
+    password_env: ECS_SQLSERVER_PASSWORD
+    timeout_sec: "${ECS_SQLSERVER_TIMEOUT_SECONDS:-30}"
+  mongodb:
+    uri_env:     ECS_MONGODB_URI
+    database:    "${ECS_MONGODB_DATABASE:-admin}"
+    container:   "${ECS_MONGODB_CONTAINER:-mongodb-demo}"
+    timeout_sec: "${ECS_MONGODB_TIMEOUT_SECONDS:-30}"
+  kubernetes:
+    binary:      "${ECS_KUBECTL_PATH:-kubectl}"
+    kubeconfig:  "${ECS_KUBECONFIG:-}"
+    timeout_sec: "${ECS_K8S_TIMEOUT_SECONDS:-30}"
+  openshift:
+    binary:      "${ECS_OC_PATH:-oc}"
+    kubeconfig:  "${ECS_OPENSHIFT_KUBECONFIG:-}"
+    timeout_sec: "${ECS_OPENSHIFT_TIMEOUT_SECONDS:-30}"
   sonarqube:
     base_url:    "${ECS_SONAR_URL:-http://sonarqube-demo:9000}"
     user:        "${ECS_SONAR_USER:-admin}"

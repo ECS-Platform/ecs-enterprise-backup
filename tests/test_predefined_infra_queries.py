@@ -62,8 +62,11 @@ def test_infra_ids_present_in_engine(ids):
 
 def test_total_controls_include_infra():
     rep = engine.load_predefined_queries(force=True)
-    # 37 Excel + 68 supplementary (26 DB + 42 infra)
-    assert rep["controls_loaded"] == 105
+    # 37 Excel + at least the 68 base supplementary (26 DB + 42 infra). Later
+    # expansions only add more, so assert the floor rather than an exact total.
+    assert rep["controls_loaded"] >= 105
+    for cid in ("ORX-001", "NGX-001", "LNX-001", "RH8-001", "RH9-001"):
+        assert engine.get_control_by_id(cid) is not None
 
 
 # --------------------------------------------------------------------------- #

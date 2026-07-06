@@ -52,6 +52,13 @@ TECHNOLOGY_RULES: list[tuple[str, list[str]]] = [
     ("PostgreSQL", ["pg_stat_replication", "show ssl", "show password_encryption", "from pg_", " pg_",
                     "pg_database", "pg_roles", "pg_extension", "pg_tables"]),
     ("Oracle", ["dba_role_privs", "v$encryption_wallet", " v$", " dba_", "from dba_"]),
+    ("SQL Server", ["@@version", "sys.server_principals", "sys.databases", "serverproperty(",
+                    "sys.dm_database_encryption_keys", "sys.server_audit"]),
+    ("Redis", ["redis-cli"]),
+    ("Apache HTTPD", ["apachectl", "httpd -", "apache2 -", "/etc/httpd", "/etc/apache2"]),
+    ("Tomcat", ["catalina", "tomcat-users.xml", "server.xml", "$catalina_home"]),
+    ("OpenShift", ["oc get", "oc version", "clusteroperators", "get scc"]),
+    ("Kubernetes", ["kubectl", "clusterrolebindings", "networkpolicies"]),
     ("Windows", ["get-hotfix", "get-mpcomputerstatus", "get-aduser", "powershell"]),
     ("Linux", ["df -h", "free -m", "timedatectl", "cat /etc/ssh/sshd_config", "/etc/ssh", "/etc/passwd",
                "/etc/group", "systemctl", "yum ", "apt-get", "dpkg", "rpm -", "hostname", "uptime"]),
@@ -109,14 +116,33 @@ ALLOWED_ORACLE_QUERIES: frozenset[str] = frozenset({
     "select username, status, machine, program from v$session where username is not null;",
 })
 
+
+def _norm_sql(q: str) -> str:
+    return re.sub(r"\s+", " ", q.strip().lower()).rstrip(";") + ";"
+
+
+# SQL Server + MongoDB allow-lists are derived from the supplementary catalog so
+# they stay in sync automatically. (Built lazily below after the catalog import.)
 try:
     from modules.operations.engines.supplementary_query_catalog import (
         SHELL_CONTROL_IDS as _SHELL_CONTROL_IDS,
+        SQLSERVER_QUERIES as _SQLSERVER_QUERIES,
+        MONGODB_QUERIES as _MONGODB_QUERIES,
         SUPPLEMENTARY_QUERY_BY_ID as _SUPPLEMENTARY_QUERY_BY_ID,
     )
 except Exception:  # noqa: BLE001 - supplementary catalog is optional/additive
     _SUPPLEMENTARY_QUERY_BY_ID = {}
     _SHELL_CONTROL_IDS = frozenset()
+    _SQLSERVER_QUERIES = []
+    _MONGODB_QUERIES = []
+
+ALLOWED_SQLSERVER_QUERIES: frozenset[str] = frozenset(
+    _norm_sql(e["query"]) for e in _SQLSERVER_QUERIES
+)
+#: MongoDB "command specs" (catalog query text) enabled for live execution.
+ALLOWED_MONGODB_COMMANDS: frozenset[str] = frozenset(
+    (e["query"] or "").strip() for e in _MONGODB_QUERIES
+)
 
 # Curated set of controls wired for live execution. Extended with every
 # supplementary DB query (PGX-*, YBX-*, MYX-*) so the new connectors are runnable.
@@ -216,27 +242,31 @@ def detect_technology(query: str) -> str:
 # Explicit RHEL technology labels (shell checks via the Linux connector).
 RHEL8_TECH = "Red Hat Enterprise Linux 8.x"
 RHEL9_TECH = "Red Hat Enterprise Linux 9.x"
-# Technologies executed as shell commands through the docker-exec Linux connector.
-_SHELL_TECHNOLOGIES: frozenset[str] = frozenset({"Linux", "NGINX", RHEL8_TECH, RHEL9_TECH})
+# Technologies executed as shell/CLI commands through a command connector
+# (docker-exec Linux connector, or a local kubectl/oc subprocess).
+_SHELL_TECHNOLOGIES: frozenset[str] = frozenset({
+    "Linux", "NGINX", RHEL8_TECH, RHEL9_TECH,
+    "Redis", "Apache HTTPD", "Tomcat", "Kubernetes", "OpenShift",
+})
 
 # Technologies that have a real, executable connector implementation.
 _IMPLEMENTED_CONNECTOR_TECH: frozenset[str] = frozenset(
-    {"PostgreSQL", "YugabyteDB", "Aurora MySQL", "Oracle",
+    {"PostgreSQL", "YugabyteDB", "Aurora MySQL", "Oracle", "SQL Server", "MongoDB",
      "Linux", "NGINX", RHEL8_TECH, RHEL9_TECH,
+     "Redis", "Apache HTTPD", "Tomcat", "Kubernetes", "OpenShift",
      "SonarQube", "Trivy", "GitLeaks"}
 )
 # Technologies whose connector classes exist but are not yet runnable
-# (SSHConnector raises NotImplementedError). Oracle/NGINX are now implemented.
+# (SSHConnector raises NotImplementedError).
 _GENERIC_CONNECTOR_TECH: frozenset[str] = frozenset({"Windows"})
 
 
 def _dependency_available(technology: str) -> bool:
     """Return True when the runtime dependency for a technology is importable.
 
-    PostgreSQL and YugabyteDB require psycopg2 (both are PG-wire); Aurora MySQL
-    requires PyMySQL. Other implemented connectors run via subprocess/HTTP and
-    surface target availability at execution time, so they are treated as
-    dependency-available at capability assessment time.
+    Python-driver technologies gate on their import; subprocess/CLI technologies
+    (shell containers, kubectl/oc) surface availability at execution time and are
+    treated as dependency-available at capability-assessment time.
     """
     import importlib.util
 
@@ -246,8 +276,12 @@ def _dependency_available(technology: str) -> bool:
         return importlib.util.find_spec("pymysql") is not None
     if technology == "Oracle":
         return importlib.util.find_spec("oracledb") is not None
-    # Shell technologies (Linux/NGINX/RHEL) run via the docker CLI at execution
-    # time; there is no importable Python dependency to gate on here.
+    if technology == "SQL Server":
+        return importlib.util.find_spec("pyodbc") is not None
+    if technology == "MongoDB":
+        return importlib.util.find_spec("pymongo") is not None
+    # Shell/CLI technologies (Linux/NGINX/RHEL/Redis/Apache/Tomcat/K8s/OpenShift)
+    # run via docker exec or a local CLI; no importable dependency to gate here.
     return True
 
 
@@ -284,6 +318,8 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
             "YugabyteDB": "psycopg2",
             "Aurora MySQL": "PyMySQL",
             "Oracle": "python-oracledb",
+            "SQL Server": "pyodbc (+ an ODBC driver)",
+            "MongoDB": "pymongo",
         }
         dep = _driver_map.get(technology, "the required driver")
         return {"executable": False, "status": "Dependency Missing",
@@ -454,6 +490,8 @@ def _merge_supplementary_controls(controls: list[dict[str, Any]]) -> list[dict[s
             "evidence_type": entry.get("evidence_type") or "",
             "predefined": bool(query),
             "technology": technology,
+            # Optional metadata carried through from the catalog (used by UI/tests).
+            "category": entry.get("category") or "",
             "status": "",
             "last_execution": "Not Executed",
             "source": "supplementary",
@@ -1173,13 +1211,70 @@ def run_oracle_query(control_id: str, user: str) -> dict[str, Any]:
     return _run_connector_query(control, user, "Oracle", query, connector)
 
 
-def run_shell_control(control_id: str, user: str) -> dict[str, Any]:
-    """Execute a predefined shell-command control (Linux / NGINX / RHEL 8.x / 9.x).
+def run_sqlserver_query(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a predefined SQL Server query from the catalog (pyodbc)."""
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+    query = (control.get("query") or "").strip()
+    if not query:
+        return {"ok": False, "error": "Missing query for this control", "error_type": "missing_query"}
+    if control.get("technology") != "SQL Server":
+        return {"ok": False, "error": "This control is not a SQL Server control",
+                "error_type": "unsupported_technology"}
+    if _norm_sql(query) not in ALLOWED_SQLSERVER_QUERIES:
+        return {"ok": False, "error": "This SQL Server query is not enabled for live execution",
+                "error_type": "unsupported_query"}
+    try:
+        from modules.operations.engines.sqlserver_connector import SQLServerConnector, get_sqlserver_config
+    except ImportError as exc:
+        missing = getattr(exc, "name", "") or "pyodbc"
+        return {
+            "ok": False, "error": "SQL Server connector unavailable",
+            "error_type": "connector_unavailable",
+            "reason": f"Required driver '{missing}' is not installed in this environment.",
+            "action": "Install pyodbc and an ODBC driver, then retry.",
+        }
+    connector = SQLServerConnector(**get_sqlserver_config())
+    return _run_connector_query(control, user, "SQL Server", query, connector)
 
-    Reuses the docker-exec Linux connector. The command comes exclusively from the
-    curated code-defined catalog (never user input) and the control must be in the
-    shell allow-list. NGINX targets its own container; Linux/RHEL share the Linux
-    container.
+
+def run_mongodb_query(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a predefined MongoDB admin command from the catalog (pymongo)."""
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+    command = (control.get("query") or "").strip()
+    if not command:
+        return {"ok": False, "error": "Missing command for this control", "error_type": "missing_query"}
+    if control.get("technology") != "MongoDB":
+        return {"ok": False, "error": "This control is not a MongoDB control",
+                "error_type": "unsupported_technology"}
+    if command not in ALLOWED_MONGODB_COMMANDS:
+        return {"ok": False, "error": "This MongoDB command is not enabled for live execution",
+                "error_type": "unsupported_query"}
+    try:
+        from modules.operations.engines.mongodb_connector import MongoDBConnector, get_mongodb_config
+    except ImportError as exc:
+        missing = getattr(exc, "name", "") or "pymongo"
+        return {
+            "ok": False, "error": "MongoDB connector unavailable",
+            "error_type": "connector_unavailable",
+            "reason": f"Required driver '{missing}' is not installed in this environment.",
+            "action": "Install pymongo, then retry.",
+        }
+    connector = MongoDBConnector(**get_mongodb_config())
+    return _run_connector_query(control, user, "MongoDB", command, connector)
+
+
+def run_shell_control(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a predefined shell/CLI-command control.
+
+    Covers Linux / NGINX / RHEL 8.x / 9.x / Redis / Apache HTTPD / Tomcat via the
+    docker-exec Linux connector (Redis via redis-cli in its container), and
+    Kubernetes / OpenShift via local kubectl / oc subprocesses. The command comes
+    exclusively from the curated code-defined catalog (never user input) and the
+    control must be in the shell allow-list.
     """
     control = get_control_by_id(control_id)
     if not control:
@@ -1201,9 +1296,11 @@ def run_shell_control(control_id: str, user: str) -> dict[str, Any]:
 
     from modules.operations.engines.linux_connector import (
         LinuxConnector,
+        get_apache_config,
         get_linux_config,
         get_nginx_config,
         get_rhel_config,
+        get_tomcat_config,
     )
 
     if technology == "NGINX":
@@ -1212,6 +1309,28 @@ def run_shell_control(control_id: str, user: str) -> dict[str, Any]:
         connector = LinuxConnector(**get_rhel_config(8))
     elif technology == RHEL9_TECH:
         connector = LinuxConnector(**get_rhel_config(9))
+    elif technology == "Apache HTTPD":
+        connector = LinuxConnector(**get_apache_config())
+    elif technology == "Tomcat":
+        connector = LinuxConnector(**get_tomcat_config())
+    elif technology == "Redis":
+        from modules.operations.engines.redis_connector import RedisConnector, get_redis_config
+
+        connector = RedisConnector(**get_redis_config())
+    elif technology == "Kubernetes":
+        from modules.operations.engines.kubernetes_connector import (
+            KubernetesConnector,
+            get_kubernetes_config,
+        )
+
+        connector = KubernetesConnector(**get_kubernetes_config())
+    elif technology == "OpenShift":
+        from modules.operations.engines.kubernetes_connector import (
+            OpenShiftConnector,
+            get_openshift_config,
+        )
+
+        connector = OpenShiftConnector(**get_openshift_config())
     else:  # Linux
         connector = LinuxConnector(**get_linux_config())
     return _run_connector_query(control, user, technology, command, connector)
@@ -1277,10 +1396,17 @@ def run_predefined_query(control_id: str, user: str) -> dict[str, Any]:
     if technology == "Oracle":
         return run_oracle_query(control_id, user)
 
+    if technology == "SQL Server":
+        return run_sqlserver_query(control_id, user)
+
+    if technology == "MongoDB":
+        return run_mongodb_query(control_id, user)
+
     query = (control.get("query") or "").strip()
 
-    # NGINX and the explicit RHEL 8.x / 9.x labels run curated shell commands via
-    # the same docker-exec connector as Linux (reuse, not duplication).
+    # NGINX / RHEL / Redis / Apache / Tomcat / Kubernetes / OpenShift run curated
+    # shell or CLI commands via the shared command connectors (reuse, not
+    # duplication).
     if technology in _SHELL_TECHNOLOGIES and technology != "Linux":
         return run_shell_control(control_id, user)
 

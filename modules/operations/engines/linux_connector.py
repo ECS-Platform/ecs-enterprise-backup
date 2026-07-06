@@ -74,6 +74,40 @@ def get_nginx_config() -> dict[str, Any]:
     }
 
 
+def get_apache_config() -> dict[str, Any]:
+    """Apache HTTPD target (reuses LinuxConnector). Falls back to ECS_LINUX_CONTAINER."""
+    from modules.operations.engines.query_connectors import get_predefined_target
+
+    cfg = get_predefined_target("apache")
+    container = (
+        cfg.get("container")
+        or os.environ.get("ECS_APACHE_CONTAINER")
+        or os.environ.get("ECS_LINUX_CONTAINER")
+        or "apache-demo"
+    )
+    return {
+        "container": container,
+        "timeout_sec": _timeout_from(cfg, "ECS_APACHE_TIMEOUT_SECONDS", "ECS_APACHE_TIMEOUT_SEC"),
+    }
+
+
+def get_tomcat_config() -> dict[str, Any]:
+    """Tomcat target (reuses LinuxConnector). Falls back to ECS_LINUX_CONTAINER."""
+    from modules.operations.engines.query_connectors import get_predefined_target
+
+    cfg = get_predefined_target("tomcat")
+    container = (
+        cfg.get("container")
+        or os.environ.get("ECS_TOMCAT_CONTAINER")
+        or os.environ.get("ECS_LINUX_CONTAINER")
+        or "tomcat-demo"
+    )
+    return {
+        "container": container,
+        "timeout_sec": _timeout_from(cfg, "ECS_TOMCAT_TIMEOUT_SECONDS", "ECS_TOMCAT_TIMEOUT_SEC"),
+    }
+
+
 def get_rhel_config(version: int) -> dict[str, Any]:
     """RHEL 8.x / 9.x target for predefined shell checks (reuses LinuxConnector).
 

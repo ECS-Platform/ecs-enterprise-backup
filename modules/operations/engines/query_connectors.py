@@ -195,6 +195,40 @@ def connector_for_technology(technology: str) -> BaseConnector | None:
             # PyMySQL not installed — degrade gracefully.
             return None
         return MySQLConnector(**get_mysql_config())
+    if technology == "SQL Server":
+        try:
+            from modules.operations.engines.sqlserver_connector import SQLServerConnector, get_sqlserver_config
+        except ImportError:
+            return None
+        return SQLServerConnector(**get_sqlserver_config())
+    if technology == "MongoDB":
+        try:
+            from modules.operations.engines.mongodb_connector import MongoDBConnector, get_mongodb_config
+        except ImportError:
+            return None
+        return MongoDBConnector(**get_mongodb_config())
+    if technology == "Redis":
+        try:
+            from modules.operations.engines.redis_connector import RedisConnector, get_redis_config
+        except ImportError:
+            return None
+        return RedisConnector(**get_redis_config())
+    if technology == "Apache HTTPD":
+        from modules.operations.engines.linux_connector import LinuxConnector, get_apache_config
+
+        return LinuxConnector(**get_apache_config())
+    if technology == "Tomcat":
+        from modules.operations.engines.linux_connector import LinuxConnector, get_tomcat_config
+
+        return LinuxConnector(**get_tomcat_config())
+    if technology == "Kubernetes":
+        from modules.operations.engines.kubernetes_connector import KubernetesConnector, get_kubernetes_config
+
+        return KubernetesConnector(**get_kubernetes_config())
+    if technology == "OpenShift":
+        from modules.operations.engines.kubernetes_connector import OpenShiftConnector, get_openshift_config
+
+        return OpenShiftConnector(**get_openshift_config())
     if technology == "Oracle":
         try:
             from modules.operations.engines.oracle_connector import OracleConnector, get_oracle_config
