@@ -124,27 +124,34 @@ docker compose --profile db-targets up -d postgres-demo yugabyte mysql-demo
 # Lightweight infrastructure targets (NGINX + RHEL 8/9 — safe on 8 GB):
 docker compose --profile nginx-demo --profile rhel-demo up -d nginx-demo rhel8-demo rhel9-demo
 
+# Extended middleware/db targets (Apache + Tomcat + MongoDB — safe on 8 GB):
+docker compose --profile infra-demo-extended --profile db-demo-extended up -d \
+    apache-demo tomcat-demo mongodb-demo
+
 # Oracle demo — HEAVY, 16/20 GB only (NOT default, NOT in infra-demo):
 docker compose --profile oracle-demo up -d oracle-demo
 
-# Everything except Oracle:
-docker compose --profile db-targets --profile nginx-demo --profile rhel-demo up -d \
-    postgres-demo yugabyte mysql-demo nginx-demo rhel8-demo rhel9-demo
+# SQL Server demo — HEAVY/optional, 16/20 GB (Linux/amd64, Microsoft EULA):
+docker compose --profile sqlserver-demo up -d sqlserver-demo
 ```
 
 Local ports: PostgreSQL **5432**, YugabyteDB YSQL **5433**, MySQL (Aurora sim)
-**3306**, NGINX **8081→80**, Oracle **1521**. RHEL 8/9 demo containers are
-accessed via `docker exec` (no port).
+**3306**, NGINX **8081→80**, Apache **8082→80**, Tomcat **8083→8080**, MongoDB
+**27017**, Oracle **1521**, SQL Server **1433**. RHEL 8/9 demo containers are
+accessed via `docker exec` (no port). Redis reuses the existing `redis` service.
 
 **Docker demo support matrix** (details:
 [PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md)): PostgreSQL,
-YugabyteDB, Aurora MySQL (MySQL 8), NGINX, Linux, RHEL 8.x (UBI8), RHEL 9.x (UBI9)
-= **Yes**; Oracle = **optional/heavy**; Windows = **remote/enterprise only** (no
-local macOS/Linux Docker container).
+YugabyteDB, Aurora MySQL (MySQL 8), NGINX, Linux, RHEL 8.x/9.x (UBI), Redis, Apache
+HTTPD, Tomcat, MongoDB = **Yes**; Oracle & SQL Server = **optional/heavy**;
+Kubernetes/OpenShift = **documentation-only** (need a real cluster + kubectl/oc);
+Windows = **remote/enterprise only**. ServiceNow CMDB & Archer ship as
+config-driven **integration skeletons** (no Docker).
 
-Verify targets (never prints passwords):
+Verify targets (never prints secrets):
 ```bash
 python scripts/check_predefined_technology_environment.py     # NGINX/Linux/RHEL/Oracle
+python scripts/check_predefined_extended_environment.py       # Redis/Apache/Tomcat/MongoDB/SQL Server/k8s/oc/ServiceNow/Archer
 python scripts/check_predefined_db_environment.py             # PostgreSQL/Yugabyte/MySQL
 ```
 

@@ -2,8 +2,10 @@
 
 **Applies to branch:** `cursor/predefined-queries-module`
 **Scope:** Predefined read-only checks for databases (PostgreSQL, YugabyteDB/YSQL,
-Aurora MySQL, Oracle) and infrastructure (NGINX, Linux, Red Hat Enterprise Linux
-8.x, Red Hat Enterprise Linux 9.x).
+Aurora MySQL, Oracle, SQL Server, MongoDB), middleware/OS (NGINX, Apache HTTPD,
+Tomcat, Redis, Linux, Red Hat Enterprise Linux 8.x/9.x), and container platforms
+(Kubernetes, OpenShift). Also includes ServiceNow CMDB and Archer integration
+skeletons.
 
 ---
 
@@ -26,11 +28,22 @@ This guide covers these technologies:
 | Linux | shell (docker exec) | Linux connector | n/a (container/SSH) |
 | Red Hat Enterprise Linux 8.x | shell (docker exec) | Linux connector (reused) | n/a |
 | Red Hat Enterprise Linux 9.x | shell (docker exec) | Linux connector (reused) | n/a |
+| SQL Server | TDS | `pyodbc` (optional) | 1433 |
+| MongoDB | Mongo wire | `pymongo` (optional) | 27017 |
+| Redis | redis-cli (docker exec) | Redis connector (Linux subclass) | 6379 |
+| Apache HTTPD | shell (docker exec) | Linux connector (reused) | n/a |
+| Tomcat | shell (docker exec) | Linux connector (reused) | n/a |
+| Kubernetes | `kubectl` (local CLI) | Kubernetes connector | n/a |
+| OpenShift | `oc` (local CLI) | OpenShift connector | n/a |
 
 Database queries are **read-only** and enforced by a per-technology **exact-SQL
-allow-list**. Infrastructure (NGINX/Linux/RHEL) checks run **curated shell
-commands** from the code-defined catalog (never user input), gated by control id.
-Only vetted queries/commands can execute live.
+allow-list** (MongoDB uses an admin-command allow-list). Middleware/OS/container
+checks run **curated shell / CLI commands** from the code-defined catalog (never
+user input), gated by control id. Only vetted queries/commands can execute live.
+
+**Enterprise integrations (skeletons):** ServiceNow CMDB (`servicenow_cmdb`) and
+Archer (`archer`) under `modules/operations/integrations/` — config-driven, with
+an injectable HTTP transport (mocked in tests; no real calls). See §15.
 
 ---
 
@@ -77,6 +90,34 @@ settings · installed security updates (`dnf/yum updateinfo`). Technology label:
 ### Red Hat Enterprise Linux 9.x (`RH9-001`..`RH9-008`)
 `/etc/redhat-release` · crypto policy · SELinux · firewalld · auditd · SSH
 settings · FIPS mode. Technology label: **Red Hat Enterprise Linux 9.x**.
+
+### Redis (`RDX-001`..`RDX-008`)
+`INFO server` · persistence (`save`/`appendonly`) · `requirepass` · protected-mode ·
+`bind` · `tls-port` · `maxmemory-policy`. Run via `redis-cli` inside the container.
+
+### Apache HTTPD (`APX-001`..`APX-008`)
+version · config test · loaded modules · `ServerTokens`/`ServerSignature` ·
+`SSLProtocol` · access/error log config. Missing binaries → "not available".
+
+### Tomcat (`TCX-001`..`TCX-008`)
+version · Catalina process · `server.xml` · Connectors · manager app · `tomcat-users.xml` ·
+shutdown port · `AccessLogValve`. Missing files/processes → "not available".
+
+### SQL Server (`MSX-001`..`MSX-010`)
+`@@VERSION` · edition/level · auth mode · logins · sysadmin members · databases ·
+TDE state · security config · audit specs · default-trace auditing.
+
+### MongoDB (`MGX-001`..`MGX-008`)
+`buildInfo` · `serverStatus` · auth (`getCmdLineOpts`) · TLS (`sslMode`) · users ·
+roles · databases · audit param. Admin commands run via `db.command()`.
+
+### Kubernetes (`K8X-001`..`K8X-010`)
+version · nodes · namespaces · cluster roles/bindings · pods · network policies ·
+secrets inventory · service accounts · pod-security labels. Via `kubectl`.
+
+### OpenShift (`OCX-001`..`OCX-010`)
+version · cluster operators · nodes · projects · cluster roles/bindings · SCC ·
+OAuth config · routes · image policy. Via `oc`.
 
 ---
 
@@ -226,8 +267,30 @@ Linux, RHEL 8.x, and RHEL 9.x controls all run shell commands via the same
 docker-exec connector; the RHEL split is a catalog/label distinction (point
 `ECS_LINUX_CONTAINER` at the appropriate target).
 
-Use **read-only** DB/OS users. Passwords are read from the environment and are
-never logged.
+### Extended technologies
+```
+# Redis (redis-cli in the container)
+ECS_REDIS_HOST / ECS_REDIS_PORT / ECS_REDIS_PASSWORD(optional) / ECS_REDIS_CONTAINER / ECS_REDIS_TIMEOUT_SECONDS
+# Apache HTTPD / Tomcat (docker exec)
+ECS_APACHE_CONTAINER / ECS_APACHE_TIMEOUT_SECONDS
+ECS_TOMCAT_CONTAINER / ECS_TOMCAT_TIMEOUT_SECONDS
+# SQL Server (pyodbc; optional/heavy)
+ECS_SQLSERVER_HOST / ECS_SQLSERVER_PORT / ECS_SQLSERVER_DATABASE / ECS_SQLSERVER_USERNAME / ECS_SQLSERVER_PASSWORD / ECS_SQLSERVER_TIMEOUT_SECONDS
+# MongoDB (pymongo)
+ECS_MONGODB_URI / ECS_MONGODB_DATABASE / ECS_MONGODB_CONTAINER / ECS_MONGODB_TIMEOUT_SECONDS
+# Kubernetes / OpenShift (local kubectl / oc)
+ECS_KUBECTL_PATH / ECS_KUBECONFIG / ECS_K8S_TIMEOUT_SECONDS
+ECS_OC_PATH / ECS_OPENSHIFT_KUBECONFIG / ECS_OPENSHIFT_TIMEOUT_SECONDS
+```
+
+### Enterprise integrations
+```
+ECS_SERVICENOW_BASE_URL / ECS_SERVICENOW_CLIENT_ID / ECS_SERVICENOW_CLIENT_SECRET / ECS_SERVICENOW_TIMEOUT_SECONDS
+ECS_ARCHER_BASE_URL / ECS_ARCHER_API_TOKEN / ECS_ARCHER_TIMEOUT_SECONDS
+```
+
+Use **read-only** DB/OS users. Passwords/tokens are read from the environment and
+are never logged (diagnostics show SET/MISSING only).
 
 ---
 
@@ -271,6 +334,13 @@ Defaults created locally:
 | Red Hat Enterprise Linux 8.x | Yes, via UBI8 demo container | `rhel8-demo` (`rhel-demo` / `infra-demo`) |
 | Red Hat Enterprise Linux 9.x | Yes, via UBI9 demo container | `rhel9-demo` (`rhel-demo` / `infra-demo`) |
 | Oracle | Optional heavy demo, 16/20 GB recommended | `oracle-demo` (`oracle-demo` profile only) |
+| SQL Server | Optional heavy demo, 16/20 GB; Linux/amd64 image + EULA | `sqlserver-demo` (`sqlserver-demo` profile only) |
+| MongoDB | Yes | `mongodb-demo` (`mongodb-demo` / `db-demo-extended`) |
+| Redis | Yes (reuses existing `redis` service) | `redis` (predefined checks only) |
+| Apache HTTPD | Yes | `apache-demo` (`apache-demo` / `infra-demo-extended`) |
+| Tomcat | Yes | `tomcat-demo` (`tomcat-demo` / `infra-demo-extended`) |
+| Kubernetes | Documentation-only local validation | needs a real cluster + `kubectl`; no heavy local cluster by default |
+| OpenShift | Documentation-only local validation | needs a real cluster + `oc`; no heavy local cluster by default |
 | Windows | **No on macOS/Linux Docker; remote/enterprise only** | see below |
 | SonarQube | Yes | `sonarqube-demo` (`demo-connectors`) |
 | GitLeaks | CLI/container (existing impl) | scans a local path |
@@ -284,16 +354,30 @@ docker compose --profile nginx-demo --profile rhel-demo up -d \
     nginx-demo rhel8-demo rhel9-demo
 # (equivalently: docker compose --profile infra-demo up -d nginx-demo rhel8-demo rhel9-demo)
 
+# Extended middleware demo (Apache + Tomcat — safe on 8 GB):
+docker compose --profile infra-demo-extended up -d apache-demo tomcat-demo
+
+# Extended database demo (MongoDB — lightweight):
+docker compose --profile db-demo-extended up -d mongodb-demo
+
 # Oracle demo — HEAVY, 16/20 GB only (NOT part of infra-demo / default):
 docker compose --profile oracle-demo up -d oracle-demo
 
-# All predefined local demo EXCLUDING Oracle:
-docker compose --profile db-targets --profile nginx-demo --profile rhel-demo up -d \
-    postgres-demo yugabyte mysql-demo nginx-demo rhel8-demo rhel9-demo
+# SQL Server demo — HEAVY/optional, 16/20 GB (Linux/amd64, Microsoft EULA):
+docker compose --profile sqlserver-demo up -d sqlserver-demo
+
+# All predefined local demo EXCLUDING Oracle & SQL Server:
+docker compose --profile db-targets --profile nginx-demo --profile rhel-demo \
+    --profile infra-demo-extended --profile db-demo-extended up -d \
+    postgres-demo yugabyte mysql-demo nginx-demo rhel8-demo rhel9-demo \
+    apache-demo tomcat-demo mongodb-demo
+
+# Verify the extended targets (never prints secrets):
+python scripts/check_predefined_extended_environment.py
 
 # Stop:
-docker compose --profile nginx-demo --profile rhel-demo down
-docker compose --profile oracle-demo down
+docker compose --profile infra-demo-extended --profile db-demo-extended down
+docker compose --profile oracle-demo --profile sqlserver-demo down
 ```
 
 Then verify the environment (never prints passwords):
@@ -341,6 +425,39 @@ Windows predefined controls (technology label `Windows`) therefore show
 
 This is an enterprise/remote-only capability and is out of scope for the local
 Docker demo.
+
+### SQL Server (optional/heavy)
+
+`sqlserver-demo` (`mcr.microsoft.com/mssql/server:2022-latest`) is under the
+`sqlserver-demo` profile **only** — never default, never in an umbrella profile.
+It needs ~2 GB+ RAM, is a Linux/amd64 image (emulated on Apple Silicon), and is
+subject to the Microsoft EULA. The connector needs `pyodbc` + a Microsoft ODBC
+driver (install on demand: `pip install pyodbc`; not in `requirements.txt`). Use
+a read-only account; firewall TCP 1433. Or point `ECS_SQLSERVER_*` at an external
+SQL Server.
+
+### Kubernetes / OpenShift limitations
+
+There is **no heavy local cluster** started by default (no kind/minikube in
+compose). Local validation is **documentation-only**: install `kubectl` / `oc`,
+point `ECS_KUBECONFIG` / `ECS_OPENSHIFT_KUBECONFIG` at a reachable cluster, and
+run the `K8X-*` / `OCX-*` controls. Without a configured cluster the connectors
+return a clean **"not configured"** or **"cluster unavailable"** result (never a
+crash). Optional lightweight local clusters may be added later as clearly-isolated
+profiles.
+
+### ServiceNow CMDB & Archer integration skeletons
+
+`modules/operations/integrations/servicenow_cmdb.py` and `.../archer.py` are
+**skeletons** — config-driven clients with an injectable HTTP transport:
+- ServiceNow: `ServiceNowCmdbClient.fetch_configuration_items()` / `fetch_assets()`
+  + `map_ci_to_asset()`.
+- Archer: `ArcherClient.fetch_controls()` / `fetch_frameworks()` +
+  `map_archer_control()` / `map_archer_framework()`.
+No real call is made in tests (a mock transport is injected). Credentials come
+from env only (`ECS_SERVICENOW_*`, `ECS_ARCHER_*`) and are never logged;
+`config_status()` reports presence as SET/MISSING for diagnostics. Production
+wiring supplies a real HTTP transport (e.g. httpx/requests).
 
 ---
 

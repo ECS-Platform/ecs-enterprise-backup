@@ -11,6 +11,33 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Extended predefined-query technology coverage (+62 controls; total 167):
+  - Redis `RDX-001..008`, Apache HTTPD `APX-001..008`, Tomcat `TCX-001..008`,
+    SQL Server `MSX-001..010`, MongoDB `MGX-001..008`, Kubernetes `K8X-001..010`,
+    OpenShift `OCX-001..010`. Each carries a category + expected evidence.
+- New connectors (no duplicate logic): `RedisConnector` (redis-cli via the
+  container connector), `SQLServerConnector` (pyodbc, optional), `MongoDBConnector`
+  (pymongo, optional), `KubernetesConnector` (kubectl), `OpenShiftConnector` (oc).
+  Apache HTTPD and Tomcat reuse the existing docker-exec Linux connector. All
+  degrade gracefully when a driver/binary/target is unavailable.
+- Enterprise integration skeletons: ServiceNow CMDB (asset/CI fetch + mapping
+  stubs) and Archer (control/framework fetch + mapping stubs) — config-driven,
+  injectable transport, mockable, no real calls; secrets never logged.
+- Docker demo targets (opt-in): `apache-demo` + `tomcat-demo`
+  (`apache-demo`/`tomcat-demo` + umbrella `infra-demo-extended`), `mongodb-demo`
+  (`mongodb-demo` + `db-demo-extended`), and `sqlserver-demo` (optional/heavy,
+  `sqlserver-demo` profile only — not in any umbrella/default). Redis reuses the
+  existing `redis` service. Kubernetes/OpenShift are documentation-only locally
+  (no heavy cluster started by default).
+- `scripts/check_predefined_extended_environment.py` — extended-target diagnostic
+  (Redis/Apache/Tomcat/MongoDB/SQL Server containers, kubectl/oc availability,
+  ServiceNow/Archer config presence). Docker-safe, `--json`, secrets masked.
+- Config: `ECS_REDIS_*`, `ECS_APACHE_*`, `ECS_TOMCAT_*`, `ECS_SQLSERVER_*`,
+  `ECS_MONGODB_*`, `ECS_KUBECTL_PATH`/`ECS_KUBECONFIG`/`ECS_K8S_TIMEOUT_SECONDS`,
+  `ECS_OC_PATH`/`ECS_OPENSHIFT_*`, `ECS_SERVICENOW_*`, `ECS_ARCHER_*` in
+  `.env.example` and `config/environments/_base.yaml`. `pymongo` added to
+  requirements; `pyodbc` documented as install-on-demand (needs system ODBC).
+
 - Docker demo targets for the predefined infrastructure technologies (all opt-in
   via compose profiles; nothing new starts by default):
   - `nginx-demo` (nginx:1.27-alpine, profiles `nginx-demo` / `infra-demo`) with a
