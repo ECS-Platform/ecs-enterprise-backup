@@ -259,6 +259,89 @@ Defaults created locally:
 > (Yugabyte + MySQL) validation to a 16 GB teammate, or point `ECS_*_HOST` at a
 > shared UAT endpoint instead.
 
+### Technology Docker demo support matrix
+
+| Technology | Local Docker Demo | Notes |
+|------------|-------------------|-------|
+| PostgreSQL | Yes | `postgres-demo` (port 5432) |
+| YugabyteDB | Yes | `yugabyte` (`db-targets`, port 5433) |
+| Aurora MySQL | Yes, via MySQL 8 | `mysql-demo` (`db-targets`, port 3306) |
+| NGINX | Yes | `nginx-demo` (`nginx-demo` / `infra-demo`) |
+| Linux | Yes, via `ubuntu-demo` | `demo-connectors` profile |
+| Red Hat Enterprise Linux 8.x | Yes, via UBI8 demo container | `rhel8-demo` (`rhel-demo` / `infra-demo`) |
+| Red Hat Enterprise Linux 9.x | Yes, via UBI9 demo container | `rhel9-demo` (`rhel-demo` / `infra-demo`) |
+| Oracle | Optional heavy demo, 16/20 GB recommended | `oracle-demo` (`oracle-demo` profile only) |
+| Windows | **No on macOS/Linux Docker; remote/enterprise only** | see below |
+| SonarQube | Yes | `sonarqube-demo` (`demo-connectors`) |
+| GitLeaks | CLI/container (existing impl) | scans a local path |
+| Trivy | CLI/container (existing impl) | image scan |
+
+### Start / stop commands
+
+```bash
+# Lightweight infrastructure demo (NGINX + RHEL 8/9 — safe on 8 GB):
+docker compose --profile nginx-demo --profile rhel-demo up -d \
+    nginx-demo rhel8-demo rhel9-demo
+# (equivalently: docker compose --profile infra-demo up -d nginx-demo rhel8-demo rhel9-demo)
+
+# Oracle demo — HEAVY, 16/20 GB only (NOT part of infra-demo / default):
+docker compose --profile oracle-demo up -d oracle-demo
+
+# All predefined local demo EXCLUDING Oracle:
+docker compose --profile db-targets --profile nginx-demo --profile rhel-demo up -d \
+    postgres-demo yugabyte mysql-demo nginx-demo rhel8-demo rhel9-demo
+
+# Stop:
+docker compose --profile nginx-demo --profile rhel-demo down
+docker compose --profile oracle-demo down
+```
+
+Then verify the environment (never prints passwords):
+```bash
+python scripts/check_predefined_technology_environment.py           # infra targets
+python scripts/check_predefined_technology_environment.py --expect-oracle
+python scripts/check_predefined_db_environment.py                    # database targets
+```
+
+### Container routing (RHEL / NGINX)
+
+Shell technologies reuse the one `LinuxConnector` (docker exec). Container
+resolution:
+
+- **NGINX** → `ECS_NGINX_CONTAINER` (default `nginx-demo`) → fallback `ECS_LINUX_CONTAINER`.
+- **Linux** → `ECS_LINUX_CONTAINER` (default `ubuntu-demo`).
+- **RHEL 8.x** → `ECS_RHEL8_CONTAINER` (default `rhel8-demo`) → fallback `ECS_LINUX_CONTAINER`.
+- **RHEL 9.x** → `ECS_RHEL9_CONTAINER` (default `rhel9-demo`) → fallback `ECS_LINUX_CONTAINER`.
+
+> Minimal UBI RHEL containers may lack `systemd` / `auditd` / `firewalld` /
+> `update-crypto-policies`. Every RHEL/Linux/NGINX check ends with `|| true`, so a
+> missing tool yields empty/"not available" output rather than failing the run.
+
+### Oracle demo (heavy — 16/20 GB machines only)
+
+```bash
+docker compose --profile oracle-demo up -d oracle-demo   # gvenzl/oracle-free:23-slim
+```
+Defaults: host `127.0.0.1`, port `1521`, service `FREEPDB1`, user `ecs_user`,
+password `ecs_password` (local demo only — never reuse). Oracle is **not** started
+by default and is **not** in `infra-demo`. If the image is unavailable in your
+environment, point `ECS_ORACLE_*` at an external Oracle endpoint instead.
+
+### Windows (not supported by local macOS/Linux Docker)
+
+Windows containers cannot run under standard Docker Desktop on macOS/Linux in the
+current Linux-container mode, so ECS deliberately ships **no Windows container**.
+Windows predefined controls (technology label `Windows`) therefore show
+**Connector Missing** locally, which is expected. Running them requires:
+
+- a **Windows host** (or Windows-container mode), or an **enterprise remote
+  connector** (e.g. PowerShell remoting / WinRM);
+- appropriate **firewall / network** access to the target;
+- credentials handled securely (never committed).
+
+This is an enterprise/remote-only capability and is out of scope for the local
+Docker demo.
+
 ---
 
 ## 7. UAT / cloud configuration

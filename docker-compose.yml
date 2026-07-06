@@ -141,6 +141,57 @@ services:
       - "7000:7000"   # admin UI (optional)
     restart: unless-stopped
 
+  # ============================================================
+  # Predefined-query INFRASTRUCTURE demo targets (opt-in; profiles below).
+  # Lightweight (NGINX + RHEL UBI) — safe on 8 GB. Start with e.g.:
+  #   docker compose --profile nginx-demo --profile rhel-demo up -d \
+  #       nginx-demo rhel8-demo rhel9-demo
+  # (or the umbrella "infra-demo" profile). Oracle is separate & heavy — see below.
+  # ============================================================
+  # NGINX demo target for predefined NGINX shell checks (docker exec).
+  nginx-demo:
+    image: nginx:1.27-alpine
+    container_name: nginx-demo
+    ports:
+      - "8081:80"
+    volumes:
+      - ./demo-data/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    profiles: ["nginx-demo", "infra-demo"]
+    restart: unless-stopped
+
+  # RHEL 8.x demo target (Red Hat UBI8 — no RHEL entitlement needed for demo).
+  # Minimal UBI has no systemd/auditd/firewalld; the predefined checks tolerate
+  # missing tools (each command ends with "|| true").
+  rhel8-demo:
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    container_name: rhel8-demo
+    command: ["sleep", "infinity"]
+    profiles: ["rhel-demo", "infra-demo"]
+    restart: unless-stopped
+
+  # RHEL 9.x demo target (Red Hat UBI9).
+  rhel9-demo:
+    image: registry.access.redhat.com/ubi9/ubi:latest
+    container_name: rhel9-demo
+    command: ["sleep", "infinity"]
+    profiles: ["rhel-demo", "infra-demo"]
+    restart: unless-stopped
+
+  # Oracle demo target — HEAVY. Only the "oracle-demo" profile (NOT infra-demo,
+  # NOT default). Recommended on 16/20 GB machines only. Start with:
+  #   docker compose --profile oracle-demo up -d oracle-demo
+  oracle-demo:
+    image: gvenzl/oracle-free:23-slim
+    container_name: oracle-demo
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: ecs_oracle_password
+      APP_USER: ecs_user
+      APP_USER_PASSWORD: ecs_password
+    profiles: ["oracle-demo"]
+    restart: unless-stopped
+
   mysql-demo:
     image: mysql:8.0
     profiles: ["db-targets"]

@@ -11,6 +11,26 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Docker demo targets for the predefined infrastructure technologies (all opt-in
+  via compose profiles; nothing new starts by default):
+  - `nginx-demo` (nginx:1.27-alpine, profiles `nginx-demo` / `infra-demo`) with a
+    demo config at `demo-data/nginx/default.conf`.
+  - `rhel8-demo` (Red Hat UBI8) and `rhel9-demo` (Red Hat UBI9), profiles
+    `rhel-demo` / `infra-demo` — no RHEL entitlement needed.
+  - `oracle-demo` (gvenzl/oracle-free:23-slim) under the `oracle-demo` profile
+    only — heavy, 16/20 GB recommended, **not** in `infra-demo` or default.
+- Per-technology container routing: RHEL 8.x → `ECS_RHEL8_CONTAINER`, RHEL 9.x →
+  `ECS_RHEL9_CONTAINER`, NGINX → `ECS_NGINX_CONTAINER`, each falling back to
+  `ECS_LINUX_CONTAINER` (reuses the existing Linux docker-exec connector).
+- `scripts/check_predefined_technology_environment.py` — infrastructure
+  environment diagnostic (Docker + container status + config; never prints
+  passwords).
+- Config: `ECS_RHEL8_CONTAINER`, `ECS_RHEL9_CONTAINER`, `ECS_RHEL_TIMEOUT_SECONDS`
+  in `.env.example` and `config/environments/_base.yaml`; Oracle demo default
+  service name `FREEPDB1`.
+- Documentation: a Technology Docker demo support matrix and start/stop commands;
+  Windows documented as remote/enterprise-only (no local macOS/Linux Docker
+  container).
 - Oracle predefined query catalog (ORX-001 to ORX-010) with a python-oracledb
   connector (thin mode).
 - NGINX predefined query catalog (NGX-001 to NGX-008), executed via the existing

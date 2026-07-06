@@ -120,9 +120,33 @@ docker compose up -d postgres-demo
 
 # Full predefined-query DB targets (16 GB machine): PostgreSQL + Yugabyte + MySQL 8
 docker compose --profile db-targets up -d postgres-demo yugabyte mysql-demo
+
+# Lightweight infrastructure targets (NGINX + RHEL 8/9 — safe on 8 GB):
+docker compose --profile nginx-demo --profile rhel-demo up -d nginx-demo rhel8-demo rhel9-demo
+
+# Oracle demo — HEAVY, 16/20 GB only (NOT default, NOT in infra-demo):
+docker compose --profile oracle-demo up -d oracle-demo
+
+# Everything except Oracle:
+docker compose --profile db-targets --profile nginx-demo --profile rhel-demo up -d \
+    postgres-demo yugabyte mysql-demo nginx-demo rhel8-demo rhel9-demo
 ```
 
-Local ports: PostgreSQL **5432**, YugabyteDB YSQL **5433**, MySQL (Aurora sim) **3306**.
+Local ports: PostgreSQL **5432**, YugabyteDB YSQL **5433**, MySQL (Aurora sim)
+**3306**, NGINX **8081→80**, Oracle **1521**. RHEL 8/9 demo containers are
+accessed via `docker exec` (no port).
+
+**Docker demo support matrix** (details:
+[PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md)): PostgreSQL,
+YugabyteDB, Aurora MySQL (MySQL 8), NGINX, Linux, RHEL 8.x (UBI8), RHEL 9.x (UBI9)
+= **Yes**; Oracle = **optional/heavy**; Windows = **remote/enterprise only** (no
+local macOS/Linux Docker container).
+
+Verify targets (never prints passwords):
+```bash
+python scripts/check_predefined_technology_environment.py     # NGINX/Linux/RHEL/Oracle
+python scripts/check_predefined_db_environment.py             # PostgreSQL/Yugabyte/MySQL
+```
 
 ---
 
