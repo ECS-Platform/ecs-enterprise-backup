@@ -286,3 +286,91 @@ class ValidationResult:
         d["frameworks"] = list(self.frameworks)
         d["evidence_quality"] = round(self.evidence_quality, 3)
         return d
+
+
+# --------------------------------------------------------------------------- #
+# Milestone 3 — Observations
+# --------------------------------------------------------------------------- #
+
+SEVERITY_CRITICAL = "Critical"
+SEVERITY_HIGH = "High"
+SEVERITY_MEDIUM = "Medium"
+SEVERITY_LOW = "Low"
+SEVERITY_INFO = "Informational"
+
+OBS_STATUS_DRAFT = "Draft"
+OBS_STATUS_SUBMITTED = "Submitted"
+OBS_STATUS_APPROVED = "Approved"
+OBS_STATUS_REJECTED = "Rejected"
+OBS_STATUS_REMEDIATED = "Remediated"
+OBS_STATUS_CLOSED = "Closed"
+
+OBS_WORKFLOW = (
+    OBS_STATUS_DRAFT, OBS_STATUS_SUBMITTED, OBS_STATUS_APPROVED,
+    OBS_STATUS_REJECTED, OBS_STATUS_REMEDIATED, OBS_STATUS_CLOSED,
+)
+
+
+@dataclass
+class Observation:
+    """An audit observation generated from a failed/warning validation."""
+
+    observation_id: str
+    technology: str = ""
+    asset_id: str = ""
+    control_id: str = ""
+    frameworks: tuple[str, ...] = ()
+    severity: str = SEVERITY_MEDIUM
+    observation: str = ""
+    impact: str = ""
+    recommendation: str = ""
+    evidence_reference: str = ""
+    owner: str = ""
+    status: str = OBS_STATUS_DRAFT
+    created_at: str = ""
+    updated_at: str = ""
+    history: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        d["frameworks"] = list(self.frameworks)
+        return d
+
+
+# --------------------------------------------------------------------------- #
+# Milestone 3 — Evidence repository
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class EvidenceArtifact:
+    """A versioned evidence metadata record stored in the repository.
+
+    Stores METADATA + a content hash/checksum — never credentials. ``content_hash``
+    is a SHA-256 over the captured (non-secret) evidence content.
+    """
+
+    evidence_key: str            # stable identity across versions (e.g. asset+control)
+    version: int = 1
+    control_id: str = ""
+    technology: str = ""
+    asset_id: str = ""
+    frameworks: tuple[str, ...] = ()
+    run_id: str = ""
+    verdict: str = ""
+    control_status: str = ""
+    evidence_quality: float = 0.0
+    content_hash: str = ""       # sha256 hex
+    checksum: str = ""           # short crc-like checksum (first 8 of hash)
+    size_bytes: int = 0
+    source: str = ""
+    filename: str = ""
+    collected_at: str = ""
+    tags: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        d["frameworks"] = list(self.frameworks)
+        d["tags"] = list(self.tags)
+        d["evidence_quality"] = round(self.evidence_quality, 3)
+        return d
