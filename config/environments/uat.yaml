@@ -5,10 +5,16 @@
 # Secrets are NEVER placed here — set the *_env environment variables instead.
 # =============================================================================
 
-environment: uat
-tenant: "${ECS_TENANT:-uat}"
-region: "${ECS_REGION:-in-mumbai-uat}"
+# ALL values below are ${ENV_VAR:-PLACEHOLDER} pairs: the default after ':-' is a
+# non-secret example (fake host like *.uat.bank.local). The real UAT value comes
+# from the environment variable (set in .env.uat, which is git-ignored). Nothing
+# here is a real IP, hostname, password, or token.
 
+environment: uat
+tenant: "${ECS_TENANT:-uat}"                 # logical tenant label
+region: "${ECS_REGION:-in-mumbai-uat}"       # logical region label
+
+# Business applications under test (example FQDNs; override per env var).
 applications:
   netbanking:    {host: "${APP_NETBANKING_HOST:-netbanking.uat.bank.local}", port: "${APP_NETBANKING_PORT:-443}", base_url: "${APP_NETBANKING_URL:-https://netbanking.uat.bank.local}"}
   mobilebanking: {host: "${APP_MOBILEBANKING_HOST:-mobile.uat.bank.local}",  port: "${APP_MOBILEBANKING_PORT:-443}", base_url: "${APP_MOBILEBANKING_URL:-https://mobile.uat.bank.local}"}
@@ -16,22 +22,77 @@ applications:
   cbs:           {host: "${APP_CBS_HOST:-cbs.uat.bank.local}",               port: "${APP_CBS_PORT:-443}", base_url: "${APP_CBS_URL:-https://cbs.uat.bank.local}"}
   upi:           {host: "${APP_UPI_HOST:-upi.uat.bank.local}",               port: "${APP_UPI_PORT:-443}", base_url: "${APP_UPI_URL:-https://upi.uat.bank.local}"}
 
+# Platform databases (evidence repository etc.). Passwords use *_env in _base.yaml;
+# only host/port/db/service names appear here.
 databases:
-  postgres: {host: "${ECS_REPO_PG_HOST:-pg.uat.bank.local}", port: "${ECS_REPO_PG_PORT:-5432}", database: "${ECS_REPO_PG_DATABASE:-ecs_repository_uat}"}
-  oracle:   {host: "${DB_ORACLE_HOST:-oracle.uat.bank.local}", service: "${DB_ORACLE_SERVICE:-ECSUAT}"}
-  mysql:    {host: "${DB_MYSQL_HOST:-mysql.uat.bank.local}"}
+  postgres: {host: "${ECS_REPO_PG_HOST:-pg.uat.bank.local}", port: "${ECS_REPO_PG_PORT:-5432}", database: "${ECS_REPO_PG_DATABASE:-ecs_repository_uat}"}   # evidence repository
+  oracle:   {host: "${DB_ORACLE_HOST:-oracle.uat.bank.local}", service: "${DB_ORACLE_SERVICE:-ECSUAT}"}                                                    # infra Oracle slot
+  mysql:    {host: "${DB_MYSQL_HOST:-mysql.uat.bank.local}"}                                                                                              # infra MySQL slot
 
+# Evidence-collection connectors (URLs only; tokens/passwords via *_env).
 connectors:
-  jira:       {url: "${JIRA_URL:-https://jira.uat.bank.local}",             enabled: "${ECS_JIRA_ENABLED:-true}"}
-  confluence: {url: "${CONFLUENCE_URL:-https://confluence.uat.bank.local}", enabled: "${ECS_CONFLUENCE_ENABLED:-true}"}
-  servicenow: {url: "${SNOW_URL:-https://uat.service-now.com}",             enabled: "${ECS_SNOW_ENABLED:-true}"}
+  jira:       {url: "${JIRA_URL:-https://jira.uat.bank.local}",             enabled: "${ECS_JIRA_ENABLED:-true}"}        # Jira UAT
+  confluence: {url: "${CONFLUENCE_URL:-https://confluence.uat.bank.local}", enabled: "${ECS_CONFLUENCE_ENABLED:-true}"}  # Confluence UAT
+  servicenow: {url: "${SNOW_URL:-https://uat.service-now.com}",             enabled: "${ECS_SNOW_ENABLED:-true}"}        # ServiceNow (evidence connector)
+  # ServiceNow CMDB + Archer integration skeletons — non-secret defaults only;
+  # tokens/secrets come from the *_env environment variables (set in .env.uat).
+  servicenow_cmdb:
+    base_url:          "${ECS_SERVICENOW_BASE_URL:-}"
+    client_id_env:     ECS_SERVICENOW_CLIENT_ID
+    client_secret_env: ECS_SERVICENOW_CLIENT_SECRET
+    timeout_sec:       "${ECS_SERVICENOW_TIMEOUT_SECONDS:-30}"
+  archer:
+    base_url:      "${ECS_ARCHER_BASE_URL:-}"
+    api_token_env: ECS_ARCHER_API_TOKEN
+    timeout_sec:   "${ECS_ARCHER_TIMEOUT_SECONDS:-30}"
 
-# Per the standard: UAT predefined-query execution targets.
+# UAT predefined-query execution targets. Hosts/IPs resolve from environment
+# variables (set in .env.uat) — no real bank IPs/FQDNs or secrets in this file.
+# Comma-separated server lists can also come from ECS_TARGET_OS_SERVERS /
+# _DB_SERVERS / _MW_SERVERS / _APPSEC.
 predefined_query_targets:
-  os_servers:          ["10.10.10.1", "10.10.10.2"]
-  db_servers:          ["10.10.20.1", "10.10.20.2"]
-  middleware_servers:  ["10.10.30.1", "10.10.30.2"]
-  appsec_targets:      ["netbanking.uat.bank.local", "payments.uat.bank.local"]
+  # Server lists — leave empty here; populate via ECS_TARGET_* env vars in .env.uat.
+  os_servers:          []   # Linux/RHEL hosts (OS baselining)
+  db_servers:          []   # generic DB hosts
+  middleware_servers:  []   # NGINX/Apache/Tomcat hosts
+  appsec_targets:      []   # app endpoints for AppSec checks
+
+  # Databases (credentials via *_env / env only; never in YAML).
+  oracle:
+    host:         "${ECS_ORACLE_HOST:-oracle.uat.bank.local}"   # UAT Oracle host/IP
+    port:         "${ECS_ORACLE_PORT:-1521}"                    # listener port
+    service_name: "${ECS_ORACLE_SERVICE_NAME:-ECSUAT}"          # service / PDB name
+    user:         "${ECS_ORACLE_USER:-ecs_ro}"                  # read-only service account
+    password_env: ECS_ORACLE_PASSWORD                           # password ENV VAR name (value in .env.uat)
+    timeout_sec:  "${ECS_ORACLE_TIMEOUT_SECONDS:-30}"           # connect/query timeout (s)
+  sqlserver:
+    host:        "${ECS_SQLSERVER_HOST:-sqlserver.uat.bank.local}"  # UAT SQL Server host/IP
+    port:        "${ECS_SQLSERVER_PORT:-1433}"                      # listener port
+    database:    "${ECS_SQLSERVER_DATABASE:-master}"                # database to connect to
+    user:        "${ECS_SQLSERVER_USERNAME:-ecs_ro}"               # read-only service account
+    password_env: ECS_SQLSERVER_PASSWORD                            # password ENV VAR name
+    timeout_sec: "${ECS_SQLSERVER_TIMEOUT_SECONDS:-30}"             # timeout (s)
+  mongodb:
+    uri_env:     ECS_MONGODB_URI                                 # full URI (may embed creds) ENV VAR name
+    database:    "${ECS_MONGODB_DATABASE:-admin}"                # auth/default database
+    timeout_sec: "${ECS_MONGODB_TIMEOUT_SECONDS:-30}"            # timeout (s)
+
+  # Cache / middleware / OS (remote SSH mode is a roadmap item; see the UAT guide).
+  redis:
+    host:        "${ECS_REDIS_HOST:-redis.uat.bank.local}"       # UAT Redis host/IP
+    port:        "${ECS_REDIS_PORT:-6379}"                       # Redis port
+    password_env: ECS_REDIS_PASSWORD                             # password ENV VAR name (optional)
+    timeout_sec: "${ECS_REDIS_TIMEOUT_SECONDS:-30}"              # timeout (s)
+
+  # Container platforms (kubeconfig-driven; no cluster is bundled).
+  kubernetes:
+    binary:      "${ECS_KUBECTL_PATH:-kubectl}"                  # kubectl path/name
+    kubeconfig:  "${ECS_KUBECONFIG:-}"                           # path to UAT kubeconfig
+    timeout_sec: "${ECS_K8S_TIMEOUT_SECONDS:-30}"                # timeout (s)
+  openshift:
+    binary:      "${ECS_OC_PATH:-oc}"                            # oc path/name
+    kubeconfig:  "${ECS_OPENSHIFT_KUBECONFIG:-}"                 # path to UAT kubeconfig
+    timeout_sec: "${ECS_OPENSHIFT_TIMEOUT_SECONDS:-30}"          # timeout (s)
 
 reporting:
-  export_path: "${ECS_REPORT_EXPORT_PATH:-/var/ecs/exports/uat}"
+  export_path: "${ECS_REPORT_EXPORT_PATH:-/var/ecs/exports/uat}"   # evidence export dir

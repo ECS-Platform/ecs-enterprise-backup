@@ -299,6 +299,9 @@ docker compose --profile db-targets down
 
 - **Predefined DB query module + full troubleshooting table:**
   [PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md)
+- **Bank UAT integration & configuration guide:**
+  [UAT_INTEGRATION_GUIDE.md](UAT_INTEGRATION_GUIDE.md)
+  (configure connectors for real UAT endpoints instead of Docker demo containers)
 - **Release notes / changelog:** [../../CHANGELOG.md](../../CHANGELOG.md)
   (see the `ecs-predefined-db-complete-v1` milestone for the predefined database
   query module release summary)
