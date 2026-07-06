@@ -11,6 +11,23 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Audit Intelligence layer — Milestone 3** (Observation Generation, Evidence
+  Repository, Evidence Packs; additive, deterministic, no LLM):
+  - **Observation Generation** (`engines/observation_generation.py`) — converts
+    FAIL/WARNING validations into audit observations with deterministic severity
+    (Critical/High/Medium/Low), impact/recommendation text, and a validated
+    workflow (Draft→Submitted→Approved→Remediated→Closed / Rejected) with history.
+  - **Evidence Repository** (`engines/evidence_repository.py`) — versioned evidence
+    metadata with SHA-256 content hash + checksum, an evidence timeline, tags, and
+    search/filter (metadata only; never secrets).
+  - **Evidence Packs** (`engines/evidence_packs.py`) — evidence/framework/
+    application/asset/technology packs, each with a deterministic, verifiable JSON
+    manifest (per-item hashes + a pack-level hash; `verify_manifest` tamper check).
+  - `services/audit_repository_service.py` facade; new models `Observation`,
+    `EvidenceArtifact` + severities/statuses.
+  - Tests: `test_observation_generation.py`, `test_evidence_repository.py`,
+    `test_evidence_packs.py`. Guide:
+    `docs/DEVELOPER/OBSERVATION_AND_REPOSITORY_GUIDE.md`.
 - **Audit Intelligence layer — Milestone 2** (Evidence Collection Orchestrator +
   Evidence Validation Engine; additive, reuses the predefined-query engine as the
   execution layer):

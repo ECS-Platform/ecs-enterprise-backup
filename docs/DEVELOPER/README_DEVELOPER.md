@@ -12,6 +12,8 @@ predefined database query module.
 > (asset discovery & fingerprinting).
 > M2 — [EVIDENCE_COLLECTION_GUIDE.md](EVIDENCE_COLLECTION_GUIDE.md) (orchestrator)
 > and [EVIDENCE_VALIDATION_GUIDE.md](EVIDENCE_VALIDATION_GUIDE.md) (validation).
+> M3 — [OBSERVATION_AND_REPOSITORY_GUIDE.md](OBSERVATION_AND_REPOSITORY_GUIDE.md)
+> (observations, evidence repository, evidence packs).
 
 ---
 
