@@ -1,0 +1,30 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Asset Inventory — ECS{% endblock %}
+{% block audit_title %}Asset Inventory{% endblock %}
+{% block audit_subtitle %}Discovered assets with technology fingerprints and applicable controls{% endblock %}
+{% block audit_body %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Total Assets</div><div class="val">{{ coverage.total_assets }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Identified</div><div class="val">{{ coverage.identified_assets }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">In Query Catalog</div><div class="val">{{ coverage.assets_in_query_catalog }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Applicable Controls</div><div class="val">{{ coverage.applicable_control_count }}</div></div></div>
+</div>
+<div class="card"><div class="card-body">
+  <table class="table table-sm table-hover ai-table mb-0"><thead><tr>
+    <th>Asset</th><th>Technology</th><th>Version</th><th>Environment</th><th>Source</th>
+    <th class="text-end">Confidence</th><th class="text-end">Controls</th></tr></thead>
+  <tbody>
+  {% for a in inventory %}
+    <tr>
+      <td><strong>{{ a.asset_id }}</strong>{% if a.hostname and a.hostname != a.asset_id %}<div class="ai-meter-lbl">{{ a.hostname }}</div>{% endif %}</td>
+      <td>{{ a.technology or "—" }}</td>
+      <td>{{ a.version or "—" }}</td>
+      <td>{{ a.environment or "—" }}</td>
+      <td><span class="ai-meter-lbl">{{ a.source }}</span></td>
+      <td class="text-end">{{ (a.confidence_score * 100) | round | int }}%</td>
+      <td class="text-end">{{ a.applicable_control_ids | length }}</td>
+    </tr>
+  {% endfor %}
+  </tbody></table>
+</div></div>
+{% endblock %}

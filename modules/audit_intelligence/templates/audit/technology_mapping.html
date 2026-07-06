@@ -1,0 +1,41 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Technology Mapping — ECS{% endblock %}
+{% block audit_title %}Technology → Control → Framework Mapping{% endblock %}
+{% block audit_subtitle %}How each technology's predefined queries map to controls and compliance frameworks{% endblock %}
+{% block audit_body %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Technologies</div><div class="val">{{ stats.technologies }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Controls</div><div class="val">{{ stats.controls }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Frameworks</div><div class="val">{{ stats.frameworks }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Executable</div><div class="val">{{ stats.executable_controls }}</div></div></div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+  <form method="get" class="row g-2 align-items-end ai-filter">
+    <input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+    <div class="col-auto"><label class="form-label mb-0">Technology</label>
+      <select name="technology" class="form-select form-select-sm">
+        {% for t in filter_options.technologies %}<option value="{{ t if t != 'All Technologies' else '' }}"{% if sel_technology == t %} selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select></div>
+    <div class="col-auto"><label class="form-label mb-0">Framework</label>
+      <select name="framework" class="form-select form-select-sm">
+        {% for f in filter_options.frameworks %}<option value="{{ f if f != 'All Frameworks' else '' }}"{% if sel_framework == f %} selected{% endif %}>{{ f }}</option>{% endfor %}
+      </select></div>
+    <div class="col-auto"><button class="btn btn-sm btn-primary">Filter</button></div>
+  </form>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <div class="ai-meter-lbl mb-2">{{ rows | length }} mapping row(s)</div>
+  <table class="table table-sm table-hover ai-table mb-0"><thead><tr>
+    <th>Control</th><th>Technology</th><th>Name</th><th>Frameworks</th><th>Executable</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td><strong>{{ r.control_id }}</strong></td><td>{{ r.technology }}</td>
+    <td>{{ r.control_name }}</td>
+    <td>{% for f in r.frameworks %}<span class="ai-chip ai-chip-na me-1">{{ f }}</span>{% endfor %}</td>
+    <td>{% if r.executable %}<span class="ai-chip ai-chip-pass">yes</span>{% else %}<span class="ai-chip ai-chip-na">no</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody></table>
+</div></div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Observations — ECS{% endblock %}
+{% block audit_title %}Observation Management{% endblock %}
+{% block audit_subtitle %}Audit observations generated from failed/warning validations{% endblock %}
+{% block audit_body %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Total</div><div class="val">{{ summary.total }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Open</div><div class="val">{{ summary.open }}</div></div></div>
+  <div class="col-6 col-lg-6"><div class="ai-kpi"><div class="lbl">By Severity</div>
+    <div>{% for sev, n in summary.by_severity.items() %}<span class="ai-chip ai-chip-{{ sev }} me-1">{{ sev }}: {{ n }}</span>{% endfor %}
+    {% if not summary.by_severity %}<span class="ai-meter-lbl">none</span>{% endif %}</div></div></div>
+</div>
+<div class="card"><div class="card-body">
+  {% if observations %}
+  <table class="table table-sm table-hover ai-table mb-0"><thead><tr>
+    <th>ID</th><th>Severity</th><th>Control</th><th>Technology</th><th>Observation</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for o in observations %}
+    <tr><td>{{ o.observation_id }}</td>
+    <td><span class="ai-chip ai-chip-{{ o.severity }}">{{ o.severity }}</span></td>
+    <td>{{ o.control_id }}</td><td>{{ o.technology }}</td>
+    <td>{{ o.observation }}</td>
+    <td><span class="ai-chip ai-chip-{{ o.status.split(' ')[0] }}">{{ o.status }}</span></td></tr>
+  {% endfor %}
+  </tbody></table>
+  {% else %}<div class="ai-meter-lbl">No observations. They are generated from FAIL/WARNING validations.</div>{% endif %}
+</div></div>
+{% endblock %}

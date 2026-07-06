@@ -265,6 +265,7 @@ _template_dirs = [
     "modules/governance/templates",
     "modules/enterprise_grc/templates",
     "modules/ai_sdlc/templates",
+    "modules/audit_intelligence/templates",
     "app/templates",
 ]
 templates = Jinja2Templates(
@@ -1542,6 +1543,11 @@ from modules.audit_intelligence.routes.routes_audit_intelligence import (
 )
 
 register_audit_intelligence_routes(app)
+
+# Audit Intelligence UI pages (Milestones 5-6 under /mvp/audit/*).
+from modules.audit_intelligence.routes.routes_audit_ui import register_audit_ui_routes
+
+register_audit_ui_routes(app, templates)
 
 
 @app.get("/api/evidence-workflow/summary")

@@ -1,0 +1,44 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Evidence Runs — ECS{% endblock %}
+{% block audit_title %}Evidence Runs{% endblock %}
+{% block audit_subtitle %}Evidence collection runs by scope, with status and validation{% endblock %}
+{% block audit_body %}
+<div class="row g-3">
+  <div class="col-lg-{% if selected_run %}6{% else %}12{% endif %}">
+    <div class="card"><div class="card-body">
+      <h2 class="h6">Runs</h2>
+      {% if runs %}
+      <table class="table table-sm table-hover ai-table mb-0"><thead><tr>
+        <th>Run</th><th>Scope</th><th>Status</th><th class="text-end">Completed</th></tr></thead>
+      <tbody>
+      {% for r in runs %}
+        <tr><td><a href="/mvp/audit/runs?role={{ role }}&user={{ user }}&run_id={{ r.run_id }}">{{ r.run_id }}</a></td>
+        <td>{{ r.scope_kind }}:{{ r.scope_value }}</td>
+        <td><span class="ai-chip ai-chip-{{ r.status.split(' ')[0] }}">{{ r.status }}</span></td>
+        <td class="text-end">{{ r.summary.completed }}/{{ r.summary.total }}</td></tr>
+      {% endfor %}
+      </tbody></table>
+      {% else %}<div class="ai-meter-lbl">No runs yet. Start one via the API: <code>POST /api/audit/runs</code>.</div>{% endif %}
+    </div></div>
+  </div>
+  {% if selected_run %}
+  <div class="col-lg-6">
+    <div class="card"><div class="card-body">
+      <h2 class="h6">{{ selected_run.run_id }}</h2>
+      <div class="ai-meter-lbl mb-2">{{ selected_run.scope_kind }}:{{ selected_run.scope_value }} ·
+        <span class="ai-chip ai-chip-{{ selected_run.status.split(' ')[0] }}">{{ selected_run.status }}</span>
+        {% if selected_validation %} · compliance {{ selected_validation.compliance.compliance_percent }}%{% endif %}</div>
+      <table class="table table-sm ai-table mb-0"><thead><tr>
+        <th>Control</th><th>Status</th><th>Verdict</th></tr></thead>
+      <tbody>
+      {% for rec in selected_run.records %}
+        <tr><td>{{ rec.control_id }}</td>
+        <td><span class="ai-chip ai-chip-{{ rec.status.split(' ')[0] }}">{{ rec.status }}</span></td>
+        <td>{% if rec.validation %}<span class="ai-chip ai-chip-{{ rec.validation.verdict.split(' ')[0] | lower }}">{{ rec.validation.verdict }}</span>{% else %}—{% endif %}</td></tr>
+      {% endfor %}
+      </tbody></table>
+    </div></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

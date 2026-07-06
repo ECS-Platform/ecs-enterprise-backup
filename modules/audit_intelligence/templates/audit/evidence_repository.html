@@ -1,0 +1,35 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Evidence Repository — ECS{% endblock %}
+{% block audit_title %}Evidence Repository{% endblock %}
+{% block audit_subtitle %}Versioned evidence metadata with content hashes and timeline{% endblock %}
+{% block audit_body %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Evidence Keys</div><div class="val">{{ stats.evidence_keys }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Total Versions</div><div class="val">{{ stats.total_versions }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Timeline Events</div><div class="val">{{ stats.timeline_events }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Technologies</div><div class="val">{{ stats.by_technology | length }}</div></div></div>
+</div>
+<div class="card mb-3"><div class="card-body">
+  <form method="get" class="row g-2 align-items-end ai-filter">
+    <input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+    <div class="col-auto"><label class="form-label mb-0">Search</label>
+      <input name="query" value="{{ sel.query }}" class="form-control form-control-sm" placeholder="control / asset"></div>
+    <div class="col-auto"><label class="form-label mb-0">Technology</label>
+      <input name="technology" value="{{ sel.technology }}" class="form-control form-control-sm"></div>
+    <div class="col-auto"><button class="btn btn-sm btn-primary">Search</button></div>
+  </form>
+</div></div>
+<div class="card"><div class="card-body">
+  {% if evidence %}
+  <table class="table table-sm table-hover ai-table mb-0"><thead><tr>
+    <th>Evidence Key</th><th>Ver</th><th>Technology</th><th>Verdict</th><th>Checksum</th><th>Collected</th></tr></thead>
+  <tbody>
+  {% for e in evidence %}
+    <tr><td>{{ e.evidence_key }}</td><td>v{{ e.version }}</td><td>{{ e.technology }}</td>
+    <td>{% if e.verdict %}<span class="ai-chip ai-chip-{{ e.verdict | lower }}">{{ e.verdict }}</span>{% else %}—{% endif %}</td>
+    <td><code>{{ e.checksum }}</code></td><td class="ai-meter-lbl">{{ e.collected_at[:19] }}</td></tr>
+  {% endfor %}
+  </tbody></table>
+  {% else %}<div class="ai-meter-lbl">No evidence stored yet. Evidence is persisted from completed runs.</div>{% endif %}
+</div></div>
+{% endblock %}

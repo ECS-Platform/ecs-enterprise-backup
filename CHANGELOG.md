@@ -11,6 +11,17 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Audit Intelligence layer — Milestones 5 & 6** (UI + Executive Dashboards).
+  New `Audit Intelligence` left-nav group and pages under `/mvp/audit/*` reusing the
+  existing ECS page shell (`partials/mvp_styles.html` + `partials/mvp_sidebar.html`
+  + Bootstrap/`ecs-*`, no new chart library): Executive Readiness dashboard, Asset
+  Inventory, Technology Inventory, Technology Mapping, Evidence Runs, Evidence
+  Repository, Observations, Evidence Packs, Validation Results. New
+  `services/dashboard_service.py` aggregates technology/control/framework/asset/
+  evidence coverage, collection progress, validation summary, open observations,
+  risk summary, and evidence freshness. Routes registered in `app/main.py`;
+  `modules/audit_intelligence/templates` added to the Jinja loader. Tests:
+  `tests/test_dashboard_service.py`, `tests/test_audit_intelligence_ui.py`.
 - **Audit Intelligence layer — Milestone 4** (REST API). New router
   `modules/audit_intelligence/routes/routes_audit_intelligence.py` registered in
   `app/main.py`, exposing read + action endpoints under `/api/audit/*` for

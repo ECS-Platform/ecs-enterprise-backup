@@ -1,0 +1,38 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Validation Results — ECS{% endblock %}
+{% block audit_title %}Validation Results{% endblock %}
+{% block audit_subtitle %}Deterministic control verdicts and compliance for a run{% endblock %}
+{% block audit_body %}
+<div class="card mb-3"><div class="card-body">
+  <form method="get" class="row g-2 align-items-end ai-filter">
+    <input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+    <div class="col-auto"><label class="form-label mb-0">Run</label>
+      <select name="run_id" class="form-select form-select-sm">
+        <option value="">— select run —</option>
+        {% for r in runs %}<option value="{{ r.run_id }}"{% if run_id == r.run_id %} selected{% endif %}>{{ r.run_id }} ({{ r.scope_kind }}:{{ r.scope_value }})</option>{% endfor %}
+      </select></div>
+    <div class="col-auto"><button class="btn btn-sm btn-primary">Show</button></div>
+  </form>
+</div></div>
+{% if validation %}
+{% set c = validation.compliance %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Compliance</div><div class="val">{{ c.compliance_percent }}%</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Passed</div><div class="val">{{ c.passed }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Failed</div><div class="val">{{ c.failed }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Evidence Quality</div><div class="val">{{ (c.evidence_quality_score * 100) | round | int }}%</div></div></div>
+</div>
+<div class="card"><div class="card-body">
+  <table class="table table-sm ai-table mb-0"><thead><tr>
+    <th>Control</th><th>Verdict</th><th>Status</th><th>Rule</th><th>Rationale</th></tr></thead>
+  <tbody>
+  {% for r in validation["results"] %}
+    <tr><td>{{ r.control_id }}</td>
+    <td><span class="ai-chip ai-chip-{{ r.verdict.split(' ')[0] | lower }}">{{ r.verdict }}</span></td>
+    <td>{{ r.control_status }}</td><td class="ai-meter-lbl">{{ r.rule_id }}</td>
+    <td>{{ r.rationale }}</td></tr>
+  {% endfor %}
+  </tbody></table>
+</div></div>
+{% else %}<div class="card"><div class="card-body ai-meter-lbl">Select a run to view its validation results.</div></div>{% endif %}
+{% endblock %}

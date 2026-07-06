@@ -65,6 +65,29 @@
 </div>
 </div>
 
+{# ---------------------------------------------------- 2b. AUDIT INTELLIGENCE #}
+{% set audit_open = nav_module in ['audit_assets','audit_technology','audit_mapping',
+    'audit_runs','audit_validation','audit_repository','audit_observations',
+    'audit_packs','audit_readiness_exec'] %}
+<div class="ecs-nav-group">
+<button class="ecs-nav-group-toggle{% if audit_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-audit" aria-expanded="{{ 'true' if audit_open else 'false' }}">
+<span class="ecs-nav-group-label">Audit Intelligence</span>
+<span class="ecs-nav-group-chevron">▾</span>
+</button>
+<div id="nav-audit" class="collapse{% if audit_open %} show{% endif %}">
+<div class="ecs-nav-group-items">
+<a href="/mvp/audit/executive-readiness{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_readiness_exec' %} is-active{% endif %}">Executive Readiness</a>
+<a href="/mvp/audit/assets{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_assets' %} is-active{% endif %}">Asset Inventory</a>
+<a href="/mvp/audit/technology-inventory{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_technology' %} is-active{% endif %}">Technology Inventory</a>
+<a href="/mvp/audit/mapping{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_mapping' %} is-active{% endif %}">Technology Mapping</a>
+<a href="/mvp/audit/runs{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_runs' %} is-active{% endif %}">Evidence Runs</a>
+<a href="/mvp/audit/repository{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_repository' %} is-active{% endif %}">Evidence Repository</a>
+<a href="/mvp/audit/observations{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_observations' %} is-active{% endif %}">Observations</a>
+<a href="/mvp/audit/packs{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_packs' %} is-active{% endif %}">Evidence Packs</a>
+</div>
+</div>
+</div>
+
 {# --------------------------------------------------------------- 3. GOVERNANCE #}
 <div class="ecs-nav-group">
 <button class="ecs-nav-group-toggle{% if gov_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-gov" aria-expanded="{{ 'true' if gov_open else 'false' }}">

@@ -1,0 +1,71 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Executive Readiness — ECS{% endblock %}
+{% block audit_title %}Executive Readiness{% endblock %}
+{% block audit_subtitle %}Audit readiness, coverage, collection progress, risk and evidence freshness{% endblock %}
+{% block audit_body %}
+{% set d = dash %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Framework Readiness</div>
+    <div class="val">{{ d.validation_summary.compliance_percent }}%</div>
+    <div class="ai-meter-lbl">{{ d.validation_summary.total_evidence }} evidence items assessed</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Asset Coverage</div>
+    <div class="val">{{ d.asset_coverage.identification_percent }}%</div>
+    <div class="ai-meter-lbl">{{ d.asset_coverage.identified }}/{{ d.asset_coverage.total_assets }} identified</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Collection Progress</div>
+    <div class="val">{{ d.collection_progress.progress_percent }}%</div>
+    <div class="ai-meter-lbl">{{ d.collection_progress.controls_completed }}/{{ d.collection_progress.controls_total }} controls</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Risk</div>
+    <div class="val"><span class="ai-chip ai-chip-{{ d.risk_summary.risk_band }}">{{ d.risk_summary.risk_band }}</span></div>
+    <div class="ai-meter-lbl">score {{ d.risk_summary.risk_score }} · {{ d.open_observations.open }} open observations</div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="h6">Technology Coverage</h2>
+      <div class="d-flex justify-content-between ai-meter-lbl mb-1">
+        <span>{{ d.technology_coverage.with_executable_controls }}/{{ d.technology_coverage.total_technologies }} with executable controls</span>
+        <span>{{ d.technology_coverage.coverage_percent }}%</span></div>
+      <div class="ai-bar mb-3"><span style="width: {{ d.technology_coverage.coverage_percent }}%"></span></div>
+      <h2 class="h6">Control Coverage</h2>
+      <div class="d-flex justify-content-between ai-meter-lbl mb-1">
+        <span>{{ d.control_coverage.executable_controls }}/{{ d.control_coverage.total_controls }} executable</span>
+        <span>{{ d.control_coverage.coverage_percent }}%</span></div>
+      <div class="ai-bar"><span style="width: {{ d.control_coverage.coverage_percent }}%"></span></div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="h6">Evidence Freshness</h2>
+      <div class="row text-center">
+        <div class="col"><div class="val sm">{{ d.evidence_freshness.fresh }}</div><div class="ai-meter-lbl">Fresh</div></div>
+        <div class="col"><div class="val sm">{{ d.evidence_freshness.stale }}</div><div class="ai-meter-lbl">Stale (&gt;{{ d.evidence_freshness.stale_days_threshold }}d)</div></div>
+        <div class="col"><div class="val sm">{{ d.evidence_freshness.fresh_percent }}%</div><div class="ai-meter-lbl">Fresh %</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="h6">Framework Readiness</h2>
+      <table class="table table-sm ai-table mb-0"><thead><tr>
+        <th>Framework</th><th class="text-end">Controls</th><th class="text-end">Collected</th><th class="text-end">Readiness</th></tr></thead>
+      <tbody>
+      {% for r in d.framework_readiness.rows[:10] %}
+        <tr><td>{{ r.framework }}</td><td class="text-end">{{ r.controls }}</td>
+        <td class="text-end">{{ r.evidence_collected }}</td>
+        <td class="text-end">{{ r.readiness_percent }}%</td></tr>
+      {% endfor %}
+      </tbody></table>
+    </div></div>
+
+    <div class="card"><div class="card-body">
+      <h2 class="h6">Open Observations</h2>
+      {% if d.open_observations.by_severity %}
+        {% for sev, n in d.open_observations.by_severity.items() %}
+          <span class="ai-chip ai-chip-{{ sev }} me-1 mb-1">{{ sev }}: {{ n }}</span>
+        {% endfor %}
+      {% else %}<div class="ai-meter-lbl">No observations recorded yet.</div>{% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

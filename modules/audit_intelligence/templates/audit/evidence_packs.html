@@ -1,0 +1,43 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Evidence Packs — ECS{% endblock %}
+{% block audit_title %}Evidence Packs{% endblock %}
+{% block audit_subtitle %}Assemble audit-ready evidence packs with a verifiable JSON manifest{% endblock %}
+{% block audit_body %}
+<div class="card mb-3"><div class="card-body">
+  <form method="get" class="row g-2 align-items-end ai-filter">
+    <input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+    <div class="col-auto"><label class="form-label mb-0">Pack Type</label>
+      <select name="pack_type" class="form-select form-select-sm">
+        {% for t in ["framework","asset","technology","evidence"] %}<option value="{{ t }}"{% if sel.pack_type == t %} selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select></div>
+    <div class="col-auto"><label class="form-label mb-0">Scope</label>
+      <input name="scope" value="{{ sel.scope }}" class="form-control form-control-sm" placeholder="e.g. PCI DSS"></div>
+    <div class="col-auto"><button class="btn btn-sm btn-primary">Build Pack</button></div>
+  </form>
+</div></div>
+{% if pack %}
+<div class="card"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h6 mb-0">{{ pack.pack_type | capitalize }} pack — {{ pack.pack_scope }}</h2>
+    <span class="ai-meter-lbl">items: {{ pack.item_count }} · checksum <code>{{ pack.pack_checksum }}</code></span>
+  </div>
+  <div class="mb-2">
+    {% for fw in pack.frameworks %}<span class="ai-chip ai-chip-na me-1">{{ fw }}</span>{% endfor %}
+  </div>
+  <table class="table table-sm ai-table mb-0"><thead><tr>
+    <th>Control</th><th>Asset</th><th>Verdict</th><th>Content Hash</th></tr></thead>
+  <tbody>
+  {% for i in pack["items"] %}
+    <tr><td>{{ i.control_id }}</td><td>{{ i.asset_id }}</td>
+    <td>{% if i.verdict %}<span class="ai-chip ai-chip-{{ i.verdict | lower }}">{{ i.verdict }}</span>{% else %}—{% endif %}</td>
+    <td><code>{{ i.content_hash[:16] }}…</code></td></tr>
+  {% endfor %}
+  </tbody></table>
+</div></div>
+{% else %}
+<div class="card"><div class="card-body ai-meter-lbl">
+  Choose a pack type and scope above. Packs are built from stored evidence
+  ({{ stats.evidence_keys }} evidence key(s) available).
+</div></div>
+{% endif %}
+{% endblock %}
