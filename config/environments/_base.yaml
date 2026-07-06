@@ -135,7 +135,29 @@ predefined_query_targets:
     database: "${ECS_PG_DATABASE:-ecs_demo}"
     user:     "${ECS_PG_USER:-ecs_user}"
     password_env: ECS_PG_PASSWORD
-    timeout_sec: "${ECS_PG_TIMEOUT_SEC:-30}"
+    sslmode:  "${ECS_PG_SSLMODE:-prefer}"
+    timeout_sec: "${ECS_PG_TIMEOUT_SECONDS:-30}"
+  # YugabyteDB (YSQL) — PostgreSQL-wire compatible; default listener port 5433.
+  # Endpoints/credentials must come from env vars / per-environment YAML,
+  # never hard-coded here.
+  yugabyte:
+    host:     "${ECS_YB_HOST:-localhost}"
+    port:     "${ECS_YB_PORT:-5433}"
+    database: "${ECS_YB_DATABASE:-yugabyte}"
+    user:     "${ECS_YB_USER:-yugabyte}"
+    password_env: ECS_YB_PASSWORD
+    sslmode:  "${ECS_YB_SSLMODE:-prefer}"
+    timeout_sec: "${ECS_YB_TIMEOUT_SECONDS:-30}"
+  # Aurora MySQL — MySQL-wire compatible; default listener port 3306. Locally
+  # validated against a MySQL 8 container. Endpoints/credentials from env only.
+  aurora_mysql:
+    host:     "${ECS_MYSQL_HOST:-localhost}"
+    port:     "${ECS_MYSQL_PORT:-3306}"
+    database: "${ECS_MYSQL_DATABASE:-ecs_demo}"
+    user:     "${ECS_MYSQL_USER:-ecs_user}"
+    password_env: ECS_MYSQL_PASSWORD
+    ssl:      "${ECS_MYSQL_SSL:-false}"
+    timeout_sec: "${ECS_MYSQL_TIMEOUT_SECONDS:-30}"
   linux:
     container:   "${ECS_LINUX_CONTAINER:-ubuntu-demo}"
     timeout_sec: "${ECS_LINUX_TIMEOUT_SEC:-30}"

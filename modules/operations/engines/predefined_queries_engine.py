@@ -41,7 +41,15 @@ TECHNOLOGY_RULES: list[tuple[str, list[str]]] = [
     ("Trivy", ["trivy image", "trivy"]),
     ("SonarQube", ["/api/issues/search", "sonarqube"]),
     ("NGINX", ["nginx -t", "nginx -T"]),
-    ("PostgreSQL", ["pg_stat_replication", "show ssl", "show password_encryption", "from pg_", " pg_"]),
+    # YugabyteDB (YSQL) — must precede PostgreSQL because YSQL is PG-wire
+    # compatible; only the yb_servers() signature is Yugabyte-specific in text.
+    ("YugabyteDB", ["yb_servers(", "yb_servers", "yugabyte"]),
+    # Aurora MySQL / MySQL — MySQL-specific SQL surface (SHOW VARIABLES, mysql.user,
+    # SHOW DATABASES/PROCESSLIST). Placed before PostgreSQL to avoid "show " overlap.
+    ("Aurora MySQL", ["show variables", "from mysql.user", "mysql.user", "show processlist",
+                      "show databases", "have_ssl", "require_secure_transport"]),
+    ("PostgreSQL", ["pg_stat_replication", "show ssl", "show password_encryption", "from pg_", " pg_",
+                    "pg_database", "pg_roles", "pg_extension", "pg_tables"]),
     ("Oracle", ["dba_role_privs", "v$encryption_wallet", " v$", " dba_", "from dba_"]),
     ("Windows", ["get-hotfix", "get-mpcomputerstatus", "get-aduser", "powershell"]),
     ("Linux", ["df -h", "free -m", "timedatectl", "cat /etc/ssh/sshd_config", "/etc/ssh", "/etc/passwd",
@@ -52,8 +60,48 @@ ALLOWED_POSTGRESQL_QUERIES: frozenset[str] = frozenset({
     "show ssl;",
     "show password_encryption;",
     "select * from pg_stat_replication;",
+    "select rolname, rolsuper, rolcreaterole, rolcreatedb, rolcanlogin from pg_roles;",
+    "select datname, pg_database_size(datname) as size_bytes from pg_database;",
+    "select datname, usename, application_name, client_addr, state from pg_stat_activity;",
+    "select extname, extversion from pg_extension;",
+    "select extname from pg_extension where extname in ('pgaudit');",
 })
 
+ALLOWED_YUGABYTE_QUERIES: frozenset[str] = frozenset({
+    "select * from yb_servers();",
+    "select version();",
+    "select datname, usename, application_name, client_addr, state from pg_stat_activity;",
+    "select rolname, rolsuper, rolcreaterole, rolcreatedb, rolcanlogin from pg_roles;",
+    "select datname, pg_database_size(datname) as size_bytes from pg_database;",
+    "select schemaname, tablename, tableowner from pg_tables where schemaname not in "
+    "('pg_catalog', 'information_schema');",
+    "select extname, extversion from pg_extension;",
+    "show ssl;",
+})
+
+ALLOWED_MYSQL_QUERIES: frozenset[str] = frozenset({
+    "show variables like 'have_ssl';",
+    "show variables like 'require_secure_transport';",
+    "show variables like 'log_bin';",
+    "show variables like 'server_audit%';",
+    "select user, host, plugin from mysql.user;",
+    "select version();",
+    "show databases;",
+    "show processlist;",
+    "select user, host, select_priv, insert_priv, update_priv, delete_priv, create_priv, "
+    "drop_priv, super_priv from mysql.user;",
+    "show variables like '%ssl%';",
+})
+
+try:
+    from modules.operations.engines.supplementary_query_catalog import (
+        SUPPLEMENTARY_QUERY_BY_ID as _SUPPLEMENTARY_QUERY_BY_ID,
+    )
+except Exception:  # noqa: BLE001 - supplementary catalog is optional/additive
+    _SUPPLEMENTARY_QUERY_BY_ID = {}
+
+# Curated set of controls wired for live execution. Extended with every
+# supplementary DB query (PGX-*, YBX-*, MYX-*) so the new connectors are runnable.
 LIVE_CONTROL_IDS: frozenset[str] = frozenset({
     "DB-001",
     "DB-002",
@@ -64,7 +112,7 @@ LIVE_CONTROL_IDS: frozenset[str] = frozenset({
     "APP-002",
     "APPSEC-001",
     "APPSEC-002",
-})
+} | set(_SUPPLEMENTARY_QUERY_BY_ID.keys()))
 
 SONAR_CONTROL_MODES: dict[str, str] = {
     "APP-001": "projects",
@@ -148,7 +196,9 @@ def detect_technology(query: str) -> str:
 
 
 # Technologies that have a real, executable connector implementation.
-_IMPLEMENTED_CONNECTOR_TECH: frozenset[str] = frozenset({"PostgreSQL", "Linux", "SonarQube", "Trivy", "GitLeaks"})
+_IMPLEMENTED_CONNECTOR_TECH: frozenset[str] = frozenset(
+    {"PostgreSQL", "YugabyteDB", "Aurora MySQL", "Linux", "SonarQube", "Trivy", "GitLeaks"}
+)
 # Technologies whose connector classes exist but are not yet runnable
 # (DatabaseConnector / SSHConnector / APIConnector raise NotImplementedError).
 _GENERIC_CONNECTOR_TECH: frozenset[str] = frozenset({"Oracle", "Windows", "NGINX"})
@@ -157,15 +207,17 @@ _GENERIC_CONNECTOR_TECH: frozenset[str] = frozenset({"Oracle", "Windows", "NGINX
 def _dependency_available(technology: str) -> bool:
     """Return True when the runtime dependency for a technology is importable.
 
-    Only PostgreSQL has a hard Python dependency (psycopg2). Other implemented
-    connectors run via subprocess/HTTP and surface target availability at
-    execution time, so they are treated as dependency-available at capability
-    assessment time.
+    PostgreSQL and YugabyteDB require psycopg2 (both are PG-wire); Aurora MySQL
+    requires PyMySQL. Other implemented connectors run via subprocess/HTTP and
+    surface target availability at execution time, so they are treated as
+    dependency-available at capability assessment time.
     """
-    if technology == "PostgreSQL":
-        import importlib.util
+    import importlib.util
 
+    if technology in ("PostgreSQL", "YugabyteDB"):
         return importlib.util.find_spec("psycopg2") is not None
+    if technology == "Aurora MySQL":
+        return importlib.util.find_spec("pymysql") is not None
     return True
 
 
@@ -197,7 +249,12 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
                           f"execution (target / query allow-list not configured)."}
 
     if not _dependency_available(technology):
-        dep = "psycopg2" if technology == "PostgreSQL" else "the required driver"
+        _driver_map = {
+            "PostgreSQL": "psycopg2",
+            "YugabyteDB": "psycopg2",
+            "Aurora MySQL": "PyMySQL",
+        }
+        dep = _driver_map.get(technology, "the required driver")
         return {"executable": False, "status": "Dependency Missing",
                 "reason": f"The {technology} driver ({dep}) is not installed in this environment."}
 
@@ -335,6 +392,50 @@ def _load_from_excel() -> tuple[list[dict[str, Any]], list[str]]:
     return controls, errors
 
 
+def _merge_supplementary_controls(controls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Append code-defined supplementary DB controls (additive; Excel wins).
+
+    Builds records with the SAME schema as ``_load_from_excel`` so the rest of the
+    engine treats them identically. Existing control_ids from Excel are never
+    overridden.
+    """
+    try:
+        from modules.operations.engines.supplementary_query_catalog import supplementary_controls
+    except Exception:  # noqa: BLE001 - optional, never break the primary load
+        return controls
+
+    existing_ids = {c.get("control_id") for c in controls}
+    for entry in supplementary_controls():
+        cid = entry.get("control_id")
+        if not cid or cid in existing_ids:
+            continue
+        query = (entry.get("query") or "").strip()
+        frameworks = _parse_frameworks(entry.get("framework_coverage") or "")
+        # Prefer the explicitly-declared technology; fall back to text detection.
+        technology = entry.get("technology") or detect_technology(query)
+        record = {
+            "control_id": cid,
+            "control_name": entry.get("control_name") or cid,
+            "framework_coverage": ", ".join(frameworks) if frameworks else (entry.get("framework_coverage") or ""),
+            "frameworks": frameworks,
+            "query": query,
+            "description": entry.get("description") or "",
+            "evidence_type": entry.get("evidence_type") or "",
+            "predefined": bool(query),
+            "technology": technology,
+            "status": "",
+            "last_execution": "Not Executed",
+            "source": "supplementary",
+        }
+        capability = assess_execution_capability(record)
+        record["status"] = capability["status"]
+        record["executable"] = capability["executable"]
+        record["capability_reason"] = capability["reason"]
+        controls.append(record)
+        existing_ids.add(cid)
+    return controls
+
+
 def load_predefined_queries(*, force: bool = False) -> dict[str, Any]:
     """Load controls from Excel (idempotent)."""
     global _controls, _validation_report, _loaded, _errors_found, _errors_fixed
@@ -346,6 +447,11 @@ def load_predefined_queries(*, force: bool = False) -> dict[str, Any]:
     _errors_fixed = []
     controls, load_errors = _load_from_excel()
     _errors_found.extend(load_errors)
+
+    # Merge supplementary (code-defined) DB queries. Additive only: Excel entries
+    # always win on control_id collision, so the workbook remains the source of
+    # truth and this never overrides it.
+    controls = _merge_supplementary_controls(controls)
 
     for ctrl in controls:
         if ctrl.get("predefined") and not ctrl.get("frameworks"):
@@ -908,6 +1014,82 @@ def run_postgresql_query(control_id: str, user: str) -> dict[str, Any]:
     }
 
 
+def run_yugabyte_query(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a predefined YugabyteDB (YSQL) query from the catalog.
+
+    Reuses the PostgreSQL-wire connector; enforces the Yugabyte allow-list and the
+    shared audit/evidence completion path used by other connectors.
+    """
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+
+    query = (control.get("query") or "").strip()
+    if not query:
+        return {"ok": False, "error": "Missing query for this control", "error_type": "missing_query"}
+
+    if control.get("technology") != "YugabyteDB":
+        return {"ok": False, "error": "This control is not a YugabyteDB control",
+                "error_type": "unsupported_technology"}
+
+    if _normalize_query_allowlist(query) not in ALLOWED_YUGABYTE_QUERIES:
+        return {"ok": False, "error": "This YugabyteDB query is not enabled for live execution",
+                "error_type": "unsupported_query"}
+
+    try:
+        from modules.operations.engines.yugabyte_connector import YugabyteConnector, get_yugabyte_config
+    except ImportError as exc:
+        missing = getattr(exc, "name", "") or "psycopg2"
+        return {
+            "ok": False,
+            "error": "YugabyteDB connector unavailable",
+            "error_type": "connector_unavailable",
+            "reason": f"Required driver '{missing}' is not installed in this environment.",
+            "action": "Install psycopg2-binary, then retry.",
+        }
+
+    connector = YugabyteConnector(**get_yugabyte_config())
+    return _run_connector_query(control, user, "YugabyteDB", query, connector)
+
+
+def run_mysql_query(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a predefined Aurora MySQL query from the catalog.
+
+    Uses the PyMySQL connector; enforces the MySQL allow-list and the shared
+    audit/evidence completion path used by other connectors.
+    """
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+
+    query = (control.get("query") or "").strip()
+    if not query:
+        return {"ok": False, "error": "Missing query for this control", "error_type": "missing_query"}
+
+    if control.get("technology") != "Aurora MySQL":
+        return {"ok": False, "error": "This control is not an Aurora MySQL control",
+                "error_type": "unsupported_technology"}
+
+    if _normalize_query_allowlist(query) not in ALLOWED_MYSQL_QUERIES:
+        return {"ok": False, "error": "This Aurora MySQL query is not enabled for live execution",
+                "error_type": "unsupported_query"}
+
+    try:
+        from modules.operations.engines.mysql_connector import MySQLConnector, get_mysql_config
+    except ImportError as exc:
+        missing = getattr(exc, "name", "") or "pymysql"
+        return {
+            "ok": False,
+            "error": "Aurora MySQL connector unavailable",
+            "error_type": "connector_unavailable",
+            "reason": f"Required driver '{missing}' is not installed in this environment.",
+            "action": "Install PyMySQL, then retry.",
+        }
+
+    connector = MySQLConnector(**get_mysql_config())
+    return _run_connector_query(control, user, "Aurora MySQL", query, connector)
+
+
 def _run_connector_query(control: dict[str, Any], user: str, technology: str, query: str, connector) -> dict[str, Any]:
     from modules.operations.engines.connector_common import complete_connector_execution
     from modules.operations.engines.query_connectors import ConnectorResult
@@ -944,6 +1126,12 @@ def run_predefined_query(control_id: str, user: str) -> dict[str, Any]:
     technology = control.get("technology") or ""
     if technology == "PostgreSQL":
         return run_postgresql_query(control_id, user)
+
+    if technology == "YugabyteDB":
+        return run_yugabyte_query(control_id, user)
+
+    if technology == "Aurora MySQL":
+        return run_mysql_query(control_id, user)
 
     query = (control.get("query") or "").strip()
 

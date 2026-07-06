@@ -1,0 +1,340 @@
+# Predefined Database Query Module — Developer Guide
+
+**Applies to branch:** `cursor/predefined-queries-module`
+**Scope:** PostgreSQL, YugabyteDB (YSQL), and Aurora MySQL predefined read-only queries.
+
+---
+
+## 1. Purpose
+
+The Predefined Query Module lets ECS run a curated, **read-only** set of database
+baselining checks (SSL/TLS posture, privileges, extensions, replication, audit
+config, etc.) against enterprise databases, capture the output as **evidence**,
+and map it to compliance frameworks — without a human running SQL by hand.
+
+This guide covers the three SQL database technologies:
+
+| Technology | Wire protocol | Driver | Default port |
+|------------|---------------|--------|--------------|
+| PostgreSQL | PostgreSQL | `psycopg2` | 5432 |
+| YugabyteDB (YSQL) | PostgreSQL-compatible | `psycopg2` (reused) | 5433 |
+| Aurora MySQL | MySQL-compatible | `PyMySQL` | 3306 |
+
+All queries are **read-only** and enforced by a per-technology **allow-list** —
+only vetted queries can execute live.
+
+---
+
+## 2. Supported databases & queries
+
+Supplementary query definitions live in
+`modules/operations/engines/supplementary_query_catalog.py` (data only; kept
+separate from execution logic). The primary control library remains the Excel
+workbook `ECS_Query_Driven_Control_Library_Consolidated.xlsx`; supplementary
+entries are merged additively (Excel always wins on `control_id` collision).
+
+### PostgreSQL (`PGX-001`..`PGX-008`)
+`SHOW ssl;` · `SHOW password_encryption;` · `SELECT * FROM pg_stat_replication;` ·
+roles/privileges · database sizes · active sessions · installed extensions ·
+pgaudit check.
+
+### YugabyteDB / YSQL (`YBX-001`..`YBX-008`)
+`SELECT * FROM yb_servers();` · `SELECT version();` · active sessions ·
+roles/privileges · database sizes · user table list · extensions · `SHOW ssl;`.
+
+### Aurora MySQL (`MYX-001`..`MYX-010`)
+`SHOW VARIABLES LIKE 'have_ssl';` · `require_secure_transport` · `log_bin` ·
+`server_audit%` · `mysql.user` accounts · `SELECT VERSION();` · `SHOW DATABASES;` ·
+`SHOW PROCESSLIST;` · grants summary · `SHOW VARIABLES LIKE '%ssl%'`.
+
+---
+
+## 3. Connector architecture
+
+```
+predefined_queries_engine.run_predefined_query(control_id, user)
+  ├─ PostgreSQL   → run_postgresql_query() → PostgreSQLConnector (psycopg2)
+  ├─ YugabyteDB   → run_yugabyte_query()   → YugabyteConnector(PostgreSQLConnector)
+  ├─ Aurora MySQL → run_mysql_query()      → MySQLConnector (PyMySQL)
+  └─ Linux / SonarQube / Trivy / GitLeaks  → existing connectors
+        │
+        └─ each: connect() → execute(query) → disconnect()
+                 → complete_connector_execution()  (audit + evidence + API payload)
+```
+
+| File | Responsibility |
+|------|----------------|
+| `modules/operations/engines/predefined_queries_engine.py` | Catalog load, technology detection, capability assessment, allow-lists, dispatch |
+| `modules/operations/engines/query_connectors.py` | `ConnectorResult`, `BaseConnector`, `connector_for_technology()` routing |
+| `modules/operations/engines/postgresql_connector.py` | PostgreSQL connector (psycopg2) + shared config helpers (`_safe_int`, `_clean`) |
+| `modules/operations/engines/yugabyte_connector.py` | YugabyteDB connector — thin subclass of PostgreSQL (PG-wire) |
+| `modules/operations/engines/mysql_connector.py` | Aurora MySQL / MySQL 8 connector (PyMySQL) |
+| `modules/operations/engines/supplementary_query_catalog.py` | Code-defined supplementary DB queries (data only) |
+| `modules/operations/engines/connector_common.py` | Shared post-execution path (audit → evidence → payload) |
+
+All connectors return the same `ConnectorResult(success, output, error_message,
+duration_ms, metadata)` and pipe-delimited text output, so downstream handling is
+identical regardless of technology.
+
+**Design principles honoured:** additive changes; no duplicate engine; query
+catalog separate from execution; credentials externalised; passwords never
+logged; graceful degradation when a driver is missing or a DB is unreachable.
+
+---
+
+## 4. Where to configure IPs / hosts / ports
+
+Two layers, resolved in this order per field (first non-empty wins):
+
+1. **Active-environment YAML** — `config/environments/_base.yaml` (overridable per
+   env in `config/environments/<env>.yaml`), block
+   `predefined_query_targets.{postgresql,yugabyte,aurora_mysql}`. Values there use
+   `${ENV_VAR:-default}` placeholders.
+2. **Environment variables** — the `ECS_*` vars below (also honoured by the YAML).
+
+> **Never hard-code UAT/cloud IPs, endpoints, or credentials in source code.**
+> Put them in `.env` (local, git-ignored) or the environment YAML / your
+> deployment's secret store.
+
+`ECS_ENV` selects the environment (`local` default; also `dev`, `sit`, `uat`,
+`prod`).
+
+---
+
+## 5. Required environment variables
+
+Placeholders are in `.env.example`. Copy to `.env` and fill real values.
+
+### PostgreSQL
+```
+ECS_PG_HOST            (default localhost)
+ECS_PG_PORT            (default 5432)
+ECS_PG_DATABASE        (default ecs_demo)
+ECS_PG_USER            (default ecs_user)
+ECS_PG_PASSWORD
+ECS_PG_SSLMODE         (disable|allow|prefer|require|verify-ca|verify-full; default prefer)
+ECS_PG_TIMEOUT_SECONDS (default 30)   # legacy ECS_PG_TIMEOUT_SEC still honoured
+```
+
+### YugabyteDB (YSQL)
+```
+ECS_YB_HOST            (default localhost)
+ECS_YB_PORT            (default 5433)
+ECS_YB_DATABASE        (default yugabyte)
+ECS_YB_USER            (default yugabyte)
+ECS_YB_PASSWORD
+ECS_YB_SSLMODE         (default prefer)
+ECS_YB_TIMEOUT_SECONDS (default 30)
+```
+
+### Aurora MySQL
+```
+ECS_MYSQL_HOST            (default localhost)
+ECS_MYSQL_PORT            (default 3306)
+ECS_MYSQL_DATABASE        (default ecs_demo)
+ECS_MYSQL_USER            (default ecs_user)
+ECS_MYSQL_PASSWORD
+ECS_MYSQL_SSL             (true|false; true requires TLS)
+ECS_MYSQL_TIMEOUT_SECONDS (default 30)
+```
+
+Use **read-only** DB users. Passwords are read from the environment and are never
+logged.
+
+---
+
+## 6. Local Docker testing (16 GB machine recommended)
+
+The DB target containers are **opt-in** (compose profile `db-targets`) so they do
+not run by default on 8 GB laptops.
+
+```bash
+# PostgreSQL demo target is always available (postgres-demo, port 5432):
+docker compose up -d postgres-demo
+
+# YugabyteDB (5433) + MySQL 8 as Aurora stand-in (3306):
+docker compose --profile db-targets up -d yugabyte mysql-demo
+```
+
+Defaults created locally:
+
+| Target | Host | Port | DB / user / pass |
+|--------|------|------|------------------|
+| PostgreSQL | localhost | 5432 | ecs_demo / ecs_user / ecs_password |
+| YugabyteDB | localhost | 5433 | yugabyte / yugabyte / (none) |
+| MySQL 8 (Aurora sim) | localhost | 3306 | ecs_demo / ecs_user / ecs_password |
+
+> Aurora MySQL is AWS-managed; MySQL 8 is wire-compatible for these read-only
+> baselining checks and is sufficient for local validation.
+
+> **8 GB machines:** run only `postgres-demo`. Hand off `--profile db-targets`
+> (Yugabyte + MySQL) validation to a 16 GB teammate, or point `ECS_*_HOST` at a
+> shared UAT endpoint instead.
+
+---
+
+## 7. UAT / cloud configuration
+
+1. Put the real endpoints in your `.env` or `config/environments/uat.yaml`
+   (`predefined_query_targets.*`), **never** in code.
+2. Use a **read-only** DB account (no DBA/admin).
+3. Set `ECS_PG_SSLMODE` / `ECS_YB_SSLMODE` and `ECS_MYSQL_SSL` per bank policy
+   (typically `require`/`verify-full` for PostgreSQL/Yugabyte, `true` for MySQL).
+4. Ensure DNS resolves the cloud endpoint from the ECS host / your laptop / VPN.
+5. Ensure VPN / bank network routing is active.
+
+---
+
+## 8. Firewall / network requirements
+
+For UAT / cloud connectivity, the network path from the **source**
+(developer laptop / VPN / ECS backend host) to the **database** must allow
+**outbound** access on the listener port:
+
+| Database | Port (TCP) |
+|----------|------------|
+| PostgreSQL | **5432** |
+| Yugabyte YSQL | **5433** |
+| Aurora MySQL | **3306** |
+
+Checklist:
+
+- Use **read-only** DB users; avoid DBA/admin users.
+- Ensure **DNS resolution** for cloud endpoints from the source host.
+- Ensure **VPN / bank network routing** is active.
+- Ensure the **database security group / firewall** allows the source subnet.
+- Ensure **SSL/TLS mode** is configured as required by bank policy.
+- **AWS Aurora:** the RDS **security group inbound** must allow the
+  client/VPN/ECS subnet on **TCP 3306**.
+- **Cloud PostgreSQL / Yugabyte:** allow the ECS backend/client subnet on the
+  DB listener port (**5432 / 5433**).
+- **UAT IPs/endpoints** go in environment YAML or `.env`, **not** hard-coded in
+  source.
+
+---
+
+## 9. How to run the predefined queries
+
+### From the UI
+Open **Operations → Predefined Queries** (`/mvp/predefined-queries`). Rows whose
+status is **Ready** (implemented connector + driver installed + target
+configured) show a **Run Query** action. Running one executes the allow-listed
+query, records an audit entry, and stores the output as evidence.
+
+### Programmatically (Python)
+```python
+from modules.operations.engines.predefined_queries_engine import (
+    run_predefined_query, run_postgresql_query, run_yugabyte_query, run_mysql_query,
+)
+
+run_predefined_query("PGX-001", "developer")   # auto-dispatch by technology
+run_yugabyte_query("YBX-001", "developer")      # YugabyteDB
+run_mysql_query("MYX-001", "developer")         # Aurora MySQL
+```
+
+### Minimal CLI runner
+A safe, dependency-light runner is provided:
+```bash
+python scripts/run_predefined_db_query.py --list                 # list DB controls + status
+python scripts/run_predefined_db_query.py --control PGX-001      # run one (needs a reachable DB)
+python scripts/run_predefined_db_query.py --control MYX-001 --user analyst
+```
+It never executes anything outside the allow-list and prints a JSON result.
+
+---
+
+## 10. How to add a new predefined query
+
+1. Add an entry to the appropriate list in
+   `modules/operations/engines/supplementary_query_catalog.py` (id, name, SQL,
+   `technology`, description). Use an id prefix that won't collide with Excel
+   (`PGX-`, `YBX-`, `MYX-`).
+2. Add the **exact normalized SQL** to the matching allow-list in
+   `predefined_queries_engine.py` (`ALLOWED_POSTGRESQL_QUERIES` /
+   `ALLOWED_YUGABYTE_QUERIES` / `ALLOWED_MYSQL_QUERIES`). Normalization =
+   lowercase, collapsed whitespace, trailing `;`.
+3. (Optional) Add a test asserting it's covered by the allow-list.
+4. `python -m compileall modules` and `pytest tests/test_predefined_db_connectors.py`.
+
+The control becomes **Ready** automatically when its driver is installed and the
+control id is in `LIVE_CONTROL_IDS` (supplementary ids are added there
+automatically).
+
+---
+
+## 11. How to add a new database connector
+
+1. Create `modules/operations/engines/<tech>_connector.py` with:
+   - `get_<tech>_config()` reading `ECS_<TECH>_*` env vars (+ optional YAML block),
+     using `_safe_int` / `_clean` for placeholder-safe parsing.
+   - A connector class exposing `connect() -> bool`, `execute(query) -> ConnectorResult`,
+     `disconnect()`. Return the standard `ConnectorResult` + pipe-delimited output.
+2. Add the technology to `TECHNOLOGY_RULES`, `_IMPLEMENTED_CONNECTOR_TECH`, and
+   `_dependency_available()` in `predefined_queries_engine.py`.
+3. Add a `run_<tech>_query()` dispatch branch and an allow-list.
+4. Add routing in `query_connectors.connector_for_technology()`.
+5. Add the driver to `requirements.txt` and (optionally) a `db-targets`
+   docker-compose service.
+6. Add a YAML block under `predefined_query_targets` and `.env.example` vars.
+7. Add tests.
+
+---
+
+## 12. Troubleshooting
+
+| Symptom | Likely cause / fix |
+|---------|--------------------|
+| Status **Dependency Missing** | Driver not installed. `pip install -r requirements.txt` (psycopg2-binary / PyMySQL). |
+| Status **Configuration Required** | Control not in `LIVE_CONTROL_IDS` or query not allow-listed. |
+| `Could not connect to the database` | Target not running / firewall / wrong host or port. Check `docker compose ps`, security group, VPN. |
+| `Authentication failed` / `Access denied` | Wrong DB user/password, or user lacks connect/read rights. Use a read-only account with access. |
+| MySQL `command denied` on `mysql.user` | The read-only user lacks `SELECT` on `mysql.user`. Grant read on the needed system tables or skip those controls. |
+| Yugabyte `yb_servers()` not found | Not a YugabyteDB endpoint, or too old a version. Confirm the host/port is YSQL (5433). |
+| TLS errors | Adjust `ECS_PG_SSLMODE` / `ECS_YB_SSLMODE` / `ECS_MYSQL_SSL` to match server policy. |
+| Query times out | Increase `ECS_*_TIMEOUT_SECONDS`; check DB load/network. |
+| Unresolved `${...}` in config | Ensure the env var is exported before startup, or rely on the built-in default. |
+
+Passwords are never printed in logs or errors.
+
+---
+
+## 13. New developer — checkout & run
+
+```bash
+git status
+git checkout cursor/predefined-queries-module
+git pull origin cursor/predefined-queries-module
+
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
+# Edit .env: set local Docker or UAT/cloud DB endpoints + read-only credentials.
+
+# Unit tests (no live DB required):
+pytest tests/test_predefined_db_connectors.py
+
+# (Optional) local DB targets on a 16 GB machine:
+docker compose up -d postgres-demo
+docker compose --profile db-targets up -d yugabyte mysql-demo
+
+# List DB predefined queries and their status:
+python scripts/run_predefined_db_query.py --list
+
+# Run one against a reachable DB:
+python scripts/run_predefined_db_query.py --control PGX-001
+
+# Commit / push (only your changes):
+git status
+git add .
+git commit -m "feat: add predefined database query connectors"
+git push origin cursor/predefined-queries-module
+```
+
+---
+
+## 14. Cross-references
+- `docs/operations/ECS_PREDEFINED_QUERY_EXECUTION_GUIDE.md`
+- `docs/operations/ECS_CONNECTOR_INVENTORY.md`
+- `docs/PRODUCTION/ECS_REMOTE_CONNECTOR_EXPANSION_PLAN.md`

@@ -182,6 +182,19 @@ def connector_for_technology(technology: str) -> BaseConnector | None:
             # message instead of a 500 / raw ModuleNotFoundError.
             return None
         return PostgreSQLConnector(**get_postgresql_config())
+    if technology == "YugabyteDB":
+        try:
+            from modules.operations.engines.yugabyte_connector import YugabyteConnector, get_yugabyte_config
+        except ImportError:
+            return None
+        return YugabyteConnector(**get_yugabyte_config())
+    if technology == "Aurora MySQL":
+        try:
+            from modules.operations.engines.mysql_connector import MySQLConnector, get_mysql_config
+        except ImportError:
+            # PyMySQL not installed — degrade gracefully.
+            return None
+        return MySQLConnector(**get_mysql_config())
     if technology == "Linux":
         from modules.operations.engines.linux_connector import LinuxConnector, get_linux_config
 

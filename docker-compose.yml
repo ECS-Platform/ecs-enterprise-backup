@@ -11,6 +11,18 @@ services:
       ECS_PG_DATABASE: ecs_demo
       ECS_PG_USER: ecs_user
       ECS_PG_PASSWORD: ecs_password
+      # Predefined-query DB targets (used only when the "db-targets" profile is up;
+      # harmless otherwise — connectors just report the target unreachable).
+      ECS_YB_HOST: ${ECS_YB_HOST:-yugabyte}
+      ECS_YB_PORT: ${ECS_YB_PORT:-5433}
+      ECS_YB_DATABASE: ${ECS_YB_DATABASE:-yugabyte}
+      ECS_YB_USER: ${ECS_YB_USER:-yugabyte}
+      ECS_YB_PASSWORD: ${ECS_YB_PASSWORD:-yugabyte}
+      ECS_MYSQL_HOST: ${ECS_MYSQL_HOST:-mysql-demo}
+      ECS_MYSQL_PORT: ${ECS_MYSQL_PORT:-3306}
+      ECS_MYSQL_DATABASE: ${ECS_MYSQL_DATABASE:-ecs_demo}
+      ECS_MYSQL_USER: ${ECS_MYSQL_USER:-ecs_user}
+      ECS_MYSQL_PASSWORD: ${ECS_MYSQL_PASSWORD:-ecs_password}
       ECS_LINUX_CONTAINER: ubuntu-demo
       ECS_SONAR_URL: http://sonarqube-demo:9000
       ECS_SONAR_USER: admin
@@ -110,6 +122,38 @@ services:
       POSTGRES_PASSWORD: ecs_password
     ports:
       - "5432:5432"
+    restart: unless-stopped
+
+  # ============================================================
+  # Predefined-query DATABASE TARGETS (opt-in; profile "db-targets").
+  # Additive: NOT started by default (keeps 8 GB laptops light). Start on a
+  # 16 GB machine with:  docker compose --profile db-targets up -d
+  #   Yugabyte YSQL -> localhost:5433 ; MySQL 8 (Aurora sim) -> localhost:3306
+  # The ECS container reaches them via ECS_YB_HOST / ECS_MYSQL_HOST below.
+  # ============================================================
+  yugabyte:
+    image: yugabytedb/yugabyte:2.20.5.0-b72
+    profiles: ["db-targets"]
+    container_name: yugabyte
+    command: ["bin/yugabyted", "start", "--daemon=false", "--background=false"]
+    ports:
+      - "5433:5433"   # YSQL (PostgreSQL-wire)
+      - "7000:7000"   # admin UI (optional)
+    restart: unless-stopped
+
+  mysql-demo:
+    image: mysql:8.0
+    profiles: ["db-targets"]
+    # MySQL 8 stands in for Aurora MySQL locally (wire-compatible for these
+    # read-only baselining checks). Aurora itself is AWS-managed.
+    container_name: mysql-demo
+    environment:
+      MYSQL_ROOT_PASSWORD: ecs_root_password
+      MYSQL_DATABASE: ecs_demo
+      MYSQL_USER: ecs_user
+      MYSQL_PASSWORD: ecs_password
+    ports:
+      - "3306:3306"
     restart: unless-stopped
 
   ubuntu-demo:

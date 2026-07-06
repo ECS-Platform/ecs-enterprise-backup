@@ -3,7 +3,10 @@ uvicorn
 jinja2
 python-multipart
 openpyxl
+# PostgreSQL + YugabyteDB (YSQL, PostgreSQL-wire) predefined-query connector
 psycopg2-binary
+# Aurora MySQL / MySQL 8 predefined-query connector (pure-Python driver)
+PyMySQL
 # Environment loading (.env -> os.environ) for demo-mode flags at startup
 python-dotenv
 # ECS platform foundation

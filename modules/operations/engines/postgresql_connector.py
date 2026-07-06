@@ -13,6 +13,23 @@ from modules.operations.engines.query_connectors import ConnectorResult
 DEFAULT_TIMEOUT_SEC = 30
 
 
+def _safe_int(value: Any, default: int) -> int:
+    """Coerce a value to int, tolerating unresolved ``${...}`` placeholders/blanks."""
+    try:
+        s = str(value).strip()
+        if not s or s.startswith("${"):
+            return default
+        return int(s)
+    except (TypeError, ValueError):
+        return default
+
+
+def _clean(value: Any) -> str:
+    """Return a string, treating unresolved ``${...}`` placeholders as empty."""
+    s = str(value).strip() if value is not None else ""
+    return "" if s.startswith("${") else s
+
+
 def get_postgresql_config() -> dict[str, Any]:
     """PostgreSQL target for predefined query execution.
 
@@ -26,12 +43,19 @@ def get_postgresql_config() -> dict[str, Any]:
     cfg = get_predefined_target("postgresql")
     password_env = str(cfg.get("password_env") or "ECS_PG_PASSWORD")
     return {
-        "host": cfg.get("host") or os.environ.get("ECS_PG_HOST", "localhost"),
-        "port": int(cfg.get("port") or os.environ.get("ECS_PG_PORT", "5432")),
-        "database": cfg.get("database") or os.environ.get("ECS_PG_DATABASE", "ecs_demo"),
-        "user": cfg.get("user") or os.environ.get("ECS_PG_USER", "ecs_user"),
+        "host": _clean(cfg.get("host")) or os.environ.get("ECS_PG_HOST", "localhost"),
+        "port": _safe_int(cfg.get("port") or os.environ.get("ECS_PG_PORT"), 5432),
+        "database": _clean(cfg.get("database")) or os.environ.get("ECS_PG_DATABASE", "ecs_demo"),
+        "user": _clean(cfg.get("user")) or os.environ.get("ECS_PG_USER", "ecs_user"),
         "password": os.environ.get(password_env) or os.environ.get("ECS_PG_PASSWORD", "ecs_password"),
-        "timeout_sec": int(cfg.get("timeout_sec") or os.environ.get("ECS_PG_TIMEOUT_SEC", str(DEFAULT_TIMEOUT_SEC))),
+        "sslmode": _clean(cfg.get("sslmode")) or os.environ.get("ECS_PG_SSLMODE", ""),
+        # Accept both ECS_PG_TIMEOUT_SECONDS (canonical) and legacy ECS_PG_TIMEOUT_SEC.
+        "timeout_sec": _safe_int(
+            cfg.get("timeout_sec")
+            or os.environ.get("ECS_PG_TIMEOUT_SECONDS")
+            or os.environ.get("ECS_PG_TIMEOUT_SEC"),
+            DEFAULT_TIMEOUT_SEC,
+        ),
     }
 
 
@@ -43,7 +67,9 @@ def _friendly_error(exc: Exception) -> tuple[str, str]:
     if "password authentication failed" in lower or "authentication failed" in lower:
         return "authentication_failure", "Authentication failed. Verify database credentials."
     if "could not connect" in lower or "connection refused" in lower or "no route to host" in lower:
-        return "connection_failure", "Could not connect to PostgreSQL. Ensure postgres-demo is running (docker compose up -d)."
+        return ("connection_failure",
+                "Could not connect to the database. Ensure the target is running and reachable "
+                "(e.g. docker compose up -d for local, or check the host/port/security group for UAT).")
     if "does not exist" in lower or "syntax error" in lower or "permission denied" in lower:
         return "query_failure", f"Query failed: {message}"
     return "query_failure", f"Database error: {message}"
@@ -63,6 +89,10 @@ def _format_result(columns: list[str], rows: list[tuple]) -> str:
 class PostgreSQLConnector:
     """Live PostgreSQL execution for predefined demo queries."""
 
+    #: Technology label used in audit records and friendly errors. Subclasses
+    #: (e.g. YugabyteDB) override this without changing execution behaviour.
+    technology: str = "PostgreSQL"
+
     def __init__(
         self,
         host: str = "localhost",
@@ -70,6 +100,7 @@ class PostgreSQLConnector:
         database: str = "ecs_demo",
         user: str = "ecs_user",
         password: str = "ecs_password",
+        sslmode: str = "",
         timeout_sec: int = DEFAULT_TIMEOUT_SEC,
     ):
         self.host = host
@@ -77,13 +108,17 @@ class PostgreSQLConnector:
         self.database = database
         self.user = user
         self.password = password
+        # Optional libpq sslmode (disable|allow|prefer|require|verify-ca|verify-full).
+        # Empty string means "let libpq/psycopg2 use its default" — preserves the
+        # historical connection behaviour when no ssl policy is configured.
+        self.sslmode = (sslmode or "").strip()
         self.timeout_sec = timeout_sec
         self._conn = None
         self._last_error = ""
 
     def connect(self) -> bool:
         try:
-            self._conn = psycopg2.connect(
+            connect_kwargs = dict(
                 host=self.host,
                 port=self.port,
                 dbname=self.database,
@@ -91,6 +126,9 @@ class PostgreSQLConnector:
                 password=self.password,
                 connect_timeout=self.timeout_sec,
             )
+            if self.sslmode:
+                connect_kwargs["sslmode"] = self.sslmode
+            self._conn = psycopg2.connect(**connect_kwargs)
             self._conn.autocommit = True
             with self._conn.cursor() as cur:
                 cur.execute("SET statement_timeout = %s", (f"{self.timeout_sec}s",))
