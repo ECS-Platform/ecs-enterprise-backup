@@ -11,6 +11,28 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Audit Intelligence layer — Milestone 1** (new package `modules/audit_intelligence/`,
+  additive; the predefined-query platform is untouched and used read-only):
+  - **Technology → Control → Framework mapping engine**
+    (`engines/technology_control_mapping.py` + `services/mapping_service.py`) —
+    derives the Technology → Controls → Frameworks graph from the existing 167
+    controls (20 technologies, 16 frameworks). Lookup/search/graph/stats APIs.
+  - **Asset discovery** (`engines/asset_discovery.py`) — unified asset inventory
+    normalized from manual import, the ServiceNow CMDB skeleton (injected/mock
+    transport), offline `docker-compose` parsing, and the existing enterprise-GRC
+    CMDB; de-duplicated by asset id.
+  - **Technology fingerprinting** (`engines/technology_fingerprint.py`) —
+    deterministic technology/version inference with a confidence score and audit
+    signals; cross-links each asset to applicable controls/frameworks.
+  - `services/asset_service.py` — inventory, technology roll-up, fingerprint
+    report, and coverage summary.
+  - `scripts/audit_intelligence_report.py` — read-only, offline CLI to inspect the
+    mapping and asset inventory (text/`--json`).
+  - Serializable frozen dataclasses in `models.py`; comprehensive offline tests
+    (`test_technology_control_mapping.py`, `test_technology_fingerprint.py`,
+    `test_asset_discovery.py`, `test_audit_intelligence_report_cli.py`).
+  - Developer guides: `docs/DEVELOPER/TECHNOLOGY_MAPPING_GUIDE.md`,
+    `docs/DEVELOPER/ASSET_DISCOVERY_GUIDE.md`.
 - Extended predefined-query technology coverage (+62 controls; total 167):
   - Redis `RDX-001..008`, Apache HTTPD `APX-001..008`, Tomcat `TCX-001..008`,
     SQL Server `MSX-001..010`, MongoDB `MGX-001..008`, Kubernetes `K8X-001..010`,

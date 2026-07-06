@@ -5,6 +5,11 @@ Follow this top-to-bottom to get a working local environment and run the
 predefined database query module.
 
 > Deep-dive for the database query module: [PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md).
+>
+> Audit-intelligence layer (Milestone 1):
+> [TECHNOLOGY_MAPPING_GUIDE.md](TECHNOLOGY_MAPPING_GUIDE.md) (Technology → Control →
+> Framework) and [ASSET_DISCOVERY_GUIDE.md](ASSET_DISCOVERY_GUIDE.md) (asset
+> discovery & fingerprinting).
 
 ---
 
