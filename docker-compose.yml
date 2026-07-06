@@ -192,6 +192,55 @@ services:
     profiles: ["oracle-demo"]
     restart: unless-stopped
 
+  # ============================================================
+  # Extended MIDDLEWARE demo targets (opt-in). Lightweight — safe on 8 GB.
+  #   docker compose --profile infra-demo-extended up -d apache-demo tomcat-demo
+  # ============================================================
+  apache-demo:
+    image: httpd:2.4
+    container_name: apache-demo
+    ports:
+      - "8082:80"
+    profiles: ["apache-demo", "infra-demo-extended"]
+    restart: unless-stopped
+
+  tomcat-demo:
+    image: tomcat:10.1
+    container_name: tomcat-demo
+    ports:
+      - "8083:8080"
+    profiles: ["tomcat-demo", "infra-demo-extended"]
+    restart: unless-stopped
+
+  # ============================================================
+  # Extended DATABASE demo targets (opt-in).
+  #   MongoDB (lightweight): docker compose --profile db-demo-extended up -d mongodb-demo
+  #   SQL Server (HEAVY, optional, NOT in any umbrella profile / default):
+  #     docker compose --profile sqlserver-demo up -d sqlserver-demo
+  # ============================================================
+  mongodb-demo:
+    image: mongo:7
+    container_name: mongodb-demo
+    ports:
+      - "27017:27017"
+    profiles: ["mongodb-demo", "db-demo-extended"]
+    restart: unless-stopped
+
+  # SQL Server — HEAVY (~2 GB+ RAM), Linux/amd64 image (emulated on Apple Silicon),
+  # and subject to Microsoft EULA. Only the sqlserver-demo profile; never default,
+  # never in infra-demo / db-demo-extended.
+  sqlserver-demo:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-demo
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Ecs_Str0ng_Passw0rd!"
+      MSSQL_PID: Developer
+    profiles: ["sqlserver-demo"]
+    restart: unless-stopped
+
   mysql-demo:
     image: mysql:8.0
     profiles: ["db-targets"]
