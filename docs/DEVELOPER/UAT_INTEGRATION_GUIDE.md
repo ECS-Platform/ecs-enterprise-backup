@@ -373,6 +373,53 @@ curl -s "http://127.0.0.1:8000/api/audit/integrations/health?role=owner&user=App
 
 ---
 
+## 17. Bank Developer UAT Checklist
+
+Work through this per target system, in order. Each step is a hard gate — do not
+proceed until it passes. Nothing here requires committing anything to git.
+
+### 17.1 Connectivity & access (per target)
+- [ ] **VPN connected** — on the bank VPN or an approved jump host; UAT subnets
+      actually route over the tunnel.
+- [ ] **DNS reachable** — the target FQDN resolves over the VPN
+      (`nslookup <uat-host>`), or you have the approved IP.
+- [ ] **Port opened** — the firewall allows your source → target port
+      (`nc -vz <uat-host> <port>` succeeds from your source).
+- [ ] **Read-only service account created** — least-privilege account provisioned
+      by the platform/DBA team (no DBA/admin/root). One per target class.
+- [ ] **Secret stored outside Git** — credentials placed only in `.env.uat`
+      (git-ignored) or the bank secret manager. Never in YAML/code/docs/tickets.
+
+### 17.2 Configuration
+- [ ] **`.env.uat` populated** — real UAT hosts/ports + service accounts for each
+      target (copy from §14; replace every `<...>`). `ECS_ENV=uat` set.
+- [ ] Confirm `git status` shows **no** `.env.uat` and no secrets staged.
+
+### 17.3 Execution & evidence
+- [ ] **Diagnostics executed** — environment diagnostic passes for the target
+      (e.g. `python3 scripts/check_predefined_extended_environment.py --no-docker-check`);
+      connector shows reachable + authenticated (secrets masked SET/MISSING).
+- [ ] **Smoke test executed** — offline platform smoke is green
+      (`python3 scripts/run_ecs_demo_smoke.py` → `ALL PASS`), and an integration
+      health check returns non-error for configured adapters
+      (`/api/audit/integrations/health`).
+- [ ] **Evidence result reviewed** — run an actual evidence collection against the
+      UAT target, open the run in the UI (`/mvp/audit/evidence-runs`), and confirm
+      the captured evidence + verdict look correct (`Completed`, rows returned,
+      validation verdict, no secret leakage in the excerpt).
+
+### 17.4 Sign-off
+- [ ] Repeat 17.1–17.3 for every in-scope technology (databases, middleware, OS,
+      container platforms, GRC/AppSec/CSPM integrations).
+- [ ] Record which targets are **live-validated** vs **pending** in the
+      [PRODUCTION_READINESS_GAP_REGISTER.md](PRODUCTION_READINESS_GAP_REGISTER.md).
+
+> Reminder: **no real IPs, hostnames, or secrets** belong in any committed file —
+> including screenshots pasted into tickets. Diagnostics and connectors only ever
+> print `SET`/`MISSING`, never secret values.
+
+---
+
 ## Validation (this guide's config)
 
 ```bash

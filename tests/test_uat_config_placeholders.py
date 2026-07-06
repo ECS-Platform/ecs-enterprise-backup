@@ -49,11 +49,39 @@ REQUIRED_ENV_VARS = [
     "ECS_TRIPWIRE_TIMEOUT_SECONDS",
 ]
 
+#: Database / middleware / OS / container-platform targets (predefined-query
+#: connectors). At least one representative variable per technology must exist as
+#: a placeholder in .env.example so bank developers can repoint UAT with no code
+#: change. Aurora is MySQL-wire-compatible and intentionally reuses ECS_MYSQL_*.
+REQUIRED_TECH_ENV_VARS = {
+    "Oracle": "ECS_ORACLE_HOST",
+    "PostgreSQL": "ECS_PG_HOST",
+    "YugabyteDB": "ECS_YB_HOST",
+    "MySQL/Aurora": "ECS_MYSQL_HOST",
+    "SQL Server": "ECS_SQLSERVER_HOST",
+    "MongoDB": "ECS_MONGODB_URI",
+    "Redis": "ECS_REDIS_HOST",
+    "Linux/RHEL": "ECS_LINUX_CONTAINER",
+    "NGINX": "ECS_NGINX_CONTAINER",
+    "Apache": "ECS_APACHE_CONTAINER",
+    "Tomcat": "ECS_TOMCAT_CONTAINER",
+    "Kubernetes": "ECS_KUBECONFIG",
+    "OpenShift": "ECS_OPENSHIFT_KUBECONFIG",
+}
+
 
 def test_env_example_has_all_placeholders():
     text = ENV_EXAMPLE.read_text(encoding="utf-8")
     missing = [v for v in REQUIRED_ENV_VARS if f"{v}=" not in text]
     assert not missing, f".env.example missing placeholders: {missing}"
+
+
+def test_env_example_has_all_technology_placeholders():
+    """Every database/infra/container technology has a UAT placeholder."""
+    text = ENV_EXAMPLE.read_text(encoding="utf-8")
+    missing = {tech: var for tech, var in REQUIRED_TECH_ENV_VARS.items()
+               if f"{var}=" not in text}
+    assert not missing, f".env.example missing technology placeholders: {missing}"
 
 
 def test_env_example_secrets_are_blank_placeholders():
@@ -98,3 +126,15 @@ def test_uat_yaml_has_adapter_blocks_and_no_secrets():
 def test_yaml_files_are_valid():
     for path in (BASE_YAML, UAT_YAML):
         yaml.safe_load(path.read_text(encoding="utf-8"))  # raises if invalid
+
+
+def test_uat_guide_has_bank_developer_checklist():
+    """The UAT guide must carry the Bank Developer UAT Checklist with all gates."""
+    guide = ROOT / "docs" / "DEVELOPER" / "UAT_INTEGRATION_GUIDE.md"
+    text = guide.read_text(encoding="utf-8").lower()
+    assert "bank developer uat checklist" in text
+    for gate in ("vpn connected", "dns reachable", "port opened",
+                 "read-only service account", "secret stored outside git",
+                 "`.env.uat` populated", "diagnostics executed",
+                 "smoke test executed", "evidence result reviewed"):
+        assert gate in text, f"UAT checklist missing gate: {gate!r}"
