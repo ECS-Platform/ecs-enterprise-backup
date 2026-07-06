@@ -27,14 +27,15 @@ Transport = Callable[[str, str, dict, dict], dict]
 
 def get_servicenow_config() -> dict[str, Any]:
     """ServiceNow connection config (env / YAML). Secrets are read, never logged."""
-    cfg: dict[str, Any] = {}
-    try:
-        from config.environment_loader import get_section
+    from modules.operations.integrations import lookup_yaml_config
 
-        integrations = get_section("integrations")
-        cfg = integrations.get("servicenow_cmdb") or integrations.get("servicenow", {}) or {}
-    except Exception:  # noqa: BLE001 - degrade to env-only
-        cfg = {}
+    # Backward-compatible YAML lookup. Integration config may live under either
+    # the "connectors" or the (older) "integrations" section, keyed as
+    # "servicenow_cmdb" (preferred) or the legacy "servicenow". Checked in
+    # priority order so all historical layouts keep working:
+    #   connectors.servicenow_cmdb -> integrations.servicenow_cmdb
+    #   -> connectors.servicenow    -> integrations.servicenow
+    cfg = lookup_yaml_config(("servicenow_cmdb", "servicenow"))
     return {
         "base_url": (str(cfg.get("base_url")) if cfg.get("base_url") else "")
         or os.environ.get("ECS_SERVICENOW_BASE_URL", ""),

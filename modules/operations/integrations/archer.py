@@ -21,13 +21,11 @@ Transport = Callable[[str, str, dict, dict], dict]
 
 def get_archer_config() -> dict[str, Any]:
     """Archer connection config (env / YAML). Secrets are read, never logged."""
-    cfg: dict[str, Any] = {}
-    try:
-        from config.environment_loader import get_section
+    from modules.operations.integrations import lookup_yaml_config
 
-        cfg = get_section("integrations").get("archer", {}) or {}
-    except Exception:  # noqa: BLE001
-        cfg = {}
+    # Backward compatible: the "archer" block may live under either the
+    # "connectors" or the (older) "integrations" section.
+    cfg = lookup_yaml_config(("archer",))
     return {
         "base_url": (str(cfg.get("base_url")) if cfg.get("base_url") else "")
         or os.environ.get("ECS_ARCHER_BASE_URL", ""),
