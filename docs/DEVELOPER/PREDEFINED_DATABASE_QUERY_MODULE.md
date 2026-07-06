@@ -99,6 +99,32 @@ Two layers, resolved in this order per field (first non-empty wins):
 `ECS_ENV` selects the environment (`local` default; also `dev`, `sit`, `uat`,
 `prod`).
 
+### Exact place to enter each value
+
+Set these in your **`.env`** (copied from `.env.example`) — this is the primary
+place a developer enters connection details. (Equivalently, set the same values
+in `config/environments/<env>.yaml` under `predefined_query_targets`.)
+
+| Field | PostgreSQL | YugabyteDB | Aurora MySQL |
+|-------|------------|------------|--------------|
+| Host / IP / endpoint | `ECS_PG_HOST` | `ECS_YB_HOST` | `ECS_MYSQL_HOST` |
+| Port | `ECS_PG_PORT` (5432) | `ECS_YB_PORT` (5433) | `ECS_MYSQL_PORT` (3306) |
+| Database name | `ECS_PG_DATABASE` | `ECS_YB_DATABASE` | `ECS_MYSQL_DATABASE` |
+| Username | `ECS_PG_USER` | `ECS_YB_USER` | `ECS_MYSQL_USER` |
+| Password | `ECS_PG_PASSWORD` | `ECS_YB_PASSWORD` | `ECS_MYSQL_PASSWORD` |
+| SSL/TLS | `ECS_PG_SSLMODE` | `ECS_YB_SSLMODE` | `ECS_MYSQL_SSL` (true/false) |
+| Timeout (s) | `ECS_PG_TIMEOUT_SECONDS` | `ECS_YB_TIMEOUT_SECONDS` | `ECS_MYSQL_TIMEOUT_SECONDS` |
+
+- **Local Docker:** keep the defaults (`localhost` + the ports above). Bring the
+  targets up with `docker compose --profile db-targets up -d`.
+- **UAT / cloud:** put the real endpoint/credentials in `.env` (or the env YAML) —
+  e.g. `ECS_MYSQL_HOST=my-aurora.cluster-xxxx.<region>.rds.amazonaws.com`. Never
+  commit real endpoints/credentials.
+
+Run `python scripts/check_predefined_db_environment.py` after editing `.env` to
+confirm each field resolves and the target is reachable (passwords are shown only
+as SET/MISSING).
+
 ---
 
 ## 5. Required environment variables
@@ -241,6 +267,52 @@ python scripts/run_predefined_db_query.py --control MYX-001 --user analyst
 ```
 It never executes anything outside the allow-list and prints a JSON result.
 
+### Onboarding diagnostic (run this first)
+Before running queries, verify environment/config/connectivity:
+```bash
+export PYTHONPATH="$PWD"
+python scripts/check_predefined_db_environment.py         # text report
+python scripts/check_predefined_db_environment.py --json  # machine-readable
+scripts/check_predefined_db_environment.sh                # wrapper (auto venv + PYTHONPATH)
+```
+It checks, per database: config resolution (passwords shown only as SET/MISSING),
+Docker container status, TCP connectivity, and a `SELECT 1` login — printing an
+**actionable recommendation** on any failure. Exit code 0 = all pass, 1 = failure.
+Flags: `--skip-postgres`, `--skip-yugabyte`, `--skip-mysql`, `--no-docker-check`, `--json`.
+
+---
+
+## 9a. Validate each database
+
+Start the local targets first (16 GB machine):
+```bash
+docker compose --profile db-targets up -d postgres-demo yugabyte mysql-demo
+sleep 20
+python scripts/check_predefined_db_environment.py
+```
+
+### Validate PostgreSQL
+```bash
+python scripts/check_predefined_db_environment.py --skip-yugabyte --skip-mysql
+python scripts/run_predefined_db_query.py --control PGX-001    # SHOW ssl;
+```
+Expect TCP + login **PASS** and a query result.
+
+### Validate YugabyteDB
+```bash
+python scripts/check_predefined_db_environment.py --skip-postgres --skip-mysql
+python scripts/run_predefined_db_query.py --control YBX-001    # SELECT * FROM yb_servers();
+```
+YSQL is PostgreSQL-wire; the same psycopg2 driver is used on port 5433.
+
+### Validate Aurora MySQL (local MySQL 8)
+```bash
+python scripts/check_predefined_db_environment.py --skip-postgres --skip-yugabyte
+python scripts/run_predefined_db_query.py --control MYX-001    # SHOW VARIABLES LIKE 'have_ssl';
+```
+If login **FAILS** with "Authentication failed", it's a credential mismatch — see
+the Aurora MySQL troubleshooting row in §12.
+
 ---
 
 ## 10. How to add a new predefined query
@@ -296,6 +368,38 @@ automatically).
 
 Passwords are never printed in logs or errors.
 
+> **Tip:** run `python scripts/check_predefined_db_environment.py` first — it
+> pinpoints which layer fails (config / Docker / TCP / login) and prints the
+> recommended fix, without ever revealing passwords.
+
+### Aurora MySQL — "Authentication failed. Verify MySQL credentials."
+
+- **Symptom:** the MySQL predefined query (e.g. `MYX-001`) fails with
+  *"Authentication failed. Verify MySQL credentials."*
+- **Meaning:** ECS **reached** the MySQL/Aurora server (TCP OK) but the
+  **username / password / database** does not match — it is **not** a network or
+  firewall problem.
+- **Check** (inspect what the container actually expects):
+  ```bash
+  docker compose config | grep MYSQL
+  docker inspect mysql-demo
+  docker logs mysql-demo
+  ```
+- **Fix:** align your `.env` values with the target DB (or the container's
+  `MYSQL_ROOT_PASSWORD` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE`):
+  ```bash
+  # In .env — must match the MySQL/Aurora account you intend to use:
+  ECS_MYSQL_USER=ecs_user
+  ECS_MYSQL_PASSWORD=<the matching password>
+  ECS_MYSQL_DATABASE=ecs_demo
+  ```
+  The local `mysql-demo` container (see `docker-compose.yml`) creates
+  `MYSQL_USER=ecs_user` / `MYSQL_PASSWORD=ecs_password` / `MYSQL_DATABASE=ecs_demo`
+  and a root account via `MYSQL_ROOT_PASSWORD`. Use `ecs_user` (not root) for
+  normal validation, and ensure the password matches. Re-run
+  `python scripts/check_predefined_db_environment.py --skip-postgres --skip-yugabyte`
+  to confirm the login now passes.
+
 ---
 
 ## 13. New developer — checkout & run
@@ -306,14 +410,20 @@ git checkout cursor/predefined-queries-module
 git pull origin cursor/predefined-queries-module
 
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate           # Windows Git Bash: source .venv/Scripts/activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt   # pytest + httpx (dev/test deps)
 
 cp .env.example .env
 # Edit .env: set local Docker or UAT/cloud DB endpoints + read-only credentials.
 
+export PYTHONPATH="$PWD"
+
+# Onboarding diagnostic (config/Docker/TCP/login; never prints passwords):
+python scripts/check_predefined_db_environment.py
+
 # Unit tests (no live DB required):
-pytest tests/test_predefined_db_connectors.py
+pytest tests/test_predefined_db_connectors.py tests/test_predefined_db_environment_diagnostic.py
 
 # (Optional) local DB targets on a 16 GB machine:
 docker compose up -d postgres-demo

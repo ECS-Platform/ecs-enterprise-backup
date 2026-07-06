@@ -1,0 +1,10 @@
+# ECS development / testing dependencies.
+# Runtime deps stay in requirements.txt. Install both for local dev:
+#   python -m pip install -r requirements.txt
+#   python -m pip install -r requirements-dev.txt
+
+# Test runner for unit/integration-safe tests (no live DBs required).
+pytest
+
+# httpx is required by fastapi.testclient (used by the route/UI tests).
+httpx
