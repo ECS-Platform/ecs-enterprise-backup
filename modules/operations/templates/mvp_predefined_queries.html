@@ -27,7 +27,15 @@
 <label class="form-label small mb-0">Search</label>
 <input type="search" name="q" class="form-control form-control-sm" value="{{ module_view.search|default('') }}" placeholder="Control ID, name, query, technology…">
 </div>
-<div class="col-md-3">
+<div class="col-md-2">
+<label class="form-label small mb-0">Technology</label>
+<select name="technology" class="form-select form-select-sm">
+{% for tech in module_view.technology_options %}
+<option value="{{ tech }}"{% if module_view.technology_filter == tech %} selected{% endif %}>{{ tech }}</option>
+{% endfor %}
+</select>
+</div>
+<div class="col-md-2">
 <label class="form-label small mb-0">Framework</label>
 <select name="framework" class="form-select form-select-sm">
 {% for fw in module_view.framework_options %}
@@ -35,7 +43,7 @@
 {% endfor %}
 </select>
 </div>
-<div class="col-md-2">
+<div class="col-md-1">
 <label class="form-label small mb-0">Sort</label>
 <select name="sort" class="form-select form-select-sm">
 <option value="control_id"{% if module_view.sort_by == 'control_id' %} selected{% endif %}>Control ID</option>
@@ -106,15 +114,15 @@
 <nav class="mt-2" aria-label="Predefined queries pagination">
 <ul class="pagination pagination-sm mb-0">
 {% if module_view.pagination.has_prev %}
-<li class="page-item"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ module_view.pagination.prev_page }}">Prev</a></li>
+<li class="page-item"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&technology={{ module_view.technology_filter|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ module_view.pagination.prev_page }}">Prev</a></li>
 {% endif %}
 {% for p in range(1, module_view.pagination.pages + 1) %}
 {% if p <= 7 or p == module_view.pagination.pages %}
-<li class="page-item{% if p == module_view.pagination.page %} active{% endif %}"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ p }}">{{ p }}</a></li>
+<li class="page-item{% if p == module_view.pagination.page %} active{% endif %}"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&technology={{ module_view.technology_filter|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ p }}">{{ p }}</a></li>
 {% endif %}
 {% endfor %}
 {% if module_view.pagination.has_next %}
-<li class="page-item"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ module_view.pagination.next_page }}">Next</a></li>
+<li class="page-item"><a class="page-link" href="?role={{ role }}&user={{ user|urlencode }}&q={{ module_view.search|urlencode }}&technology={{ module_view.technology_filter|urlencode }}&framework={{ module_view.framework_filter|urlencode }}&sort={{ module_view.sort_by }}&dir={{ module_view.sort_dir }}&page={{ module_view.pagination.next_page }}">Next</a></li>
 {% endif %}
 </ul>
 </nav>

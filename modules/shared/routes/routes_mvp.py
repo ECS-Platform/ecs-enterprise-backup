@@ -196,6 +196,7 @@ def register_mvp_routes(app, templates):
         notice: str = "",
         q: str = "",
         framework: str = "All Frameworks",
+        technology: str = "All Technologies",
         page: int = 1,
         sort: str = "control_id",
         dir: str = "asc",
@@ -206,6 +207,7 @@ def register_mvp_routes(app, templates):
         ctx["module_view"] = get_predefined_queries_dashboard(
             search=q,
             framework=framework,
+            technology=technology,
             page=page,
             per_page=10,
             sort_by=sort,

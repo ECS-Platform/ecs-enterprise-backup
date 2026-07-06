@@ -641,10 +641,21 @@ def get_framework_filter_options() -> list[str]:
     return ["All Frameworks"] + sorted(frameworks - {"All Frameworks"})
 
 
+def get_technology_filter_options() -> list[str]:
+    """Distinct technologies present in the catalog (for the Technology filter)."""
+    techs = {
+        (ctrl.get("technology") or "").strip()
+        for ctrl in get_all_controls()
+        if (ctrl.get("technology") or "").strip()
+    }
+    return ["All Technologies"] + sorted(techs)
+
+
 def filter_controls(
     *,
     search: str = "",
     framework: str = "All Frameworks",
+    technology: str = "All Technologies",
     predefined_only: bool = False,
     sort_by: str = "control_id",
     sort_dir: str = "asc",
@@ -654,6 +665,9 @@ def filter_controls(
 
     if framework and framework != "All Frameworks":
         rows = [r for r in rows if framework in r.get("frameworks", []) or framework in (r.get("framework_coverage") or "")]
+
+    if technology and technology != "All Technologies":
+        rows = [r for r in rows if (r.get("technology") or "") == technology]
 
     if predefined_only:
         rows = [r for r in rows if r.get("predefined")]
@@ -679,6 +693,7 @@ def get_predefined_queries_dashboard(
     *,
     search: str = "",
     framework: str = "All Frameworks",
+    technology: str = "All Technologies",
     page: int = 1,
     per_page: int = 10,
     sort_by: str = "control_id",
@@ -690,6 +705,7 @@ def get_predefined_queries_dashboard(
     filtered = filter_controls(
         search=search,
         framework=framework,
+        technology=technology,
         predefined_only=predefined_only,
         sort_by=sort_by,
         sort_dir=sort_dir,
@@ -707,8 +723,10 @@ def get_predefined_queries_dashboard(
         "rows": page_data["items"],
         "pagination": page_data,
         "framework_options": get_framework_filter_options(),
+        "technology_options": get_technology_filter_options(),
         "search": search,
         "framework_filter": framework,
+        "technology_filter": technology,
         "sort_by": sort_by,
         "sort_dir": sort_dir,
         "predefined_only": predefined_only,
