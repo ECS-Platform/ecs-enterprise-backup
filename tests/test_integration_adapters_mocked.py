@@ -181,17 +181,18 @@ def test_connection_error_retried():
 
 
 def test_pagination_stops_on_short_page():
-    calls = {"n": 0}
+    # Use Tripwire (direct auth, no login pre-step) so page calls map 1:1 to fetches.
+    page_calls = {"n": 0}
 
     def tp(m, u, h, p):
-        calls["n"] += 1
+        page_calls["n"] += 1
         off = p.get("offset", 0)
-        return {"items": [{"id": i} for i in range(2)]} if off < 4 else {"items": [{"id": "z"}]}
+        return {"results": [{"id": i} for i in range(2)]} if off < 4 else {"results": [{"id": "z"}]}
 
-    c = prisma_cloud.PrismaCloudClient(config={"base_url": "https://p", "access_key": "a",
-                                               "secret_key": "s"}, transport=tp)
-    r = c.fetch_alerts(page_size=2, max_items=100)
-    assert r["ok"] and len(r["items"]) == 5 and calls["n"] == 3
+    c = tripwire.TripwireClient(config={"base_url": "https://t", "username": "u",
+                                        "password": "p"}, transport=tp)
+    r = c.fetch_policy_results(page_size=2, max_items=100)
+    assert r["ok"] and len(r["items"]) == 5 and page_calls["n"] == 3
 
 
 def test_health_check_configured_reports_ok():

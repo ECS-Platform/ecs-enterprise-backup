@@ -30,6 +30,13 @@ from fastapi.responses import JSONResponse
 _MAX_LIMIT = 1000
 _DEFAULT_LIMIT = 200
 
+#: String forms used as query-parameter defaults. Pagination params are declared
+#: as ``str`` (not ``int``) at the API boundary so a bad value like ``limit=abc``
+#: is coerced to a safe default by :func:`_paginate` and returns a bounded 200,
+#: rather than FastAPI rejecting it with a 422 before our clamping runs.
+_DEFAULT_LIMIT_STR = str(_DEFAULT_LIMIT)
+_DEFAULT_OFFSET_STR = "0"
+
 
 def _paginate(items: Any, limit: int, offset: int) -> tuple[list[Any], dict[str, Any]]:
     """Return (page, page_meta) with clamped limit/offset. Deterministic + bounded.
@@ -112,7 +119,7 @@ def register_audit_intelligence_routes(app) -> None:
     @app.get("/api/audit/mapping")
     @_safe
     def api_mapping_root(query: str = "", technology: str = "", framework: str = "",
-                         limit: int = _DEFAULT_LIMIT, offset: int = 0):
+                         limit: str = _DEFAULT_LIMIT_STR, offset: str = _DEFAULT_OFFSET_STR):
         """Mapping entry point: paginated flattened mapping rows + catalog stats.
 
         Compatibility alias so ``/api/audit/mapping`` (without a sub-path) returns
@@ -157,7 +164,7 @@ def register_audit_intelligence_routes(app) -> None:
     @app.get("/api/audit/mapping/search")
     @_safe
     def api_map_search(query: str = "", technology: str = "", framework: str = "",
-                       limit: int = _DEFAULT_LIMIT, offset: int = 0):
+                       limit: str = _DEFAULT_LIMIT_STR, offset: str = _DEFAULT_OFFSET_STR):
         full = mapping_service.search(query=query, technology=technology, framework=framework)
         page, meta = _paginate(full, limit, offset)
         return _ok(results=page, page=meta)
@@ -166,7 +173,7 @@ def register_audit_intelligence_routes(app) -> None:
     @app.get("/api/audit/assets")
     @_safe
     def api_assets(docker_compose: bool = True, enterprise_grc: bool = False,
-                   limit: int = 200, offset: int = 0):
+                   limit: str = _DEFAULT_LIMIT_STR, offset: str = _DEFAULT_OFFSET_STR):
         started = _time.perf_counter()
         assets = asset_service.discover_assets(
             include_docker_compose=docker_compose, include_enterprise_grc=enterprise_grc
@@ -199,7 +206,7 @@ def register_audit_intelligence_routes(app) -> None:
     # -------------------------------------------------------------------- runs
     @app.get("/api/audit/runs")
     @_safe
-    def api_runs(limit: int = _DEFAULT_LIMIT, offset: int = 0):
+    def api_runs(limit: str = _DEFAULT_LIMIT_STR, offset: str = _DEFAULT_OFFSET_STR):
         full = evidence_service.list_runs()
         page, meta = _paginate(full, limit, offset)
         return _ok(runs=page, page=meta)
@@ -250,13 +257,10 @@ def register_audit_intelligence_routes(app) -> None:
         return _ok(validation=result) if result else _err(f"Unknown run: {run_id}")
 
     # ------------------------------------------------------------- repository
-    @app.get("/api/audit/evidence")
-    @_safe
-    def api_evidence_search(
-        query: str = "", technology: str = "", framework: str = "",
-        asset_id: str = "", verdict: str = "", tag: str = "", latest_only: bool = True,
-        limit: int = 200, offset: int = 0,
-    ):
+    def _evidence_search_payload(
+        query: str, technology: str, framework: str, asset_id: str,
+        verdict: str, tag: str, latest_only: bool, limit: int, offset: int,
+    ) -> JSONResponse:
         full = repo_svc.repository_search(
             query=query, technology=technology, framework=framework,
             asset_id=asset_id, verdict=verdict, tag=tag, latest_only=latest_only,
@@ -264,36 +268,70 @@ def register_audit_intelligence_routes(app) -> None:
         page, meta = _paginate(full, limit, offset)
         return _ok(evidence=page, page=meta)
 
+    @app.get("/api/audit/evidence")
+    @_safe
+    def api_evidence_search(
+        query: str = "", technology: str = "", framework: str = "",
+        asset_id: str = "", verdict: str = "", tag: str = "", latest_only: bool = True,
+        limit: str = _DEFAULT_LIMIT_STR, offset: str = _DEFAULT_OFFSET_STR,
+    ):
+        return _evidence_search_payload(
+            query, technology, framework, asset_id, verdict, tag, latest_only, limit, offset,
+        )
+
+    @app.get("/api/audit/repository")
+    @_safe
+    def api_repository(
+        query: str = "", technology: str = "", framework: str = "",
+        asset_id: str = "", verdict: str = "", tag: str = "", latest_only: bool = True,
+        limit: str = _DEFAULT_LIMIT_STR, offset: str = _DEFAULT_OFFSET_STR,
+    ):
+        """Compatibility alias for :func:`api_evidence_search` (paginated evidence)."""
+        return _evidence_search_payload(
+            query, technology, framework, asset_id, verdict, tag, latest_only, limit, offset,
+        )
+
     @app.get("/api/audit/evidence/stats")
+    @_safe
     def api_evidence_stats():
         return _ok(stats=repo_svc.repository_stats())
 
     @app.get("/api/audit/evidence/{evidence_key}/versions")
+    @_safe
     def api_evidence_versions(evidence_key: str):
         return _ok(versions=repo_svc.evidence_versions(evidence_key))
 
     @app.get("/api/audit/evidence/{evidence_key}/timeline")
+    @_safe
     def api_evidence_timeline(evidence_key: str):
         return _ok(timeline=repo_svc.evidence_timeline(evidence_key))
 
     # ----------------------------------------------------------- observations
     @app.get("/api/audit/observations")
-    def api_observations(status: str = "", severity: str = "", framework: str = "", technology: str = ""):
+    @_safe
+    def api_observations(status: str = "", severity: str = "", framework: str = "",
+                         technology: str = "", limit: str = _DEFAULT_LIMIT_STR,
+                         offset: str = _DEFAULT_OFFSET_STR):
         filters = {k: v for k, v in dict(
             status=status, severity=severity, framework=framework, technology=technology
         ).items() if v}
-        return _ok(observations=repo_svc.list_observations(**filters))
+        full = repo_svc.list_observations(**filters)
+        page, meta = _paginate(full, limit, offset)
+        return _ok(observations=page, page=meta)
 
     @app.get("/api/audit/observations/summary")
+    @_safe
     def api_observations_summary():
         return _ok(summary=repo_svc.observation_summary())
 
     @app.get("/api/audit/observations/{obs_id}")
+    @_safe
     def api_observation(obs_id: str):
         o = repo_svc.get_observation(obs_id)
         return _ok(observation=o) if o else _err(f"Unknown observation: {obs_id}")
 
     @app.post("/api/audit/observations/{obs_id}/transition")
+    @_safe
     def api_observation_transition(obs_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
         to_status = str(payload.get("to_status") or "")
         if not to_status:
@@ -312,18 +350,48 @@ def register_audit_intelligence_routes(app) -> None:
         return _ok(observation=o)
 
     # ------------------------------------------------------------------ packs
+    def _paginate_pack(pack: dict[str, Any] | None, limit: int, offset: int) -> dict[str, Any] | None:
+        """Bound a pack's ``items`` list for the response WITHOUT altering pack
+        identity: ``item_count`` and ``pack_hash`` stay computed over the FULL set
+        (so ``verify_manifest`` still works on the source pack), while the response
+        only carries a bounded page of items plus ``items_page`` metadata."""
+        if not isinstance(pack, dict):
+            return pack
+        items = pack.get("items")
+        if not isinstance(items, list):
+            return pack
+        page, meta = _paginate(items, limit, offset)
+        out = dict(pack)
+        out["items"] = page
+        out["items_page"] = meta
+        return out
+
     @app.get("/api/audit/packs/{pack_type}/{scope}")
     @_safe
-    def api_pack(pack_type: str, scope: str):
+    def api_pack(pack_type: str, scope: str, limit: str = _DEFAULT_LIMIT_STR,
+                 offset: str = _DEFAULT_OFFSET_STR):
         pack = repo_svc.build_pack(pack_type, scope)
-        return _ok(pack=pack) if pack is not None else _err(f"Unknown pack type: {pack_type}", status=400)
+        if pack is None:
+            return _err(f"Unknown pack type: {pack_type}", status=400)
+        return _ok(pack=_paginate_pack(pack, limit, offset))
 
     @app.post("/api/audit/packs/application")
+    @_safe
     def api_application_pack(payload: dict[str, Any] = Body(default_factory=dict)):
         scope = str(payload.get("application") or "")
         asset_ids = payload.get("asset_ids") or []
+        try:
+            limit = int(payload.get("limit", _DEFAULT_LIMIT))
+        except (TypeError, ValueError):
+            limit = _DEFAULT_LIMIT
+        try:
+            offset = int(payload.get("offset", 0))
+        except (TypeError, ValueError):
+            offset = 0
         pack = repo_svc.build_pack("application", scope, asset_ids=asset_ids)
-        return _ok(pack=pack) if pack is not None else _err("could not build application pack", status=400)
+        if pack is None:
+            return _err("could not build application pack", status=400)
+        return _ok(pack=_paginate_pack(pack, limit, offset))
 
     # ------------------------------------------------------------- dashboards
     @app.get("/api/audit/dashboard")
@@ -338,14 +406,26 @@ def register_audit_intelligence_routes(app) -> None:
 
         return _ok(dashboard=dashboard_service.executive_readiness())
 
+    #: Explicit allow-list of dashboard sections callable via the API. Prevents a
+    #: path parameter from resolving to arbitrary module attributes (e.g. cache
+    #: reset hooks or imported helpers) — a section name outside this set is 404.
+    _DASHBOARD_SECTIONS = frozenset({
+        "technology_coverage", "control_coverage", "framework_readiness",
+        "asset_coverage", "evidence_coverage", "collection_progress",
+        "validation_summary", "open_observations", "risk_summary",
+        "evidence_freshness",
+    })
+
     @app.get("/api/audit/dashboard/{section}")
     @_safe
     def api_audit_dashboard_section(section: str):
         """A single dashboard section by name (e.g. risk_summary, framework_readiness)."""
         from modules.audit_intelligence.services import dashboard_service
 
+        if section not in _DASHBOARD_SECTIONS:
+            return _err(f"Unknown dashboard section: {section}", status=404)
         fn = getattr(dashboard_service, section, None)
-        if not callable(fn) or section.startswith("_") or section == "executive_readiness":
+        if not callable(fn):
             return _err(f"Unknown dashboard section: {section}", status=404)
         return _ok(section=section, data=fn())
 

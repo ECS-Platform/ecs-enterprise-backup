@@ -68,6 +68,7 @@ class PrismaCloudClient(BaseAdapter):
     config: dict[str, Any] = field(default_factory=get_config)
     transport: Optional[Transport] = None
     _cached_token: Optional[str] = field(default=None, repr=False, compare=False)
+    _token_attempted: bool = field(default=False, repr=False, compare=False)
 
     def is_configured(self) -> bool:
         c = self.config
@@ -76,16 +77,21 @@ class PrismaCloudClient(BaseAdapter):
     def masked_config(self) -> dict[str, Any]:
         return masked_config(self.config)
 
-    def _acquire_token(self) -> Optional[str]:
-        """Obtain a Prisma Cloud JWT via ``POST /login`` (or a configured token).
+    def authenticate(self) -> Optional[str]:
+        """Explicitly obtain a Prisma Cloud JWT via ``POST /login``.
 
-        Returns ``None`` on failure; the JWT/keys are never logged. In the
-        skeleton (no transport) only an explicitly configured ``token`` is used.
+        Prefers a configured/cached ``token``. Performs the login exchange via the
+        injected transport at most once per client (success and failure cached),
+        so it is safe to call before every fetch. Returns the token or ``None``;
+        the JWT/keys are never logged. Call this before ``fetch_*`` (or let the
+        transport attach auth) — ``auth_headers`` uses a configured/cached token
+        and never triggers an implicit login.
         """
         if self.config.get("token"):
             return str(self.config["token"])
-        if self._cached_token:
+        if self._cached_token or self._token_attempted:
             return self._cached_token
+        self._token_attempted = True
         transport = self.transport
         if transport is None:
             return None
@@ -106,9 +112,11 @@ class PrismaCloudClient(BaseAdapter):
         return self._cached_token
 
     def auth_headers(self) -> dict:
-        # Prisma Cloud carries the session JWT in the x-redlock-auth header.
-        token = self._acquire_token()
-        return {"x-redlock-auth": token} if token else {}
+        # Prisma Cloud carries the session JWT in the x-redlock-auth header. Uses
+        # a configured/cached token only — no implicit network call here; callers
+        # (fetch_*) invoke authenticate() first.
+        token = self.config.get("token") or self._cached_token
+        return {"x-redlock-auth": str(token)} if token else {}
 
     def _health_path(self) -> str:
         return "check"

@@ -61,6 +61,16 @@ def _new_id() -> str:
     return f"OBS-{uuid.uuid4().hex[:12]}"
 
 
+def _invalidate_dashboard_cache() -> None:
+    """Best-effort dashboard-cache drop after an observation change (never raises)."""
+    try:
+        from modules.audit_intelligence.services import dashboard_service
+
+        dashboard_service.invalidate_dashboard_cache()
+    except Exception:  # noqa: BLE001 - cache invalidation must never raise
+        pass
+
+
 # --------------------------------------------------------------------------- #
 # In-memory store
 # --------------------------------------------------------------------------- #
@@ -69,6 +79,7 @@ _OBSERVATIONS: dict[str, Observation] = {}
 
 def reset_observations() -> None:
     _OBSERVATIONS.clear()
+    _invalidate_dashboard_cache()
 
 
 def get_observation(obs_id: str) -> Observation | None:
@@ -182,6 +193,7 @@ def generate_observation(
     )
     obs.history.append({"at": obs.created_at, "event": "created", "status": OBS_STATUS_DRAFT})
     _OBSERVATIONS[obs.observation_id] = obs
+    _invalidate_dashboard_cache()
     return obs
 
 
@@ -235,6 +247,7 @@ def transition(obs_id: str, to_status: str, *, user: str = "", note: str = "") -
         {"at": obs.updated_at, "event": "transition", "status": to_status,
          "user": user, "note": note}
     )
+    _invalidate_dashboard_cache()
     return obs
 
 

@@ -86,6 +86,7 @@ class SharePointGraphClient(BaseAdapter):
     config: dict[str, Any] = field(default_factory=get_config)
     transport: Optional[Transport] = None
     _cached_token: Optional[str] = field(default=None, repr=False, compare=False)
+    _token_attempted: bool = field(default=False, repr=False, compare=False)
 
     def is_configured(self) -> bool:
         c = self.config
@@ -99,19 +100,21 @@ class SharePointGraphClient(BaseAdapter):
         return (self.config.get("token_url")
                 or TOKEN_URL_TEMPLATE.format(tenant_id=self.config.get("tenant_id", "")))
 
-    def _acquire_token(self) -> Optional[str]:
-        """Obtain an OAuth access token (client-credentials grant).
+    def authenticate(self) -> Optional[str]:
+        """Explicitly obtain an OAuth access token (client-credentials grant).
 
-        Order of preference: an explicitly configured ``access_token`` (token
-        broker), a previously cached token, otherwise a token-endpoint exchange
-        via the injected transport. Returns ``None`` on any failure — callers
-        degrade to an unauthenticated request that the API will reject cleanly.
-        The secret/token is never logged.
+        Order of preference: a configured ``access_token`` (token broker), a
+        cached token, otherwise a token-endpoint exchange via the injected
+        transport. Attempted at most once per client (success and failure cached).
+        Returns the token or ``None``; the secret/token is never logged. Call this
+        before ``fetch_*`` when you want ECS (rather than the transport) to manage
+        the bearer token.
         """
         if self.config.get("access_token"):
             return str(self.config["access_token"])
-        if self._cached_token:
+        if self._cached_token or self._token_attempted:
             return self._cached_token
+        self._token_attempted = True
         transport = self.transport
         if transport is None:
             return None  # skeleton: no live token exchange without a transport
@@ -134,7 +137,9 @@ class SharePointGraphClient(BaseAdapter):
         return self._cached_token
 
     def auth_headers(self) -> dict:
-        return bearer_auth_header(self._acquire_token())
+        # Uses a configured/cached bearer token only — no implicit token exchange
+        # here (call authenticate() first, or let the transport attach auth).
+        return bearer_auth_header(self.config.get("access_token") or self._cached_token)
 
     def _health_path(self) -> str:
         return f"sites/{self.config.get('site_id', '')}"

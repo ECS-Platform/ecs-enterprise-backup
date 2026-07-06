@@ -70,6 +70,7 @@ class CheckmarxClient(BaseAdapter):
     config: dict[str, Any] = field(default_factory=get_config)
     transport: Optional[Transport] = None
     _cached_token: Optional[str] = field(default=None, repr=False, compare=False)
+    _token_attempted: bool = field(default=False, repr=False, compare=False)
 
     def is_configured(self) -> bool:
         c = self.config
@@ -83,16 +84,19 @@ class CheckmarxClient(BaseAdapter):
         return (self.config.get("token_url")
                 or f"{self.base_url()}/auth/realms/checkmarx/protocol/openid-connect/token")
 
-    def _acquire_token(self) -> Optional[str]:
-        """OAuth client-credentials token (override / cache / transport exchange).
+    def authenticate(self) -> Optional[str]:
+        """Explicitly obtain an OAuth client-credentials token (Checkmarx IAM).
 
-        Returns ``None`` on failure; the token is never logged. In the skeleton
-        (no transport) only an explicitly configured ``access_token`` is used.
+        Prefers a configured ``access_token`` / cached token; otherwise performs
+        the token exchange via the injected transport, at most once per client
+        (success and failure cached). Returns the token or ``None``; the token is
+        never logged. Call before ``fetch_*`` when ECS should manage the token.
         """
         if self.config.get("access_token"):
             return str(self.config["access_token"])
-        if self._cached_token:
+        if self._cached_token or self._token_attempted:
             return self._cached_token
+        self._token_attempted = True
         transport = self.transport
         if transport is None:
             return None
@@ -114,7 +118,8 @@ class CheckmarxClient(BaseAdapter):
         return self._cached_token
 
     def auth_headers(self) -> dict:
-        return bearer_auth_header(self._acquire_token())
+        # Uses a configured/cached bearer token only — no implicit token exchange.
+        return bearer_auth_header(self.config.get("access_token") or self._cached_token)
 
     def _health_path(self) -> str:
         return "api/scans"
