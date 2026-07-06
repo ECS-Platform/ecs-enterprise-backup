@@ -14,6 +14,12 @@ predefined database query module.
 > and [EVIDENCE_VALIDATION_GUIDE.md](EVIDENCE_VALIDATION_GUIDE.md) (validation).
 > M3 — [OBSERVATION_AND_REPOSITORY_GUIDE.md](OBSERVATION_AND_REPOSITORY_GUIDE.md)
 > (observations, evidence repository, evidence packs).
+>
+> Integration & operations:
+> [INTEGRATION_ADAPTERS_GUIDE.md](INTEGRATION_ADAPTERS_GUIDE.md) (9 enterprise
+> adapters), [E2E_SMOKE_TEST_GUIDE.md](E2E_SMOKE_TEST_GUIDE.md) (mocked tests),
+> [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md) (leadership walkthrough), and
+> [PRODUCTION_HARDENING_GUIDE.md](PRODUCTION_HARDENING_GUIDE.md).
 
 ---
 

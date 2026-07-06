@@ -351,11 +351,34 @@ your shell/`.env.uat`, nothing about the switch touches git.
 
 ---
 
+## 16. Enterprise integration adapters (UAT)
+
+Beyond the predefined-query connectors, ECS ships 9 config-driven integration
+adapters (ServiceNow CMDB, Archer, SharePoint/Graph, Jira, Confluence, SonarQube,
+Checkmarx, Prisma Cloud, Tripwire). For UAT, set their `ECS_*` variables in
+`.env.uat` (never committed) — see
+[INTEGRATION_ADAPTERS_GUIDE.md](INTEGRATION_ADAPTERS_GUIDE.md) for the full variable
+list and behaviour. Non-secret defaults live in the `connectors:` section of
+`uat.yaml`; all secrets resolve from the `*_env` environment variables.
+
+Check adapter configuration/health without any live call:
+
+```bash
+# All adapters (masked config; secrets shown as SET/MISSING only):
+curl -s "http://127.0.0.1:8000/api/audit/integrations?role=owner&user=AppOwner"
+curl -s "http://127.0.0.1:8000/api/audit/integrations/health?role=owner&user=AppOwner"
+```
+
+`not_configured` is the expected state until you populate the adapter's env vars.
+
+---
+
 ## Validation (this guide's config)
 
 ```bash
 PYTHONPATH=. pytest tests/test_predefined_extended_connectors.py
 PYTHONPATH=. pytest tests/test_enterprise_integrations_skeleton.py
+PYTHONPATH=. pytest tests/test_integration_adapters_mocked.py tests/test_uat_config_placeholders.py
 python3 -m compileall modules/operations scripts tests
 docker compose config      # validates compose (demo profiles are opt-in)
 ```

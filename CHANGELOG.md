@@ -11,6 +11,31 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Integration, hardening & demo readiness** (additive; core modules untouched):
+  - **Enterprise integration adapters** — hardened ServiceNow CMDB + Archer and
+    added 7 new config-driven skeletons (`sharepoint_graph`, `jira`, `confluence`,
+    `sonarqube`, `checkmarx`, `prisma_cloud`, `tripwire`) on a shared base
+    (`_base.py`): consistent interface (`get_config`/`is_configured`/`masked_config`/
+    `health_check`/`fetch_*`/`normalize_*`), `{ok, source, status, items, errors}`
+    response, secret masking, timeout + bounded retry/backoff, pagination, error
+    classification, injectable transport (no live calls in tests). Registry
+    (`list_adapters`/`masked_config_all`/`health_check_all`).
+  - **Config placeholders** for all 9 adapters in `.env.example`,
+    `config/environments/_base.yaml`, `config/environments/uat.yaml` (placeholders
+    only; no IPs/secrets).
+  - **REST additions** — `GET /api/audit/dashboard` (+`/{section}`) compatibility
+    alias and `GET /api/audit/integrations` (+`/health`, +`/{name}/health`).
+  - **Hardening** — request-safe `_safe` wrapper (consistent 500 model, no stack
+    traces), pagination (`limit`/`offset`) + `elapsed_ms` on heavy endpoints,
+    in-memory caps for runs/evidence/timeline. In-process caching only (no Redis).
+  - **Demo readiness** — `scripts/run_ecs_demo_smoke.py` (10-check offline PASS/FAIL
+    runner) and `scripts/audit_intelligence_report.py` (existing) for a browser-free
+    walkthrough.
+  - **Tests** — `test_integration_adapters_mocked.py`,
+    `test_audit_intelligence_e2e_smoke.py`, `test_uat_config_placeholders.py`,
+    `test_ecs_demo_smoke.py` (all offline/mocked).
+  - **Docs** — `INTEGRATION_ADAPTERS_GUIDE.md`, `E2E_SMOKE_TEST_GUIDE.md`,
+    `DEMO_RUNBOOK.md`, `PRODUCTION_HARDENING_GUIDE.md`.
 - **Audit Intelligence layer — Milestones 5 & 6** (UI + Executive Dashboards).
   New `Audit Intelligence` left-nav group and pages under `/mvp/audit/*` reusing the
   existing ECS page shell (`partials/mvp_styles.html` + `partials/mvp_sidebar.html`
