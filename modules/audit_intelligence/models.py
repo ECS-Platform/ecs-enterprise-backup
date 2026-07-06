@@ -149,3 +149,140 @@ class Asset:
         d["applicable_frameworks"] = list(self.applicable_frameworks)
         d["fingerprint"] = self.fingerprint.to_dict() if self.fingerprint else None
         return d
+
+
+# --------------------------------------------------------------------------- #
+# Milestone 2 — Evidence collection orchestrator
+# --------------------------------------------------------------------------- #
+
+#: Execution statuses used across jobs and runs.
+STATUS_QUEUED = "Queued"
+STATUS_RUNNING = "Running"
+STATUS_COMPLETED = "Completed"
+STATUS_FAILED = "Failed"
+STATUS_PARTIAL = "Partially Completed"
+STATUS_CONNECTOR_MISSING = "Connector Missing"
+STATUS_CONFIG_REQUIRED = "Configuration Required"
+STATUS_RETRY = "Retry"
+STATUS_CANCELLED = "Cancelled"
+
+ALL_STATUSES = (
+    STATUS_QUEUED, STATUS_RUNNING, STATUS_COMPLETED, STATUS_FAILED,
+    STATUS_PARTIAL, STATUS_CONNECTOR_MISSING, STATUS_CONFIG_REQUIRED,
+    STATUS_RETRY, STATUS_CANCELLED,
+)
+
+
+@dataclass
+class EvidenceRecord:
+    """Metadata captured for a single control execution within a run.
+
+    Mutable (a run mutates its records as execution proceeds). Never stores
+    credentials; ``output_excerpt`` is a truncated, non-secret preview only.
+    """
+
+    control_id: str
+    technology: str = ""
+    status: str = STATUS_QUEUED
+    frameworks: tuple[str, ...] = ()
+    asset_id: str = ""
+    ok: bool = False
+    error_type: str = ""
+    message: str = ""
+    rows_returned: int = 0
+    duration_ms: int = 0
+    evidence_id: str = ""
+    evidence_filename: str = ""
+    output_excerpt: str = ""
+    attempts: int = 0
+    executable: bool = False
+    # Populated by the validation engine (Milestone 2, part 2).
+    validation: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        d["frameworks"] = list(self.frameworks)
+        return d
+
+
+@dataclass
+class EvidenceRun:
+    """A collection run over a set of controls (one asset/app/env/framework/tech/bank)."""
+
+    run_id: str
+    scope_kind: str = ""          # asset | application | environment | framework | technology | all
+    scope_value: str = ""
+    requested_by: str = ""
+    status: str = STATUS_QUEUED
+    created_at: str = ""
+    started_at: str = ""
+    finished_at: str = ""
+    records: list[EvidenceRecord] = field(default_factory=list)
+    audit_trail: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "scope_kind": self.scope_kind,
+            "scope_value": self.scope_value,
+            "requested_by": self.requested_by,
+            "status": self.status,
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "summary": self.summary(),
+            "records": [r.to_dict() for r in self.records],
+            "audit_trail": list(self.audit_trail),
+        }
+
+    def summary(self) -> dict[str, Any]:
+        counts: dict[str, int] = {}
+        for r in self.records:
+            counts[r.status] = counts.get(r.status, 0) + 1
+        total = len(self.records)
+        completed = counts.get(STATUS_COMPLETED, 0)
+        return {
+            "total": total,
+            "completed": completed,
+            "failed": counts.get(STATUS_FAILED, 0),
+            "connector_missing": counts.get(STATUS_CONNECTOR_MISSING, 0),
+            "config_required": counts.get(STATUS_CONFIG_REQUIRED, 0),
+            "cancelled": counts.get(STATUS_CANCELLED, 0),
+            "by_status": counts,
+            "completion_rate": round(completed / total, 3) if total else 0.0,
+        }
+
+
+# --------------------------------------------------------------------------- #
+# Milestone 2 — Evidence validation
+# --------------------------------------------------------------------------- #
+
+VERDICT_PASS = "PASS"
+VERDICT_FAIL = "FAIL"
+VERDICT_WARNING = "WARNING"
+VERDICT_NOT_APPLICABLE = "NOT APPLICABLE"
+
+CONTROL_STATUS_COMPLIANT = "Compliant"
+CONTROL_STATUS_NON_COMPLIANT = "Non-Compliant"
+CONTROL_STATUS_NEEDS_REVIEW = "Needs Review"
+CONTROL_STATUS_NOT_ASSESSED = "Not Assessed"
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    """Outcome of validating one control's evidence."""
+
+    control_id: str
+    technology: str = ""
+    verdict: str = VERDICT_NOT_APPLICABLE
+    control_status: str = CONTROL_STATUS_NOT_ASSESSED
+    evidence_quality: float = 0.0     # 0.0 .. 1.0
+    rule_id: str = ""
+    rationale: str = ""
+    frameworks: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        d["frameworks"] = list(self.frameworks)
+        d["evidence_quality"] = round(self.evidence_quality, 3)
+        return d
