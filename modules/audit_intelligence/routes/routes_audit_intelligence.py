@@ -459,3 +459,48 @@ def register_audit_intelligence_routes(app) -> None:
 
         mod = importlib.import_module(f"modules.operations.integrations.{name}")
         return _ok(name=name, health=mod.health_check())
+
+    # ------------------------------------------------------------- packs (base)
+    @app.get("/api/audit/packs")
+    @_safe
+    def api_packs():
+        """Base packs endpoint: available pack types + current repository summary.
+
+        Compatibility alias so clients have a predictable ``/api/audit/packs`` entry
+        point. Individual packs are built via
+        ``/api/audit/packs/{pack_type}/{scope}`` (unchanged).
+        """
+        return _ok(
+            pack_types=["evidence", "framework", "application", "asset", "technology"],
+            repository_stats=repo_svc.repository_stats(),
+            note="Build a specific pack via /api/audit/packs/{pack_type}/{scope}.",
+        )
+
+    # -------------------------------------------------------- health (top-level)
+    @app.get("/api/audit/health")
+    @_safe
+    def api_audit_health():
+        """Top-level audit-intelligence health probe (compatibility alias).
+
+        Aggregates a lightweight readiness view: engine reachability + integration
+        adapter health (config-only; no live calls). Never raises, never leaks
+        secrets. Mirrors what ``/api/audit/integrations/health`` reports for
+        adapters, plus a simple ``ok`` for the audit services themselves.
+        """
+        from modules.operations import integrations
+
+        services_ok = True
+        try:
+            mapping_service.stats()
+        except Exception:  # noqa: BLE001 - health must never raise
+            services_ok = False
+        adapters = integrations.health_check_all()
+        return _ok(
+            status="ok" if services_ok else "degraded",
+            services={"audit_intelligence": "ok" if services_ok else "error"},
+            integrations={
+                "total": adapters.get("total", 0),
+                "configured": adapters.get("configured", 0),
+                "not_configured": adapters.get("not_configured", 0),
+            },
+        )

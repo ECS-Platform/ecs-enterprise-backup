@@ -135,3 +135,32 @@ def register_audit_ui_routes(app, templates) -> None:
         ctx["validation"] = evidence_service.validate_run(run_id) if run_id else None
         ctx["run_id"] = run_id
         return render(request, "audit/validation_results.html", ctx)
+
+    # ------------------------------------------------------------------ aliases
+    # Compatibility aliases: additive canonical paths that delegate to the
+    # handlers above. Existing routes are kept unchanged so older links/bookmarks
+    # keep working. (See docs/DEVELOPER/PRODUCTION_READINESS_GAP_REGISTER.md.)
+    @app.get("/mvp/audit/dashboard", response_class=HTMLResponse)
+    def ui_dashboard_alias(request: Request, role: str = "owner", user: str = "User"):
+        return ui_exec_readiness(request, role=role, user=user)
+
+    @app.get("/mvp/audit/technology-mapping", response_class=HTMLResponse)
+    def ui_technology_mapping_alias(request: Request, role: str = "owner", user: str = "User",
+                                    technology: str = "", framework: str = ""):
+        return ui_mapping(request, role=role, user=user,
+                          technology=technology, framework=framework)
+
+    @app.get("/mvp/audit/evidence-runs", response_class=HTMLResponse)
+    def ui_evidence_runs_alias(request: Request, role: str = "owner", user: str = "User",
+                               run_id: str = ""):
+        return ui_runs(request, role=role, user=user, run_id=run_id)
+
+    @app.get("/mvp/audit/validation-results", response_class=HTMLResponse)
+    def ui_validation_results_alias(request: Request, role: str = "owner", user: str = "User",
+                                    run_id: str = ""):
+        return ui_validation(request, role=role, user=user, run_id=run_id)
+
+    @app.get("/mvp/audit/evidence-packs", response_class=HTMLResponse)
+    def ui_evidence_packs_alias(request: Request, role: str = "owner", user: str = "User",
+                                pack_type: str = "", scope: str = ""):
+        return ui_packs(request, role=role, user=user, pack_type=pack_type, scope=scope)
