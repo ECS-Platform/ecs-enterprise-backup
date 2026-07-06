@@ -256,6 +256,9 @@ docker compose --profile db-targets down
 
 - **Predefined DB query module + full troubleshooting table:**
   [PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md)
+- **Release notes / changelog:** [../../CHANGELOG.md](../../CHANGELOG.md)
+  (see the `ecs-predefined-db-complete-v1` milestone for the predefined database
+  query module release summary)
 - **Environment/connectivity diagnostic:** `scripts/check_predefined_db_environment.py`
 - **Local auth / demo mode:** `docs/LOCAL_AUTH_DEMO_FIX.md`, `docs/DEMO_MODE_SETUP.md`
 - **Common commands:** `docs/COMMON_COMMANDS.md`
