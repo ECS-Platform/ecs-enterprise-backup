@@ -54,6 +54,8 @@ ADAPTER_MODULES = (
     "servicenow_cmdb",
     "archer",
     "sharepoint_graph",
+    "teams_graph",
+    "outlook_graph",
     "jira",
     "confluence",
     "sonarqube",

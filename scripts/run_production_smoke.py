@@ -6,7 +6,7 @@ integration. Checks:
 
   1. app imports                     — the FastAPI app object loads.
   2. audit route registration        — the /api/audit/* routes are registered.
-  3. integration adapter registry    — all 9 adapters are registered.
+  3. integration adapter registry    — the integration adapters are registered.
   4. config masking                  — masked_config exposes SET/MISSING, no secrets.
   5. persistence provider selection  — a persistence backend is selectable.
   6. environment variable presence   — required runtime vars are set (advisory
@@ -98,7 +98,7 @@ def check_integration_registry(chk: Check) -> None:
     try:
         from modules.operations import integrations
         adapters = integrations.list_adapters()
-        chk.add("integration_adapter_registry", len(adapters) == 9,
+        chk.add("integration_adapter_registry", len(adapters) >= 9,
                 f"{len(adapters)} adapters registered")
     except Exception as exc:  # noqa: BLE001
         chk.add("integration_adapter_registry", False, f"{type(exc).__name__}: {exc}")

@@ -121,16 +121,56 @@ class PrismaCloudClient(BaseAdapter):
     def _health_path(self) -> str:
         return "check"
 
+    def _path(self, key: str, default: str) -> str:
+        """Resolve a configurable endpoint path (keeps paths tunable per tenant)."""
+        return str(self.config.get(f"{key}_path") or default).lstrip("/")
+
     def fetch_alerts(self, page_size: int = _base.DEFAULT_PAGE_SIZE,
                      max_items: int = 1000) -> dict[str, Any]:
         if not self.is_configured():
             return _base.not_configured_response(SOURCE)
+        path = self._path("alert", "v2/alert")
         return collect_paginated(
-            lambda off, lim: self._get("v2/alert", {"offset": off, "limit": lim}),
+            lambda off, lim: self._get(path, {"offset": off, "limit": lim}),
             lambda p: list(p.get("items", p.get("alerts", [])) or []),
             normalize_alert,
             source=SOURCE, page_size=page_size, max_items=max_items,
         )
+
+    def fetch_cloud_accounts(self) -> dict[str, Any]:
+        """List onboarded cloud accounts (GET /cloud)."""
+        if not self.is_configured():
+            return _base.not_configured_response(SOURCE)
+        payload, status = self._get(self._path("cloud", "cloud"))
+        if status is not None:
+            return _base.error_response(SOURCE, status, f"cloud accounts fetch failed ({status})")
+        accounts = payload if isinstance(payload, list) else (payload or {}).get("items", []) or []
+        return _base.ok_response(SOURCE, [normalize_cloud_account(a) for a in accounts])
+
+    def fetch_resources(self, page_size: int = _base.DEFAULT_PAGE_SIZE,
+                        max_items: int = 1000) -> dict[str, Any]:
+        """List cloud resources (GET /resource; offset pagination)."""
+        if not self.is_configured():
+            return _base.not_configured_response(SOURCE)
+        path = self._path("resource", "resource")
+        return collect_paginated(
+            lambda off, lim: self._get(path, {"offset": off, "limit": lim}),
+            lambda p: list(p.get("items", p.get("resources", [])) or []) if isinstance(p, dict)
+            else list(p or []),
+            normalize_resource,
+            source=SOURCE, page_size=page_size, max_items=max_items,
+        )
+
+    def fetch_compliance_posture(self) -> dict[str, Any]:
+        """Fetch compliance posture summary (GET /compliance/posture)."""
+        if not self.is_configured():
+            return _base.not_configured_response(SOURCE)
+        payload, status = self._get(self._path("compliance", "compliance/posture"))
+        if status is not None:
+            return _base.error_response(SOURCE, status, f"compliance fetch failed ({status})")
+        items = (payload or {}).get("complianceDetails",
+                                    (payload or {}).get("items", [])) or []
+        return _base.ok_response(SOURCE, [normalize_compliance(c) for c in items])
 
 
 def normalize_alert(record: dict[str, Any]) -> dict[str, Any]:
@@ -144,6 +184,43 @@ def normalize_alert(record: dict[str, Any]) -> dict[str, Any]:
         "cloud_type": resource.get("cloudType", record.get("cloudType", "")),
         "resource": resource.get("name", ""),
         "source": SOURCE,
+    }
+
+
+def normalize_cloud_account(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source": SOURCE,
+        "account_id": record.get("accountId", record.get("id", "")),
+        "account_name": record.get("name", ""),
+        "cloud_type": record.get("cloudType", ""),
+        "enabled": bool(record.get("enabled", False)),
+        "evidence_type": "prisma_cloud_account",
+    }
+
+
+def normalize_resource(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source": SOURCE,
+        "resource_id": record.get("rrn", record.get("id", "")),
+        "resource_name": record.get("name", ""),
+        "resource_type": record.get("resourceType", record.get("service", "")),
+        "cloud_type": record.get("cloudType", ""),
+        "region": record.get("regionId", record.get("region", "")),
+        "account_id": record.get("accountId", ""),
+        "evidence_type": "prisma_cloud_resource",
+    }
+
+
+def normalize_compliance(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source": SOURCE,
+        "compliance_standard": record.get("name", record.get("standardName", "")),
+        "status": record.get("status", ""),
+        "passed": record.get("passedResources", record.get("passed", 0)),
+        "failed": record.get("failedResources", record.get("failed", 0)),
+        "first_seen": record.get("firstSeen", ""),
+        "last_seen": record.get("lastSeen", ""),
+        "evidence_type": "prisma_cloud_compliance",
     }
 
 

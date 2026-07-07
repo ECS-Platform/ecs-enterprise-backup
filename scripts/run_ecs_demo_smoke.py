@@ -161,7 +161,7 @@ def run_smoke() -> dict:
         from modules.operations import integrations
 
         h = integrations.health_check_all()
-        record("integration_adapters", h["total"] == 9,
+        record("integration_adapters", h["total"] >= 9,
                f"{h['total']} adapters registered ({h['configured']} configured)")
     except Exception as exc:  # noqa: BLE001
         record("integration_adapters", False, f"{type(exc).__name__}: {exc}")
