@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECS Admin — Users, Roles &amp; Applications</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body { background:#f8fafc; }
+  .adm-hero { background:linear-gradient(135deg,#1e3a8a,#1e40af); color:#fff; border-radius:.6rem; padding:1rem 1.25rem; margin:1rem 0; }
+  .adm-hero h1 { font-size:1.3rem; font-weight:700; margin:0; }
+  .adm-card { border:1px solid #e5e7eb; border-radius:.5rem; background:#fff; padding:1rem; margin-bottom:1rem; }
+  .adm-kpi { text-align:center; }
+  .adm-kpi .n { font-size:1.4rem; font-weight:700; color:#1e3a8a; }
+  .adm-kpi .l { font-size:.68rem; text-transform:uppercase; color:#64748b; letter-spacing:.03em; }
+  table.adm { width:100%; font-size:.82rem; border-collapse:collapse; }
+  table.adm th, table.adm td { border:1px solid #e5e7eb; padding:5px 8px; text-align:left; }
+  table.adm th { background:#f1f5f9; }
+  .chip { display:inline-block; font-size:.68rem; font-weight:600; padding:.1rem .5rem; border-radius:999px; }
+  .chip-yes { background:#dcfce7; color:#166534; }
+  .chip-no { background:#e2e8f0; color:#475569; }
+  .mono { font-family:ui-monospace,Menlo,monospace; font-size:.78rem; }
+</style>
+</head>
+<body>
+<div class="container-fluid" style="max-width:1150px;">
+  <div class="adm-hero d-flex flex-wrap justify-content-between align-items-center">
+    <div>
+      <h1>ECS Admin — Users, Roles &amp; Applications</h1>
+      <div class="small" style="opacity:.85;">Manage administrative users and view canonical roles + onboarded applications. Role policy is defined in <code>config/rbac.yaml</code>.</div>
+    </div>
+    <span class="badge bg-light text-dark">ADMINISTRATION</span>
+  </div>
+
+  {% if not is_admin %}
+  <div class="alert alert-warning py-2 px-3 small">You are viewing as <strong>{{ role }}</strong>. User mutations require a platform administrator role; the forms below will be rejected (HTTP 403).</div>
+  {% endif %}
+
+  <div class="row g-2 mb-2">
+    <div class="col"><div class="adm-card adm-kpi"><div class="n" id="k-users">{{ summary.user_count }}</div><div class="l">Users</div></div></div>
+    <div class="col"><div class="adm-card adm-kpi"><div class="n">{{ summary.active_user_count }}</div><div class="l">Active</div></div></div>
+    <div class="col"><div class="adm-card adm-kpi"><div class="n">{{ summary.role_count }}</div><div class="l">Roles</div></div></div>
+    <div class="col"><div class="adm-card adm-kpi"><div class="n">{{ summary.application_count }}</div><div class="l">Applications</div></div></div>
+  </div>
+
+  <div id="adm-msg" class="small mb-2"></div>
+
+  <!-- Users -->
+  <div class="adm-card">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="text-uppercase text-muted mb-0" style="font-size:.72rem;">Users</h6>
+      <button class="btn btn-sm btn-outline-secondary" type="button" onclick="refreshUsers()">Refresh</button>
+    </div>
+    <form class="row g-2 mb-3" id="create-user-form" onsubmit="return createUser(event)">
+      <div class="col-md-3"><input class="form-control form-control-sm" id="u-email" placeholder="email@ecs.local" required></div>
+      <div class="col-md-3"><input class="form-control form-control-sm" id="u-name" placeholder="Display name"></div>
+      <div class="col-md-3">
+        <select class="form-select form-select-sm" id="u-role">
+          {% for r in roles %}<option value="{{ r.key }}">{{ r.title }} ({{ r.key }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2"><input class="form-control form-control-sm" id="u-scope" placeholder="scope (optional)"></div>
+      <div class="col-md-1"><button class="btn btn-sm btn-primary w-100" type="submit">Add</button></div>
+    </form>
+    <table class="adm"><thead><tr><th>User ID</th><th>Email</th><th>Name</th><th>Role</th><th>Scope</th><th>Active</th><th>Actions</th></tr></thead>
+    <tbody id="users-body">
+      {% for u in users %}
+      <tr data-uid="{{ u.user_id }}">
+        <td class="mono">{{ u.user_id }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.display_name }}</td>
+        <td>
+          <select class="form-select form-select-sm role-select" style="min-width:150px;">
+            {% for r in roles %}<option value="{{ r.key }}" {% if r.key == u.role %}selected{% endif %}>{{ r.key }}</option>{% endfor %}
+          </select>
+        </td>
+        <td>{{ u.scope }}</td>
+        <td>{% if u.active %}<span class="chip chip-yes">active</span>{% else %}<span class="chip chip-no">inactive</span>{% endif %}</td>
+        <td>
+          <button class="btn btn-outline-primary btn-sm py-0" type="button" onclick="saveRole('{{ u.user_id }}', this)">Save role</button>
+          <button class="btn btn-outline-secondary btn-sm py-0" type="button" onclick="toggleActive('{{ u.user_id }}', {{ 'false' if u.active else 'true' }})">{{ 'Deactivate' if u.active else 'Activate' }}</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody></table>
+  </div>
+
+  <!-- Roles -->
+  <div class="adm-card">
+    <h6 class="text-uppercase text-muted mb-2" style="font-size:.72rem;">Roles (canonical — read-only)</h6>
+    <table class="adm"><thead><tr><th>Key</th><th>Title</th><th>Scope</th><th>Admin</th><th>Manage FW</th><th>Upload</th><th>Aliases</th></tr></thead>
+    <tbody>
+      {% for r in roles %}
+      <tr>
+        <td class="mono">{{ r.key }}</td><td>{{ r.title }}</td><td>{{ r.scope }}</td>
+        <td>{% if r.capabilities.can_admin_platform %}<span class="chip chip-yes">yes</span>{% else %}<span class="chip chip-no">no</span>{% endif %}</td>
+        <td>{% if r.capabilities.can_manage_frameworks %}<span class="chip chip-yes">yes</span>{% else %}<span class="chip chip-no">no</span>{% endif %}</td>
+        <td>{% if r.capabilities.can_upload_evidence %}<span class="chip chip-yes">yes</span>{% else %}<span class="chip chip-no">no</span>{% endif %}</td>
+        <td class="small text-muted">{{ r.aliases|join(', ') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody></table>
+  </div>
+
+  <!-- Applications -->
+  <div class="adm-card">
+    <h6 class="text-uppercase text-muted mb-2" style="font-size:.72rem;">Applications (onboarded — read-only)</h6>
+    <table class="adm"><thead><tr><th>Name</th><th>Owner</th><th>Environment</th><th>Criticality</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for a in applications %}
+      <tr><td>{{ a.name }}</td><td>{{ a.owner }}</td><td>{{ a.environment }}</td><td>{{ a.criticality }}</td><td>{{ a.status }}</td></tr>
+      {% endfor %}
+    </tbody></table>
+  </div>
+
+  <p class="text-muted" style="font-size:.72rem;">APIs: <code>GET /api/admin/roles</code>, <code>GET /api/admin/applications</code>, <code>GET/POST /api/admin/users</code>, <code>POST /api/admin/users/{id}/role</code>, <code>POST /api/admin/users/{id}/active</code>. Mutations require a platform admin role.</p>
+</div>
+
+<script>
+  var ROLE = {{ role|tojson }};
+  function q(sel, ctx) { return (ctx || document).querySelector(sel); }
+  function msg(text, ok) {
+    var el = document.getElementById("adm-msg");
+    el.className = "small mb-2 " + (ok ? "text-success" : "text-danger");
+    el.textContent = text;
+  }
+  function post(url, body) {
+    return fetch(url + (url.indexOf("?") < 0 ? "?" : "&") + "role=" + encodeURIComponent(ROLE),
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); });
+  }
+  function createUser(e) {
+    e.preventDefault();
+    post("/api/admin/users", { email: q("#u-email").value, display_name: q("#u-name").value,
+      assign_role: q("#u-role").value, scope: q("#u-scope").value })
+      .then(function (res) {
+        if (res.body.ok === false) { msg("Create failed: " + (res.body.message || res.body.errors), false); return; }
+        msg("Created " + res.body.user.user_id + ". Refreshing…", true); refreshUsers();
+      }).catch(function (err) { msg("Request failed: " + err, false); });
+    return false;
+  }
+  function saveRole(uid, btn) {
+    var row = btn.closest("tr");
+    var role = q(".role-select", row).value;
+    post("/api/admin/users/" + encodeURIComponent(uid) + "/role", { assign_role: role })
+      .then(function (res) {
+        if (res.body.ok === false) { msg("Update failed: " + (res.body.message || res.body.errors), false); return; }
+        msg("Updated " + uid + " -> " + role, true);
+      });
+  }
+  function toggleActive(uid, active) {
+    post("/api/admin/users/" + encodeURIComponent(uid) + "/active", { active: active })
+      .then(function (res) {
+        if (res.body.ok === false) { msg("Update failed: " + (res.body.message || res.body.errors), false); return; }
+        refreshUsers();
+      });
+  }
+  function refreshUsers() {
+    fetch("/api/admin/users").then(function (r) { return r.json(); }).then(function (b) {
+      if (!b.users) return;
+      document.getElementById("k-users").textContent = b.count;
+      // Simplest reliable refresh: reload the page to re-render server-side rows.
+      window.location.reload();
+    });
+  }
+</script>
+</body>
+</html>

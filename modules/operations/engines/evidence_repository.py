@@ -77,6 +77,11 @@ def register_upload(
     record["version"] = 1
     record["reviewer"] = "Pending Assignment"
     evidence_repository.append(record)
+    # Mirror the upload into the audit-intelligence evidence repository so manual /
+    # bulk uploads become real evidence for readiness, reuse, dashboards, and
+    # integrity — instead of living only in this MVP in-memory list. Best-effort:
+    # a bridge failure must never break the primary upload path.
+    _mirror_to_audit_repository(record, content or b"", framework, application, control)
     from modules.shared.services.audit_trail import log_event, record_version
 
     record_version(record["evidence_id"], std_name, 1, uploaded_by)
@@ -99,6 +104,50 @@ def register_upload(
     )
     _link_reuse(record)
     return record
+
+
+def _mirror_to_audit_repository(record, content, framework, application, control):
+    """Store an uploaded evidence item into the audit-intelligence repository.
+
+    Reuses the existing ``audit_intelligence.engines.evidence_repository`` (no new
+    store): the manual/bulk-uploaded artifact gets a SHA-256 versioned record with
+    framework/application tags, so it flows into readiness, reuse, and integrity.
+    Technology/control metadata is enriched from the existing control mapping when
+    the control id is known. Never raises.
+    """
+    try:
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+
+        technology = ""
+        frameworks: tuple[str, ...] = tuple(t for t in [framework] if t and t != "Cross-Framework")
+        if control:
+            try:
+                from modules.audit_intelligence.engines import technology_control_mapping as mapping
+
+                ref = mapping.get_control(control)
+                if ref:
+                    technology = ref.technology or ""
+                    if ref.frameworks:
+                        frameworks = tuple(ref.frameworks)
+            except Exception:  # noqa: BLE001 - mapping optional
+                pass
+        text = content.decode("utf-8", "ignore") if isinstance(content, (bytes, bytearray)) else str(content or "")
+        ai_repo.store_evidence(
+            control_id=control or record.get("filename", "UPLOAD"),
+            content=text or record.get("summary", ""),
+            technology=technology,
+            asset_id=application or "",
+            frameworks=frameworks,
+            verdict="",                       # manual uploads are unassessed until validated
+            control_status="",
+            source="manual_upload",
+            filename=record.get("filename", ""),
+            tags=(f"app:{application}", "source:upload",
+                  f"mvp_evidence_id:{record.get('evidence_id', '')}"),
+        )
+        record["audit_repository_synced"] = True
+    except Exception:  # noqa: BLE001 - bridge must never break the primary upload
+        record["audit_repository_synced"] = False
 
 
 def _link_reuse(record):

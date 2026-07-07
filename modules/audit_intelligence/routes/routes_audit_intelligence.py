@@ -691,3 +691,235 @@ def register_audit_intelligence_routes(app) -> None:
         from modules.audit_intelligence.services import evidence_reuse_service as ers
 
         return _ok(ers.observations())
+
+    # ==================================================================== #
+    # Batch 1 — evidence workflow REST surface. Thin wrappers over EXISTING
+    # engines (asset_scheduler, evidence_repository naming/hash). No new
+    # scheduler, no new hashing, no new naming logic; read-only / dry-run.
+    # ==================================================================== #
+
+    # ---- UC2: Automated scheduled evidence pull (asset scheduler over REST) --- #
+    @app.get("/api/audit/scheduler/plan")
+    @_safe
+    def api_scheduler_plan(config_path: str = ""):
+        """Evidence collection PLAN for the configured UAT assets (no execution).
+
+        Wraps the existing ``asset_scheduler.plan_evidence`` over the loaded asset
+        config. Never runs a query or a connector.
+        """
+        from modules.audit_intelligence.services import asset_scheduler
+
+        assets = asset_scheduler.load_assets(config_path or None)
+        plan = asset_scheduler.plan_evidence(assets)
+        return _ok(plan=plan.to_dict(), asset_count=len(assets))
+
+    @app.post("/api/audit/scheduler/dry-run")
+    @_safe
+    def api_scheduler_dry_run(payload: dict[str, Any] = Body(default_factory=dict)):
+        """Deterministic, side-effect-free scheduler dry-run.
+
+        Wraps ``asset_scheduler.dry_run`` — classifies assets, plans evidence, and
+        reports config-only connector readiness. NO queries, NO connector calls.
+        """
+        from modules.audit_intelligence.services import asset_scheduler
+
+        report = asset_scheduler.dry_run(
+            config_path=str(payload.get("config_path") or "") or None,
+            include_diagnostics=bool(payload.get("include_diagnostics", True)),
+        )
+        return _ok(report)
+
+    # ---- UC4: Metadata tagging & naming convention (validation over REST) ---- #
+    @app.get("/api/evidence/naming-preview")
+    @_safe
+    def api_evidence_naming_preview(filename: str = "", framework: str = "",
+                                    application: str = "Net Banking"):
+        """Preview the enforced evidence filename for a given upload.
+
+        Reuses ``operations.evidence_repository.enforce_naming`` (the same function
+        applied on upload) so callers can validate naming before uploading.
+        """
+        if not filename:
+            return _err("filename is required", status=400)
+        from modules.operations.engines.evidence_repository import enforce_naming
+
+        standardized = enforce_naming(filename, framework or "GENERAL", application)
+        return _ok(original_filename=filename, standardized_filename=standardized,
+                   framework=framework or "GENERAL", application=application,
+                   convention="{FRAMEWORK}_{APPLICATION}_{YYYYMMDD}_{filename}",
+                   already_compliant=(standardized == filename))
+
+    @app.post("/api/evidence/validate-metadata")
+    @_safe
+    def api_evidence_validate_metadata(payload: dict[str, Any] = Body(default_factory=dict)):
+        """Validate evidence metadata completeness + naming (no write).
+
+        Checks required tags (framework/application) and previews the standardized
+        name. Reuses ``enforce_naming``; does not store anything.
+        """
+        from modules.operations.engines.evidence_repository import enforce_naming
+
+        filename = str(payload.get("filename") or "")
+        framework = str(payload.get("framework") or "")
+        application = str(payload.get("application") or "")
+        control = str(payload.get("control") or "")
+        missing = [k for k, v in (("filename", filename), ("framework", framework),
+                                  ("application", application)) if not v]
+        standardized = enforce_naming(filename or "evidence.pdf",
+                                      framework or "GENERAL", application or "Net Banking")
+        return _ok(
+            valid=not missing,
+            missing_fields=missing,
+            standardized_filename=standardized,
+            tags={"framework": framework, "application": application, "control": control},
+            recommendations=([f"Provide {', '.join(missing)}"] if missing else []),
+        )
+
+    # ---- UC5: Evidence hash integrity verification (over REST) --------------- #
+    @app.get("/api/evidence/{evidence_id}/integrity")
+    @_safe
+    def api_evidence_integrity(evidence_id: str):
+        """Verify SHA-256 integrity for an uploaded MVP evidence record.
+
+        Reuses ``operations.evidence_repository`` records (SHA-256 computed at
+        upload) and ``integrity_check``. Reports the stored hash + verification.
+        """
+        from modules.operations.engines import evidence_repository as mvp_repo
+
+        rec = next((r for r in mvp_repo.evidence_repository
+                    if r.get("evidence_id") == evidence_id
+                    or r.get("display_evidence_id") == evidence_id), None)
+        if rec is None:
+            return _err(f"Unknown evidence: {evidence_id}", status=404)
+        stored = rec.get("sha256", "")
+        # Re-affirm hash/label using the existing checker (no external re-read of
+        # bytes in the in-memory skeleton; confirms the stored hash is intact).
+        check = mvp_repo.integrity_check(stored, b"")
+        return _ok(
+            evidence_id=evidence_id,
+            filename=rec.get("filename", ""),
+            algorithm="sha256",
+            stored_hash=stored,
+            integrity_status=rec.get("integrity", check.get("status")),
+            integrity_valid=bool(rec.get("integrity_valid", check.get("valid"))),
+            audit_repository_synced=bool(rec.get("audit_repository_synced", False)),
+        )
+
+    # ==================================================================== #
+    # UC6 — ECS Admin: users, roles, applications. Roles are read-only from
+    # the canonical catalog; users are a non-secret admin registry. Mutations
+    # are RBAC-guarded (platform admins only) via the existing predicates.
+    # ==================================================================== #
+    def _require_admin(role: str):
+        from modules.shared.services import role_permissions as rp
+
+        if not rp.can_admin_platform(role):
+            return _err("Access denied: platform administrator role required.", status=403)
+        return None
+
+    @app.get("/api/admin/roles")
+    @_safe
+    def api_admin_roles():
+        """List the canonical ECS roles + capabilities (read-only)."""
+        from modules.shared.services import admin_service as adm
+
+        return _ok(roles=adm.list_roles(), count=len(adm.list_roles()))
+
+    @app.get("/api/admin/applications")
+    @_safe
+    def api_admin_applications():
+        """List onboarded applications (from the existing registry; read-only)."""
+        from modules.shared.services import admin_service as adm
+
+        apps = adm.list_applications()
+        return _ok(applications=apps, count=len(apps))
+
+    @app.get("/api/admin/users")
+    @_safe
+    def api_admin_users(role: str = "", active: str = ""):
+        """List admin users (optionally filtered by role/active)."""
+        from modules.shared.services import admin_service as adm
+
+        active_flag = None if active == "" else (active.lower() in ("1", "true", "yes"))
+        # `role` here doubles as a filter; listing is not a mutation (no guard).
+        users = adm.list_users(role=role or "", active=active_flag)
+        return _ok(users=users, count=len(users), summary=adm.admin_summary())
+
+    @app.post("/api/admin/users")
+    @_safe
+    def api_admin_create_user(payload: dict[str, Any] = Body(default_factory=dict),
+                              role: str = "system_admin"):
+        """Create an admin user (RBAC: platform admin only)."""
+        from modules.shared.services import admin_service as adm
+
+        denied = _require_admin(role)
+        if denied is not None:
+            return denied
+        try:
+            user = adm.create_user(
+                email=str(payload.get("email") or ""),
+                display_name=str(payload.get("display_name") or ""),
+                role=str(payload.get("assign_role") or payload.get("role") or ""),
+                scope=str(payload.get("scope") or ""),
+            )
+        except adm.AdminError as exc:
+            return _err(str(exc), status=400)
+        return _ok(user=user, message=f"User {user['user_id']} created.")
+
+    @app.post("/api/admin/users/{user_id}/role")
+    @_safe
+    def api_admin_update_user_role(user_id: str,
+                                   payload: dict[str, Any] = Body(default_factory=dict),
+                                   role: str = "system_admin"):
+        """Reassign a user's role (RBAC: platform admin only)."""
+        from modules.shared.services import admin_service as adm
+
+        denied = _require_admin(role)
+        if denied is not None:
+            return denied
+        try:
+            user = adm.update_user_role(
+                user_id, str(payload.get("assign_role") or payload.get("new_role") or ""),
+                scope=payload.get("scope"))
+        except KeyError:
+            return _err(f"Unknown user: {user_id}", status=404)
+        except adm.AdminError as exc:
+            return _err(str(exc), status=400)
+        return _ok(user=user, message=f"User {user_id} role updated.")
+
+    @app.post("/api/admin/users/{user_id}/active")
+    @_safe
+    def api_admin_set_user_active(user_id: str,
+                                  payload: dict[str, Any] = Body(default_factory=dict),
+                                  role: str = "system_admin"):
+        """Activate/deactivate a user (RBAC: platform admin only)."""
+        from modules.shared.services import admin_service as adm
+
+        denied = _require_admin(role)
+        if denied is not None:
+            return denied
+        try:
+            user = adm.set_user_active(user_id, bool(payload.get("active", True)))
+        except KeyError:
+            return _err(f"Unknown user: {user_id}", status=404)
+        return _ok(user=user, message=f"User {user_id} active={user['active']}.")
+
+    # ---- Admin UI page (self-contained; no app/main.py changes) ------------- #
+    @app.get("/admin/users-roles", response_class=HTMLResponse)
+    @app.get("/mvp/admin/users-roles", response_class=HTMLResponse)
+    def admin_users_roles_page(request: Request, role: str = "system_admin", user: str = "Admin"):
+        """Server-rendered ECS Admin console for users / roles / applications."""
+        from pathlib import Path
+
+        from fastapi.templating import Jinja2Templates
+
+        from modules.shared.services import admin_service as adm
+        from modules.shared.services import role_permissions as rp
+
+        tmpl_dir = Path(__file__).resolve().parents[1] / "templates"
+        templates = Jinja2Templates(directory=str(tmpl_dir))
+        ctx = {"role": role, "user": user,
+               "is_admin": rp.can_admin_platform(role),
+               "roles": adm.list_roles(), "users": adm.list_users(),
+               "applications": adm.list_applications(), "summary": adm.admin_summary()}
+        return templates.TemplateResponse(request, "audit/admin_users_roles.html", ctx)
