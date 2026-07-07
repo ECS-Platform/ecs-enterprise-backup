@@ -302,13 +302,27 @@ def register_mvp_routes(app, templates):
 
     @app.get("/mvp/evidence-story", response_class=HTMLResponse)
     def mvp_evidence_reuse_story(request: Request, role: str = "owner", user: str = "User"):
-        """Phase-1 value chain: Query -> Evidence -> Reuse -> Readiness -> Observations."""
+        """Evidence Reuse & Observation Lifecycle.
+
+        Renders the value-chain narrative (``story``) plus a **functional** panel
+        (``live``) backed by the real evidence repository + observation engine, so
+        the page executes real server-side logic (filters, reuse analysis,
+        completeness, observation generation/closure) via the ``/api/evidence-reuse/*``
+        endpoints. Falls back gracefully to the narrative if the functional layer
+        is unavailable.
+        """
         from modules.operations.engines.evidence_reuse_story_engine import (
             build_evidence_reuse_story,
         )
 
         ctx = _base_ctx(role, user, page_module="evidence_story")
         ctx["story"] = build_evidence_reuse_story()
+        try:
+            from modules.audit_intelligence.services import evidence_reuse_service as ers
+
+            ctx["live"] = ers.page_context()
+        except Exception:  # noqa: BLE001 - functional panel must never break the page
+            ctx["live"] = {"ok": False}
         return templates.TemplateResponse(request, "mvp_evidence_reuse_story.html", ctx)
 
     @app.get("/api/demo/kpi-drill")

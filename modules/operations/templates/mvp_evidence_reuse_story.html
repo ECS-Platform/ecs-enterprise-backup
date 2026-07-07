@@ -39,6 +39,75 @@ details.ers-dd[open] > summary { border-bottom:1px solid #e2e8f0; }
 <span>Predefined Query</span><span class="arr">→</span><span>Evidence</span><span class="arr">→</span><span>Reuse</span><span class="arr">→</span><span>Audit Readiness</span><span class="arr">→</span><span>Observation Created</span><span class="arr">→</span><span>Observation Closed</span>
 </div>
 
+{# ==================== FUNCTIONAL WORKBENCH (server-side) ==================== #}
+<div class="ers-section" id="ers-live" style="border-color:#0f766e;">
+<h2 style="color:#0f766e;">Functional Workbench — live server-side execution</h2>
+<p class="ers-q">Runs real logic against the evidence repository + observation engine. Filter evidence, analyse reuse, validate completeness, generate observations, and check closure eligibility. Actions are read-only except <em>Generate observations</em> and <em>Check closure</em>, which use the real observation workflow (maker-checker safe).</p>
+
+<div class="row g-2 mb-2">
+  <div class="col-6 col-md-3"><label class="form-label small mb-0">Application</label><input id="f-application" class="form-control form-control-sm" placeholder="any"></div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-0">Framework</label><input id="f-framework" class="form-control form-control-sm" placeholder="any"></div>
+  <div class="col-6 col-md-2"><label class="form-label small mb-0">Control</label><input id="f-control" class="form-control form-control-sm" placeholder="e.g. DB-001"></div>
+  <div class="col-6 col-md-2"><label class="form-label small mb-0">Technology</label><input id="f-technology" class="form-control form-control-sm" placeholder="any"></div>
+  <div class="col-6 col-md-2"><label class="form-label small mb-0">Status</label>
+    <select id="f-status" class="form-select form-select-sm"><option value="">any</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option><option value="WARNING">WARNING</option></select>
+  </div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-0">Date from</label><input id="f-date_from" type="date" class="form-control form-control-sm"></div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-0">Date to</label><input id="f-date_to" type="date" class="form-control form-control-sm"></div>
+  <div class="col-12 col-md-6 d-flex align-items-end">
+    <div class="form-check me-3"><input class="form-check-input" type="checkbox" id="f-approval" checked><label class="form-check-label small" for="f-approval">Require maker-checker approval</label></div>
+  </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <button class="btn btn-sm btn-outline-secondary" data-ers-action="records" data-method="GET">Refresh evidence</button>
+  <button class="btn btn-sm btn-outline-primary" data-ers-action="analyze" data-method="POST">Run reuse analysis</button>
+  <button class="btn btn-sm btn-outline-primary" data-ers-action="validate-completeness" data-method="POST">Validate completeness</button>
+  <button class="btn btn-sm btn-outline-primary" data-ers-action="readiness" data-method="GET">Refresh audit readiness</button>
+  <button class="btn btn-sm btn-outline-warning" data-ers-action="generate-observations" data-method="POST">Generate observations</button>
+  <button class="btn btn-sm btn-outline-success" data-ers-action="check-closure" data-method="POST">Check closure eligibility</button>
+</div>
+
+<div id="ers-live-status" class="small text-muted mb-2">Ready.</div>
+<div id="ers-live-error" class="alert alert-warning py-2 px-3 small" style="display:none;"></div>
+
+{# Live KPI strip (server-rendered initial values, updated by actions) #}
+<div class="ers-chips" id="ers-live-kpis">
+  <div class="ers-chip"><div class="n" id="k-records">{{ live.record_count if live and live.ok else 0 }}</div><div class="l">Evidence Records</div></div>
+  <div class="ers-chip"><div class="n" id="k-reuse">{{ live.reuse_summary.reuse_factor if live and live.ok else 0 }}×</div><div class="l">Reuse Factor</div></div>
+  <div class="ers-chip"><div class="n" id="k-readiness">{{ live.readiness.readiness_pct if live and live.ok else 0 }}%</div><div class="l">Audit Readiness</div></div>
+  <div class="ers-chip"><div class="n" id="k-open">{{ live.observations.open_count if live and live.ok else 0 }}</div><div class="l">Open Observations</div></div>
+  <div class="ers-chip"><div class="n" id="k-ready">{{ live.observations.ready_count if live and live.ok else 0 }}</div><div class="l">Ready for Closure</div></div>
+</div>
+
+<div class="mt-2">
+  <div class="d-flex justify-content-between align-items-center mb-1">
+    <h6 class="small text-uppercase text-muted mb-0">Action result</h6>
+    <button class="btn btn-sm btn-link p-0" type="button" onclick="document.getElementById('ers-raw').classList.toggle('d-none')">toggle raw JSON</button>
+  </div>
+  <div id="ers-result">
+    {% if live and live.ok %}
+    <table class="ers-table"><thead><tr><th>Evidence Key</th><th>Control</th><th>Technology</th><th>Application</th><th>Verdict</th><th>Integrity</th><th>Collected</th></tr></thead><tbody>
+    {% for r in live.records %}
+    <tr>
+      <td class="small"><strong>{{ r.evidence_key }}</strong> <span class="text-muted">v{{ r.version }}</span></td>
+      <td>{{ r.control_id }}</td>
+      <td>{{ r.technology }}</td>
+      <td>{{ r.application }}</td>
+      <td>{% if r.satisfied %}<span class="ers-badge b-ok">{{ r.verdict }}</span>{% else %}<span class="ers-badge b-bad">{{ r.verdict or 'Unassessed' }}</span>{% endif %}{% if r.stale %} <span class="ers-badge b-warn">stale</span>{% endif %}</td>
+      <td>{% if r.integrity.verified %}<span class="ers-badge b-ok" title="{{ r.integrity.content_hash }}">verified</span>{% else %}<span class="ers-badge b-warn">{{ r.integrity.status }}</span>{% endif %}</td>
+      <td class="small text-muted">{{ r.collected_at }}</td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+    {% else %}
+    <p class="small text-muted mb-0">Functional layer unavailable — showing narrative below.</p>
+    {% endif %}
+  </div>
+  <pre id="ers-raw" class="d-none" style="background:#0f172a;color:#e2e8f0;border-radius:6px;padding:10px;max-height:320px;overflow:auto;font-size:.74rem;margin-top:8px;"></pre>
+</div>
+</div>
+
 {# ============================ 1. EVIDENCE ============================ #}
 <div class="ers-section">
 <h2>1 · Evidence Generated</h2>
@@ -175,4 +244,162 @@ details.ers-dd[open] > summary { border-bottom:1px solid #e2e8f0; }
 
 </div>
 </div></div></div>
+
+<script>
+(function () {
+  var statusEl = document.getElementById("ers-live-status");
+  var errorEl = document.getElementById("ers-live-error");
+  var resultEl = document.getElementById("ers-result");
+  var rawEl = document.getElementById("ers-raw");
+
+  function filterQS() {
+    var ids = ["application", "framework", "control", "technology", "status", "date_from", "date_to"];
+    var parts = [];
+    ids.forEach(function (id) {
+      var el = document.getElementById("f-" + id);
+      if (el && el.value) parts.push(id + "=" + encodeURIComponent(el.value));
+    });
+    return parts;
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch];
+    });
+  }
+
+  function badge(text, cls) { return '<span class="ers-badge ' + cls + '">' + esc(text) + "</span>"; }
+
+  function setKpi(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; }
+
+  function renderRecords(b) {
+    var rows = (b.records || []).map(function (r) {
+      var verdict = r.satisfied ? badge(r.verdict, "b-ok") : badge(r.verdict || "Unassessed", "b-bad");
+      if (r.stale) verdict += " " + badge("stale", "b-warn");
+      var integ = r.integrity && r.integrity.verified ? badge("verified", "b-ok") : badge((r.integrity || {}).status || "no-hash", "b-warn");
+      return "<tr><td class='small'><strong>" + esc(r.evidence_key) + "</strong> <span class='text-muted'>v" + esc(r.version) + "</span></td><td>" +
+        esc(r.control_id) + "</td><td>" + esc(r.technology) + "</td><td>" + esc(r.application) + "</td><td>" +
+        verdict + "</td><td>" + integ + "</td><td class='small text-muted'>" + esc(r.collected_at) + "</td></tr>";
+    }).join("");
+    return "<table class='ers-table'><thead><tr><th>Evidence Key</th><th>Control</th><th>Technology</th><th>Application</th><th>Verdict</th><th>Integrity</th><th>Collected</th></tr></thead><tbody>" +
+      (rows || "<tr><td colspan='7' class='small text-muted'>No evidence records match the filters.</td></tr>") + "</tbody></table>";
+  }
+
+  function renderAnalyze(b) {
+    var s = b.reuse_summary || {};
+    var rows = (b.reuse_rows || []).map(function (r) {
+      return "<tr><td class='small'>" + esc(r.evidence_key) + "</td><td>" + esc(r.control_id) + "</td><td>" +
+        esc(r.framework) + "</td><td>" + (r.status === "Satisfied" ? badge("Satisfied", "b-ok") : badge("Violation", "b-bad")) + "</td></tr>";
+    }).join("");
+    return "<p class='small text-muted'>" + esc(s.unique_evidence) + " evidence records satisfy " + esc(s.reuse_count) +
+      " framework obligations — reuse factor " + esc(s.reuse_factor) + "×, " + esc(s.collections_saved) +
+      " collections avoided (" + esc(s.effort_saved_hours) + "h saved).</p>" +
+      "<table class='ers-table'><thead><tr><th>Evidence</th><th>Control</th><th>Framework</th><th>Status</th></tr></thead><tbody>" +
+      (rows || "<tr><td colspan='4' class='small text-muted'>No reuse rows.</td></tr>") + "</tbody></table>";
+  }
+
+  function renderCompleteness(b) {
+    var fws = (b.by_framework || []).map(function (f) {
+      var ctrls = (f.controls || []).map(function (c) {
+        var cls = c.state === "covered" ? "b-ok" : (c.state === "failed" ? "b-bad" : "b-warn");
+        return "<tr><td>" + esc(c.control_id) + " — <span class='text-muted'>" + esc(c.control_name) + "</span></td><td>" +
+          badge(c.state, cls) + "</td><td class='small text-muted'>" + esc(c.reason) + "</td></tr>";
+      }).join("");
+      return "<details class='ers-dd'><summary><span>" + esc(f.framework) + "</span><span class='small text-muted'>" +
+        esc(f.covered) + "/" + esc(f.total) + " (" + esc(f.readiness_pct) + "%)</span></summary><div class='ers-dd-body'>" +
+        "<table class='ers-table'><thead><tr><th>Control</th><th>State</th><th>Reason</th></tr></thead><tbody>" + ctrls + "</tbody></table></div></details>";
+    }).join("");
+    return "<p class='small text-muted'>" + (b.complete ? badge("COMPLETE", "b-ok") : badge(b.gap_count + " gap(s)", "b-warn")) +
+      " — readiness " + esc(b.readiness_pct) + "% (" + esc(b.covered_controls) + "/" + esc(b.total_controls) + " covered).</p>" + fws;
+  }
+
+  function renderReadiness(b) {
+    var fws = (b.by_framework || []).map(function (f) {
+      return "<tr><td>" + esc(f.framework) + "</td><td>" + esc(f.covered) + "/" + esc(f.total) + "</td><td>" + esc(f.readiness_pct) + "%</td></tr>";
+    }).join("");
+    return "<p class='small text-muted'>Overall readiness " + esc(b.readiness_pct) + "% — " + esc(b.covered_controls) + "/" + esc(b.total_controls) + " controls covered.</p>" +
+      "<table class='ers-table'><thead><tr><th>Framework</th><th>Covered</th><th>Readiness</th></tr></thead><tbody>" + fws + "</tbody></table>";
+  }
+
+  function renderGenerate(b) {
+    var rows = (b.created || []).map(function (o) {
+      return "<tr><td class='small'><strong>" + esc(o.observation_id) + "</strong></td><td>" + esc(o.control_id) + "</td><td>" +
+        badge(o.severity, o.severity === "Critical" || o.severity === "High" ? "b-bad" : "b-warn") + "</td><td>" +
+        badge(o.status, "b-info") + "</td><td class='small'>" + esc(o.observation) + "</td></tr>";
+    }).join("");
+    return "<p class='small text-muted'>Created " + badge(b.created_count, "b-warn") + " observation(s); skipped " +
+      esc(b.skipped_existing) + " already-open; total gaps " + esc(b.gap_count) + ".</p>" +
+      "<table class='ers-table'><thead><tr><th>Observation</th><th>Control</th><th>Severity</th><th>Status</th><th>Finding</th></tr></thead><tbody>" +
+      (rows || "<tr><td colspan='5' class='small text-muted'>No new observations (all gaps already have open observations).</td></tr>") + "</tbody></table>";
+  }
+
+  function renderClosure(b) {
+    var rows = (b.ready_for_closure || []).concat(b.closed || []).map(function (o) {
+      var st = o.ready_for_closure && !o.closed ? badge("READY FOR CLOSURE", "b-ok") : badge(o.status, "b-info");
+      return "<tr><td class='small'><strong>" + esc(o.observation_id) + "</strong></td><td>" + esc(o.control_id) + "</td><td>" +
+        esc(o.evidence_used) + "</td><td>" + esc(o.framework_covered) + "</td><td>" + st + "</td></tr>";
+    }).join("");
+    return "<p class='small text-muted'>" + (b.require_approval ? "Maker-checker ON — eligible observations marked ready (not auto-closed). " : "Maker-checker OFF — eligible observations closed. ") +
+      "Ready: " + esc(b.ready_count) + ", Closed: " + esc(b.closed_count) + ", Not eligible: " + esc((b.not_eligible || []).length) + ".</p>" +
+      "<table class='ers-table'><thead><tr><th>Observation</th><th>Control</th><th>Evidence Used</th><th>Framework</th><th>Status</th></tr></thead><tbody>" +
+      (rows || "<tr><td colspan='5' class='small text-muted'>No observations are eligible for closure yet.</td></tr>") + "</tbody></table>";
+  }
+
+  var RENDERERS = {
+    "records": renderRecords, "analyze": renderAnalyze,
+    "validate-completeness": renderCompleteness, "readiness": renderReadiness,
+    "generate-observations": renderGenerate, "check-closure": renderClosure
+  };
+
+  function refreshKpis() {
+    // Pull the lightweight observation + readiness counters after an action.
+    fetch("/api/evidence-reuse/observations").then(function (r) { return r.json(); }).then(function (b) {
+      setKpi("k-open", b.open_count); setKpi("k-ready", b.ready_count);
+    }).catch(function () {});
+    var qs = filterQS().join("&");
+    fetch("/api/evidence-reuse/readiness" + (qs ? "?" + qs : "")).then(function (r) { return r.json(); }).then(function (b) {
+      if (b.readiness_pct !== undefined) setKpi("k-readiness", b.readiness_pct + "%");
+    }).catch(function () {});
+  }
+
+  document.querySelectorAll("button[data-ers-action]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var action = btn.getAttribute("data-ers-action");
+      var method = btn.getAttribute("data-method");
+      var parts = filterQS();
+      if (action === "check-closure") {
+        var ap = document.getElementById("f-approval");
+        parts.push("require_approval=" + (ap && ap.checked ? "true" : "false"));
+      }
+      var qs = parts.length ? "?" + parts.join("&") : "";
+      var url = "/api/evidence-reuse/" + action + qs;
+      statusEl.textContent = "Running " + action + "…";
+      errorEl.style.display = "none";
+      fetch(url, { method: method, headers: { "Accept": "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (b) {
+          rawEl.textContent = JSON.stringify(b, null, 2);
+          if (b.ok === false) {
+            errorEl.style.display = "";
+            errorEl.textContent = "Error: " + ((b.errors || []).join("; ") || b.message || "unknown");
+            statusEl.textContent = action + " failed.";
+            return;
+          }
+          if (action === "records" && b.count !== undefined) setKpi("k-records", b.count);
+          if (action === "analyze" && b.reuse_summary) setKpi("k-reuse", b.reuse_summary.reuse_factor + "×");
+          if ((action === "validate-completeness" || action === "readiness") && b.readiness_pct !== undefined) setKpi("k-readiness", b.readiness_pct + "%");
+          var render = RENDERERS[action];
+          if (render) resultEl.innerHTML = render(b);
+          statusEl.textContent = action + " completed at " + new Date().toLocaleTimeString() + ".";
+          refreshKpis();
+        })
+        .catch(function (e) {
+          errorEl.style.display = "";
+          errorEl.textContent = "Request failed: " + e;
+          statusEl.textContent = action + " failed.";
+        });
+    });
+  });
+})();
+</script>
 </body></html>

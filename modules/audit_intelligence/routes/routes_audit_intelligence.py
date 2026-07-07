@@ -582,3 +582,112 @@ def register_audit_intelligence_routes(app) -> None:
         templates = Jinja2Templates(directory=str(tmpl_dir))
         ctx = {"role": role, "user": user, "connectors": wb.list_connectors()}
         return templates.TemplateResponse(request, "audit/connector_test_workbench.html", ctx)
+
+    # ==================================================================== #
+    # Evidence Reuse & Observation Lifecycle — functional server-side APIs.
+    # Reuses the existing evidence repository, validation model, mapping, and
+    # observation engine (no duplicate logic). Read-only except the explicit
+    # generate/close actions, which use the real observation workflow.
+    # ==================================================================== #
+    def _reuse_filters(application: str, framework: str, control: str,
+                       technology: str, status: str, date_from: str,
+                       date_to: str) -> dict[str, str]:
+        return {"application": application, "framework": framework,
+                "control": control, "technology": technology, "status": status,
+                "date_from": date_from, "date_to": date_to}
+
+    @app.get("/api/evidence-reuse/records")
+    @_safe
+    def api_evidence_reuse_records(application: str = "", framework: str = "",
+                                   control: str = "", technology: str = "",
+                                   status: str = "", date_from: str = "",
+                                   date_to: str = ""):
+        """Real evidence records (latest version) with filters + integrity status."""
+        from modules.audit_intelligence.services import evidence_reuse_service as ers
+
+        return _ok(ers.records(**_reuse_filters(application, framework, control,
+                                                technology, status, date_from, date_to)))
+
+    @app.post("/api/evidence-reuse/analyze")
+    @_safe
+    def api_evidence_reuse_analyze(application: str = "", framework: str = "",
+                                   control: str = "", technology: str = "",
+                                   status: str = "", date_from: str = "",
+                                   date_to: str = ""):
+        """Evidence-reuse matrix + reuse factor + frameworks/controls covered + effort saved."""
+        from modules.audit_intelligence.services import evidence_reuse_service as ers
+
+        return _ok(ers.analyze(**_reuse_filters(application, framework, control,
+                                                technology, status, date_from, date_to)))
+
+    @app.post("/api/evidence-reuse/validate-completeness")
+    @_safe
+    def api_evidence_reuse_validate(application: str = "", framework: str = "",
+                                    control: str = "", technology: str = "",
+                                    status: str = "", date_from: str = "",
+                                    date_to: str = "", full_catalog: str = "false"):
+        """Per-framework coverage: covered / missing / stale / failed obligations."""
+        from modules.audit_intelligence.services import evidence_reuse_service as ers
+
+        full = str(full_catalog).lower() in ("1", "true", "yes")
+        return _ok(ers.validate_completeness(
+            full_catalog=full,
+            **_reuse_filters(application, framework, control, technology, status,
+                             date_from, date_to)))
+
+    @app.post("/api/evidence-reuse/generate-observations")
+    @_safe
+    def api_evidence_reuse_generate_obs(application: str = "", framework: str = "",
+                                        control: str = "", technology: str = "",
+                                        status: str = "", date_from: str = "",
+                                        date_to: str = "", full_catalog: str = "false"):
+        """Create/open observations for missing/failed/stale obligations (real engine, deduped)."""
+        from modules.audit_intelligence.services import evidence_reuse_service as ers
+
+        full = str(full_catalog).lower() in ("1", "true", "yes")
+        return _ok(ers.generate_observations(
+            full_catalog=full,
+            **_reuse_filters(application, framework, control, technology, status,
+                             date_from, date_to)))
+
+    @app.post("/api/evidence-reuse/check-closure")
+    @_safe
+    def api_evidence_reuse_check_closure(application: str = "", framework: str = "",
+                                         control: str = "", technology: str = "",
+                                         status: str = "", date_from: str = "",
+                                         date_to: str = "", require_approval: str = "true"):
+        """Advance open observations satisfied by passing evidence toward closure.
+
+        With maker-checker (``require_approval=true``, the default) observations are
+        marked READY FOR CLOSURE and are **not** auto-closed.
+        """
+        from modules.audit_intelligence.services import evidence_reuse_service as ers
+
+        approval = str(require_approval).lower() not in ("0", "false", "no")
+        return _ok(ers.check_closure(
+            require_approval=approval,
+            **_reuse_filters(application, framework, control, technology, status,
+                             date_from, date_to)))
+
+    @app.get("/api/evidence-reuse/readiness")
+    @_safe
+    def api_evidence_reuse_readiness(application: str = "", framework: str = "",
+                                     control: str = "", technology: str = "",
+                                     status: str = "", date_from: str = "",
+                                     date_to: str = "", full_catalog: str = "false"):
+        """Audit readiness: covered vs total controls, per framework (from real evidence)."""
+        from modules.audit_intelligence.services import evidence_reuse_service as ers
+
+        full = str(full_catalog).lower() in ("1", "true", "yes")
+        return _ok(ers.readiness(
+            full_catalog=full,
+            **_reuse_filters(application, framework, control, technology, status,
+                             date_from, date_to)))
+
+    @app.get("/api/evidence-reuse/observations")
+    @_safe
+    def api_evidence_reuse_observations():
+        """Current open + ready-for-closure observations from the real engine."""
+        from modules.audit_intelligence.services import evidence_reuse_service as ers
+
+        return _ok(ers.observations())
