@@ -32,18 +32,19 @@ from modules.operations.integrations import (
 # --------------------------------------------------------------------------- #
 # Registry
 # --------------------------------------------------------------------------- #
-def test_registry_lists_nine_adapters():
+def test_registry_lists_all_adapters():
     names = I.list_adapters()
-    assert len(names) == 9
-    for expected in ("servicenow_cmdb", "archer", "sharepoint_graph", "jira",
-                     "confluence", "sonarqube", "checkmarx", "prisma_cloud", "tripwire"):
+    assert len(names) == 11
+    for expected in ("servicenow_cmdb", "archer", "sharepoint_graph", "teams_graph",
+                     "outlook_graph", "jira", "confluence", "sonarqube", "checkmarx",
+                     "prisma_cloud", "tripwire"):
         assert expected in names
 
 
 def test_health_check_all_no_config_graceful(monkeypatch):
     _clear_integration_env(monkeypatch)
     h = I.health_check_all()
-    assert h["total"] == 9
+    assert h["total"] == 11
     assert h["configured"] == 0
     assert all(not r["configured"] for r in h["adapters"].values())
     assert all(r["status"] == "not_configured" for r in h["adapters"].values())

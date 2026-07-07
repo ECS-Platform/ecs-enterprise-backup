@@ -25,7 +25,7 @@ def test_integration_registry_check_passes():
     smoke.check_integration_registry(chk)
     r = chk.results[-1]
     assert r["check"] == "integration_adapter_registry" and r["ok"] is True
-    assert "9 adapters" in r["detail"]
+    assert "adapters registered" in r["detail"]
 
 
 def test_config_masking_check_no_leak():

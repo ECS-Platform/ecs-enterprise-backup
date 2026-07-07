@@ -101,33 +101,72 @@ connectors:
     base_url:          "${ECS_SERVICENOW_BASE_URL:-}"
     client_id_env:     ECS_SERVICENOW_CLIENT_ID
     client_secret_env: ECS_SERVICENOW_CLIENT_SECRET
+    username_env:      ECS_SERVICENOW_USERNAME
+    password_env:      ECS_SERVICENOW_PASSWORD
+    auth_mode:         "${ECS_SERVICENOW_AUTH_MODE:-oauth}"   # oauth | basic
     timeout_sec:       "${ECS_SERVICENOW_TIMEOUT_SECONDS:-30}"
+    max_retries:       "${ECS_SERVICENOW_MAX_RETRIES:-2}"
   archer:
     base_url:      "${ECS_ARCHER_BASE_URL:-}"
     api_token_env: ECS_ARCHER_API_TOKEN
     timeout_sec:   "${ECS_ARCHER_TIMEOUT_SECONDS:-30}"
   # Additional enterprise integration adapters (config-driven; secrets via *_env).
+  # Microsoft Graph shared credentials (SharePoint / Teams / Outlook).
+  ms_graph:
+    tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"
+    client_id:         "${ECS_GRAPH_CLIENT_ID:-}"
+    client_secret_env: ECS_GRAPH_CLIENT_SECRET
+    scope:             "${ECS_GRAPH_SCOPE:-https://graph.microsoft.com/.default}"
+    authority_url:     "${ECS_GRAPH_AUTHORITY_URL:-https://login.microsoftonline.com}"
+    timeout_sec:       "${ECS_GRAPH_TIMEOUT_SECONDS:-30}"
+    max_retries:       "${ECS_GRAPH_MAX_RETRIES:-2}"
   sharepoint_graph:
     tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"
     client_id:         "${ECS_GRAPH_CLIENT_ID:-}"
     client_secret_env: ECS_GRAPH_CLIENT_SECRET
     site_id:           "${ECS_GRAPH_SITE_ID:-}"
     drive_id:          "${ECS_GRAPH_DRIVE_ID:-}"
+    site_hostname:     "${ECS_SHAREPOINT_SITE_HOSTNAME:-}"
+    site_path:         "${ECS_SHAREPOINT_SITE_PATH:-}"
+    folder_path:       "${ECS_SHAREPOINT_FOLDER_PATH:-}"
     timeout_sec:       "${ECS_GRAPH_TIMEOUT_SECONDS:-30}"
+    max_retries:       "${ECS_GRAPH_MAX_RETRIES:-2}"
+  teams_graph:
+    tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"
+    client_id:         "${ECS_GRAPH_CLIENT_ID:-}"
+    client_secret_env: ECS_GRAPH_CLIENT_SECRET
+    team_id:           "${ECS_TEAMS_TEAM_ID:-}"
+    channel_id:        "${ECS_TEAMS_CHANNEL_ID:-}"
+    message_limit:     "${ECS_TEAMS_MESSAGE_LIMIT:-50}"
+  outlook_graph:
+    tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"
+    client_id:         "${ECS_GRAPH_CLIENT_ID:-}"
+    client_secret_env: ECS_GRAPH_CLIENT_SECRET
+    user_id:           "${ECS_OUTLOOK_USER_ID:-}"
+    mail_folder:       "${ECS_OUTLOOK_MAIL_FOLDER:-inbox}"
+    message_limit:     "${ECS_OUTLOOK_MESSAGE_LIMIT:-50}"
   jira_adapter:
     base_url:      "${ECS_JIRA_BASE_URL:-}"
     username:      "${ECS_JIRA_USERNAME:-}"
     api_token_env: ECS_JIRA_API_TOKEN
+    project_key:   "${ECS_JIRA_PROJECT_KEY:-}"
+    jql:           "${ECS_JIRA_JQL:-}"
+    api_version:   "${ECS_JIRA_API_VERSION:-2}"
     timeout_sec:   "${ECS_JIRA_TIMEOUT_SECONDS:-30}"
+    max_retries:   "${ECS_JIRA_MAX_RETRIES:-2}"
   confluence_adapter:
     base_url:      "${ECS_CONFLUENCE_BASE_URL:-}"
     username:      "${ECS_CONFLUENCE_USERNAME:-}"
     api_token_env: ECS_CONFLUENCE_API_TOKEN
+    space_key:     "${ECS_CONFLUENCE_SPACE_KEY:-}"
     timeout_sec:   "${ECS_CONFLUENCE_TIMEOUT_SECONDS:-30}"
+    max_retries:   "${ECS_CONFLUENCE_MAX_RETRIES:-2}"
   sonarqube_adapter:
     base_url:   "${ECS_SONARQUBE_BASE_URL:-}"
     token_env:  ECS_SONARQUBE_TOKEN
+    project_key: "${ECS_SONARQUBE_PROJECT_KEY:-}"
     timeout_sec: "${ECS_SONARQUBE_TIMEOUT_SECONDS:-30}"
+    max_retries: "${ECS_SONARQUBE_MAX_RETRIES:-2}"
   checkmarx:
     base_url:          "${ECS_CHECKMARX_BASE_URL:-}"
     client_id:         "${ECS_CHECKMARX_CLIENT_ID:-}"
@@ -138,6 +177,7 @@ connectors:
     access_key:     "${ECS_PRISMA_CLOUD_ACCESS_KEY:-}"
     secret_key_env: ECS_PRISMA_CLOUD_SECRET_KEY
     timeout_sec:    "${ECS_PRISMA_CLOUD_TIMEOUT_SECONDS:-30}"
+    max_retries:    "${ECS_PRISMA_CLOUD_MAX_RETRIES:-2}"
   tripwire:
     base_url:     "${ECS_TRIPWIRE_BASE_URL:-}"
     username:     "${ECS_TRIPWIRE_USERNAME:-}"
