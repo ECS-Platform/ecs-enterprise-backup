@@ -11,6 +11,33 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Microsoft Graph connectors + enterprise connector deepening for UAT**
+  (additive; existing public APIs preserved):
+  - **Microsoft Graph foundation** (`ms_graph_base.py`) — OAuth2 client-credentials
+    auth (token cached per client, never logged), Bearer header assembly, shared
+    timeout/retry, `@odata.nextLink` pagination, error normalization.
+  - **Graph evidence connectors** — `sharepoint_graph` (sites/drives/items/folders/
+    file metadata; backward-compatible `fetch_documents`), `teams_graph`
+    (teams/channels/messages/tabs), `outlook_graph` (mail folders/messages/
+    attachment metadata). Metadata only — contents never downloaded by default.
+    Registered `teams_graph` + `outlook_graph` (adapter registry now 11).
+  - **Enterprise connector deepening** — ServiceNow CMDB (`ServiceNowAdapter`:
+    OAuth + Basic auth, Table API pagination with `sysparm_query`, typed
+    `fetch_cis/servers/applications/databases`, `normalize_ci`); Jira
+    (`fetch_projects/fetch_issue_comments`, configurable REST `api_version`,
+    enriched normalizers); Confluence (`fetch_spaces/fetch_page/fetch_attachments`);
+    SonarQube (`fetch_projects/fetch_measures`); Prisma Cloud (`fetch_cloud_accounts/
+    resources/compliance_posture`). All secret-safe, injectable transport,
+    no live calls in tests.
+  - **Config placeholders** for Graph (common + SharePoint/Teams/Outlook),
+    ServiceNow OAuth/Basic, Jira/Confluence/SonarQube/Prisma in `.env.example`,
+    `_base.yaml`, `uat.yaml` (placeholders only; no IPs/secrets).
+  - **Docs** — `MS_GRAPH_CONNECTOR_GUIDE.md`, `ENTERPRISE_CONNECTOR_UAT_SETUP.md`.
+  - **Tests** — `test_ms_graph_connectors`, `test_sharepoint_graph_connector`,
+    `test_teams_graph_connector`, `test_outlook_graph_connector`,
+    `test_enterprise_connectors_uat_config`, `test_enterprise_connector_auth_headers`
+    (mocked transports only).
+
 - **Integration, hardening & demo readiness** (additive; core modules untouched):
   - **Enterprise integration adapters** — hardened ServiceNow CMDB + Archer and
     added 7 new config-driven skeletons (`sharepoint_graph`, `jira`, `confluence`,

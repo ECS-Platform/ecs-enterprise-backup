@@ -16,9 +16,12 @@ predefined database query module.
 > (observations, evidence repository, evidence packs).
 >
 > Integration & operations:
-> [INTEGRATION_ADAPTERS_GUIDE.md](INTEGRATION_ADAPTERS_GUIDE.md) (9 enterprise
-> adapters), [E2E_SMOKE_TEST_GUIDE.md](E2E_SMOKE_TEST_GUIDE.md) (mocked tests),
-> [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md) (leadership walkthrough), and
+> [INTEGRATION_ADAPTERS_GUIDE.md](INTEGRATION_ADAPTERS_GUIDE.md) (11 enterprise
+> adapters), [MS_GRAPH_CONNECTOR_GUIDE.md](MS_GRAPH_CONNECTOR_GUIDE.md)
+> (SharePoint/Teams/Outlook via Microsoft Graph),
+> [ENTERPRISE_CONNECTOR_UAT_SETUP.md](ENTERPRISE_CONNECTOR_UAT_SETUP.md)
+> (per-connector UAT config), [E2E_SMOKE_TEST_GUIDE.md](E2E_SMOKE_TEST_GUIDE.md)
+> (mocked tests), [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md) (leadership walkthrough), and
 > [PRODUCTION_HARDENING_GUIDE.md](PRODUCTION_HARDENING_GUIDE.md).
 
 ---

@@ -12,15 +12,22 @@ never make live calls in tests (the HTTP transport is injectable).
 
 | Adapter | Module | Auth | Fetches (normalized) |
 |---|---|---|---|
-| ServiceNow CMDB | `servicenow_cmdb.py` | OAuth client id/secret | assets / CIs |
+| ServiceNow CMDB | `servicenow_cmdb.py` | OAuth client id/secret **or** Basic | assets / CIs (servers/apps/databases) |
 | Archer | `archer.py` | API token | controls / frameworks |
-| SharePoint / Graph | `sharepoint_graph.py` | OAuth tenant/client/secret | documents |
-| Jira | `jira.py` | basic (user + API token) | issues |
-| Confluence | `confluence.py` | basic (user + API token) | pages |
-| SonarQube | `sonarqube.py` | token | issues / quality gate |
+| SharePoint / Graph | `sharepoint_graph.py` | OAuth (MS Graph) | sites / drives / items / file metadata |
+| Microsoft Teams / Graph | `teams_graph.py` | OAuth (MS Graph) | teams / channels / messages / tabs |
+| Outlook / Graph | `outlook_graph.py` | OAuth (MS Graph) | mail folders / messages / attachment metadata |
+| Jira | `jira.py` | basic (email + API token) | projects / issues / comments |
+| Confluence | `confluence.py` | basic (email + API token) | spaces / pages / attachments |
+| SonarQube | `sonarqube.py` | token | projects / quality gate / measures / issues |
 | Checkmarx | `checkmarx.py` | OAuth client id/secret | scans |
-| Prisma Cloud | `prisma_cloud.py` | access key / secret key | alerts |
+| Prisma Cloud | `prisma_cloud.py` | access key / secret key | accounts / alerts / resources / compliance |
 | Tripwire | `tripwire.py` | basic (user + password) | policy results |
+
+> The three Microsoft Graph connectors share `ms_graph_base.py` (OAuth2
+> client-credentials + `@odata.nextLink` pagination). See
+> [MS_GRAPH_CONNECTOR_GUIDE.md](MS_GRAPH_CONNECTOR_GUIDE.md) and
+> [ENTERPRISE_CONNECTOR_UAT_SETUP.md](ENTERPRISE_CONNECTOR_UAT_SETUP.md).
 
 ---
 
