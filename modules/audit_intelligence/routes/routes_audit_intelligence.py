@@ -23,8 +23,8 @@ import functools
 import time as _time
 from typing import Any
 
-from fastapi import Body
-from fastapi.responses import JSONResponse
+from fastapi import Body, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 
 #: Hard caps for paginated API responses (bound payload size / work).
 _MAX_LIMIT = 1000
@@ -504,3 +504,81 @@ def register_audit_intelligence_routes(app) -> None:
                 "not_configured": adapters.get("not_configured", 0),
             },
         )
+
+    # ==================================================================== #
+    # Connector Test Workbench — safe, read-only connector test surface.
+    # Reuses the existing integration registry + adapters (no duplicate
+    # connector logic). All actions are read-only / config-only / dry-run /
+    # mock-transport; no destructive writes; no secrets returned.
+    # ==================================================================== #
+    @app.get("/api/connectors")
+    @_safe
+    def api_connectors():
+        """List enterprise connectors: name, label, auth, configured, testable."""
+        from modules.audit_intelligence.services import connector_workbench as wb
+
+        return _ok(connectors=wb.list_connectors())
+
+    @app.get("/api/connectors/{connector_name}/config-status")
+    @_safe
+    def api_connector_config_status(connector_name: str):
+        """Masked config for one connector (SET/MISSING only; never a secret)."""
+        from modules.audit_intelligence.services import connector_workbench as wb
+
+        res = wb.config_status(connector_name)
+        if not res.get("ok") and res.get("error") == "unknown_connector":
+            return _err(f"Unknown connector: {connector_name}", status=404)
+        return _ok(res)
+
+    @app.post("/api/connectors/{connector_name}/health-check")
+    @_safe
+    def api_connector_health_check(connector_name: str):
+        """Run the connector's config-based health probe (no live call)."""
+        from modules.audit_intelligence.services import connector_workbench as wb
+
+        res = wb.health_check(connector_name)
+        if not res.get("ok") and res.get("error") == "unknown_connector":
+            return _err(f"Unknown connector: {connector_name}", status=404)
+        return _ok(res)
+
+    @app.post("/api/connectors/{connector_name}/dry-run")
+    @_safe
+    def api_connector_dry_run(connector_name: str):
+        """Config-only readiness for a connector — reports what WOULD run, no call."""
+        from modules.audit_intelligence.services import connector_workbench as wb
+
+        res = wb.dry_run(connector_name)
+        if not res.get("ok") and res.get("error") == "unknown_connector":
+            return _err(f"Unknown connector: {connector_name}", status=404)
+        return _ok(res)
+
+    @app.post("/api/connectors/{connector_name}/parser-test")
+    @_safe
+    def api_connector_parser_test(connector_name: str):
+        """Run the connector's primary parser against a MOCK transport (no network)."""
+        from modules.audit_intelligence.services import connector_workbench as wb
+
+        res = wb.parser_test(connector_name)
+        if not res.get("ok") and res.get("error") == "unknown_connector":
+            return _err(f"Unknown connector: {connector_name}", status=404)
+        return _ok(res)
+
+    # ---- Connector Test Workbench UI (self-contained; no main.py changes) ---- #
+    @app.get("/connectors/test-workbench", response_class=HTMLResponse)
+    @app.get("/mvp/connectors/test-workbench", response_class=HTMLResponse)
+    def connector_test_workbench(request: Request, role: str = "owner", user: str = "User"):
+        """Server-rendered Connector Test Workbench page.
+
+        Uses a self-contained Jinja2Templates pointed at the audit templates dir so
+        it renders without depending on the shared app templates registration.
+        """
+        from pathlib import Path
+
+        from fastapi.templating import Jinja2Templates
+
+        from modules.audit_intelligence.services import connector_workbench as wb
+
+        tmpl_dir = Path(__file__).resolve().parents[1] / "templates"
+        templates = Jinja2Templates(directory=str(tmpl_dir))
+        ctx = {"role": role, "user": user, "connectors": wb.list_connectors()}
+        return templates.TemplateResponse(request, "audit/connector_test_workbench.html", ctx)
