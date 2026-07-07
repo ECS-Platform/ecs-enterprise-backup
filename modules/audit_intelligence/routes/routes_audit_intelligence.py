@@ -563,6 +563,32 @@ def register_audit_intelligence_routes(app) -> None:
             return _err(f"Unknown connector: {connector_name}", status=404)
         return _ok(res)
 
+    @app.post("/api/connectors/{connector_name}/collect")
+    @_safe
+    def api_connector_collect(connector_name: str, application: str = "",
+                              framework: str = "", control: str = "",
+                              max_items: str = "50", user: str = "connector_executor"):
+        """Collect real evidence from a connector and ingest it into the repository.
+
+        SAFE BY DEFAULT: performs a live call only when
+        ``ECS_CONNECTOR_EXECUTION_ENABLED`` is set AND the adapter is configured;
+        otherwise it returns ``skipped``/``not_configured`` with NO network call.
+        Reuses the connector adapter + the evidence upload bridge (no new logic).
+        """
+        from modules.audit_intelligence.services import connector_executor as ce
+
+        try:
+            cap = max(1, min(int(str(max_items)), ce.DEFAULT_MAX_ITEMS))
+        except (TypeError, ValueError):
+            cap = 50
+        res = ce.collect_evidence(
+            connector_name, application=application, framework=framework,
+            control=control, collected_by=user or "connector_executor", max_items=cap,
+        )
+        if res.get("status") == "unknown_connector":
+            return _err(f"Unknown connector: {connector_name}", status=404)
+        return _ok(res)
+
     # ---- Connector Test Workbench UI (self-contained; no main.py changes) ---- #
     @app.get("/connectors/test-workbench", response_class=HTMLResponse)
     @app.get("/mvp/connectors/test-workbench", response_class=HTMLResponse)

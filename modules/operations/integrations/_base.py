@@ -411,3 +411,59 @@ def _default_transport(source: str) -> Transport:
             f"transport (mock in tests) or provide a production HTTP client."
         )
     return _t
+
+
+# --------------------------------------------------------------------------- #
+# Production HTTP transport (opt-in; wraps the stdlib client — no new dependency)
+# --------------------------------------------------------------------------- #
+def build_http_transport(*, verify_ssl: bool = True, max_retries: int = 1) -> Transport:
+    """Return a REAL HTTP ``Transport`` backed by the stdlib connector client.
+
+    This is the production counterpart to :func:`_default_transport`. It performs
+    an actual network request and returns parsed JSON, so an adapter constructed
+    with ``transport=build_http_transport()`` collects live data. It is **never**
+    the adapter default — a caller (e.g. the connector executor) must inject it
+    explicitly, so nothing hits a network implicitly and tests/dry-run stay offline.
+
+    Reuses :class:`ecs_platform.connectors.http_client.HttpClient` (urllib, already
+    in the repo) rather than adding ``requests``/``httpx``. Auth headers are passed
+    straight through from the adapter (assembled per request; never logged here).
+
+    Errors are translated into this module's vocabulary so ``call_with_retry`` /
+    ``classify_exception`` produce the right status:
+      * HTTP 401/403                -> :class:`IntegrationAuthError`
+      * connection error / timeout  -> :class:`IntegrationTimeout` (retryable class)
+      * other HTTP errors           -> ``RuntimeError`` ("http_error"/... classified)
+    """
+    from ecs_platform.connectors.http_client import HttpClient, HttpError
+
+    def _t(method: str, url: str, headers: dict, params: dict, timeout: int = DEFAULT_TIMEOUT_SEC) -> dict:
+        # A fresh client per call keeps this stateless + thread-safe; the URL is
+        # already absolute (adapters build base_url + path), so base_url stays "".
+        client = HttpClient(
+            base_url="",
+            timeout_sec=safe_int(timeout, DEFAULT_TIMEOUT_SEC),
+            max_retries=max(1, max_retries),
+            verify_ssl=verify_ssl,
+            default_headers={},
+        )
+        try:
+            resp = client.request(method, url, params=params or {}, headers=headers or {})
+        except HttpError as exc:
+            status = getattr(exc, "status", 0)
+            if status in (401, 403):
+                raise IntegrationAuthError(f"auth failed ({status})") from exc
+            if status == 0:
+                # status 0 == connection/timeout in the stdlib client vocabulary.
+                raise IntegrationTimeout(str(exc)) from exc
+            raise RuntimeError(f"http_error {status}") from exc
+        data = resp.json()
+        # Adapters expect a JSON object; wrap bare arrays / null defensively so a
+        # non-dict body never crashes a normalizer that does ``payload.get(...)``.
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, list):
+            return {"value": data, "items": data, "results": data}
+        return {}
+
+    return _t

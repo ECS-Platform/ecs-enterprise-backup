@@ -85,6 +85,15 @@ def masked_config_all() -> dict[str, Any]:
     return out
 
 
+def build_http_transport(*, verify_ssl: bool = True, max_retries: int = 1):
+    """Re-export of :func:`_base.build_http_transport` (real HTTP transport).
+
+    Opt-in production transport for live collection; never an adapter default.
+    """
+    from modules.operations.integrations._base import build_http_transport as _b
+    return _b(verify_ssl=verify_ssl, max_retries=max_retries)
+
+
 def health_check_all() -> dict[str, Any]:
     """Run every adapter's config-based health check (no live calls in the skeleton)."""
     results: dict[str, Any] = {}

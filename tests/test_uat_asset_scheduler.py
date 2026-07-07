@@ -279,8 +279,9 @@ def test_unknown_asset_lands_in_plan_unsupported_bucket():
 
 
 def test_execute_plan_only_runs_baseline_with_injected_executor():
-    # Verify optional live execution delegates to the evidence service for BASELINE
-    # jobs only, using an injected mock executor (no real connector/query).
+    # Baseline jobs delegate to the evidence service via an injected mock executor.
+    # Connector jobs are now also surfaced (as safe "skipped" receipts when the
+    # ECS_CONNECTOR_EXECUTION_ENABLED flag is off) — no live call is made offline.
     assets = [
         _asset(asset_id="pg", hostname="localhost-postgres", image="postgres:16"),
         _asset(asset_id="sq", hostname="sonar", asset_type="sonarqube"),
@@ -294,7 +295,33 @@ def test_execute_plan_only_runs_baseline_with_injected_executor():
                 "evidence_id": "E", "evidence_filename": "e.txt", "duration_ms": 1}
 
     runs = sched.execute_plan(plan, executor=_mock_executor)
-    # Only the baseline PostgreSQL job runs; the connector job is skipped here.
+    baseline = [r for r in runs if r.get("kind") == "baseline"]
+    connector = [r for r in runs if r.get("kind") == "connector"]
+    # Exactly one baseline job ran through the injected executor.
+    assert len(baseline) == 1
+    assert baseline[0]["scope_value"] == "PostgreSQL"
+    assert calls  # executor was invoked for baseline controls
+    # The connector job is surfaced but SKIPPED (no flag, no network) offline.
+    assert len(connector) == 1
+    assert connector[0]["connector"] == "sonarqube"
+    assert connector[0]["status"] == "skipped"
+    assert connector[0]["ingested"] == 0
+
+
+def test_execute_plan_run_connectors_false_is_baseline_only():
+    # Backward-compatible switch: run_connectors=False preserves the old behavior
+    # (baseline jobs only; connector jobs omitted entirely).
+    assets = [
+        _asset(asset_id="pg", hostname="localhost-postgres", image="postgres:16"),
+        _asset(asset_id="sq", hostname="sonar", asset_type="sonarqube"),
+    ]
+    plan = sched.plan_evidence(assets)
+
+    def _mock_executor(control_id, user):
+        return {"ok": True, "message": "ok", "rows_returned": 1, "output": "mock",
+                "evidence_id": "E", "evidence_filename": "e.txt", "duration_ms": 1}
+
+    runs = sched.execute_plan(plan, executor=_mock_executor, run_connectors=False)
     assert len(runs) == 1
     assert runs[0]["scope_value"] == "PostgreSQL"
-    assert calls  # executor was invoked for baseline controls
+    assert not [r for r in runs if r.get("kind") == "connector"]

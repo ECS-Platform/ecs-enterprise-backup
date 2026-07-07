@@ -1,0 +1,265 @@
+"""Connector execution + evidence ingestion (opt-in, live).
+
+This closes the genuine gap between the enterprise integration *adapters*
+(:mod:`modules.operations.integrations`) and the ECS evidence repository: the
+adapters can fetch + normalize, but nothing wired their normalized output into
+stored evidence, and the asset scheduler explicitly skipped connector jobs.
+
+This service is the thin bridge — it **reuses** existing pieces and adds no new
+connector, HTTP, hashing, or evidence-store logic:
+
+  * the adapter client + primary ``fetch_*`` method map from the Connector Test
+    Workbench (:data:`connector_workbench._ADAPTER_TESTS`),
+  * the **real** HTTP transport factory (``integrations.build_http_transport``),
+  * the existing evidence bridge
+    (``operations.evidence_repository.register_upload`` → which already mirrors
+    into the audit-intelligence evidence repository).
+
+Safety guarantees:
+  * **Opt-in / offline by default.** Live collection requires BOTH the flag
+    ``ECS_CONNECTOR_EXECUTION_ENABLED=true`` AND a configured adapter, OR an
+    explicitly injected ``transport`` (used by tests). Otherwise the call is a
+    no-op that reports ``skipped``/``not_configured`` — it never hits a network.
+  * **Read-only upstream.** Only adapter ``fetch_*`` (GET) methods run.
+  * **Bounded.** ``max_items`` caps how many normalized objects become evidence.
+  * **Never raises** to the caller; failures are classified + returned.
+  * Secrets are never logged or returned (adapters assemble auth per request).
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from typing import Any, Callable, Optional
+
+from modules.audit_intelligence.services.connector_workbench import (
+    _ADAPTER_TESTS,
+    _TEST_STUB_CONFIG,
+    _adapter_module,
+    _known,
+)
+
+#: Env flag that must be truthy for *implicit* live collection (configured adapter
+#: + real transport). An explicitly injected transport bypasses the flag (tests).
+EXECUTION_FLAG = "ECS_CONNECTOR_EXECUTION_ENABLED"
+
+#: Safety cap: max normalized objects ingested as evidence per connector run.
+DEFAULT_MAX_ITEMS = 200
+
+
+def execution_enabled() -> bool:
+    """True when live connector execution is explicitly enabled via env flag."""
+    return os.environ.get(EXECUTION_FLAG, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _truthy(value: Any) -> bool:
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+# --------------------------------------------------------------------------- #
+# Evidence bridge
+# --------------------------------------------------------------------------- #
+def _item_to_content(item: dict[str, Any]) -> bytes:
+    """Serialize one normalized connector object into deterministic evidence bytes."""
+    try:
+        return json.dumps(item, sort_keys=True, default=str).encode("utf-8")
+    except (TypeError, ValueError):
+        return str(item).encode("utf-8")
+
+
+def _item_filename(connector: str, item: dict[str, Any], index: int) -> str:
+    """Build a stable, human-readable filename for a collected evidence object."""
+    ident = (
+        item.get("id")
+        or item.get("evidence_id")
+        or item.get("key")
+        or item.get("sys_id")
+        or item.get("name")
+        or f"{index:04d}"
+    )
+    safe = "".join(c if (c.isalnum() or c in "._-") else "_" for c in str(ident))[:60]
+    return f"{connector}_{safe}.json"
+
+
+def _ingest_items(
+    connector: str,
+    items: list[dict[str, Any]],
+    *,
+    framework: str,
+    application: str,
+    control: str,
+    collected_by: str,
+    max_items: int,
+) -> list[dict[str, Any]]:
+    """Bridge normalized connector objects into evidence via ``register_upload``.
+
+    Reuses the manual/bulk upload bridge (which SHA-256s, versions, and mirrors
+    into the audit-intelligence repository). Returns per-item ingestion receipts.
+    """
+    from modules.operations.engines import evidence_repository as ops_repo
+
+    receipts: list[dict[str, Any]] = []
+    for idx, item in enumerate(items[: max(0, max_items)]):
+        if not isinstance(item, dict):
+            item = {"value": item}
+        try:
+            record = ops_repo.register_upload(
+                filename=_item_filename(connector, item, idx),
+                content=_item_to_content(item),
+                uploaded_by=collected_by,
+                framework=framework,
+                application=application or "Net Banking",
+                control=control,
+            )
+            receipts.append({
+                "evidence_id": record.get("evidence_id"),
+                "filename": record.get("filename"),
+                "audit_repository_synced": record.get("audit_repository_synced", False),
+                "sha256": record.get("sha256"),
+            })
+        except Exception as exc:  # noqa: BLE001 - one bad item must not abort the run
+            receipts.append({"error": type(exc).__name__, "index": idx})
+    return receipts
+
+
+# --------------------------------------------------------------------------- #
+# Adapter fetch (live, with an injected real transport)
+# --------------------------------------------------------------------------- #
+def _run_adapter_fetch(
+    connector: str,
+    *,
+    transport: Optional[Callable[..., dict]],
+    verify_ssl: bool = True,
+) -> dict[str, Any]:
+    """Construct the adapter's client with a transport and run its primary fetch.
+
+    Returns the adapter's standard ``{ok, status, items, ...}`` response, or a
+    classified error dict. Never raises.
+    """
+    meta = _ADAPTER_TESTS.get(connector)
+    if not meta:
+        return {"ok": False, "status": "not_supported", "items": [],
+                "errors": ["connector has no execution mapping"]}
+    try:
+        mod = _adapter_module(connector)
+        client_cls = getattr(mod, meta["client"])
+        cfg = mod.get_config()
+        # Build the real transport lazily unless the caller injected one (tests).
+        active_transport = transport
+        if active_transport is None:
+            from modules.operations.integrations import build_http_transport
+
+            active_transport = build_http_transport(verify_ssl=verify_ssl)
+        elif not mod.is_configured():
+            # An injected transport means mock/test mode: merge a harmless non-secret
+            # stub config so the adapter's parse path can run against the mock (the
+            # same approach the Connector Test Workbench uses). Live mode (no injected
+            # transport) never reaches here — it requires real config upstream.
+            cfg = {**cfg, **_TEST_STUB_CONFIG.get(connector, {})}
+        client = client_cls(config=cfg, transport=active_transport)
+        # OAuth/token clients acquire a token first, mirroring real use.
+        if hasattr(client, "authenticate"):
+            try:
+                client.authenticate()
+            except Exception as exc:  # noqa: BLE001 - surface as classified error
+                return {"ok": False, "status": "auth_error", "items": [],
+                        "errors": [type(exc).__name__]}
+        method = getattr(client, meta["method"])
+        result = method()
+    except Exception as exc:  # noqa: BLE001 - never raise to the caller
+        return {"ok": False, "status": "adapter_error", "items": [],
+                "errors": [type(exc).__name__]}
+    if isinstance(result, dict):
+        return result
+    return {"ok": True, "status": "ok", "items": list(result or [])}
+
+
+# --------------------------------------------------------------------------- #
+# Public API
+# --------------------------------------------------------------------------- #
+def collect_evidence(
+    connector: str,
+    *,
+    framework: str = "",
+    application: str = "",
+    control: str = "",
+    collected_by: str = "connector_executor",
+    max_items: int = DEFAULT_MAX_ITEMS,
+    transport: Optional[Callable[..., dict]] = None,
+    verify_ssl: bool = True,
+) -> dict[str, Any]:
+    """Collect evidence from one enterprise connector and ingest it (opt-in).
+
+    Live collection runs only when a real ``transport`` is injected (tests /
+    explicit callers) OR the ``ECS_CONNECTOR_EXECUTION_ENABLED`` flag is set AND
+    the adapter is configured. Otherwise this is a safe no-op (``skipped``).
+
+    Returns a receipt: connector, mode, upstream status, object counts, and the
+    per-evidence ingestion results. Never raises; never hits a network implicitly.
+    """
+    if not _known(connector):
+        return {"ok": False, "connector": connector, "status": "unknown_connector",
+                "ingested": 0, "receipts": []}
+
+    injected = transport is not None
+    if not injected:
+        if not execution_enabled():
+            return {"ok": False, "connector": connector, "status": "skipped",
+                    "reason": f"{EXECUTION_FLAG} is not enabled", "mode": "disabled",
+                    "ingested": 0, "receipts": []}
+        try:
+            if not _adapter_module(connector).is_configured():
+                return {"ok": False, "connector": connector, "status": "not_configured",
+                        "reason": "adapter is not configured", "mode": "live",
+                        "ingested": 0, "receipts": []}
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "connector": connector, "status": "not_configured",
+                    "mode": "live", "ingested": 0, "receipts": []}
+
+    resp = _run_adapter_fetch(connector, transport=transport, verify_ssl=verify_ssl)
+    items = list(resp.get("items", []) if isinstance(resp, dict) else [])
+    upstream_status = resp.get("status", "ok") if isinstance(resp, dict) else "ok"
+    upstream_ok = bool(resp.get("ok", True)) if isinstance(resp, dict) else True
+
+    receipts: list[dict[str, Any]] = []
+    if upstream_ok and items:
+        receipts = _ingest_items(
+            connector, items, framework=framework, application=application,
+            control=control, collected_by=collected_by, max_items=max_items,
+        )
+    ingested = sum(1 for r in receipts if r.get("evidence_id"))
+    return {
+        "ok": bool(upstream_ok and (ingested > 0 or not items)),
+        "connector": connector,
+        "mode": "mock" if injected else "live",
+        "status": upstream_status,
+        "objects_fetched": len(items),
+        "ingested": ingested,
+        "errors": resp.get("errors", []) if isinstance(resp, dict) else [],
+        "receipts": receipts,
+    }
+
+
+def collect_for_job(job: Any, *, transport: Optional[Callable[..., dict]] = None,
+                    collected_by: str = "asset_scheduler",
+                    max_items: int = DEFAULT_MAX_ITEMS) -> dict[str, Any]:
+    """Collect evidence for a scheduler ``PlannedJob`` (route == connector).
+
+    Maps the planned job's connector/scope/frameworks/control onto
+    :func:`collect_evidence`. Used by ``asset_scheduler.execute_plan``.
+    """
+    connector = getattr(job, "connector", "") or ""
+    frameworks = getattr(job, "frameworks", ()) or ()
+    control_ids = getattr(job, "control_ids", ()) or ()
+    result = collect_evidence(
+        connector,
+        framework=frameworks[0] if frameworks else "",
+        application=getattr(job, "scope_value", "") or "",
+        control=control_ids[0] if control_ids else "",
+        collected_by=collected_by,
+        max_items=max_items,
+        transport=transport,
+    )
+    result["asset_id"] = getattr(job, "asset_id", "")
+    result["route"] = getattr(job, "route", "")
+    return result

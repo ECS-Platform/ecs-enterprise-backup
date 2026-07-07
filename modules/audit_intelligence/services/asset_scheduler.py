@@ -460,25 +460,40 @@ def dry_run(
 # --------------------------------------------------------------------------- #
 # Optional live execution (delegates to the existing evidence service; opt-in)
 # --------------------------------------------------------------------------- #
-def execute_plan(plan: EvidencePlan, *, executor=None, requested_by: str = "asset_scheduler") -> list[dict[str, Any]]:
-    """Execute a plan's *baseline* jobs via the existing evidence service.
+def execute_plan(plan: EvidencePlan, *, executor=None, requested_by: str = "asset_scheduler",
+                 run_connectors: bool = True, connector_transport=None) -> list[dict[str, Any]]:
+    """Execute a plan's jobs: *baseline* via the evidence service, *connector*
+    via the connector executor (opt-in evidence ingestion).
 
     This is NOT called by the dry-run path. It exists so a caller can, explicitly
-    and outside tests, run the planned baseline collections through the unchanged
-    orchestrator (connectors remain the connector team's execution path). An
-    ``executor`` MUST be injected in any non-production/test context so nothing
-    live is hit implicitly.
+    and outside tests, run the planned collections. An ``executor`` MUST be
+    injected in any non-production/test context for baseline jobs so nothing live
+    is hit implicitly.
+
+    Connector jobs are bridged into the evidence repository via
+    :func:`connector_executor.collect_for_job`, which is itself safe-by-default:
+    it only performs a live call when ``ECS_CONNECTOR_EXECUTION_ENABLED`` is set
+    and the adapter is configured, OR when ``connector_transport`` is injected
+    (tests). Set ``run_connectors=False`` to preserve the old baseline-only
+    behavior. Each returned item carries a ``kind`` of "baseline" or "connector".
     """
     from modules.audit_intelligence.services import evidence_service
 
     out: list[dict[str, Any]] = []
     for job in plan.jobs:
-        if job.route != ROUTE_BASELINE:
-            continue  # connector execution is owned by the connector layer
-        run = evidence_service.start_run(
-            scope_kind="technology", scope_value=job.scope_value,
-            requested_by=requested_by, executor=executor,
-            control_ids=list(job.control_ids), asset_id=job.asset_id,
-        )
-        out.append(run)
+        if job.route == ROUTE_BASELINE:
+            run = evidence_service.start_run(
+                scope_kind="technology", scope_value=job.scope_value,
+                requested_by=requested_by, executor=executor,
+                control_ids=list(job.control_ids), asset_id=job.asset_id,
+            )
+            out.append({**run, "kind": "baseline"} if isinstance(run, dict) else run)
+        elif job.route == ROUTE_CONNECTOR and run_connectors:
+            from modules.audit_intelligence.services import connector_executor
+
+            receipt = connector_executor.collect_for_job(
+                job, transport=connector_transport, collected_by=requested_by,
+            )
+            out.append({**receipt, "kind": "connector"})
+        # else: unsupported jobs (no controls + no connector) are left to manual flow
     return out
