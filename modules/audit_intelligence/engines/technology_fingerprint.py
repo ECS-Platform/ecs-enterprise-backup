@@ -38,6 +38,7 @@ _TEXT_RULES: list[tuple[str, str]] = [
     (r"oracle|oracledb|ords|orcl", "Oracle"),
     (r"sqlserver|mssql|sql-server|azure-sql", "SQL Server"),
     (r"mongo|mongodb", "MongoDB"),
+    (r"aerospike|asinfo|asadm", "Aerospike"),
     (r"redis|valkey", "Redis"),
     (r"nginx", "NGINX"),
     (r"httpd|apache2|apache-httpd|\bapache\b", "Apache HTTPD"),
@@ -59,6 +60,8 @@ _PORT_RULES: dict[int, str] = {
     1433: "SQL Server",
     27017: "MongoDB",
     6379: "Redis",
+    3000: "Aerospike",    # Aerospike client service port (host-mapped to 13000 locally)
+    13000: "Aerospike",   # ECS local host mapping (host 3000 is taken by Gitea)
     8080: "Tomcat",
     8443: "Tomcat",
     6443: "Kubernetes",

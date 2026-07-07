@@ -213,6 +213,14 @@ def connector_for_technology(technology: str) -> BaseConnector | None:
         except ImportError:
             return None
         return RedisConnector(**get_redis_config())
+    if technology == "Aerospike":
+        # Aerospike runs read-only asinfo/asadm via docker exec (LinuxConnector
+        # subclass) — no extra client dependency, consistent with Redis.
+        from modules.operations.engines.aerospike_connector import (
+            AerospikeConnector, get_aerospike_config,
+        )
+
+        return AerospikeConnector(**get_aerospike_config())
     if technology == "Apache HTTPD":
         from modules.operations.engines.linux_connector import LinuxConnector, get_apache_config
 

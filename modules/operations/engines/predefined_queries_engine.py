@@ -40,6 +40,8 @@ TECHNOLOGY_RULES: list[tuple[str, list[str]]] = [
     ("GitLeaks", ["gitleaks detect", "gitleaks"]),
     ("Trivy", ["trivy image", "trivy"]),
     ("SonarQube", ["/api/issues/search", "sonarqube"]),
+    # Aerospike — asinfo/asadm CLI surface (must precede generic matches).
+    ("Aerospike", ["asinfo", "asadm", "aerospike"]),
     ("NGINX", ["nginx -t", "nginx -T", "nginx -v", "/etc/nginx", "sites-enabled", "ssl_protocols",
                "ssl_ciphers", "server_tokens"]),
     # YugabyteDB (YSQL) — must precede PostgreSQL because YSQL is PG-wire
@@ -246,14 +248,14 @@ RHEL9_TECH = "Red Hat Enterprise Linux 9.x"
 # (docker-exec Linux connector, or a local kubectl/oc subprocess).
 _SHELL_TECHNOLOGIES: frozenset[str] = frozenset({
     "Linux", "NGINX", RHEL8_TECH, RHEL9_TECH,
-    "Redis", "Apache HTTPD", "Tomcat", "Kubernetes", "OpenShift",
+    "Redis", "Apache HTTPD", "Tomcat", "Kubernetes", "OpenShift", "Aerospike",
 })
 
 # Technologies that have a real, executable connector implementation.
 _IMPLEMENTED_CONNECTOR_TECH: frozenset[str] = frozenset(
     {"PostgreSQL", "YugabyteDB", "Aurora MySQL", "Oracle", "SQL Server", "MongoDB",
      "Linux", "NGINX", RHEL8_TECH, RHEL9_TECH,
-     "Redis", "Apache HTTPD", "Tomcat", "Kubernetes", "OpenShift",
+     "Redis", "Apache HTTPD", "Tomcat", "Kubernetes", "OpenShift", "Aerospike",
      "SonarQube", "Trivy", "GitLeaks"}
 )
 # Technologies whose connector classes exist but are not yet runnable
@@ -1371,6 +1373,69 @@ def _run_connector_query(control: dict[str, Any], user: str, technology: str, qu
     return complete_connector_execution(control, user, technology, query, result)
 
 
+def run_aerospike_query(control_id: str, user: str) -> dict[str, Any]:
+    """Execute an Aerospike asinfo/asadm control via the Aerospike connector.
+
+    Attempts live execution via ``docker exec ecs-aerospike ...``. If the
+    container / tools are unavailable AND demo mode is on, returns deterministic
+    synthetic output (never a live call to an unconfigured target, never a crash).
+    Outside demo mode an unavailable target returns a truthful connection error.
+    """
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+
+    technology = control.get("technology") or ""
+    if technology != "Aerospike":
+        return {"ok": False, "error": f"This control is not an Aerospike control ({technology})",
+                "error_type": "unsupported_technology"}
+
+    command = (control.get("query") or "").strip()
+    if not command:
+        return {"ok": False, "error": "Missing command for this control", "error_type": "missing_query"}
+
+    # Only curated catalog commands (by control id) may run.
+    if control_id not in _SHELL_CONTROL_IDS:
+        return {"ok": False, "error": "This control is not enabled for live execution",
+                "error_type": "unsupported_query"}
+
+    from modules.operations.engines.aerospike_connector import (
+        AerospikeConnector,
+        _demo_mode,
+        _resolve_namespace,
+        demo_output_for,
+        get_aerospike_config,
+    )
+    from modules.operations.engines.connector_common import complete_connector_execution
+    from modules.operations.engines.query_connectors import ConnectorResult
+
+    cfg = get_aerospike_config()
+
+    # Demo mode: return deterministic synthetic output WITHOUT touching a live
+    # target (fast, offline, no docker dependency). This is the ECS demo-first
+    # pattern — live execution is reserved for an explicitly-configured UAT node.
+    if _demo_mode():
+        resolved = _resolve_namespace(command, cfg.get("namespace") or "test")
+        output = demo_output_for(control_id, resolved)
+        result = ConnectorResult(
+            success=True, output=output, duration_ms=1,
+            metadata={"rows_returned": len(output.splitlines()), "mode": "demo"},
+        )
+        return complete_connector_execution(control, user, technology, command, result)
+
+    # Live path (non-demo): run asinfo/asadm against the configured node.
+    connector = AerospikeConnector(**cfg)
+    if connector.connect():
+        try:
+            result = connector.execute(command)
+        finally:
+            connector.disconnect()
+        return complete_connector_execution(control, user, technology, command, result)
+
+    err = getattr(connector, "_last_error", "") or "Aerospike target not reachable"
+    return {"ok": False, "error": err, "error_type": "connection_error"}
+
+
 def run_predefined_query(control_id: str, user: str) -> dict[str, Any]:
     """Dispatch live execution by control ID and technology."""
     control = get_control_by_id(control_id)
@@ -1403,6 +1468,12 @@ def run_predefined_query(control_id: str, user: str) -> dict[str, Any]:
         return run_mongodb_query(control_id, user)
 
     query = (control.get("query") or "").strip()
+
+    # Aerospike runs asinfo/asadm CLI commands against the node. Handled before the
+    # generic shell path (which is Linux-docker-exec specific). Falls back to
+    # deterministic demo output in demo mode when the tools are absent.
+    if technology == "Aerospike":
+        return run_aerospike_query(control_id, user)
 
     # NGINX / RHEL / Redis / Apache / Tomcat / Kubernetes / OpenShift run curated
     # shell or CLI commands via the shared command connectors (reuse, not

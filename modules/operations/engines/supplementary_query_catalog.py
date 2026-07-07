@@ -529,6 +529,78 @@ MONGODB_QUERIES: list[dict[str, Any]] = [
 
 
 # ---------------------------------------------------------------------------
+# Aerospike (asinfo / asadm CLI against the Aerospike node — shell/CLI connector).
+# Commands are credential-free; host/port/namespace come from env at execution
+# time (AEROSPIKE_HOST/PORT/NAMESPACE). In demo mode the runner returns
+# deterministic mock output when the Aerospike tools are not installed.
+# ---------------------------------------------------------------------------
+_AEROSPIKE = "Aerospike"
+_FW_AEROSPIKE = "DB Baselining, ISO27001, RBI Cyber Security"
+
+
+def _aero_entry(cid: str, name: str, command: str, desc: str, category: str) -> dict[str, Any]:
+    return _ext_entry(cid, name, command, _AEROSPIKE, desc,
+                      framework=_FW_AEROSPIKE, evidence="Aerospike asinfo/asadm output",
+                      category=category)
+
+
+#: Aerospike predefined checks. ``asinfo``/``asadm`` are read-only info/admin
+#: tools; the namespace placeholder resolves from AEROSPIKE_NAMESPACE at run time.
+AEROSPIKE_QUERIES: list[dict[str, Any]] = [
+    _aero_entry("ASX-001", "Aerospike Server Version", 'asinfo -v "build"',
+                "Reports the Aerospike server build/version.", "Inventory"),
+    _aero_entry("ASX-002", "Aerospike Cluster Status", 'asinfo -v "status"',
+                "Reports node/cluster status.", "Availability"),
+    _aero_entry("ASX-003", "Aerospike Namespace List", 'asinfo -v "namespaces"',
+                "Lists configured namespaces.", "Inventory"),
+    _aero_entry("ASX-004", "Aerospike Namespace Config",
+                'asinfo -v "get-config:context=namespace;id=${AEROSPIKE_NAMESPACE:-test}"',
+                "Reports configuration for the target namespace.", "Configuration"),
+    _aero_entry("ASX-005", "Aerospike Security Config",
+                'asinfo -v "get-config:context=security"',
+                "Reports the security subsystem configuration.", "Access Control"),
+    _aero_entry("ASX-006", "Aerospike User/Role List", 'asadm -e "show users"',
+                "Lists security users (empty when security is disabled).", "Access Control"),
+    _aero_entry("ASX-007", "Aerospike TLS Config",
+                'asinfo -v "get-config:context=network"',
+                "Reports network/TLS configuration (tls-* settings).", "Encryption"),
+    _aero_entry("ASX-008", "Aerospike Service Ports",
+                'asinfo -v "get-config:context=service"',
+                "Reports the service/fabric/heartbeat/info port configuration.", "Network Security"),
+    _aero_entry("ASX-009", "Aerospike Storage Engine Config",
+                'asinfo -v "get-config:context=namespace;id=${AEROSPIKE_NAMESPACE:-test}"',
+                "Reports the storage-engine settings for the namespace.", "Configuration"),
+    _aero_entry("ASX-010", "Aerospike Backup Policy", 'asadm -e "show config"',
+                "Reports configuration relevant to backup/retention posture.", "Resilience"),
+    _aero_entry("ASX-011", "Aerospike XDR Config",
+                'asinfo -v "get-config:context=xdr"',
+                "Reports cross-datacenter replication (XDR) configuration.", "Resilience"),
+    _aero_entry("ASX-012", "Aerospike Audit Logging",
+                'asinfo -v "get-config:context=security"',
+                "Reports audit/logging settings within the security context.", "Auditing"),
+    _aero_entry("ASX-013", "Aerospike Memory Usage", 'asadm -e "show stat"',
+                "Reports memory/statistics for capacity posture.", "Availability"),
+    _aero_entry("ASX-014", "Aerospike Index Usage", 'asinfo -v "statistics"',
+                "Reports index/statistics usage for the node.", "Availability"),
+    _aero_entry("ASX-015", "Aerospike Cluster Node Count", 'asinfo -v "statistics"',
+                "Reports cluster size / node count from node statistics.", "Availability"),
+    _aero_entry("ASX-016", "Aerospike Namespace Replication Factor",
+                'asinfo -v "get-config:context=namespace;id=${AEROSPIKE_NAMESPACE:-test}"',
+                "Reports the replication factor for the target namespace.", "Resilience"),
+    _aero_entry("ASX-017", "Aerospike Strong Consistency",
+                'asinfo -v "get-config:context=namespace;id=${AEROSPIKE_NAMESPACE:-test}"',
+                "Reports the strong-consistency setting for the namespace.", "Data Integrity"),
+    _aero_entry("ASX-018", "Aerospike Expiration/TTL Config",
+                'asinfo -v "get-config:context=namespace;id=${AEROSPIKE_NAMESPACE:-test}"',
+                "Reports default-ttl / nsup expiration configuration.", "Data Lifecycle"),
+    _aero_entry("ASX-019", "Aerospike Secondary Index List", 'asinfo -v "sindex"',
+                "Lists secondary indexes on the node.", "Inventory"),
+    _aero_entry("ASX-020", "Aerospike Latency / Slow Query", 'asinfo -v "statistics"',
+                "Reports latency/throughput statistics for SLA monitoring.", "Performance"),
+]
+
+
+# ---------------------------------------------------------------------------
 # Kubernetes (kubectl via KubernetesConnector)
 # ---------------------------------------------------------------------------
 _K8S = "Kubernetes"
@@ -587,7 +659,7 @@ _DB_CATALOG = (
 _SHELL_CATALOG = (
     NGINX_QUERIES + LINUX_QUERIES + RHEL8_QUERIES + RHEL9_QUERIES
     + REDIS_QUERIES + APACHE_QUERIES + TOMCAT_QUERIES
-    + KUBERNETES_QUERIES + OPENSHIFT_QUERIES
+    + KUBERNETES_QUERIES + OPENSHIFT_QUERIES + AEROSPIKE_QUERIES
 )
 _ALL_CATALOG = _DB_CATALOG + _SHELL_CATALOG
 
