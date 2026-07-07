@@ -1,0 +1,50 @@
+# ECS systemd unit (EXAMPLE, non-production).
+# =============================================================================
+# PLACEHOLDERS ONLY. Not for production until reviewed/approved by security.
+# - Runs ECS (uvicorn app.main:app) as a managed service on a VM.
+# - Secrets/config are loaded from /etc/ecs/ecs.env, which must be created from a
+#   secret manager with 0600 perms and owned by the ecs user. NEVER commit it.
+#
+# Install (after security review):
+#   sudo useradd --system --home /opt/ecs --shell /usr/sbin/nologin ecs
+#   sudo cp deploy/systemd/ecs.service.example /etc/systemd/system/ecs.service
+#   sudo install -o ecs -g ecs -m 0600 /dev/null /etc/ecs/ecs.env   # then populate
+#   sudo systemctl daemon-reload && sudo systemctl enable --now ecs
+# =============================================================================
+
+[Unit]
+Description=ECS Evidence Collection System (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ecs
+Group=ecs
+WorkingDirectory=/opt/ecs
+
+# Non-secret runtime defaults; secrets come from the EnvironmentFile.
+Environment=ECS_ENV=prod
+Environment=ECS_AUTH_ENABLED=true
+Environment=ECS_VALIDATE_CONFIG=on
+# EnvironmentFile is created from a secret manager (0600, owned by ecs). Never
+# commit this file. Contains ECS_AUDIT_DB_URL and integration credentials.
+EnvironmentFile=/etc/ecs/ecs.env
+
+# Adjust the venv/interpreter path to your deployment layout.
+ExecStart=/opt/ecs/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+Restart=on-failure
+RestartSec=5
+
+# Hardening (tune to bank policy).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ecs/data
+AmbientCapabilities=
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

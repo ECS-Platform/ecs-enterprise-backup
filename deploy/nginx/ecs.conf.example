@@ -1,0 +1,55 @@
+# ECS reverse proxy / TLS termination (EXAMPLE, non-production).
+# =============================================================================
+# PLACEHOLDERS ONLY. Not for production until reviewed/approved by security.
+# - Replace <ecs.example.internal> with your approved internal FQDN (no real
+#   hostnames/IPs in Git).
+# - Provide TLS cert/key from a secret store; never commit certs or keys.
+# - Terminates TLS and proxies to the ECS app on 127.0.0.1:8000.
+# =============================================================================
+
+upstream ecs_app {
+    server 127.0.0.1:8000;
+    keepalive 16;
+}
+
+# Redirect HTTP -> HTTPS.
+server {
+    listen 80;
+    server_name <ecs.example.internal>;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name <ecs.example.internal>;
+
+    # TLS material sourced from a secret store (never committed):
+    ssl_certificate     /etc/nginx/tls/ecs.crt;      # <populate-from-secret-store>
+    ssl_certificate_key /etc/nginx/tls/ecs.key;      # <populate-from-secret-store>
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # Reasonable hardening defaults (tune to bank policy).
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy no-referrer always;
+
+    client_max_body_size 25m;
+
+    # Health probe (kept fast; no auth needed for LB checks per security review).
+    location = /api/audit/health {
+        proxy_pass http://ecs_app;
+        access_log off;
+    }
+
+    location / {
+        proxy_pass http://ecs_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+        proxy_connect_timeout 5s;
+    }
+}

@@ -1,0 +1,91 @@
+# ECS Kubernetes Deployment (EXAMPLE, non-production).
+# =============================================================================
+# PLACEHOLDERS ONLY. Not for production until reviewed/approved by security.
+# - No real images, IPs, hostnames, or secrets.
+# - Replace <registry>/<ecs-image>:<tag> with your approved image reference.
+# - Non-secret config from the ConfigMap; secrets from the Secret (populate from
+#   a secrets manager / external-secrets operator). Never commit real secrets.
+# - Health probes hit /api/audit/health (offline-safe, no external calls).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecs-app
+  labels:
+    app: ecs
+    component: app
+spec:
+  replicas: 2                      # HA: >=2 once durable persistence is enabled
+  selector:
+    matchLabels:
+      app: ecs
+      component: app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: ecs
+        component: app
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: ecs-app
+          image: <registry>/<ecs-image>:<tag>   # <set-me>
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - name: http
+              containerPort: 8000
+          # Non-secret config + secrets injected via envFrom.
+          envFrom:
+            - configMapRef:
+                name: ecs-config
+            - secretRef:
+                name: ecs-secret
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/audit/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/audit/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: ecs-data
+              mountPath: /app/data
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: ecs-data
+          emptyDir: {}          # replace with a PVC for durable local scratch
+      # Postgres (ECS_AUDIT_DB_URL) is an EXTERNAL managed service; provision it
+      # and apply docs/DB_SCHEMA_AUDIT_INTELLIGENCE.sql before rollout.

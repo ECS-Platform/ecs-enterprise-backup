@@ -1,0 +1,34 @@
+# ECS Kubernetes ConfigMap (EXAMPLE, non-production) — NON-SECRET config only.
+# =============================================================================
+# PLACEHOLDERS ONLY. Not for production until reviewed/approved by security.
+# - Put ONLY non-secret configuration here. All credentials/tokens/URLs with
+#   embedded credentials belong in the Secret (ecs-secret.example.yaml).
+# - No real IPs or hostnames; replace <...> with approved non-secret values.
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecs-config
+  labels:
+    app: ecs
+data:
+  # Core runtime (non-secret).
+  ECS_ENV: "prod"
+  ECS_AUTH_ENABLED: "true"
+  ECS_VALIDATE_CONFIG: "on"
+
+  # Non-secret connector endpoints + tuning. Hostnames are examples — replace
+  # with your approved internal FQDNs (never commit real ones).
+  ECS_SONARQUBE_BASE_URL: "https://<sonarqube-host>"
+  ECS_CHECKMARX_BASE_URL: "https://<checkmarx-host>"
+  ECS_PRISMA_CLOUD_BASE_URL: "https://<api-region>.prismacloud.io"
+  ECS_JIRA_BASE_URL: "https://<org>.atlassian.net"
+  ECS_CONFLUENCE_BASE_URL: "https://<org>.atlassian.net/wiki"
+  ECS_ARCHER_BASE_URL: "https://<archer-host>"
+  ECS_TRIPWIRE_BASE_URL: "https://<tripwire-host>"
+  ECS_SERVICENOW_BASE_URL: "https://<instance>.service-now.com"
+
+  # Timeouts (non-secret).
+  ECS_JIRA_TIMEOUT_SECONDS: "30"
+  ECS_SONARQUBE_TIMEOUT_SECONDS: "30"
+  ECS_PRISMA_CLOUD_TIMEOUT_SECONDS: "30"

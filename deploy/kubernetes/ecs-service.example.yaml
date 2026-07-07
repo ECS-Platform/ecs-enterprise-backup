@@ -1,0 +1,47 @@
+# ECS Kubernetes Service (EXAMPLE, non-production).
+# =============================================================================
+# PLACEHOLDERS ONLY. Not for production until reviewed/approved by security.
+# - ClusterIP service; front it with an Ingress/Route (TLS) per bank standards.
+#   Do not expose ECS directly with a LoadBalancer without security review.
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecs-app
+  labels:
+    app: ecs
+    component: app
+spec:
+  type: ClusterIP
+  selector:
+    app: ecs
+    component: app
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+# Optional Ingress skeleton (uncomment + adjust to your ingress controller):
+#
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: ecs-app
+#   annotations:
+#     kubernetes.io/ingress.class: "<ingress-class>"     # <set-me>
+# spec:
+#   tls:
+#     - hosts: ["<ecs.example.internal>"]                # <set-me>
+#       secretName: ecs-tls                              # <populate-from-secret-store>
+#   rules:
+#     - host: <ecs.example.internal>                     # <set-me>
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: ecs-app
+#                 port:
+#                   number: 80

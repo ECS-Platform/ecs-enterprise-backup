@@ -1,0 +1,87 @@
+# ECS — production-style single-host compose (EXAMPLE, non-production).
+# =============================================================================
+# PLACEHOLDERS ONLY. Not for production until reviewed/approved by security.
+# - No real IPs, hostnames, or secrets. Secrets come from an env file sourced
+#   from a secret manager (never committed) or Docker/Swarm secrets.
+# - This example runs the ECS app behind an nginx reverse proxy. Postgres and
+#   object storage are shown as EXTERNAL managed services (commented) rather than
+#   co-located containers — provision them per the bank's standards.
+# - Do NOT modify the repo's top-level docker-compose.yml (that is the demo).
+#
+# Usage (after security review + populating .env.prod):
+#   docker compose -f deploy/docker-compose.prod.example.yml --env-file .env.prod up -d
+# =============================================================================
+
+services:
+  ecs-app:
+    # Build from the repo Dockerfile (Python 3.12-slim; uvicorn app.main:app).
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ecs-app:local-example
+    restart: unless-stopped
+    # Bind only to localhost; the reverse proxy terminates external traffic.
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Secrets/config injected from an env file sourced from a secret manager.
+    # NEVER commit the populated .env.prod (git-ignored).
+    env_file:
+      - ../.env.prod
+    environment:
+      ECS_ENV: "prod"
+      ECS_AUTH_ENABLED: "true"
+      ECS_VALIDATE_CONFIG: "on"
+      # ECS_AUDIT_DB_URL is provided via env_file (secret).
+    volumes:
+      # Read-only app config; evidence/runtime data goes to Postgres/object store.
+      - ecs-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/audit/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    # depends_on: [ ecs-postgres ]   # if co-locating Postgres (not recommended)
+
+  nginx:
+    image: nginx:stable
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/ecs.conf.example:/etc/nginx/conf.d/ecs.conf:ro
+      # Mount TLS material from a secret source (never commit certs/keys):
+      - ./nginx/tls:/etc/nginx/tls:ro   # <populate-from-secret-store>
+    depends_on:
+      - ecs-app
+
+  # ---------------------------------------------------------------------------
+  # EXTERNAL managed dependencies (recommended) — provision outside compose:
+  #
+  #  * Postgres (durable audit persistence). Apply
+  #    docs/DB_SCHEMA_AUDIT_INTELLIGENCE.sql, then set ECS_AUDIT_DB_URL (secret).
+  #  * S3-compatible object storage (optional, evidence blobs).
+  #
+  # If you must co-locate Postgres for a lab, uncomment and supply secrets via
+  # the env file — do NOT hard-code credentials here:
+  #
+  # ecs-postgres:
+  #   image: postgres:16
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: "${ECS_PG_DATABASE}"
+  #     POSTGRES_USER: "${ECS_PG_USER}"
+  #     POSTGRES_PASSWORD: "${ECS_PG_PASSWORD}"   # from env_file/secret
+  #   volumes:
+  #     - ecs-postgres-data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U $${ECS_PG_USER}"]
+  #     interval: 30s
+  #     timeout: 5s
+  #     retries: 5
+  # ---------------------------------------------------------------------------
+
+volumes:
+  ecs-data:
+  # ecs-postgres-data:
