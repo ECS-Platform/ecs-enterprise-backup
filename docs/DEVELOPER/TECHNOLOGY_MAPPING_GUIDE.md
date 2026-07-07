@@ -26,7 +26,7 @@ NGINX
 ```
 
 It is a **read-only projection** over the existing catalog. It defines **no new
-catalog** and **mutates nothing** — it aggregates the ~167 controls already loaded
+catalog** and **mutates nothing** — it aggregates the ~187 controls already loaded
 by `predefined_queries_engine`.
 
 ---

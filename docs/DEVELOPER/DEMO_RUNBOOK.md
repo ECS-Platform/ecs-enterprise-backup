@@ -28,7 +28,7 @@ orchestration, validation, observations, packs, dashboard, integrations).
 Technology  ->  Predefined Queries (Controls)  ->  Frameworks  ->  Evidence  ->  Audit Readiness
 ```
 
-- **167 predefined controls** across **20 technologies** and **16 frameworks**.
+- **187 predefined controls** across **21 technologies** and **16 frameworks**.
 - ECS discovers assets, fingerprints their technology, maps applicable controls,
   collects evidence, validates it deterministically, raises observations, stores
   versioned evidence, and packages audit-ready evidence packs — all surfaced in an

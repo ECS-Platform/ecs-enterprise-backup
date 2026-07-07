@@ -45,10 +45,10 @@ Technology  ->  Predefined Queries (Controls)  ->  Frameworks  ->  Evidence  -> 
 ```
 
 Talking points (one sentence each):
-1. **Coverage** — "167 curated, **read-only** checks across 20 technologies
-   (Oracle, PostgreSQL, SQL Server, Mongo, Redis, Linux/RHEL, NGINX, Apache,
-   Tomcat, Kubernetes, OpenShift…) mapped to 16 frameworks (RBI, PCI DSS, ISO
-   27001, ITPP…)."
+1. **Coverage** — "187 curated, **read-only** checks across 21 technologies
+   (Oracle, PostgreSQL, SQL Server, Mongo, Redis, Aerospike, Linux/RHEL, NGINX,
+   Apache, Tomcat, Kubernetes, OpenShift…) mapped to 16 frameworks (RBI, PCI DSS,
+   ISO 27001, ITPP…)."
 2. **Discovery** — "ECS discovers assets and **fingerprints** their technology, so
    it knows which controls apply to what."
 3. **Evidence** — "It runs the applicable checks and captures the result as
