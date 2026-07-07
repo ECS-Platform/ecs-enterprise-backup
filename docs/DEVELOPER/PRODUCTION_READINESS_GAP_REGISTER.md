@@ -30,6 +30,8 @@ data policy), not baked into product code.
 | 9 | HA / deployment | ⛳ Pending | SRE / Platform |
 | 10 | Performance / load testing | 🟡 Safeguards in place | Platform Eng / QA |
 | 11 | Data retention & audit-log policy | ⛳ Pending (policy) | Audit / Data Gov |
+| 12 | External API reliability (429 / circuit breaking) | 🟡 Foundation in place | Platform Eng |
+| 13 | DR / backup & restore | ⛳ Pending | SRE / Platform |
 
 ---
 
@@ -132,6 +134,31 @@ evidence/observations/audit trails are kept, archival, legal hold, deletion) is
 not yet defined or enforced. **To close:** agree the policy with Audit/Data
 Governance; implement scheduled retention jobs against the durable store; log
 retention actions to the audit trail.
+
+## 12. External API reliability (429 / circuit breaking) — 🟡
+
+**Now.** Every integration adapter calls through a shared transport with **bounded
+retries + exponential backoff**, **timeouts**, and **classified errors**
+(`not_configured` / `auth_error` / `timeout` / `connection_error` / `http_error` /
+`transport_error`); nothing raises to the request path and no live call is made
+without configuration. **Gap.** There is no **circuit breaker** (to shed load when
+a vendor is down), no honouring of HTTP **429 `Retry-After`**, and no per-tenant
+concurrency limiting — so sustained vendor outages/throttling are retried but not
+actively contained. **To close:** add a per-adapter circuit breaker + `Retry-After`
+handling, a bounded concurrency/queue per integration, and health-based backoff;
+tune against real tenant SLAs during UAT.
+
+## 13. DR / backup & restore pending — ⛳
+
+**Now.** State is in-memory per process; the SQL persistence skeleton (SQLite
+default, Postgres-ready) is the durable system-of-record when enabled, and the
+schema is a single idempotent file. Repo hygiene keeps DB backups **out of Git**
+(`backups/` is git-ignored). **Gap.** No **backup/restore runbook**, no scheduled
+backups, no point-in-time-recovery target, and no tested **disaster-recovery**
+(RTO/RPO) plan for the durable store. **To close:** once Postgres is provisioned,
+define RTO/RPO with the bank, enable automated backups + PITR, store backups in
+approved (encrypted, off-host) storage, and **rehearse restores** on a schedule;
+capture the runbook next to the operations docs.
 
 ---
 
