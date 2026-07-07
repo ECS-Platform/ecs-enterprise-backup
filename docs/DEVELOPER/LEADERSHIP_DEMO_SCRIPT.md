@@ -102,9 +102,9 @@ Open these pages in order and say the one-liner:
 - "The platform is **environment-driven**: the same code runs against local demo
   containers today and against **bank UAT endpoints** by setting environment
   variables — **no code change**."
-- "Connectors and 9 enterprise integrations (ServiceNow, Archer, SharePoint/Graph,
-  Jira, Confluence, SonarQube, Checkmarx, Prisma Cloud, Tripwire) are **config-
-  driven**; secrets come from a **secret store**, never from Git."
+- "Connectors and 11 enterprise integrations (ServiceNow, Archer, SharePoint/Teams/
+  Outlook via Microsoft Graph, Jira, Confluence, SonarQube, Checkmarx, Prisma Cloud,
+  Tripwire) are **config-driven**; secrets come from a **secret store**, never from Git."
 - "We have a **Bank Developer UAT Checklist** (VPN, DNS, ports, read-only service
   accounts, secrets outside Git, diagnostics, smoke, evidence review) — see
   [UAT_INTEGRATION_GUIDE.md](UAT_INTEGRATION_GUIDE.md)."

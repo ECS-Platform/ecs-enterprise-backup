@@ -10,7 +10,7 @@ bank systems. External calls use mocked transports / executors.
 | Test file | Covers |
 |---|---|
 | `tests/test_audit_intelligence_e2e_smoke.py` | Full pipeline: ServiceNow (mock) → discovery → fingerprint → mapping → orchestration (mock executor) → validation → observations → repository → pack → dashboard → REST API. Plus empty-state and unsupported-technology safety. |
-| `tests/test_integration_adapters_mocked.py` | All 9 integration adapters: config, masking (no secret leakage), health, `fetch_*` normalization, not-configured, timeout/auth/retry classification, pagination. |
+| `tests/test_integration_adapters_mocked.py` | All 11 integration adapters: config, masking (no secret leakage), health, `fetch_*` normalization, not-configured, timeout/auth/retry classification, pagination. |
 | `tests/test_uat_config_placeholders.py` | `.env.example` / `_base.yaml` / `uat.yaml` contain all adapter placeholders; no public IPs; no inline secrets; YAML valid. |
 | `tests/test_ecs_demo_smoke.py` | The `scripts/run_ecs_demo_smoke.py` runner (10 checks) passes and emits valid JSON. |
 | `tests/test_audit_intelligence_api.py` | `/api/audit/*` endpoints (mapping/assets/runs/repository/observations/packs/dashboard/integrations). |

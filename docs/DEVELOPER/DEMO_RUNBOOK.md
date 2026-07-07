@@ -107,9 +107,9 @@ python3 scripts/check_predefined_extended_environment.py
   carries a `rule_id` + rationale; observations follow a controlled workflow.
 - **Evidence integrity:** every evidence artifact is versioned with a SHA-256 hash;
   evidence packs ship a verifiable JSON manifest.
-- **Enterprise-ready:** 9 integration adapters (ServiceNow, Archer, SharePoint,
-  Jira, Confluence, SonarQube, Checkmarx, Prisma Cloud, Tripwire), all
-  config-driven with secret masking and graceful "not configured" behaviour.
+- **Enterprise-ready:** 11 integration adapters (ServiceNow, Archer, SharePoint,
+  Teams, Outlook, Jira, Confluence, SonarQube, Checkmarx, Prisma Cloud, Tripwire),
+  all config-driven with secret masking and graceful "not configured" behaviour.
 - **Safe by default:** no live systems required; secrets never logged; startup
   never fails if optional integrations are absent.
 

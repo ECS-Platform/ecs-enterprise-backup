@@ -98,7 +98,9 @@ def check_integration_registry(chk: Check) -> None:
     try:
         from modules.operations import integrations
         adapters = integrations.list_adapters()
-        chk.add("integration_adapter_registry", len(adapters) >= 9,
+        # Authoritative baseline is 11 (incl. SharePoint/Teams/Outlook Graph);
+        # >= keeps the check tolerant of future additions while flagging a regression.
+        chk.add("integration_adapter_registry", len(adapters) >= 11,
                 f"{len(adapters)} adapters registered")
     except Exception as exc:  # noqa: BLE001
         chk.add("integration_adapter_registry", False, f"{type(exc).__name__}: {exc}")

@@ -50,7 +50,7 @@ and wire the engine write-paths (documented in the persistence guide §6).
 
 ## 2. Real connector credentials required — ⛳
 
-**Now.** All connectors and 9 enterprise integrations are config-driven skeletons;
+**Now.** All connectors and 11 enterprise integrations are config-driven skeletons;
 with no credentials they degrade cleanly to `not_configured` and make **no live
 calls**. **Gap.** Real read-only service-account credentials must be provisioned
 per target and supplied via env / secret manager (never Git). **To close:**
