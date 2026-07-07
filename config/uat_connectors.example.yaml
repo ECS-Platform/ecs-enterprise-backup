@@ -1,0 +1,135 @@
+# =============================================================================
+# ECS UAT Connector Configuration — EXAMPLE (config/uat_connectors.example.yaml)
+# =============================================================================
+# A standalone, copyable example of the `connectors:` block ECS reads for the
+# enterprise integration adapters. The live values already live in
+# `config/environments/uat.yaml`; this file is a reference you can copy from.
+#
+# SAFETY / CONVENTION (matches the adapters' get_config()):
+#   * NO secrets inline. Secrets are referenced by their ENV VAR NAME via the
+#     `*_env` keys (e.g. `api_token_env: ECS_JIRA_API_TOKEN`); the adapter reads
+#     the value from that environment variable at runtime.
+#   * Non-secret fields use `${VAR:-default}` substitution (host/URL/IDs).
+#   * Set the actual secret values in a git-ignored `.env.uat`
+#     (see `.env.uat.example`). Never commit `.env.uat`.
+#
+# The adapters search BOTH the `connectors` and `integrations` YAML sections
+# (see modules/operations/integrations/__init__.py::lookup_yaml_config), so this
+# block name (`connectors`) is what the adapters resolve.
+#
+# Field guide + Connector Test Workbench validation: docs/uat_connector_credentials_guide.md
+# =============================================================================
+
+connectors:
+
+  # ------------------------------------------------------------ ServiceNow CMDB
+  # auth_mode: oauth (client_id/secret) | basic (username/password)
+  servicenow_cmdb:
+    base_url:          "${ECS_SERVICENOW_BASE_URL:-}"
+    client_id_env:     ECS_SERVICENOW_CLIENT_ID          # secret (env)
+    client_secret_env: ECS_SERVICENOW_CLIENT_SECRET      # secret (env)
+    username_env:      ECS_SERVICENOW_USERNAME           # secret (env)
+    password_env:      ECS_SERVICENOW_PASSWORD           # secret (env)
+    auth_mode:         "${ECS_SERVICENOW_AUTH_MODE:-oauth}"
+    timeout_sec:       "${ECS_SERVICENOW_TIMEOUT_SECONDS:-30}"
+    max_retries:       "${ECS_SERVICENOW_MAX_RETRIES:-2}"
+
+  # ------------------------------------------------------------ Archer GRC
+  archer:
+    base_url:      "${ECS_ARCHER_BASE_URL:-}"
+    api_token_env: ECS_ARCHER_API_TOKEN                  # secret (env)
+    timeout_sec:   "${ECS_ARCHER_TIMEOUT_SECONDS:-30}"
+
+  # ------------------------------------------------------------ Microsoft Graph (shared)
+  # SharePoint / Teams / Outlook share these tenant/app credentials.
+  ms_graph:
+    tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"        # non-secret (GUID)
+    client_id:         "${ECS_GRAPH_CLIENT_ID:-}"        # non-secret (GUID)
+    client_secret_env: ECS_GRAPH_CLIENT_SECRET           # secret (env)
+    scope:             "${ECS_GRAPH_SCOPE:-https://graph.microsoft.com/.default}"
+    authority_url:     "${ECS_GRAPH_AUTHORITY_URL:-https://login.microsoftonline.com}"
+    timeout_sec:       "${ECS_GRAPH_TIMEOUT_SECONDS:-30}"
+    max_retries:       "${ECS_GRAPH_MAX_RETRIES:-2}"
+
+  sharepoint_graph:
+    tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"
+    client_id:         "${ECS_GRAPH_CLIENT_ID:-}"
+    client_secret_env: ECS_GRAPH_CLIENT_SECRET           # secret (env)
+    site_id:           "${ECS_GRAPH_SITE_ID:-}"
+    drive_id:          "${ECS_GRAPH_DRIVE_ID:-}"
+    site_hostname:     "${ECS_SHAREPOINT_SITE_HOSTNAME:-}"
+    site_path:         "${ECS_SHAREPOINT_SITE_PATH:-}"
+    folder_path:       "${ECS_SHAREPOINT_FOLDER_PATH:-}"
+    timeout_sec:       "${ECS_GRAPH_TIMEOUT_SECONDS:-30}"
+    max_retries:       "${ECS_GRAPH_MAX_RETRIES:-2}"
+
+  teams_graph:
+    tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"
+    client_id:         "${ECS_GRAPH_CLIENT_ID:-}"
+    client_secret_env: ECS_GRAPH_CLIENT_SECRET           # secret (env)
+    team_id:           "${ECS_TEAMS_TEAM_ID:-}"
+    channel_id:        "${ECS_TEAMS_CHANNEL_ID:-}"
+    message_limit:     "${ECS_TEAMS_MESSAGE_LIMIT:-50}"
+
+  outlook_graph:
+    tenant_id:         "${ECS_GRAPH_TENANT_ID:-}"
+    client_id:         "${ECS_GRAPH_CLIENT_ID:-}"
+    client_secret_env: ECS_GRAPH_CLIENT_SECRET           # secret (env)
+    user_id:           "${ECS_OUTLOOK_USER_ID:-}"
+    mail_folder:       "${ECS_OUTLOOK_MAIL_FOLDER:-inbox}"
+    message_limit:     "${ECS_OUTLOOK_MESSAGE_LIMIT:-50}"
+
+  # ------------------------------------------------------------ Jira
+  jira_adapter:
+    base_url:      "${ECS_JIRA_BASE_URL:-}"
+    username:      "${ECS_JIRA_USERNAME:-}"              # service account email
+    api_token_env: ECS_JIRA_API_TOKEN                    # secret (env)
+    project_key:   "${ECS_JIRA_PROJECT_KEY:-}"
+    jql:           "${ECS_JIRA_JQL:-}"
+    api_version:   "${ECS_JIRA_API_VERSION:-2}"
+    timeout_sec:   "${ECS_JIRA_TIMEOUT_SECONDS:-30}"
+    max_retries:   "${ECS_JIRA_MAX_RETRIES:-2}"
+
+  # ------------------------------------------------------------ Confluence
+  confluence_adapter:
+    base_url:      "${ECS_CONFLUENCE_BASE_URL:-}"
+    username:      "${ECS_CONFLUENCE_USERNAME:-}"        # service account email
+    api_token_env: ECS_CONFLUENCE_API_TOKEN              # secret (env)
+    space_key:     "${ECS_CONFLUENCE_SPACE_KEY:-}"
+    timeout_sec:   "${ECS_CONFLUENCE_TIMEOUT_SECONDS:-30}"
+    max_retries:   "${ECS_CONFLUENCE_MAX_RETRIES:-2}"
+
+  # ------------------------------------------------------------ SonarQube
+  sonarqube_adapter:
+    base_url:    "${ECS_SONARQUBE_BASE_URL:-}"
+    token_env:   ECS_SONARQUBE_TOKEN                     # secret (env)
+    project_key: "${ECS_SONARQUBE_PROJECT_KEY:-}"
+    timeout_sec: "${ECS_SONARQUBE_TIMEOUT_SECONDS:-30}"
+    max_retries: "${ECS_SONARQUBE_MAX_RETRIES:-2}"
+
+  # ------------------------------------------------------------ Checkmarx
+  checkmarx:
+    base_url:          "${ECS_CHECKMARX_BASE_URL:-}"
+    client_id:         "${ECS_CHECKMARX_CLIENT_ID:-}"
+    client_secret_env: ECS_CHECKMARX_CLIENT_SECRET       # secret (env)
+    access_token_env:  ECS_CHECKMARX_ACCESS_TOKEN        # secret (env, optional)
+    token_url:         "${ECS_CHECKMARX_TOKEN_URL:-}"
+    timeout_sec:       "${ECS_CHECKMARX_TIMEOUT_SECONDS:-30}"
+    max_retries:       "${ECS_CHECKMARX_MAX_RETRIES:-2}"
+
+  # ------------------------------------------------------------ Prisma Cloud
+  prisma_cloud:
+    base_url:       "${ECS_PRISMA_CLOUD_BASE_URL:-}"
+    access_key:     "${ECS_PRISMA_CLOUD_ACCESS_KEY:-}"   # access key id (non-secret id)
+    secret_key_env: ECS_PRISMA_CLOUD_SECRET_KEY          # secret (env)
+    token_env:      ECS_PRISMA_CLOUD_TOKEN               # secret (env, optional)
+    timeout_sec:    "${ECS_PRISMA_CLOUD_TIMEOUT_SECONDS:-30}"
+    max_retries:    "${ECS_PRISMA_CLOUD_MAX_RETRIES:-2}"
+
+  # ------------------------------------------------------------ Tripwire
+  tripwire:
+    base_url:     "${ECS_TRIPWIRE_BASE_URL:-}"
+    username:     "${ECS_TRIPWIRE_USERNAME:-}"           # service account
+    password_env: ECS_TRIPWIRE_PASSWORD                  # secret (env)
+    timeout_sec:  "${ECS_TRIPWIRE_TIMEOUT_SECONDS:-30}"
+    max_retries:  "${ECS_TRIPWIRE_MAX_RETRIES:-2}"
