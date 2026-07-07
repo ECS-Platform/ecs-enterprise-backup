@@ -57,3 +57,7 @@ benchmarks/output/
 # Generated audit LLM benchmark reports (keep dir, ignore outputs)
 reports/audit_llm_benchmarks/*.md
 reports/audit_llm_benchmarks/*.json
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
