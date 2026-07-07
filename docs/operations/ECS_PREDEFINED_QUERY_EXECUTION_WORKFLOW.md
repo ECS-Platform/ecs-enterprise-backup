@@ -10,9 +10,9 @@
 live connector today are config-ready and marked **(Inferred / Phase 2)**.
 
 **Navigation:** [Predefined Query Execution Guide](ECS_PREDEFINED_QUERY_EXECUTION_GUIDE.md) ·
-[Control & Evidence Reuse](ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md) ·
-[Workflow Orchestration Guide](../WORKFLOWS/ECS_WORKFLOW_ORCHESTRATION_GUIDE.md) ·
-[Framework Reference](../FRAMEWORKS/ECS_FRAMEWORK_REFERENCE.md)
+[Control & Evidence Reuse](../evidence-management/ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md) ·
+[Workflow Orchestration Guide](../architecture/ECS_WORKFLOW_ORCHESTRATION_GUIDE.md) ·
+[Framework Reference](../product/ECS_FRAMEWORK_REFERENCE.md)
 
 ---
 
@@ -119,7 +119,7 @@ change (`ECS_ENV` selects the file; `_base ⊕ <env>` merged by
   (EVD-#####, `PREDEFINED_QUERY_<control>.txt`).
 - **Validation:** SHA-256 + `integrity_check` + naming policy.
 - **Approval:** filed evidence enters the auditor review queue (see
-  [Workflow Orchestration Guide](../WORKFLOWS/ECS_WORKFLOW_ORCHESTRATION_GUIDE.md)).
+  [Workflow Orchestration Guide](../architecture/ECS_WORKFLOW_ORCHESTRATION_GUIDE.md)).
 - **Reuse:** `_link_reuse` groups results into REUSE-### across controls/frameworks.
 
 ## 6. Framework → control → query coverage (representative)

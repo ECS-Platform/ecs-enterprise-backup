@@ -125,7 +125,7 @@ proceeding.
 ## 8. UAT sign-off
 
 Complete the *Bank Developer UAT Checklist* in
-`docs/DEVELOPER/UAT_INTEGRATION_GUIDE.md` per target technology, then record:
+`docs/connectors/UAT_INTEGRATION_GUIDE.md` per target technology, then record:
 
 - [ ] Routes validated (all 200, no 404).
 - [ ] Connectors: configured adapters healthy; masking confirmed.
@@ -133,4 +133,4 @@ Complete the *Bank Developer UAT Checklist* in
 - [ ] Audit intelligence surfaces render with data.
 - [ ] Logs collected; no secrets present.
 - [ ] Sign-off recorded (who / when / scope) and gaps logged in
-      `docs/DEVELOPER/PRODUCTION_READINESS_GAP_REGISTER.md`.
+      `docs/production/PRODUCTION_READINESS_GAP_REGISTER.md`.

@@ -43,5 +43,5 @@ App appears in inventory + CMDB; frameworks/controls mapped; ≥1 connector or e
 ## Cross-references
 - Scheduler: [ECS_SCHEDULER_REFERENCE.md](ECS_SCHEDULER_REFERENCE.md)
 - Queries: [ECS_PREDEFINED_QUERY_ARCHITECTURE.md](ECS_PREDEFINED_QUERY_ARCHITECTURE.md)
-- Integrations: [docs/INTEGRATIONS/](../INTEGRATIONS/README.md)
+- Integrations: [docs/INTEGRATIONS/](../connectors/_legacy_INTEGRATIONS_index.md)
 - Data model: [ECS_DATA_ARCHITECTURE_REFERENCE.md](../architecture/ECS_DATA_ARCHITECTURE_REFERENCE.md)

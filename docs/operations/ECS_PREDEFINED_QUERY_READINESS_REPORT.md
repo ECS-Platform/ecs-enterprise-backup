@@ -52,4 +52,4 @@ Framework → Control → Query → (detect tech) → Connector → Target → E
 **Predefined-query layer: PARTIAL — GO for demo/UAT reporting, NOT for live execution.** Framework/control mapping, technology detection, parsing, evidence generation, and dashboards are implemented; **live query execution against targets is intentionally interface-only** and must be built in a future, separately-approved phase. No code modified here.
 
 ## Cross-references
-- [Predefined Query Architecture](ECS_PREDEFINED_QUERY_ARCHITECTURE.md) · [Predefined Query Execution Guide](ECS_PREDEFINED_QUERY_EXECUTION_GUIDE.md) · [Connector Readiness](ECS_CONNECTOR_READINESS_REPORT.md) · [Workflow Validation](../UAT/ECS_WORKFLOW_VALIDATION_REPORT.md)
+- [Predefined Query Architecture](ECS_PREDEFINED_QUERY_ARCHITECTURE.md) · [Predefined Query Execution Guide](ECS_PREDEFINED_QUERY_EXECUTION_GUIDE.md) · [Connector Readiness](ECS_CONNECTOR_READINESS_REPORT.md) · [Workflow Validation](../testing/ECS_WORKFLOW_VALIDATION_REPORT.md)

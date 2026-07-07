@@ -1,6 +1,6 @@
 # ECS Backup & Recovery Guide
 
-**Purpose:** production backup/restore for ECS persistent stores. Grounded in `scripts/backup/`, `scripts/restore/`, `config/repository.yaml`, `config/vectorstore.yaml`, `ecs_platform/repository/schema.sql`. This guide operationalizes and extends `docs/RECOVERY_RUNBOOK.md` (the authoritative source). Documentation only.
+**Purpose:** production backup/restore for ECS persistent stores. Grounded in `scripts/backup/`, `scripts/restore/`, `config/repository.yaml`, `config/vectorstore.yaml`, `ecs_platform/repository/schema.sql`. This guide operationalizes and extends `docs/operations/RECOVERY_RUNBOOK.md` (the authoritative source). Documentation only.
 
 ---
 

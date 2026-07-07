@@ -17,8 +17,8 @@ architecture; it maps what already exists.
 | [ecs_enterprise_architecture_review.md](ecs_enterprise_architecture_review.md) | Current implemented enterprise architecture (modules, boundaries, data flow) | Live code under `modules/`, `app/`, `ecs_platform/` | ✅ Current |
 | [ECS_DATA_ARCHITECTURE_REFERENCE.md](ECS_DATA_ARCHITECTURE_REFERENCE.md) | Data model / persistence: repository + governance schema + vector store | `ecs_platform/repository/schema.sql`, `governance_schema.sql`, `pgvector_store.py` | ✅ Current |
 | [ecs_deployment_architecture.md](ecs_deployment_architecture.md) | Deployment topology (containers, ports, profiles, config) | `Dockerfile`, `docker-compose.yml`, `config/` | ✅ Current |
-| [../hld/ecs_hld.md](../hld/ecs_hld.md) | High-Level Design — components, flows, assumptions/recommendations | Repo-wide | ✅ Current |
-| [../lld/ecs_lld.md](../lld/ecs_lld.md) | Low-Level Design — per-module components, functions, data | Repo-wide | ✅ Current |
+| [../hld/ecs_hld.md](ecs_hld.md) | High-Level Design — components, flows, assumptions/recommendations | Repo-wide | ✅ Current |
+| [../lld/ecs_lld.md](ecs_lld.md) | Low-Level Design — per-module components, functions, data | Repo-wide | ✅ Current |
 | [../diagrams/ecs_sequence_diagrams.md](../diagrams/ecs_sequence_diagrams.md) | System sequence diagrams (Mermaid) | Routes, engines, frontend drilldown | ✅ Current |
 | [../diagrams/ecs_er_diagrams.md](../diagrams/ecs_er_diagrams.md) | Entity-relationship diagrams (Mermaid) | Dataclasses / Pydantic models / schema | ✅ Current |
 
@@ -26,10 +26,10 @@ architecture; it maps what already exists.
 
 | Document | Purpose |
 |----------|---------|
-| [../DEVELOPER/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md](../DEVELOPER/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md) | Persistence foundation (in-memory + SQL/Postgres skeleton) design |
-| [../DEVELOPER/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../DEVELOPER/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) | Asset-driven scheduler + evidence-routing design |
-| [../DEVELOPER/MS_GRAPH_CONNECTOR_GUIDE.md](../DEVELOPER/MS_GRAPH_CONNECTOR_GUIDE.md) | Microsoft Graph connector foundation (SharePoint/Teams/Outlook) |
-| [../DEVELOPER/CONNECTOR_DEEPENING_GUIDE.md](../DEVELOPER/CONNECTOR_DEEPENING_GUIDE.md) | Shared enterprise connector base (`_base.py`) design |
+| [../DEVELOPER/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md](../audit-intelligence/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md) | Persistence foundation (in-memory + SQL/Postgres skeleton) design |
+| [../DEVELOPER/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) | Asset-driven scheduler + evidence-routing design |
+| [../DEVELOPER/MS_GRAPH_CONNECTOR_GUIDE.md](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md) | Microsoft Graph connector foundation (SharePoint/Teams/Outlook) |
+| [../DEVELOPER/CONNECTOR_DEEPENING_GUIDE.md](../connectors/CONNECTOR_DEEPENING_GUIDE.md) | Shared enterprise connector base (`_base.py`) design |
 | [../DB_SCHEMA_AUDIT_INTELLIGENCE.sql](../DB_SCHEMA_AUDIT_INTELLIGENCE.sql) | Canonical audit-intelligence DB schema |
 | [../DEPLOYMENT/](../DEPLOYMENT) & [`deploy/README.md`](../../deploy/README.md) | Deployment pack (compose/nginx/systemd/k8s examples) |
 
@@ -81,10 +81,10 @@ each document. For the doc-wide inventory see
 Repository-grounded developer references for the enterprise connectors, Microsoft
 Graph integration, the Connector Test Workbench, and the scheduler runtime:
 
-- [Microsoft Graph connector API reference](../microsoft_graph_connector_api_reference.md)
-- [Enterprise connector API reference (11 connectors)](../enterprise_connector_api_reference.md)
-- [Connector Test Workbench design & runtime](../connector_test_workbench_design.md)
-- [Scheduler runtime flow](../scheduler_runtime_flow.md)
-- [Test Workbench vs. Scheduler](../test_workbench_vs_scheduler.md)
-- [Runtime call graph & sequence diagrams](../runtime_call_graph.md)
-- [Evidence reuse & observation lifecycle (functional design)](../evidence_reuse_lifecycle_functional_design.md)
+- [Microsoft Graph connector API reference](../graph-api/microsoft_graph_connector_api_reference.md)
+- [Enterprise connector API reference (11 connectors)](../connectors/enterprise_connector_api_reference.md)
+- [Connector Test Workbench design & runtime](../connectors/connector_test_workbench_design.md)
+- [Scheduler runtime flow](../scheduler/scheduler_runtime_flow.md)
+- [Test Workbench vs. Scheduler](../scheduler/test_workbench_vs_scheduler.md)
+- [Runtime call graph & sequence diagrams](../scheduler/runtime_call_graph.md)
+- [Evidence reuse & observation lifecycle (functional design)](../evidence-management/evidence_reuse_lifecycle_functional_design.md)

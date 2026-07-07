@@ -1,114 +1,115 @@
-# ECS Documentation Package — Index
+# ECS Documentation
 
-This package documents the **actual implemented architecture** of the ECS (Evidence & Compliance
-System) platform, derived strictly from the repository at `/Users/nikhil/Documents/ECS`. All
-capability claims are cited to source files. Forward-looking content is tagged **[ASSUMPTION]**,
-**[RECOMMENDATION]**, or **[ROADMAP]**.
+Welcome to the **Enterprise Evidence Collection System (ECS)** documentation.
 
----
+This folder is organized by topic so you can find what you need without reading
+everything. **New here? Start with [`00-start-here/`](00-start-here/README.md).**
 
-## Artifacts
-
-| # | Document | Path | Contents |
-|---|---|---|---|
-| 1 | **Enterprise Architecture Review** | [architecture/ecs_enterprise_architecture_review.md](architecture/ecs_enterprise_architecture_review.md) | Current-state architecture, module decomposition, domain model, strengths, risks, technical debt, scalability, security, banking-regulatory readiness |
-| 2 | **High-Level Design (HLD)** | [hld/ecs_hld.md](hld/ecs_hld.md) | Business, application, data, integration, security, deployment, persona, and governance architecture |
-| 3 | **Low-Level Design (LLD)** | [lld/ecs_lld.md](lld/ecs_lld.md) | Per-module components, controllers, services, models, APIs, UI flows, validation, dependencies |
-| 4 | **ER Diagram Package** | [diagrams/ecs_er_diagrams.md](diagrams/ecs_er_diagrams.md) | Mermaid ER diagrams: users, roles, applications, frameworks, controls, findings, evidence, audits, observations, AI-SDLC, reports |
-| 5 | **System Sequence Diagrams** | [diagrams/ecs_sequence_diagrams.md](diagrams/ecs_sequence_diagrams.md) | Mermaid sequence diagrams: login, evidence submission, audit lifecycle, AI-SDLC assessment, framework assessment, drilldown, dashboard analytics, report generation |
-| 6 | **Deployment Architecture** | [architecture/ecs_deployment_architecture.md](architecture/ecs_deployment_architecture.md) | Current deployment, container, runtime, network; future cloud, HA, DR architecture |
-| 7 | **Executive Technology Dossier** | [executive/ecs_technology_dossier.md](executive/ecs_technology_dossier.md) | Platform overview, strategic positioning, differentiation, governance & AI-governance capabilities, risk reduction, roadmap |
-| 8 | **Operations Runbook** | [operations/ecs_runbook.md](operations/ecs_runbook.md) | Startup, shutdown, backup, recovery, incident management, monitoring, troubleshooting |
+> Looking for a specific document? See [How to find docs](#how-to-find-docs) or
+> the full [Documentation Inventory](DOCUMENTATION_INVENTORY.md).
 
 ---
 
-## Master Knowledge Consolidation (2026-06) — authoritative entry points
+## Folder map
 
-| Area | Single Source of Truth |
-|------|----------|
-| Product User Manual (task/audience-oriented) | [PRODUCT/ECS_PRODUCT_USER_MANUAL.md](PRODUCT/ECS_PRODUCT_USER_MANUAL.md) |
-| Use Case Registry (unified index) | [PRODUCT/ECS_MASTER_USE_CASE_REGISTRY.md](PRODUCT/ECS_MASTER_USE_CASE_REGISTRY.md) |
-| Use Cases + AI/LLM/Integration | [AI/ECS_MASTER_USE_CASE_AND_LLM_REFERENCE.md](AI/ECS_MASTER_USE_CASE_AND_LLM_REFERENCE.md) |
-| LLM Implementation Matrix / Roadmap | [AI/ECS_LLM_IMPLEMENTATION_MATRIX.md](AI/ECS_LLM_IMPLEMENTATION_MATRIX.md) · [AI/ECS_LLM_IMPLEMENTATION_ROADMAP.md](AI/ECS_LLM_IMPLEMENTATION_ROADMAP.md) |
-| Master Integration Matrix | [INTEGRATIONS/ECS_MASTER_INTEGRATION_MATRIX.md](INTEGRATIONS/ECS_MASTER_INTEGRATION_MATRIX.md) |
-| Document Reconciliation (SoT matrix) | [executive/ECS_DOCUMENT_RECONCILIATION_REPORT.md](executive/ECS_DOCUMENT_RECONCILIATION_REPORT.md) |
-| Knowledge Consolidation (score 95/100) | [executive/ECS_MASTER_KNOWLEDGE_CONSOLIDATION_REPORT.md](executive/ECS_MASTER_KNOWLEDGE_CONSOLIDATION_REPORT.md) |
-
----
-
-## Workflow & Knowledge Documentation (2026-06)
-
-| Area | Document |
-|------|----------|
-| Workflow orchestration (20 workflows + diagrams) | [WORKFLOWS/ECS_WORKFLOW_ORCHESTRATION_GUIDE.md](WORKFLOWS/ECS_WORKFLOW_ORCHESTRATION_GUIDE.md) |
-| Role action / CRUD matrix (15 roles) | [WORKFLOWS/ECS_ROLE_ACTION_MATRIX.md](WORKFLOWS/ECS_ROLE_ACTION_MATRIX.md) |
-| State transition matrix | [WORKFLOWS/ECS_STATE_TRANSITION_MATRIX.md](WORKFLOWS/ECS_STATE_TRANSITION_MATRIX.md) |
-| SLA & escalation matrix | [WORKFLOWS/ECS_SLA_ESCALATION_MATRIX.md](WORKFLOWS/ECS_SLA_ESCALATION_MATRIX.md) |
-| Notification matrix | [WORKFLOWS/ECS_NOTIFICATION_MATRIX.md](WORKFLOWS/ECS_NOTIFICATION_MATRIX.md) |
-| Business process model (BPMN-style) | [WORKFLOWS/ECS_BUSINESS_PROCESS_MODEL.md](WORKFLOWS/ECS_BUSINESS_PROCESS_MODEL.md) |
-| Sequence diagram library (10 lifecycles) | [WORKFLOWS/ECS_SEQUENCE_DIAGRAMS.md](WORKFLOWS/ECS_SEQUENCE_DIAGRAMS.md) |
-| Predefined query execution guide | [OPERATIONS/ECS_PREDEFINED_QUERY_EXECUTION_GUIDE.md](OPERATIONS/ECS_PREDEFINED_QUERY_EXECUTION_GUIDE.md) |
-| Predefined query execution workflow | [OPERATIONS/ECS_PREDEFINED_QUERY_EXECUTION_WORKFLOW.md](OPERATIONS/ECS_PREDEFINED_QUERY_EXECUTION_WORKFLOW.md) |
-| Control & evidence reuse guide | [OPERATIONS/ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md](OPERATIONS/ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md) |
-| Framework reference (all frameworks) | [FRAMEWORKS/ECS_FRAMEWORK_REFERENCE.md](FRAMEWORKS/ECS_FRAMEWORK_REFERENCE.md) |
-| Product feature completeness matrix | [PRODUCT/ECS_FEATURE_COMPLETENESS_MATRIX.md](PRODUCT/ECS_FEATURE_COMPLETENESS_MATRIX.md) |
-| Final knowledge completeness report | [EXECUTIVE/ECS_FINAL_KNOWLEDGE_COMPLETENESS_REPORT.md](EXECUTIVE/ECS_FINAL_KNOWLEDGE_COMPLETENESS_REPORT.md) |
-| Workflow completeness report | [EXECUTIVE/ECS_WORKFLOW_COMPLETENESS_REPORT.md](EXECUTIVE/ECS_WORKFLOW_COMPLETENESS_REPORT.md) |
-
-See also [WORKFLOWS/README.md](WORKFLOWS/README.md) for the workflow package index.
+| Folder | What's inside |
+| --- | --- |
+| [`00-start-here/`](00-start-here/README.md) | Orientation, demo-mode setup, common commands, troubleshooting |
+| [`developer-manual/`](developer-manual/README.md) | Engineering handbook, setup, config framework, API reference, module ownership |
+| [`operations/`](operations/README.md) | Runbooks, UAT execution, query execution, backup/recovery, go-live, support |
+| [`workbenches/`](workbenches/README.md) | Audit LLM Prompt Workbench + frontend workbench guides |
+| [`benchmarks/`](benchmarks/README.md) | Local LLM benchmarking (16 GB / 20 GB), token estimation, performance |
+| [`connectors/`](connectors/README.md) | Enterprise connector API, framework, Connector Test Workbench, per-connector docs |
+| [`graph-api/`](graph-api/README.md) | Microsoft Graph (SharePoint / Teams / Outlook) integration |
+| [`scheduler/`](scheduler/README.md) | Asset-driven scheduler runtime, call graph, asset discovery |
+| [`evidence-management/`](evidence-management/README.md) | Evidence collection, validation, reuse, hash integrity, observations |
+| [`audit-intelligence/`](audit-intelligence/README.md) | Audit LLM prompt inventory, NL audit queries, server-side processing |
+| [`ai-sdlc/`](ai-sdlc/README.md) | AI architecture, local-LLM strategy, model abstraction, AI governance |
+| [`architecture/`](architecture/README.md) | Architecture index, HLD/LLD, data & deployment architecture, workflows |
+| [`product/`](product/README.md) | Product manual, feature/KPI/module refs, use-case catalogs, frameworks, training |
+| [`testing/`](testing/README.md) | Test strategy, load testing, UAT validation, E2E/smoke guides |
+| [`production/`](production/README.md) | Deployment, hardening, monitoring, security, SSO/OIDC, readiness gaps |
+| [`use-cases/`](use-cases/README.md) | Use-case implementation matrix, API mapping, UAT readiness, phase plans |
+| [`diagrams/`](diagrams/README.md) | ER diagrams, sequence diagrams |
+| [`archive/`](archive/README.md) | Point-in-time reports/audits + superseded docs (history only) |
 
 ---
 
-## Enterprise Knowledge Completion Program (2026-06)
+## Reading paths
 
-Documentation-only program (no code/UI/DB changes). All facts grounded in repository evidence; inferred/target content labeled **[Inferred/Target]**. Final completeness score and gap analysis in the audit at the end of this list.
+Pick the path that matches your role. Each step links to the best starting doc.
 
-| Phase | Area | Document |
-|---|---|---|
-| 1 | Master Product Manual | [PRODUCT/ECS_MASTER_PRODUCT_MANUAL.md](PRODUCT/ECS_MASTER_PRODUCT_MANUAL.md) |
-| 2 | Master KPI Dictionary | [PRODUCT/ECS_MASTER_KPI_DICTIONARY.md](PRODUCT/ECS_MASTER_KPI_DICTIONARY.md) |
-| 3 | Evidence Management Reference | [EVIDENCE/ECS_EVIDENCE_REFERENCE_GUIDE.md](EVIDENCE/ECS_EVIDENCE_REFERENCE_GUIDE.md) |
-| 4 | Control Management Reference | [CONTROLS/ECS_CONTROL_REFERENCE_GUIDE.md](CONTROLS/ECS_CONTROL_REFERENCE_GUIDE.md) |
-| 5 | Framework Reference Library (15) | [FRAMEWORKS/README.md](FRAMEWORKS/README.md) |
-| 6 | Application Onboarding Guide | [operations/ECS_APPLICATION_ONBOARDING_GUIDE.md](operations/ECS_APPLICATION_ONBOARDING_GUIDE.md) |
-| 7 | Scheduler Reference | [operations/ECS_SCHEDULER_REFERENCE.md](operations/ECS_SCHEDULER_REFERENCE.md) |
-| 8 | Predefined Query Execution Architecture | [operations/ECS_PREDEFINED_QUERY_ARCHITECTURE.md](operations/ECS_PREDEFINED_QUERY_ARCHITECTURE.md) |
-| 9 | Integration Architecture (9 guides) | [INTEGRATIONS/README.md](INTEGRATIONS/README.md) |
-| 10 | Data Architecture Reference | [architecture/ECS_DATA_ARCHITECTURE_REFERENCE.md](architecture/ECS_DATA_ARCHITECTURE_REFERENCE.md) |
-| 11 | Load Testing Reference | [TESTING/ECS_LOAD_TESTING_REFERENCE.md](TESTING/ECS_LOAD_TESTING_REFERENCE.md) |
-| 12 | Security Reference | [SECURITY/ECS_SECURITY_REFERENCE.md](SECURITY/ECS_SECURITY_REFERENCE.md) |
-| 13 | Deployment Reference | [DEPLOYMENT/ECS_DEPLOYMENT_REFERENCE.md](DEPLOYMENT/ECS_DEPLOYMENT_REFERENCE.md) |
-| 14 | AI Lifecycle Reference | [AI/ECS_AI_LIFECYCLE_REFERENCE.md](AI/ECS_AI_LIFECYCLE_REFERENCE.md) |
-| 15 | Master Use Case Catalog (150+) | [PRODUCT/ECS_MASTER_USE_CASE_CATALOG.md](PRODUCT/ECS_MASTER_USE_CASE_CATALOG.md) |
-| 16 | Final Enterprise Knowledge Audit | [executive/ECS_FINAL_ENTERPRISE_KNOWLEDGE_AUDIT.md](executive/ECS_FINAL_ENTERPRISE_KNOWLEDGE_AUDIT.md) |
+### New Developer / New Tester Path
+
+1. [`00-start-here/ARCHITECTURE_OVERVIEW.md`](00-start-here/ARCHITECTURE_OVERVIEW.md) — what ECS is, in one read.
+2. [`00-start-here/DEMO_MODE_SETUP.md`](00-start-here/DEMO_MODE_SETUP.md) — run ECS locally in demo mode.
+3. [`00-start-here/COMMON_COMMANDS.md`](00-start-here/COMMON_COMMANDS.md) — start/stop/test/seed commands.
+4. [`developer-manual/README_DEVELOPER.md`](developer-manual/README_DEVELOPER.md) — the developer manual index.
+5. [`developer-manual/DEVELOPER_SETUP_GUIDE.md`](developer-manual/DEVELOPER_SETUP_GUIDE.md) — full local setup.
+6. [`architecture/ARCHITECTURE_INDEX.md`](architecture/ARCHITECTURE_INDEX.md) — how the system fits together.
+7. [`testing/E2E_SMOKE_TEST_GUIDE.md`](testing/E2E_SMOKE_TEST_GUIDE.md) — how to run and write tests.
+8. [`00-start-here/TROUBLESHOOTING_GUIDE.md`](00-start-here/TROUBLESHOOTING_GUIDE.md) — when something breaks.
+
+### UAT Operator Path
+
+1. [`operations/README.md`](operations/README.md) — the operations index.
+2. [`operations/ECS_OPERATIONS_RUNBOOK.md`](operations/ECS_OPERATIONS_RUNBOOK.md) — day-to-day operation.
+3. [`operations/UAT_VALIDATION_RUNBOOK.md`](operations/UAT_VALIDATION_RUNBOOK.md) — UAT validation steps.
+4. [`operations/uat_ip_configuration_guide.md`](operations/uat_ip_configuration_guide.md) — configure UAT assets/IPs (no localhost).
+5. [`connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md`](connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md) — connect real systems.
+6. [`connectors/uat_connector_credentials_guide.md`](connectors/uat_connector_credentials_guide.md) — connector credentials.
+7. [`scheduler/scheduler_runtime_flow.md`](scheduler/scheduler_runtime_flow.md) — scheduled evidence pull.
+8. [`operations/ECS_GO_LIVE_CHECKLIST.md`](operations/ECS_GO_LIVE_CHECKLIST.md) — go-live checklist.
+
+### Business / Auditor Path
+
+1. [`product/ECS_MASTER_PRODUCT_MANUAL.md`](product/ECS_MASTER_PRODUCT_MANUAL.md) — what ECS does, for business users.
+2. [`product/ECS_MASTER_USE_CASE_CATALOG.md`](product/ECS_MASTER_USE_CASE_CATALOG.md) — the use-case catalog.
+3. [`product/ECS_MASTER_KPI_DICTIONARY.md`](product/ECS_MASTER_KPI_DICTIONARY.md) — every KPI, defined.
+4. [`product/ECS_FUNCTIONAL_MANUAL.md`](product/ECS_FUNCTIONAL_MANUAL.md) — how to perform core workflows.
+5. [`evidence-management/evidence_reuse_lifecycle_functional_design.md`](evidence-management/evidence_reuse_lifecycle_functional_design.md) — evidence reuse & observation lifecycle.
+6. [`audit-intelligence/audit_llm_prompt_inventory.md`](audit-intelligence/audit_llm_prompt_inventory.md) — natural-language audit queries.
+7. [`product/ECS_FRAMEWORK_REFERENCE.md`](product/ECS_FRAMEWORK_REFERENCE.md) — supported compliance frameworks.
+
+### Local LLM / Benchmark Path
+
+1. [`audit-intelligence/README.md`](audit-intelligence/README.md) — audit LLM overview.
+2. [`audit-intelligence/audit_llm_prompt_inventory.md`](audit-intelligence/audit_llm_prompt_inventory.md) — the prompt library.
+3. [`audit-intelligence/audit_llm_server_side_processing.md`](audit-intelligence/audit_llm_server_side_processing.md) — how prompts execute server-side.
+4. [`workbenches/audit_llm_prompt_workbench_design.md`](workbenches/audit_llm_prompt_workbench_design.md) — the prompt workbench.
+5. [`benchmarks/audit_llm_local_benchmark_plan.md`](benchmarks/audit_llm_local_benchmark_plan.md) — the benchmark plan.
+6. [`benchmarks/audit_llm_16gb_20gb_testing_guide.md`](benchmarks/audit_llm_16gb_20gb_testing_guide.md) — 16 GB / 20 GB laptop testing.
+7. [`ai-sdlc/README.md`](ai-sdlc/README.md) — AI architecture & local-LLM strategy.
 
 ---
 
-## How to read this package
+## How to find docs
 
-- **New developers:** start with [DEVELOPER/ECS_DEVELOPER_ONBOARDING_GUIDE.md](DEVELOPER/ECS_DEVELOPER_ONBOARDING_GUIDE.md)
-  (comprehensive onboarding hub), then [DEVELOPER/README_DEVELOPER.md](DEVELOPER/README_DEVELOPER.md)
-  and [DEVELOPER_SETUP_GUIDE.md](DEVELOPER_SETUP_GUIDE.md) for setup.
-- **Executives / leadership:** start with #7 (Dossier), then #1 (Architecture Review).
-- **Architects:** #1 → #2 (HLD) → #6 (Deployment).
-- **Engineers:** #3 (LLD) → #4 (ER) → #5 (Sequences).
-- **Operations / SRE:** #8 (Runbook) → #6 (Deployment).
+```bash
+# List every doc, grouped by folder:
+find docs -name "*.md" | sort
 
-## Source-of-truth anchors (key files)
+# List the folders and their READMEs:
+find docs -name "README.md" | sort
 
-- Entry point & routing: `app/main.py`
-- Cross-cutting state & workflow: `modules/shared/services/ecs_state.py`,
-  `modules/shared/services/evidence_workflow_engine.py`
-- Universal drilldown: `modules/shared/services/drilldown_engine.py`,
-  `modules/shared/drilldowns/ecs_universal_drill_engine.py`
-- Framework catalog: `modules/frameworks/engines/framework_catalog.py`
-- AI-SDLC: `modules/ai_sdlc/engines/ai_sdlc_workflow_engine.py`
-- Auth & RBAC: `app/auth/`, `config/auth.yaml`, `config/rbac.yaml`
-- Deployment: `Dockerfile`, `docker-compose.yml`
+# Full-text search the docs (ripgrep):
+rg -i "your search term" docs/
+
+# Find a doc by (partial) filename:
+find docs -iname "*keyword*.md"
+```
+
+- Full catalog with purpose/owner/status: [`DOCUMENTATION_INVENTORY.md`](DOCUMENTATION_INVENTORY.md).
+- Every folder has a `README.md` describing its contents and what to read first.
+
+---
 
 ## Conventions
 
-- **[ASSUMPTION]** — inferred, not directly stated in code.
-- **[RECOMMENDATION]** — proposed target state, not currently implemented.
-- **[ROADMAP]** — forward-looking capability for a future phase.
-- Mermaid diagrams render in GitHub and most Markdown viewers.
+- **One topic per folder.** A doc that spans topics lives in its primary folder and
+  is cross-linked from related folder READMEs.
+- **`archive/`** holds point-in-time reports and superseded docs — kept for history,
+  not current truth.
+- **Nothing is deleted.** This structure was produced by moving files (tracked as
+  git renames) via `scripts/reorganize_docs.py`; folder READMEs are generated by
+  `scripts/gen_docs_folder_readmes.py`.

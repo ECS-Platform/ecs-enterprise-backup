@@ -6,10 +6,10 @@
 `modules/operations/engines/` and `config/environments/`. Items not present in
 code are explicitly marked **(Inferred from implementation)**.
 
-Related: `docs/ENVIRONMENT_CONFIGURATION_FRAMEWORK.md`,
-`docs/ECS_CONFIGURATION_DEPENDENCY_MATRIX.md`,
+Related: `docs/developer-manual/ENVIRONMENT_CONFIGURATION_FRAMEWORK.md`,
+`docs/developer-manual/ECS_CONFIGURATION_DEPENDENCY_MATRIX.md`,
 `docs/OPERATIONS/ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md`,
-`docs/FRAMEWORKS/ECS_FRAMEWORK_REFERENCE.md`.
+`docs/product/ECS_FRAMEWORK_REFERENCE.md`.
 
 ---
 

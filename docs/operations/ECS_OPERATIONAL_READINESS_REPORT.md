@@ -27,7 +27,7 @@
 | Health probes `/healthz` `/readyz` | ✅ |
 | 39 test suites + validators (`validate_demo_readiness.py` → READY) | ✅ |
 | Hot-reload dev loop (compose bind-mounts + `--reload`) | ✅ |
-| Onboarding docs (`docs/DEVELOPER_SETUP_GUIDE.md`, handbook) | ✅ |
+| Onboarding docs (`docs/developer-manual/DEVELOPER_SETUP_GUIDE.md`, handbook) | ✅ |
 | Gaps | No "extend ECS" recipe; no CI security scanning |
 
 ## 3. UAT Readiness — 88

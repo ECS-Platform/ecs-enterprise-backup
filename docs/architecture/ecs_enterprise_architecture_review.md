@@ -242,5 +242,5 @@ dominant maturation themes are **state externalization to the already-present Po
 **end-to-end RBAC enforcement**, and **immutable/durable audit & evidence storage** to reach regulated
 production readiness.
 
-See: `docs/hld/ecs_hld.md`, `docs/lld/ecs_lld.md`, `docs/diagrams/ecs_er_diagrams.md`,
+See: `docs/architecture/ecs_hld.md`, `docs/architecture/ecs_lld.md`, `docs/diagrams/ecs_er_diagrams.md`,
 `docs/diagrams/ecs_sequence_diagrams.md`, `docs/architecture/ecs_deployment_architecture.md`.

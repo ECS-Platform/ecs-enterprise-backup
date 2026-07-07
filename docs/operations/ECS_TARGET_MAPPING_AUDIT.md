@@ -94,4 +94,4 @@ predefined_query_targets:
 
 These feed `build_connector_config()` (`query_connectors.py`), which creates `SSHConnector` /
 `DatabaseConnector` entries — note those generic connectors are currently interface-only and
-require activation (tracked in `docs/PHASE1/ECS_CONNECTOR_ACTIVATION_PLAN.md`).
+require activation (tracked in `docs/use-cases/ECS_CONNECTOR_ACTIVATION_PLAN.md`).

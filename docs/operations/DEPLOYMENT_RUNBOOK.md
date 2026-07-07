@@ -40,7 +40,7 @@ psql "$ECS_AUDIT_DB_URL" -f docs/DB_SCHEMA_AUDIT_INTELLIGENCE.sql   # idempotent
 ```
 
 Set `ECS_AUDIT_DB_URL` from the secret manager. See
-`docs/DEVELOPER/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md`.
+`docs/audit-intelligence/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md`.
 
 ---
 

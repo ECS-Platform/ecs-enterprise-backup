@@ -1,6 +1,6 @@
 # ECS Support Runbook
 
-**Audience:** L1/L2 support. **Goal:** triage and resolve incidents by symptom. Grounded in `app/routes_platform.py`, `app/auth/*`, `config/*.yaml`, `docker-compose.yml`, and existing `docs/TROUBLESHOOTING_GUIDE.md` / `docs/operations/ecs_runbook.md`. Documentation only.
+**Audience:** L1/L2 support. **Goal:** triage and resolve incidents by symptom. Grounded in `app/routes_platform.py`, `app/auth/*`, `config/*.yaml`, `docker-compose.yml`, and existing `docs/00-start-here/TROUBLESHOOTING_GUIDE.md` / `docs/operations/ecs_runbook.md`. Documentation only.
 
 ---
 
@@ -35,7 +35,7 @@ Classify: **App down** (`/healthz` fails) · **Degraded** (`/readyz` 503) · **F
 | 11 | Slow pages, no errors | Redis down (cache miss) | restart `redis` | latency normal |
 | 12 | Demo looks empty/broken | not in demo mode | set `DEMO_MODE=true ECS_AUTH_ENABLED=false`; run validator | validator READY |
 | 13 | Schema error on startup | partial/old DB | `init_schema()` is idempotent; if corrupt, restore from backup | startup clean |
-| 14 | Count mismatch in UI vs docs | catalog vs demo-seed | expected; see `docs/AUDIT/ECS_DOCUMENTATION_INVENTORY.md §5` | n/a |
+| 14 | Count mismatch in UI vs docs | catalog vs demo-seed | expected; see `docs/archive/ECS_DOCUMENTATION_INVENTORY.md §5` | n/a |
 
 ---
 

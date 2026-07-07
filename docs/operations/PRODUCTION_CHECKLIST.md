@@ -3,7 +3,7 @@
 A concise go/no-go checklist for promoting ECS to production. Complete every gate
 and record sign-off. Pairs with the deployment/validation/rollback runbooks in this
 folder and the readiness register in
-`docs/DEVELOPER/PRODUCTION_READINESS_GAP_REGISTER.md`.
+`docs/production/PRODUCTION_READINESS_GAP_REGISTER.md`.
 
 > No real IPs/hostnames/secrets in this file. All environment specifics live in
 > the secret manager / env config.
@@ -63,7 +63,7 @@ folder and the readiness register in
 ## 7. Sign-off
 - [ ] Change record created (version, image tag, approver, window).
 - [ ] Gaps and pending items logged in
-      `docs/DEVELOPER/PRODUCTION_READINESS_GAP_REGISTER.md`.
+      `docs/production/PRODUCTION_READINESS_GAP_REGISTER.md`.
 - [ ] Go/no-go decision recorded by the accountable owner.
 
 > Any unchecked item in §1 (security/secrets) or §5 (validation) is a **no-go**.

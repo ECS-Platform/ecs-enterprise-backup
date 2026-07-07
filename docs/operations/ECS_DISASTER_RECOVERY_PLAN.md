@@ -2,7 +2,7 @@
 
 **Purpose:** recover ECS after catastrophic failure (host/site loss, full data corruption). Builds on `ECS_BACKUP_AND_RECOVERY_GUIDE.md`. Grounded in `docker-compose.yml`, `config/*.yaml`, `scripts/`. Documentation only.
 
-> **Maturity note:** `docs/RECOVERY_RUNBOOK.md` states HA/DR automation/failover are **out of scope for the current phase**. This plan is therefore a **manual, backup-restore-based DR procedure** with a roadmap to automation. It is honest about current capability.
+> **Maturity note:** `docs/operations/RECOVERY_RUNBOOK.md` states HA/DR automation/failover are **out of scope for the current phase**. This plan is therefore a **manual, backup-restore-based DR procedure** with a roadmap to automation. It is honest about current capability.
 
 ---
 

@@ -52,7 +52,7 @@ Evidence review workflow via `evidence_reviews(status,...)`; collection workflow
 No single `raf` table; risk/assurance is composed from `observations` (findings) + correlation groups + framework coverage + exception state. Surfaced on Risk Register / Audit Prep.
 
 ### AI Model
-`evidence_embeddings(chunk_id, evidence_uid, text, metadata, embedding vector(768))` in pgvector; auto-migrates dimension if embedding model changes. RAG reads embeddings + repository (see [AI Architecture](../AI/ECS_AI_ARCHITECTURE_REFERENCE.md)).
+`evidence_embeddings(chunk_id, evidence_uid, text, metadata, embedding vector(768))` in pgvector; auto-migrates dimension if embedding model changes. RAG reads embeddings + repository (see [AI Architecture](../ai-sdlc/ECS_AI_ARCHITECTURE_REFERENCE.md)).
 
 ### Connector Model
 `connectors(name UNIQUE, type, enabled, base_url, last_health, last_checked)`; runtime config from `config/integrations.yaml`.
@@ -66,7 +66,7 @@ No single `raf` table; risk/assurance is composed from `observations` (findings)
 - Foreign keys with `ON DELETE CASCADE` on maps/members keep referential integrity.
 
 ## Cross-references
-- Evidence lifecycle: [ECS_EVIDENCE_REFERENCE_GUIDE.md](../EVIDENCE/ECS_EVIDENCE_REFERENCE_GUIDE.md)
-- Controls: [ECS_CONTROL_REFERENCE_GUIDE.md](../CONTROLS/ECS_CONTROL_REFERENCE_GUIDE.md)
-- Security: [ECS_SECURITY_REFERENCE.md](../SECURITY/ECS_SECURITY_REFERENCE.md)
-- AI/vector: [ECS_AI_ARCHITECTURE_REFERENCE.md](../AI/ECS_AI_ARCHITECTURE_REFERENCE.md)
+- Evidence lifecycle: [ECS_EVIDENCE_REFERENCE_GUIDE.md](../evidence-management/ECS_EVIDENCE_REFERENCE_GUIDE.md)
+- Controls: [ECS_CONTROL_REFERENCE_GUIDE.md](../product/ECS_CONTROL_REFERENCE_GUIDE.md)
+- Security: [ECS_SECURITY_REFERENCE.md](../production/ECS_SECURITY_REFERENCE.md)
+- AI/vector: [ECS_AI_ARCHITECTURE_REFERENCE.md](../ai-sdlc/ECS_AI_ARCHITECTURE_REFERENCE.md)

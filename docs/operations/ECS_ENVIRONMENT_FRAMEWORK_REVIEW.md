@@ -1,6 +1,6 @@
 # ECS Environment Framework Review (Phase 1)
 
-**Mode:** READ-ONLY / ANALYSIS / REPORTING. **No config/code changes. No commits.** **Grounding:** `config/environment_loader.py`, `config/environments/_base.yaml` + `local|dev|sit|uat|prod.yaml`, `ecs_platform/config/loader.py`. Complements [Deployment Reference](../DEPLOYMENT/ECS_DEPLOYMENT_REFERENCE.md), [Environment Configuration](../ENVIRONMENT_CONFIGURATION.md).
+**Mode:** READ-ONLY / ANALYSIS / REPORTING. **No config/code changes. No commits.** **Grounding:** `config/environment_loader.py`, `config/environments/_base.yaml` + `local|dev|sit|uat|prod.yaml`, `ecs_platform/config/loader.py`. Complements [Deployment Reference](../production/ECS_DEPLOYMENT_REFERENCE.md), [Environment Configuration](../developer-manual/ENVIRONMENT_CONFIGURATION.md).
 
 ---
 
@@ -23,7 +23,7 @@ ECS_ENV → active_environment() (validate) → load _base.yaml → deep_merge(e
 | uat | `uat.yaml` | pre-prod validation | ✅ present |
 | prod | `prod.yaml` | production | ✅ present |
 
-> **Correction to prior doc:** the [Deployment Reference](../DEPLOYMENT/ECS_DEPLOYMENT_REFERENCE.md) marked SIT `[Inferred/Target]`; a `sit.yaml` **does exist**. SIT is therefore a first-class environment. (Documentation-only correction — see EF-P3-02.)
+> **Correction to prior doc:** the [Deployment Reference](../production/ECS_DEPLOYMENT_REFERENCE.md) marked SIT `[Inferred/Target]`; a `sit.yaml` **does exist**. SIT is therefore a first-class environment. (Documentation-only correction — see EF-P3-02.)
 
 ## 3. Validation results
 
@@ -41,7 +41,7 @@ ECS_ENV → active_environment() (validate) → load _base.yaml → deep_merge(e
 - Typed accessors (`get_connector`, `get_database`, `get_predefined_query_targets`, etc.) prevent raw-dict reach-in.
 
 ### 3.4 Secrets posture (✅)
-No secret stored in any env file — only the **name** of the env var (`*_env`). Secrets resolve from process env at load. Consistent with [Security Reference](../SECURITY/ECS_SECURITY_REFERENCE.md).
+No secret stored in any env file — only the **name** of the env var (`*_env`). Secrets resolve from process env at load. Consistent with [Security Reference](../production/ECS_SECURITY_REFERENCE.md).
 
 ## 4. Gap classification
 
@@ -55,4 +55,4 @@ No secret stored in any env file — only the **name** of the env var (`*_env`).
 **Environment framework: GO.** Loader, deep-merge, env substitution, fallback, and override logic are all implemented and validated across 5 environments + base. Only deploy-time config population (P2 target lists) and SSO enablement (P3) remain — no code change required.
 
 ## Cross-references
-- [Deployment Reference](../DEPLOYMENT/ECS_DEPLOYMENT_REFERENCE.md) · [Environment Configuration](../ENVIRONMENT_CONFIGURATION.md) · [Connector Readiness](ECS_CONNECTOR_READINESS_REPORT.md) · [Predefined Query Readiness](ECS_PREDEFINED_QUERY_READINESS_REPORT.md)
+- [Deployment Reference](../production/ECS_DEPLOYMENT_REFERENCE.md) · [Environment Configuration](../developer-manual/ENVIRONMENT_CONFIGURATION.md) · [Connector Readiness](ECS_CONNECTOR_READINESS_REPORT.md) · [Predefined Query Readiness](ECS_PREDEFINED_QUERY_READINESS_REPORT.md)
