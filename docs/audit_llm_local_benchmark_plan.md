@@ -28,6 +28,11 @@ Plan for benchmarking the audit LLM prompts on the two available local laptops
 
 ## 3. Run matrix
 
+> **Flag styles (equivalent).** `--profile <p> --mode dry_run|live` (task-standard)
+> or `--ram-profile <p> --dry-run|--execute` (legacy). Only two RAM profiles exist
+> for laptops — `local_16gb_safe`, `local_20gb_extended` — plus the no-LLM
+> `worst_case_enterprise_dry_run` helper.
+
 ### Phase 0 — Prompt library validation (any machine, no LLM)
 ```bash
 PYTHONPATH=. pytest tests/test_audit_llm_workbench.py -q

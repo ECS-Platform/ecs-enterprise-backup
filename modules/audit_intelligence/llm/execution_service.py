@@ -191,6 +191,23 @@ def execute(
             "to get an LLM-generated summary/analysis."
         )
 
+    # A single memory/swap warning string (extracted from the warning list) so the
+    # API contract can surface `memory_warning` directly. The RAM profile's static
+    # guidance is appended so a warning is always meaningful.
+    memory_warnings = [w for w in warnings if "memory" in w.lower() or "swap" in w.lower()]
+    profile_memory_note = str(profile.get("memory_warning") or "").strip()
+    memory_warning = "; ".join(memory_warnings) or profile_memory_note
+
+    # `evidence_context` is the assembled evidence/RAG view used to ground the
+    # prompt (deterministic result + any RAG snippets + citations), surfaced by
+    # name for the API contract without duplicating the underlying data.
+    evidence_context = {
+        "deterministic_result": det,
+        "rag_used": ctx["rag_used"],
+        "source_references": ctx["source_references"],
+        "required_context": prompt_for_ctx.get("required_context", []),
+    }
+
     return {
         "query": user_query,
         "prompt_id": prompt_id,
@@ -198,6 +215,7 @@ def execute(
         "classification": classification,
         "entities": entities,
         "deterministic_result": det,
+        "evidence_context": evidence_context,
         "assembled_prompt": assembled_prompt,
         "system_prompt": system_prompt,
         "llm_response": llm_response,
@@ -211,7 +229,9 @@ def execute(
         "provider_status": provider_status,
         "fallback_used": fallback_used,
         "ram_profile": ram_profile,
+        "benchmark_profile": ram_profile,
         "token_profile": tprofile,
         "execution_mode": execution_mode,
+        "memory_warning": memory_warning,
         "warnings": warnings,
     }

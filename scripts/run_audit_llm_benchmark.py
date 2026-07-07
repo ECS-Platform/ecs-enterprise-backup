@@ -12,11 +12,20 @@ SAFETY:
     provider (config/llm.yaml -> Ollama). If the LLM is unavailable it falls back
     to the deterministic result (never crashes).
 
-USAGE:
-  python scripts/run_audit_llm_benchmark.py --ram-profile local_16gb_safe --dry-run
+USAGE (both flag styles are accepted):
+  # Task-standard form (--profile + --mode dry_run|live):
+  python scripts/run_audit_llm_benchmark.py --profile local_16gb_safe --mode dry_run
+  python scripts/run_audit_llm_benchmark.py --profile local_16gb_safe --mode live
+  python scripts/run_audit_llm_benchmark.py --profile local_20gb_extended --mode dry_run
+  python scripts/run_audit_llm_benchmark.py --profile local_20gb_extended --mode live
+  # Legacy/equivalent form (--ram-profile + --dry-run/--execute):
   python scripts/run_audit_llm_benchmark.py --ram-profile local_20gb_extended --all --dry-run
   python scripts/run_audit_llm_benchmark.py --prompt observation_count --execute
   python scripts/run_audit_llm_benchmark.py --category executive --dry-run --json
+
+Only two RAM profiles are supported for local laptops (16 GB, 20 GB), plus a
+no-LLM ``worst_case_enterprise_dry_run`` helper. ``--mode live`` == ``--execute``;
+``--mode dry_run`` == ``--dry-run`` (the default).
 """
 
 from __future__ import annotations
@@ -36,20 +45,34 @@ if str(ROOT) not in sys.path:
 
 
 def main(argv=None) -> int:
+    _PROFILE_CHOICES = ["local_16gb_safe", "local_20gb_extended", "worst_case_enterprise_dry_run"]
     parser = argparse.ArgumentParser(description="Run ECS audit LLM benchmarks (local).")
-    parser.add_argument("--ram-profile", default="local_16gb_safe",
-                        choices=["local_16gb_safe", "local_20gb_extended", "worst_case_enterprise_dry_run"])
+    # Task-standard aliases. --profile mirrors --ram-profile; --mode mirrors
+    # --execute/--dry-run. Both styles are accepted (default profile 16 GB safe).
+    parser.add_argument("--profile", "--ram-profile", dest="ram_profile",
+                        default="local_16gb_safe", choices=_PROFILE_CHOICES,
+                        help="RAM/benchmark profile (16 GB, 20 GB, or dry-run helper).")
+    parser.add_argument("--mode", choices=["dry_run", "live"], default=None,
+                        help="dry_run = token estimate only (default); live = call the local LLM.")
     parser.add_argument("--token-profile", default="",
                         help="Override token profile (small_4k/medium_8k/large_16k/extended_20k/worst_case_enterprise_dry_run).")
     parser.add_argument("--prompt", action="append", default=[], help="prompt_id (repeatable).")
     parser.add_argument("--category", default="", help="Run all prompts in a category.")
     parser.add_argument("--all", action="store_true", help="Run all prompts.")
-    parser.add_argument("--execute", action="store_true", help="Actually call the LLM (default is dry-run).")
+    parser.add_argument("--execute", action="store_true", help="Actually call the LLM (== --mode live).")
     parser.add_argument("--dry-run", action="store_true", default=False,
-                        help="Token-estimate only, no LLM call (this is the default unless --execute).")
+                        help="Token-estimate only, no LLM call (== --mode dry_run; the default).")
     parser.add_argument("--json", action="store_true", help="Print JSON summary to stdout.")
     parser.add_argument("--no-export", action="store_true", help="Do not write report files.")
     args = parser.parse_args(argv)
+
+    # Resolve execution mode: --mode wins if given, else fall back to --execute.
+    if args.mode == "live":
+        execute = True
+    elif args.mode == "dry_run":
+        execute = False
+    else:
+        execute = args.execute
 
     from modules.audit_intelligence.llm import benchmark_runner as br
 
@@ -59,7 +82,7 @@ def main(argv=None) -> int:
         all_prompts=args.all,
         ram_profile=args.ram_profile,
         token_profile=args.token_profile,
-        dry_run=not args.execute,
+        dry_run=not execute,
     )
 
     written = {} if args.no_export else br.export_report(report)

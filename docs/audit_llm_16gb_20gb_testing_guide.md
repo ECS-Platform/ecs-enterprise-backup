@@ -34,11 +34,22 @@ selected 16K dry-run or low-load testing, concurrency 1, low-memory-pressure run
 **Avoid:** running a large local model **plus** a heavy Docker stack; 20K prompt
 execution (blocked); concurrency above 1.
 
+> **Command styles.** The runner accepts two equivalent flag styles:
+> `--profile <p> --mode dry_run|live` (task-standard) **or**
+> `--ram-profile <p> --dry-run|--execute` (legacy). `--mode live` == `--execute`;
+> `--mode dry_run` == `--dry-run` (default). Task-standard quick form:
+>
+> ```bash
+> python scripts/run_audit_llm_benchmark.py --profile local_16gb_safe --mode dry_run
+> python scripts/run_audit_llm_benchmark.py --profile local_16gb_safe --mode live
+> ```
+
 ```bash
 # 1. Validate the library + pipeline (no LLM):
 PYTHONPATH=. pytest tests/test_audit_llm_workbench.py -q
 
-# 2. Dry-run all prompts (token estimates only, no model load):
+# 2. Dry-run all prompts (token estimates only, no model load) — both styles:
+PYTHONPATH=. python scripts/run_audit_llm_benchmark.py --profile local_16gb_safe --mode dry_run --all
 PYTHONPATH=. python scripts/run_audit_llm_benchmark.py \
   --ram-profile local_16gb_safe --all --dry-run
 
@@ -66,7 +77,11 @@ local model at the same time; keep concurrency at 1; prefer small/medium models 
 generation.
 
 ```bash
-# Dry-run all prompts:
+# Task-standard form (dry-run / live):
+PYTHONPATH=. python scripts/run_audit_llm_benchmark.py --profile local_20gb_extended --mode dry_run
+PYTHONPATH=. python scripts/run_audit_llm_benchmark.py --profile local_20gb_extended --mode live
+
+# Dry-run all prompts (legacy flags):
 PYTHONPATH=. python scripts/run_audit_llm_benchmark.py \
   --ram-profile local_20gb_extended --all --dry-run
 

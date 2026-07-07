@@ -87,11 +87,20 @@ provider_model, use_rag)` returns:
 
 ```
 query, prompt_id, query_type, classification, entities,
-deterministic_result, assembled_prompt, system_prompt, llm_response,
-confidence, assumptions, limitations, source_references, rag_used,
+deterministic_result, evidence_context, assembled_prompt, system_prompt,
+llm_response, confidence, assumptions, limitations, source_references, rag_used,
 token_estimate, latency_ms, provider_status, fallback_used,
-ram_profile, token_profile, execution_mode, warnings
+ram_profile, benchmark_profile, token_profile, execution_mode,
+memory_warning, warnings
 ```
+
+The API contract surfaces these by name: `prompt_id, query_type,
+deterministic_result, evidence_context, llm_response, provider_status,
+fallback_used, token_estimate, latency_ms, benchmark_profile, memory_warning,
+assumptions, limitations, source_references`. (`benchmark_profile` mirrors
+`ram_profile`; `evidence_context` bundles the deterministic result + RAG/source
+references; `memory_warning` is the extracted memory/swap warning, falling back to
+the profile's static guidance.)
 
 Dry-run RAM profile → no LLM call. `llm_assisted` → confidence/assumptions/
 limitations scaffolded and enforced by the analytical system prompt.
