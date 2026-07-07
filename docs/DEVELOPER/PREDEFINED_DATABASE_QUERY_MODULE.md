@@ -2,10 +2,14 @@
 
 **Applies to branch:** `cursor/predefined-queries-module`
 **Scope:** Predefined read-only checks for databases (PostgreSQL, YugabyteDB/YSQL,
-Aurora MySQL, Oracle, SQL Server, MongoDB), middleware/OS (NGINX, Apache HTTPD,
-Tomcat, Redis, Linux, Red Hat Enterprise Linux 8.x/9.x), and container platforms
-(Kubernetes, OpenShift). Also includes ServiceNow CMDB and Archer integration
-skeletons.
+Aurora MySQL, Oracle, SQL Server, MongoDB, Aerospike), middleware/OS (NGINX,
+Apache HTTPD, Tomcat, Redis, Linux, Red Hat Enterprise Linux 8.x/9.x), and
+container platforms (Kubernetes, OpenShift). Also includes ServiceNow CMDB and
+Archer integration skeletons.
+
+> **Aerospike:** local testing, the 20 `ASX-*` queries, run-query behaviour, and
+> the "why isn't my technology in the dropdown?" troubleshooting are documented in
+> [AEROSPIKE_LOCAL_TESTING_GUIDE.md](AEROSPIKE_LOCAL_TESTING_GUIDE.md).
 
 ---
 
