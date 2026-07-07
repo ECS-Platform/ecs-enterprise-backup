@@ -91,10 +91,10 @@ def test_no_duplicate_ids():
     assert not dupes, f"duplicate ids: {dupes}"
 
 
-def test_total_is_167():
+def test_total_is_187():
     rep = engine.load_predefined_queries(force=True)
-    # 37 Excel + 130 supplementary (68 prior + 62 new)
-    assert rep["controls_loaded"] == 167
+    # 37 Excel + 150 supplementary (130 prior + 20 Aerospike ASX-001..020)
+    assert rep["controls_loaded"] == 187
 
 
 def test_prior_controls_intact():

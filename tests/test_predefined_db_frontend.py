@@ -113,9 +113,10 @@ def test_page_renders_run_query_for_supplementary():
 def test_page_shows_total_controls():
     r = client.get(f"/mvp/predefined-queries?{Q}")
     assert r.status_code == 200
-    # 37 Excel + 130 supplementary = 167 after the extended technology expansion
-    # (Redis/Apache/Tomcat/SQL Server/MongoDB/Kubernetes/OpenShift).
-    assert "of 167 controls" in r.text
+    # 37 Excel + 150 supplementary = 187 after adding Aerospike (ASX-001..020) to
+    # the extended technology expansion (Redis/Apache/Tomcat/SQL Server/MongoDB/
+    # Kubernetes/OpenShift + Aerospike).
+    assert "of 187 controls" in r.text
 
 
 def test_page_disables_run_for_config_required():
