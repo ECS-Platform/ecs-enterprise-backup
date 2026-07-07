@@ -26,6 +26,7 @@ capability claims are cited to source files. Forward-looking content is tagged *
 
 | Area | Single Source of Truth |
 |------|----------|
+| Product User Manual (task/audience-oriented) | [PRODUCT/ECS_PRODUCT_USER_MANUAL.md](PRODUCT/ECS_PRODUCT_USER_MANUAL.md) |
 | Use Case Registry (unified index) | [PRODUCT/ECS_MASTER_USE_CASE_REGISTRY.md](PRODUCT/ECS_MASTER_USE_CASE_REGISTRY.md) |
 | Use Cases + AI/LLM/Integration | [AI/ECS_MASTER_USE_CASE_AND_LLM_REFERENCE.md](AI/ECS_MASTER_USE_CASE_AND_LLM_REFERENCE.md) |
 | LLM Implementation Matrix / Roadmap | [AI/ECS_LLM_IMPLEMENTATION_MATRIX.md](AI/ECS_LLM_IMPLEMENTATION_MATRIX.md) · [AI/ECS_LLM_IMPLEMENTATION_ROADMAP.md](AI/ECS_LLM_IMPLEMENTATION_ROADMAP.md) |
@@ -85,6 +86,9 @@ Documentation-only program (no code/UI/DB changes). All facts grounded in reposi
 
 ## How to read this package
 
+- **New developers:** start with [DEVELOPER/ECS_DEVELOPER_ONBOARDING_GUIDE.md](DEVELOPER/ECS_DEVELOPER_ONBOARDING_GUIDE.md)
+  (comprehensive onboarding hub), then [DEVELOPER/README_DEVELOPER.md](DEVELOPER/README_DEVELOPER.md)
+  and [DEVELOPER_SETUP_GUIDE.md](DEVELOPER_SETUP_GUIDE.md) for setup.
 - **Executives / leadership:** start with #7 (Dossier), then #1 (Architecture Review).
 - **Architects:** #1 → #2 (HLD) → #6 (Deployment).
 - **Engineers:** #3 (LLD) → #4 (ER) → #5 (Sequences).

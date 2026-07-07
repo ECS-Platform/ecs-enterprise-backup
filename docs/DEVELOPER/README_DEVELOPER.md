@@ -4,6 +4,10 @@ Entry point for any new developer on the **Evidence Collection System (ECS)**.
 Follow this top-to-bottom to get a working local environment and run the
 predefined database query module.
 
+> **Want the full picture (architecture, workflow, extending, troubleshooting)?**
+> See the comprehensive [ECS_DEVELOPER_ONBOARDING_GUIDE.md](ECS_DEVELOPER_ONBOARDING_GUIDE.md).
+> This README remains the fast "get it running" checklist.
+>
 > Deep-dive for the database query module: [PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md).
 >
 > Audit-intelligence layer:
