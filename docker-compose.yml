@@ -142,6 +142,25 @@ services:
     restart: unless-stopped
 
   # ============================================================
+  # Aerospike demo target (opt-in; profiles "aerospike" / "demo").
+  # Additive: NOT started by default. Host ports are configurable and default to
+  # the 13000 range because host port 3000 is already taken by Gitea locally.
+  #   docker compose --profile aerospike up -d aerospike
+  # ECS reaches it via AEROSPIKE_HOST=localhost AEROSPIKE_PORT=13000 (namespace
+  # "test"). No credentials are set for the demo (security is OFF by default in
+  # the community image); real UAT credentials come from env, never from here.
+  # ============================================================
+  aerospike:
+    image: aerospike/aerospike-server:latest
+    container_name: ecs-aerospike
+    profiles: ["aerospike", "demo"]
+    ports:
+      - "${AEROSPIKE_HOST_PORT:-13000}:3000"       # client service (NOT 3000: Gitea uses it)
+      - "${AEROSPIKE_FABRIC_PORT:-13001}:3001"     # fabric
+      - "${AEROSPIKE_HEARTBEAT_PORT:-13002}:3002"  # heartbeat
+    restart: unless-stopped
+
+  # ============================================================
   # Predefined-query INFRASTRUCTURE demo targets (opt-in; profiles below).
   # Lightweight (NGINX + RHEL UBI) — safe on 8 GB. Start with e.g.:
   #   docker compose --profile nginx-demo --profile rhel-demo up -d \
