@@ -1,0 +1,171 @@
+# =============================================================================
+# ECS UAT Asset Inventory — TEMPLATE (placeholders only)
+# =============================================================================
+# Copy this file to a git-ignored local file (e.g. config/uat_assets.uat.yaml)
+# and fill in real UAT values THERE. Never commit real hosts/IPs/secrets.
+#
+#   cp config/uat_assets.template.yaml config/uat_assets.uat.yaml
+#   # edit config/uat_assets.uat.yaml with real UAT hostnames (kept out of Git)
+#   python scripts/run_uat_asset_scheduler.py --config config/uat_assets.uat.yaml --dry-run
+#
+# SAFETY:
+#   * Hostnames use ${VAR:-placeholder} so the real value comes from an env var
+#     (or a git-ignored file), never from this template.
+#   * Secrets/credentials NEVER live here — connectors read them from env /
+#     secret manager (ECS_* variables). This file only describes ASSETS.
+#   * No real IPs, tenant IDs, or bank values.
+#
+# The scheduler classifies technology + routes each asset to a baseline
+# predefined-query collector or an existing enterprise connector.
+# =============================================================================
+
+environment: "${ECS_ENV:-uat}"
+
+assets:
+  # ---- Databases (baseline predefined-query collectors) ----------------------
+  - asset_id: uat-oracle-01
+    hostname: "${ECS_UAT_ORACLE_HOST:-<oracle-host-placeholder>}"
+    technology: Oracle
+    environment: UAT
+    application: "${ECS_UAT_ORACLE_APP:-<application-placeholder>}"
+    owner: "<db-team-placeholder>"
+    ports: ["1521"]
+    criticality: High
+
+  - asset_id: uat-postgres-01
+    hostname: "${ECS_UAT_PG_HOST:-<postgres-host-placeholder>}"
+    technology: PostgreSQL
+    environment: UAT
+    application: "<application-placeholder>"
+    owner: "<db-team-placeholder>"
+    ports: ["5432"]
+    criticality: High
+
+  - asset_id: uat-sqlserver-01
+    hostname: "${ECS_UAT_SQLSERVER_HOST:-<sqlserver-host-placeholder>}"
+    technology: SQL Server
+    environment: UAT
+    application: "<application-placeholder>"
+    owner: "<db-team-placeholder>"
+    ports: ["1433"]
+    criticality: High
+
+  # ---- OS / middleware (baseline predefined-query collectors) ----------------
+  - asset_id: uat-rhel-01
+    hostname: "${ECS_UAT_LINUX_HOST:-<linux-host-placeholder>}"
+    technology: Red Hat Enterprise Linux 9.x
+    environment: UAT
+    application: "<application-placeholder>"
+    owner: "<infra-team-placeholder>"
+    operating_system: RHEL 9
+    criticality: Medium
+
+  - asset_id: uat-nginx-01
+    hostname: "${ECS_UAT_NGINX_HOST:-<nginx-host-placeholder>}"
+    technology: NGINX
+    environment: UAT
+    application: "<application-placeholder>"
+    owner: "<infra-team-placeholder>"
+    ports: ["443"]
+    criticality: Medium
+
+  - asset_id: uat-tomcat-01
+    hostname: "${ECS_UAT_TOMCAT_HOST:-<tomcat-host-placeholder>}"
+    technology: Tomcat
+    environment: UAT
+    application: "<application-placeholder>"
+    owner: "<app-team-placeholder>"
+    ports: ["8443"]
+    criticality: Medium
+
+  # ---- Enterprise connector assets (routed to existing adapters) -------------
+  # These describe WHICH systems to collect from; credentials come from ECS_*
+  # env vars / the secret manager, never from this file.
+  - asset_id: uat-sonarqube
+    hostname: "${ECS_UAT_SONARQUBE_HOST:-<sonarqube-host-placeholder>}"
+    asset_type: sonarqube
+    technology: SonarQube
+    environment: UAT
+    application: "AppSec Quality Gates"
+    owner: "<appsec-team-placeholder>"
+    criticality: Medium
+
+  - asset_id: uat-checkmarx
+    hostname: "${ECS_UAT_CHECKMARX_HOST:-<checkmarx-host-placeholder>}"
+    asset_type: checkmarx
+    environment: UAT
+    application: "SAST"
+    owner: "<appsec-team-placeholder>"
+    criticality: Medium
+
+  - asset_id: uat-prisma-cloud
+    hostname: "${ECS_UAT_PRISMA_HOST:-<prisma-host-placeholder>}"
+    asset_type: prisma_cloud
+    environment: UAT
+    application: "Cloud Security Posture"
+    owner: "<cloudsec-team-placeholder>"
+    criticality: Medium
+
+  - asset_id: uat-sharepoint-evidence
+    hostname: "${ECS_UAT_SHAREPOINT_SITE:-<sharepoint-site-placeholder>}"
+    asset_type: sharepoint
+    environment: UAT
+    application: "Evidence Library"
+    owner: "<grc-team-placeholder>"
+    criticality: Medium
+
+  - asset_id: uat-teams-governance
+    hostname: "${ECS_UAT_TEAMS_ID:-<teams-id-placeholder>}"
+    asset_type: teams
+    environment: UAT
+    application: "Governance Channel"
+    owner: "<grc-team-placeholder>"
+    criticality: Low
+
+  - asset_id: uat-outlook-mailbox
+    hostname: "${ECS_UAT_OUTLOOK_USER:-<outlook-user-placeholder>}"
+    asset_type: outlook
+    environment: UAT
+    application: "Approvals Mailbox"
+    owner: "<grc-team-placeholder>"
+    criticality: Low
+
+  - asset_id: uat-jira-change
+    hostname: "${ECS_UAT_JIRA_HOST:-<jira-host-placeholder>}"
+    asset_type: jira
+    environment: UAT
+    application: "Change Management"
+    owner: "<grc-team-placeholder>"
+    criticality: Low
+
+  - asset_id: uat-confluence-controls
+    hostname: "${ECS_UAT_CONFLUENCE_HOST:-<confluence-host-placeholder>}"
+    asset_type: confluence
+    environment: UAT
+    application: "Control Documentation"
+    owner: "<grc-team-placeholder>"
+    criticality: Low
+
+  - asset_id: uat-servicenow-cmdb
+    hostname: "${ECS_UAT_SERVICENOW_HOST:-<servicenow-host-placeholder>}"
+    asset_type: servicenow
+    environment: UAT
+    application: "CMDB / Asset Source"
+    owner: "<itsm-team-placeholder>"
+    criticality: Medium
+
+  - asset_id: uat-archer-grc
+    hostname: "${ECS_UAT_ARCHER_HOST:-<archer-host-placeholder>}"
+    asset_type: archer
+    environment: UAT
+    application: "GRC Records"
+    owner: "<grc-team-placeholder>"
+    criticality: Low
+
+  - asset_id: uat-tripwire-fim
+    hostname: "${ECS_UAT_TRIPWIRE_HOST:-<tripwire-host-placeholder>}"
+    asset_type: tripwire
+    environment: UAT
+    application: "File Integrity Monitoring"
+    owner: "<infra-team-placeholder>"
+    criticality: Medium

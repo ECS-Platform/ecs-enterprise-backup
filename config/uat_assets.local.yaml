@@ -1,0 +1,110 @@
+# =============================================================================
+# ECS UAT Asset Inventory — LOCAL / MOCK
+# =============================================================================
+# Drives the asset-driven scheduler (scripts/run_uat_asset_scheduler.py).
+#
+# This file is SAFE for the demo and CI: it contains ONLY localhost / mock
+# assets. No real IPs, hostnames, tenant IDs, credentials, or bank values.
+#
+# The scheduler classifies each asset's technology (via the fingerprint engine)
+# and routes it to either a baseline predefined-query collector or an existing
+# enterprise connector. It NEVER opens a socket in --dry-run mode.
+#
+# Fields per asset (all optional except a stable identity):
+#   asset_id      - stable identifier
+#   hostname      - host/service name (used for fingerprinting)  [localhost only]
+#   technology    - optional explicit technology (else inferred from name/image/ports)
+#   asset_type    - optional connector hint (e.g. sharepoint, jira, sonarqube)
+#   environment   - free-text environment label
+#   application   - owning application
+#   owner         - team/owner (non-PII placeholder)
+#   image         - container image (helps fingerprinting)
+#   ports         - listening ports (helps fingerprinting)
+#   criticality   - Low | Medium | High
+# =============================================================================
+
+environment: local
+
+assets:
+  # ---- Baseline collectors (predefined-query technologies, localhost) --------
+  - asset_id: local-postgres
+    hostname: localhost-postgres
+    technology: PostgreSQL
+    environment: Local Demo
+    application: ECS Demo
+    owner: platform-demo
+    image: postgres:16
+    ports: ["127.0.0.1:5432:5432"]
+    criticality: Medium
+
+  - asset_id: local-nginx
+    hostname: localhost-nginx
+    technology: NGINX
+    environment: Local Demo
+    application: ECS Demo
+    owner: platform-demo
+    image: nginx:1.25
+    ports: ["127.0.0.1:8080:80"]
+    criticality: Low
+
+  - asset_id: local-redis
+    hostname: localhost-redis
+    environment: Local Demo
+    application: ECS Demo
+    owner: platform-demo
+    image: redis:7
+    ports: ["127.0.0.1:6379:6379"]
+    criticality: Low
+
+  - asset_id: local-linux-host
+    hostname: localhost-rhel9
+    technology: Red Hat Enterprise Linux 9.x
+    environment: Local Demo
+    application: ECS Demo
+    owner: platform-demo
+    operating_system: RHEL 9
+    criticality: Medium
+
+  # ---- Enterprise connector assets (mock; config-only routing, no live calls) -
+  - asset_id: local-sonarqube
+    hostname: localhost-sonarqube
+    asset_type: sonarqube
+    technology: SonarQube
+    environment: Local Demo
+    application: ECS AppSec Demo
+    owner: appsec-demo
+    image: sonarqube:community
+    ports: ["127.0.0.1:9000:9000"]
+    criticality: Medium
+
+  - asset_id: local-sharepoint-evidence
+    hostname: localhost-sharepoint-mock
+    asset_type: sharepoint
+    environment: Local Demo
+    application: Evidence Library (mock)
+    owner: grc-demo
+    criticality: Low
+
+  - asset_id: local-jira-project
+    hostname: localhost-jira-mock
+    asset_type: jira
+    environment: Local Demo
+    application: Change Management (mock)
+    owner: grc-demo
+    criticality: Low
+
+  - asset_id: local-servicenow-cmdb
+    hostname: localhost-servicenow-mock
+    asset_type: servicenow
+    environment: Local Demo
+    application: CMDB (mock)
+    owner: grc-demo
+    criticality: Low
+
+  # ---- Deliberately unsupported (exercises the fallback path) -----------------
+  - asset_id: local-unknown-widget
+    hostname: localhost-mystery-box
+    environment: Local Demo
+    application: Unknown Appliance (mock)
+    owner: platform-demo
+    criticality: Low
