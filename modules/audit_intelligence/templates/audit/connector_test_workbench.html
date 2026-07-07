@@ -70,6 +70,17 @@
           (no network, no secrets). Provide real credentials via <code>.env.uat</code>
           / a secret manager for live collection.
         </p>
+
+        <hr class="my-2">
+        <h6 class="text-uppercase text-muted" style="font-size:.72rem;letter-spacing:.03em;">Evidence intelligence</h6>
+        <div class="d-grid gap-2">
+          <button class="btn btn-outline-dark btn-sm btn-cw" data-url="/api/evidence/completeness?role=owner" data-method="GET">Evidence completeness</button>
+          <button class="btn btn-outline-dark btn-sm btn-cw" data-url="/api/evidence/quality" data-method="GET">Evidence quality (repo)</button>
+        </div>
+        <p class="text-muted mt-2" style="font-size:.72rem;">
+          Batch 2 read-only reports over real repository data (completeness %,
+          composite quality score). Collected connector evidence appears here.
+        </p>
       </div>
     </div>
 
@@ -98,7 +109,10 @@
     <code>GET /api/connectors/{name}/config-status</code>,
     <code>POST /api/connectors/{name}/health-check</code>,
     <code>POST /api/connectors/{name}/dry-run</code>,
-    <code>POST /api/connectors/{name}/parser-test</code>.
+    <code>POST /api/connectors/{name}/parser-test</code>,
+    <code>POST /api/connectors/{name}/collect</code> (flag-gated),
+    <code>GET /api/evidence/completeness</code>,
+    <code>GET /api/evidence/quality</code>.
   </p>
 </div>
 
@@ -129,6 +143,31 @@
 
   connectorSel.addEventListener("change", refreshConfigBadge);
   refreshConfigBadge();
+
+  // Batch 2 evidence-intelligence actions (absolute URL, connector-independent).
+  document.querySelectorAll("button[data-url]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var url = btn.getAttribute("data-url");
+      var method = btn.getAttribute("data-method") || "GET";
+      setStatus("running…", "cw-warn");
+      errorEl.style.display = "none";
+      summaryEl.style.display = "none";
+      outputEl.textContent = method + " " + url + " …";
+      fetch(url, { method: method, headers: { "Accept": "application/json" } })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+        .then(function (res) {
+          var b = res.body || {};
+          outputEl.textContent = JSON.stringify(b, null, 2);
+          var good = res.ok && (b.ok !== false);
+          setStatus(good ? "ok" : "error", good ? "cw-ok" : "cw-err");
+        })
+        .catch(function (e) {
+          setStatus("error", "cw-err");
+          errorEl.style.display = "";
+          errorEl.textContent = "Request failed: " + e;
+        });
+    });
+  });
 
   document.querySelectorAll("button[data-action]").forEach(function (btn) {
     btn.addEventListener("click", function () {

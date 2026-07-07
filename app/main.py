@@ -182,6 +182,36 @@ async def ecs_lifespan(application: FastAPI):
     except Exception as exc:  # noqa: BLE001
         ecs_logging.info("ECSPlatform", f"Observation hydration skipped: {exc}")
 
+    # Durable audit-intelligence persistence (flag-gated, best-effort). The audit
+    # runs/validation/observation/evidence/pack store defaults to in-memory; when
+    # AUDIT_WORKFLOW_ENABLED is on we install the SQL backend so it survives across
+    # a run (file-backed SQLite when ECS_AUDIT_DB_PATH is set; Postgres when a DSN
+    # is configured). No-op when the flag is off -> in-memory demo mode unchanged.
+    # Never blocks startup. (Closes the gap where set_persistence was test-only.)
+    try:
+        from app.audit.workflow import workflow_audit_enabled
+
+        if workflow_audit_enabled():
+            import os as _os
+
+            from modules.audit_intelligence.services.persistence import set_persistence
+            from modules.audit_intelligence.services.sql_persistence import (
+                SqlAuditPersistence, sqlite_file_factory,
+            )
+
+            db_path = str(_os.environ.get("ECS_AUDIT_DB_PATH", "")).strip()
+            if db_path:
+                backend = SqlAuditPersistence(sqlite_file_factory(db_path))
+                _where = f"sqlite file ({db_path})"
+            else:
+                backend = SqlAuditPersistence()  # shared in-memory SQLite
+                _where = "in-memory sqlite"
+            set_persistence(backend)
+            ecs_logging.info("ECSPlatform",
+                             f"Durable audit persistence installed: {_where}")
+    except Exception as exc:  # noqa: BLE001 - never block startup on persistence
+        ecs_logging.info("ECSPlatform", f"Durable audit persistence skipped: {exc}")
+
     # LLM-RAG startup validation (non-fatal): report whether Gemini is configured
     # and reachable, plus how much of the repository is indexed. Secrets never logged.
     try:
@@ -233,6 +263,32 @@ async def _no_cache_html(request, call_next):
     return response
 
 
+# Request-ID / correlation middleware (production hardening). Sets
+# ``request.state.request_id`` — the exact field the audit workflow layer already
+# looks for (app/audit/workflow.py::_request_id) — and echoes it back on every
+# response as ``X-Request-ID`` so operators can correlate logs/audit rows without
+# exposing internals. Reuses an inbound X-Request-ID header when the caller
+# supplies a valid one; otherwise generates a fresh id. Never raises.
+@app.middleware("http")
+async def _request_id_mw(request, call_next):
+    from app.audit.service import new_request_id
+
+    incoming = request.headers.get("X-Request-ID", "")
+    # Accept a caller-supplied id only if it is short + safe (avoid header abuse).
+    rid = incoming if (0 < len(incoming) <= 100 and incoming.replace("-", "").isalnum()) \
+        else new_request_id()
+    try:
+        request.state.request_id = rid
+    except Exception:  # noqa: BLE001 - state must never break the request
+        pass
+    response = await call_next(request)
+    try:
+        response.headers["X-Request-ID"] = rid
+    except Exception:  # noqa: BLE001
+        pass
+    return response
+
+
 app.mount("/static/ecs", StaticFiles(directory="modules/shared/static"), name="ecs_static")
 
 # ---- Phase 1: Authentication foundation (Azure AD / OIDC / JWT) ----
@@ -254,6 +310,68 @@ async def _auth_exception_handler(request: Request, exc: _AuthError):
         status_code=exc.http_status,
         headers=headers,
     )
+
+
+def _debug_errors_enabled() -> bool:
+    """Expose exception detail only in demo/dev — never in strict/prod envs."""
+    import os as _os
+
+    if str(_os.environ.get("ECS_DEBUG_ERRORS", "")).strip().lower() in ("1", "true", "yes", "on"):
+        return True
+    env = str(_os.environ.get("ECS_ENV", "")).strip().lower()
+    if env in ("sit", "uat", "prod", "production"):
+        return False
+    try:
+        from app.auth.demo import demo_mode
+        return bool(demo_mode())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+@app.exception_handler(Exception)
+async def _global_exception_handler(request: Request, exc: Exception):
+    """Catch-all safe JSON error handler (production hardening).
+
+    Guarantees a consistent, traceable error envelope for unhandled exceptions:
+      * always includes the ``request_id`` (also echoed as ``X-Request-ID``) so a
+        failure can be correlated with logs/audit rows,
+      * NEVER leaks a stack trace or exception message in strict/prod mode — only
+        the exception *type* plus the request id,
+      * surfaces the detail ONLY in demo/dev (or when ECS_DEBUG_ERRORS is set).
+    Starlette HTTPException is re-raised so FastAPI's normal 404/4xx handling and
+    the dedicated auth handler above are unaffected.
+    """
+    from starlette.exceptions import HTTPException as _StarletteHTTPException
+
+    if isinstance(exc, _StarletteHTTPException):
+        raise exc
+
+    rid = ""
+    try:
+        rid = str(getattr(request.state, "request_id", "")) or ""
+    except Exception:  # noqa: BLE001
+        rid = ""
+
+    body = {
+        "ok": False,
+        "error": "internal_error",
+        "message": "An internal error occurred.",
+        "request_id": rid,
+    }
+    if _debug_errors_enabled():
+        body["detail"] = f"{type(exc).__name__}: {exc}"
+    else:
+        # Safe: only the exception type, never its message/args.
+        body["type"] = type(exc).__name__
+
+    try:
+        ecs_logging.error("ECSError",
+                          f"unhandled {type(exc).__name__} on {request.method} "
+                          f"{request.url.path} [request_id={rid}]")
+    except Exception:  # noqa: BLE001
+        pass
+    return _JSONResponse(body, status_code=500,
+                         headers={"X-Request-ID": rid} if rid else {})
 
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 

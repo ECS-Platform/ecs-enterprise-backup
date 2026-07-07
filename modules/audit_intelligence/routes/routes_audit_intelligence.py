@@ -832,6 +832,112 @@ def register_audit_intelligence_routes(app) -> None:
         )
 
     # ==================================================================== #
+    # Batch 2 — thin REST wiring over EXISTING engines (no new engines):
+    #   * Evidence completeness  -> governance_completeness_engine
+    #   * Evidence quality score  -> app.evidence_analytics.quality (Phase 5.5)
+    # Real repository data is used where the engine consumes it; deterministic
+    # seed/demo remains as a fallback only. Read-only; never raises (via _safe).
+    # ==================================================================== #
+    @app.get("/api/evidence/completeness")
+    @_safe
+    def api_evidence_completeness(framework: str = "All Frameworks",
+                                  application: str = "All Applications",
+                                  risk: str = "All Risk", role: str = "owner"):
+        """Evidence/control completeness report (KPIs, gaps, missing evidence).
+
+        Reuses ``governance_completeness_engine.build_completeness_dashboard`` —
+        the same engine the ``/mvp/completeness`` page renders — so the REST view
+        and UI stay consistent. Completeness % is derived from real evidence
+        upload/approval states + control implementation.
+        """
+        from modules.governance.engines.governance_completeness_engine import (
+            build_completeness_dashboard,
+        )
+
+        data = build_completeness_dashboard(
+            framework=framework, application=application, risk=risk, role=role,
+        )
+        return _ok(
+            completeness_pct=data.get("completeness_pct"),
+            kpis=data.get("kpis", []),
+            framework_summaries=data.get("framework_summaries", []),
+            gap_rows=data.get("gap_rows", []),
+            missing_evidence_rows=data.get("missing_evidence_rows", []),
+            upload_kpis=data.get("upload_kpis", {}),
+            filters={"framework": framework, "application": application, "risk": risk},
+        )
+
+    def _artifact_to_quality_input(art: Any) -> dict[str, Any]:
+        """Map a repository EvidenceArtifact onto the quality engine's input shape."""
+        d = art.to_dict() if hasattr(art, "to_dict") else dict(art)
+        fws = d.get("frameworks") or []
+        return {
+            "evidence_id": d.get("evidence_key", ""),
+            "control_id": d.get("control_id", ""),
+            "source_system": d.get("source", ""),
+            "version_count": d.get("version", 1),
+            "url": d.get("filename", ""),
+            "frameworks": fws,
+            "_framework": fws[0] if fws else "",
+        }
+
+    @app.get("/api/evidence/{evidence_key}/quality")
+    @_safe
+    def api_evidence_quality_one(evidence_key: str):
+        """Composite quality score (0-100 + band + dimensions) for one evidence item.
+
+        Reuses ``app.evidence_analytics.quality.assess_quality`` over the REAL
+        audit-intelligence repository record (latest version). ``force=True`` so
+        the score is always computed even when the sufficiency flag is off.
+        """
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+        from app.evidence_analytics.quality import assess_quality
+
+        art = ai_repo.get_latest(evidence_key)
+        if art is None:
+            return _err(f"Unknown evidence: {evidence_key}", status=404)
+        inp = _artifact_to_quality_input(art)
+        report = assess_quality(inp, framework=inp.get("_framework", ""), force=True)
+        return _ok(report.to_dict())
+
+    @app.get("/api/evidence/quality")
+    @_safe
+    def api_evidence_quality_summary(technology: str = "", framework: str = "",
+                                     limit: str = _DEFAULT_LIMIT_STR,
+                                     offset: str = _DEFAULT_OFFSET_STR):
+        """Repository-wide evidence quality summary (band distribution + rows).
+
+        Scores every latest evidence artifact via the Phase 5.5 quality engine
+        (real repository data). Bounded/paginated; deterministic; fail-safe.
+        """
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+        from app.evidence_analytics.quality import assess_quality
+
+        arts = ai_repo.search(technology=technology, framework=framework, latest_only=True)
+        page, meta = _paginate(arts, limit, offset)
+        rows: list[dict[str, Any]] = []
+        bands = {"Green": 0, "Amber": 0, "Red": 0}
+        scores: list[float] = []
+        for art in page:
+            inp = _artifact_to_quality_input(art)
+            rep = assess_quality(inp, framework=inp.get("_framework", ""), force=True)
+            rd = rep.to_dict()
+            rows.append(rd)
+            band = str(rd.get("band", "")).title()
+            if band in bands:
+                bands[band] += 1
+            if rd.get("enabled"):
+                scores.append(float(rd.get("score", 0)))
+        avg = round(sum(scores) / len(scores), 1) if scores else 0.0
+        return _ok(
+            average_score=avg,
+            band_distribution=bands,
+            scored=len(rows),
+            rows=rows,
+            page=meta,
+        )
+
+    # ==================================================================== #
     # UC6 — ECS Admin: users, roles, applications. Roles are read-only from
     # the canonical catalog; users are a non-secret admin registry. Mutations
     # are RBAC-guarded (platform admins only) via the existing predicates.

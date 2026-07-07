@@ -1,27 +1,37 @@
-fastapi
-uvicorn
-jinja2
-python-multipart
-openpyxl
-# PostgreSQL + YugabyteDB (YSQL, PostgreSQL-wire) predefined-query connector
-psycopg2-binary
-# Aurora MySQL / MySQL 8 predefined-query connector (pure-Python driver)
-PyMySQL
+# ECS runtime dependencies.
+# Core packages pin a MINIMUM version (>=) to the versions validated in this repo
+# (known-good: app boots + full test suite green) for reproducibility, without
+# hard-locking (==) which would break environments that already have compatible
+# newer builds. Optional/heavy DB drivers stay looser (installed on demand) and
+# the connectors degrade gracefully when a driver is absent.
+
+# --- Web framework + server (core) ---
+fastapi>=0.136.1
+uvicorn>=0.46.0
+jinja2>=3.1.6
+python-multipart>=0.0.28
+openpyxl>=3.1.5
+
+# --- PostgreSQL + YugabyteDB (YSQL, PostgreSQL-wire) predefined-query connector ---
+psycopg2-binary>=2.9.12
+# --- Aurora MySQL / MySQL 8 predefined-query connector (pure-Python driver) ---
+PyMySQL>=1.2.0
 # Oracle predefined-query connector (python-oracledb thin mode; no Instant Client
 # needed). Only required when running Oracle predefined queries; the connector
 # degrades gracefully to a friendly "driver not installed" message if absent.
-oracledb
+oracledb>=4.0.1
 # MongoDB predefined-query connector. Optional at runtime; the connector degrades
-# gracefully to "driver not installed" when absent.
+# gracefully to "driver not installed" when absent. Left unpinned (optional driver).
 pymongo
 # SQL Server predefined-query connector needs pyodbc + a system ODBC driver.
 # NOT listed here by default because pyodbc requires system ODBC headers to build
 # and SQL Server is an optional/heavy target. Install it explicitly when needed:
 #   pip install pyodbc   (plus the Microsoft ODBC Driver for SQL Server)
 # The connector degrades gracefully to a friendly message when pyodbc is absent.
-# Environment loading (.env -> os.environ) for demo-mode flags at startup
-python-dotenv
-# ECS platform foundation
-pyyaml
-# Authentication foundation (Phase 1: Azure AD / OIDC / JWT validation)
-pyjwt[crypto]
+
+# --- Environment loading (.env -> os.environ) for demo-mode flags at startup ---
+python-dotenv>=1.2.2
+# --- ECS platform foundation ---
+pyyaml>=6.0.3
+# --- Authentication foundation (Phase 1: Azure AD / OIDC / JWT validation) ---
+pyjwt[crypto]>=2.13.0

@@ -188,6 +188,46 @@ def test_collect_respects_max_items():
     assert res["ingested"] == 3
 
 
+# Representative connectors across auth models (Graph OAuth, SNOW, Basic, token,
+# access/secret key). Verifies the full chain end-to-end for each: fetch →
+# normalize → evidence repo (SHA-256) → audit-intelligence mirror.
+_REPRESENTATIVE = {
+    "sharepoint_graph": {"value": [
+        {"id": "1", "name": "policy.pdf", "size": 1024, "webUrl": "https://x/1",
+         "lastModifiedDateTime": "2026-01-01", "file": {"mimeType": "application/pdf"}}]},
+    "servicenow_cmdb": {"result": [
+        {"sys_id": "SNOW-1", "name": "srv-web-01",
+         "sys_class_name": "cmdb_ci_server", "ip_address": "10.0.0.10"}]},
+    "jira": {"values": [
+        {"key": "OPS", "id": "1", "name": "Operations", "projectTypeKey": "software"}]},
+    "sonarqube": {"components": [{"key": "proj", "name": "Proj", "qualifier": "TRK"}]},
+    "prisma_cloud": {"items": [
+        {"id": "a1", "policy": {"name": "S3 public", "severity": "high"},
+         "status": "open", "resource": {"name": "bucket", "cloudType": "aws"}}]},
+}
+
+
+@pytest.mark.parametrize("connector,payload", list(_REPRESENTATIVE.items()))
+def test_representative_connector_full_ingestion_chain(connector, payload):
+    from modules.audit_intelligence.engines import evidence_repository as ai_repo
+
+    # Unique framework per run avoids colliding with keys other tests created, so a
+    # brand-new evidence key is added (the repo versions on repeated identical keys).
+    fw = f"UAT-{connector.upper()}"
+    keys_before = {a.evidence_key for a in ai_repo.all_latest()}
+    res = ce.collect_evidence(connector, framework=fw, application="Net Banking",
+                              transport=_mock_transport(payload))
+    assert res["objects_fetched"] == 1
+    assert res["ingested"] == 1
+    # The collected object is present in the audit-intelligence repository.
+    keys_after = {a.evidence_key for a in ai_repo.all_latest()}
+    assert len(keys_after) >= len(keys_before)
+    assert any(connector in k for k in keys_after)  # mirrored into audit repo
+    rcpt = res["receipts"][0]
+    assert rcpt["sha256"]                     # SHA-256 computed
+    assert rcpt["audit_repository_synced"] is True
+
+
 # --------------------------------------------------------------------------- #
 # 4. Scheduler routing: connector jobs flow through the executor
 # --------------------------------------------------------------------------- #
