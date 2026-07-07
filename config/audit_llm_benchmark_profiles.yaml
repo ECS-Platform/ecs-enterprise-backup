@@ -1,0 +1,114 @@
+# =============================================================================
+# ECS Audit LLM — Local Benchmark Profiles
+# =============================================================================
+# RAM-aware benchmark profiles for testing audit LLM prompts on LOCAL laptops.
+# There is NO 28 GB machine — only 16 GB and 20 GB laptops exist. A dry-run
+# profile supports worst-case enterprise prompts via token estimation only.
+#
+# Config-driven: model names/URLs are NOT hardcoded here; they resolve from the
+# existing LLM layer (config/llm.yaml -> Ollama/local provider) and env vars.
+# `recommended_models` are guidance strings only (informational).
+#
+# Token profiles (see token_profiles) map to context-window budgets used by the
+# token estimator + provider (ECS_LLM_CONTEXT_WINDOW / benchmark config).
+# =============================================================================
+
+# Chars-per-token basis for the deterministic token estimator (matches the
+# existing benchmarks/ai_workload estimator).
+token_estimation:
+  chars_per_token: 4.0
+
+# Named token profiles -> target context budget (input+context) in tokens.
+token_profiles:
+  small_4k:
+    context_tokens: 4096
+    description: "Small prompts — safe on 16 GB and 20 GB."
+  medium_8k:
+    context_tokens: 8192
+    description: "Medium prompts — safe on 16 GB and 20 GB."
+  large_16k:
+    context_tokens: 16384
+    description: "Large prompts — 20 GB default; 16 GB only selected prompts, concurrency 1."
+  extended_20k:
+    context_tokens: 20480
+    description: "Extended prompts — 20 GB selected prompts only; NOT for 16 GB."
+  worst_case_enterprise_dry_run:
+    context_tokens: 20000
+    description: "Worst-case enterprise — token estimation / dry-run only."
+
+# --------------------------------------------------------------------------- #
+# Benchmark profiles (only these three exist).
+# --------------------------------------------------------------------------- #
+profiles:
+
+  local_16gb_safe:
+    label: "Local 16 GB — Safe"
+    ram_gb: 16
+    use_for:
+      - "4K prompts"
+      - "8K prompts"
+      - "limited 16K prompts (concurrency 1)"
+    max_context: 8192
+    optional_context: 16384
+    max_output_tokens: 1024          # conservative; 2048 allowed for short runs
+    max_output_tokens_optional: 2048
+    concurrency: 1
+    rpm: 1
+    timeout_seconds: 180
+    top_k: 5
+    execution_mode: llm              # llm | dry_run
+    allowed_token_profiles: ["small_4k", "medium_8k", "large_16k"]
+    # 16 GB must NOT be forced to run 20K prompts.
+    blocked_token_profiles: ["extended_20k"]
+    # Only selected token profiles may run at 16K on 16 GB (concurrency 1).
+    restricted_token_profiles: ["large_16k"]
+    memory_warning: >-
+      Avoid running a heavy Docker stack and a large local model at the same time.
+      Keep concurrency at 1. Prefer small/medium models for 16K prompts.
+    recommended_models:
+      - "lightweight local models supported by config/llm.yaml (e.g. small quantized chat models)"
+
+  local_20gb_extended:
+    label: "Local 20 GB — Extended"
+    ram_gb: 20
+    use_for:
+      - "4K prompts"
+      - "8K prompts"
+      - "16K prompts"
+      - "selected 20K prompts"
+    max_context: 16384
+    optional_context: 20480
+    max_output_tokens: 2048
+    concurrency: 1
+    optional_concurrency: 2          # only if stable after a baseline run
+    rpm: 1
+    timeout_seconds: 240
+    top_k: 8
+    execution_mode: llm
+    allowed_token_profiles: ["small_4k", "medium_8k", "large_16k", "extended_20k"]
+    blocked_token_profiles: []
+    restricted_token_profiles: ["extended_20k"]   # selected 20K prompts only
+    memory_warning: >-
+      Monitor swap usage and stop if memory pressure increases. Use concurrency 1;
+      raise to 2 only after a stable single-thread baseline. Prefer medium models.
+    recommended_models:
+      - "medium local models supported by config/llm.yaml"
+
+  worst_case_enterprise_dry_run:
+    label: "Worst-case Enterprise — Dry Run"
+    ram_gb: 0                        # no RAM requirement; no LLM execution
+    use_for:
+      - "token estimation"
+      - "prompt construction validation"
+      - "context assembly validation"
+    max_context: 20000
+    execution_mode: dry_run          # NO mandatory LLM execution
+    output:
+      - "token estimate"
+      - "assembled prompt metadata"
+      - "warnings"
+    allowed_token_profiles:
+      ["small_4k", "medium_8k", "large_16k", "extended_20k", "worst_case_enterprise_dry_run"]
+    memory_warning: >-
+      Dry-run only: builds the prompt + estimates tokens without calling the LLM.
+      Safe on any machine (including 8 GB), no model load, no Docker required.

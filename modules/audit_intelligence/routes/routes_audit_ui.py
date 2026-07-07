@@ -164,3 +164,17 @@ def register_audit_ui_routes(app, templates) -> None:
     def ui_evidence_packs_alias(request: Request, role: str = "owner", user: str = "User",
                                 pack_type: str = "", scope: str = ""):
         return ui_packs(request, role=role, user=user, pack_type=pack_type, scope=scope)
+
+    # ------------------------------------------------ Audit LLM Prompt Workbench
+    @app.get("/mvp/audit/llm-workbench", response_class=HTMLResponse)
+    def ui_llm_workbench(request: Request, role: str = "owner", user: str = "User"):
+        ctx = _base_ctx(role, user, "audit_llm_workbench")
+        try:
+            from modules.audit_intelligence.llm import prompt_library as pl
+
+            ctx["prompt_count"] = pl.load_prompt_library().get("count", 0)
+            ctx["categories"] = pl.categories()
+        except Exception:  # noqa: BLE001 - page must render even if library errors
+            ctx["prompt_count"] = 0
+            ctx["categories"] = []
+        return render(request, "audit/llm_workbench.html", ctx)

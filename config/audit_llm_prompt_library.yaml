@@ -1,0 +1,1027 @@
+# =============================================================================
+# ECS Audit LLM Prompt Library
+# =============================================================================
+# Configuration-driven library of audit/evidence/observation/compliance prompts
+# for the ECS Local LLM Audit Prompt Workbench. Loaded + validated by
+# modules/audit_intelligence/llm/prompt_library.py.
+#
+# NO secrets, IPs, model names, URLs, ports, or tenant IDs are hardcoded here.
+# `recommended_model_size` is a guidance label; the actual model/provider resolve
+# from config/llm.yaml (local Ollama by default) + env vars.
+#
+# query_type policy:
+#   deterministic  -> answered from DB/query logic; LLM may only summarize.
+#   llm_assisted   -> analytical/predictive; must include confidence + assumptions
+#                     + limitations + data_used; never present prediction as fact.
+#   hybrid         -> deterministic result + LLM explanation.
+#
+# token_profile ∈ {small_4k, medium_8k, large_16k, extended_20k,
+#                  worst_case_enterprise_dry_run}
+# =============================================================================
+
+version: 1
+
+defaults:
+  citation_policy: "cite_when_available"     # cite [E#] evidence ids where RAG context exists
+  confidence_policy: "required_for_llm_assisted"
+  local_16gb_supported: true
+  local_20gb_supported: true
+
+# Shared system-prompt fragments (kept DRY; referenced by prompts via anchors).
+_system_fragments:
+  base: &sys_base >-
+    You are the ECS Audit Assistant for an enterprise GRC (governance, risk and
+    compliance) platform. Answer strictly from the ECS deterministic results and
+    evidence context provided. Never invent applications, controls, frameworks,
+    observation ids, owners, dates, or evidence. Be concise and audit-ready. Do
+    not include chain-of-thought.
+  deterministic: &sys_det >-
+    You are summarizing a DETERMINISTIC ECS result computed from the database.
+    Do not change any number, id, name, or status. Only rephrase/summarize the
+    supplied result for a human reader. If a value is not in the result, say it
+    is not available.
+  analytical: &sys_analytical >-
+    You are producing an ANALYTICAL/PREDICTIVE assessment for audit teams. You
+    MUST include: (1) a confidence level (Low/Medium/High), (2) explicit
+    assumptions, (3) limitations, and (4) the data you used. Never present a
+    prediction as certainty. Ground every claim in the supplied ECS data and
+    evidence; cite evidence ids [E#] where available.
+
+prompts:
+
+  # ------------------------------------------------------------------ deterministic
+  - prompt_id: observation_count
+    category: observations
+    name: "Open Observation Count"
+    description: "Count of open observations, optionally scoped to an application/framework."
+    query_type: deterministic
+    persona: [auditor, compliance, app_owner]
+    input_variables: [application, framework, status]
+    required_context: [observations]
+    system_prompt: *sys_det
+    user_prompt_template: |
+      Summarize this observation count result for {application_or_all}:
+      {deterministic_result}
+    expected_output_format: "short_text_with_number"
+    confidence_policy: not_applicable
+    citation_policy: none
+    risk_level: low
+    token_profile: small_4k
+    applicable_frameworks: [ALL]
+    applicable_roles: [auditor, compliance_head, owner, cio]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: high_risk_observation_summary
+    category: observations
+    name: "High-Risk Observation Summary"
+    description: "Summarize high/critical observations across frameworks (deterministic counts + LLM summary)."
+    query_type: hybrid
+    persona: [auditor, compliance, cio]
+    input_variables: [application, framework]
+    required_context: [observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Given these high-risk observation figures:
+      {deterministic_result}
+      Summarize the business impact in 3-5 bullet points. Do not change any number.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [auditor, compliance_head, cio]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: framework_gap_analysis
+    category: frameworks
+    name: "Framework Gap Analysis"
+    description: "Which framework has the highest evidence gap (deterministic) with a short explanation."
+    query_type: hybrid
+    persona: [compliance, auditor]
+    input_variables: [framework]
+    required_context: [framework_readiness, evidence]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Framework readiness/gap figures:
+      {deterministic_result}
+      Explain which framework has the highest evidence gap and why, in 3 bullets.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, auditor]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: application_audit_readiness
+    category: readiness
+    name: "Application Audit Readiness"
+    description: "Audit-readiness posture for an application (deterministic score + LLM narrative)."
+    query_type: hybrid
+    persona: [app_owner, compliance, cio]
+    input_variables: [application]
+    required_context: [framework_readiness, observations, evidence]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Audit-readiness figures for {application}:
+      {deterministic_result}
+      Write a concise readiness narrative (strengths, gaps, next steps).
+    expected_output_format: "structured_text"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [owner, compliance_head, cio]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  # ------------------------------------------------------------------ llm_assisted (predictive)
+  - prompt_id: csite_closure_probability
+    category: prediction
+    name: "C-SITE Closure Probability"
+    description: "Likelihood that C-SITE observations close by a target date, with confidence + assumptions."
+    query_type: llm_assisted
+    persona: [auditor, compliance, cio]
+    input_variables: [application, framework, date_range]
+    required_context: [observations, closure_history, closure_trend, severity_trends]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Using this ECS closure/observation data:
+      {deterministic_result}
+      Assess the probability that C-SITE observations for {application} close by
+      the target date. Include confidence, assumptions, limitations, and data used.
+      Never present the prediction as certainty.
+    expected_output_format: "prediction_with_confidence"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: large_16k
+    applicable_frameworks: [C-SITE, CSITE, RBI Cyber Security]
+    applicable_roles: [auditor, compliance_head, cio]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: observation_non_recurrence_probability
+    category: prediction
+    name: "Observation Non-Recurrence Probability"
+    description: "Chances a class of observations will NOT be raised again this year (predictive)."
+    query_type: llm_assisted
+    persona: [auditor, compliance]
+    input_variables: [application, framework, date_range]
+    required_context: [observations, closure_history, repeat_observations, severity_trends]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Historical/observation data:
+      {deterministic_result}
+      Estimate the chance that these observations will NOT be raised again for
+      {application} this year. Include confidence, assumptions, limitations, data used.
+    expected_output_format: "prediction_with_confidence"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [auditor, compliance_head]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: closure_trend_analysis
+    category: analytics
+    name: "Closure Trend Analysis"
+    description: "Closure trend for observations (deterministic series + LLM interpretation)."
+    query_type: hybrid
+    persona: [compliance, cio]
+    input_variables: [application, framework, date_range]
+    required_context: [closure_trend, observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Closure trend series:
+      {deterministic_result}
+      Interpret the closure trend (improving/worsening, drivers) in 3-5 bullets.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, cio]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: delayed_closure_root_cause
+    category: analytics
+    name: "Delayed Closure Root Cause"
+    description: "Common root causes for delayed closure (analytical)."
+    query_type: llm_assisted
+    persona: [compliance, auditor]
+    input_variables: [application, framework]
+    required_context: [observations, closure_history, owner_delays]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Delayed-closure data:
+      {deterministic_result}
+      Identify the common root causes for delayed closure. Include confidence,
+      assumptions, limitations, and the data used.
+    expected_output_format: "structured_text"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, auditor]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: audit_escalation_likelihood
+    category: prediction
+    name: "Audit Escalation Likelihood"
+    description: "Likelihood of audit escalation given current posture (predictive)."
+    query_type: llm_assisted
+    persona: [cio, compliance]
+    input_variables: [application, framework]
+    required_context: [observations, framework_readiness, severity_trends, closure_history]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Current posture data:
+      {deterministic_result}
+      Assess the likelihood of audit escalation. Include confidence, assumptions,
+      limitations, and data used. Do not present as certainty.
+    expected_output_format: "prediction_with_confidence"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [cio, compliance_head]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: evidence_reuse_recommendation
+    category: evidence
+    name: "Evidence Reuse Recommendation"
+    description: "Which evidence packs can be reused for upcoming audits (deterministic + LLM)."
+    query_type: hybrid
+    persona: [compliance, app_owner]
+    input_variables: [application, framework]
+    required_context: [evidence_packs, evidence, framework_mappings]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Reusable evidence data:
+      {deterministic_result}
+      Recommend which evidence packs to reuse and for which frameworks.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: low
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, owner]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: upcoming_audit_preparation
+    category: readiness
+    name: "Upcoming Audit Preparation Notes"
+    description: "Audit preparation notes for an upcoming regulatory review."
+    query_type: hybrid
+    persona: [auditor, compliance, app_owner]
+    input_variables: [application, framework]
+    required_context: [framework_readiness, observations, evidence]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Readiness + gap data:
+      {deterministic_result}
+      Draft audit preparation notes (priorities, owners, evidence to gather).
+    expected_output_format: "structured_text"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [auditor, compliance_head, owner]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: executive_compliance_summary
+    category: executive
+    name: "Executive Compliance Summary"
+    description: "Executive summary of current audit readiness."
+    query_type: hybrid
+    persona: [cio, executive]
+    input_variables: [framework]
+    required_context: [framework_readiness, observations, risk_summary]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Enterprise readiness figures:
+      {deterministic_result}
+      Write an executive summary of current audit readiness (posture, top risks, asks).
+    expected_output_format: "executive_summary"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [cio, owner, compliance_head]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: board_level_summary
+    category: executive
+    name: "Board-Level Compliance Summary"
+    description: "Board-level compliance summary (concise, non-technical)."
+    query_type: hybrid
+    persona: [executive, cio]
+    input_variables: [framework]
+    required_context: [framework_readiness, risk_summary, observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Enterprise posture figures:
+      {deterministic_result}
+      Produce a concise board-level compliance summary (risk, trend, actions).
+    expected_output_format: "executive_summary"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [cio, owner]
+    recommended_model_size: medium
+    local_16gb_supported: false
+    local_20gb_supported: true
+
+  - prompt_id: application_owner_response
+    category: drafting
+    name: "Application Owner Response"
+    description: "Draft an application-owner response to an audit query."
+    query_type: llm_assisted
+    persona: [app_owner]
+    input_variables: [application, framework, control]
+    required_context: [observations, evidence]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Context for the audit query:
+      {deterministic_result}
+      Draft a professional application-owner response. State assumptions and
+      note where evidence is still required.
+    expected_output_format: "draft_response"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [owner]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: observation_closure_justification
+    category: drafting
+    name: "Observation Closure Justification"
+    description: "Draft a closure justification for an observation."
+    query_type: llm_assisted
+    persona: [app_owner, compliance]
+    input_variables: [application, control]
+    required_context: [observations, evidence]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Observation + evidence context:
+      {deterministic_result}
+      Draft a closure justification. Cite supporting evidence [E#] where available;
+      state any remaining gaps and assumptions.
+    expected_output_format: "draft_response"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [owner, compliance_head]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: repeat_observation_analysis
+    category: analytics
+    name: "Repeat Observation Analysis"
+    description: "Which applications have the most repeat observations (deterministic + LLM)."
+    query_type: hybrid
+    persona: [compliance, auditor]
+    input_variables: [application, framework]
+    required_context: [observations, repeat_observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Repeat-observation figures:
+      {deterministic_result}
+      Summarize which applications repeat most and likely themes.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, auditor]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: technology_compliance_risk
+    category: analytics
+    name: "Technology Compliance Risk"
+    description: "Which technologies carry the highest compliance risk (analytical)."
+    query_type: llm_assisted
+    persona: [compliance, cio]
+    input_variables: [technology, framework]
+    required_context: [technology_metadata, observations, framework_readiness]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Technology risk data:
+      {deterministic_result}
+      Assess which technologies carry the highest compliance risk. Include
+      confidence, assumptions, limitations, and data used.
+    expected_output_format: "structured_text"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, cio]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: evidence_gap_to_observation_risk
+    category: prediction
+    name: "Evidence Gap → Observation Risk"
+    description: "Identify evidence gaps that may result in NEW observations (predictive)."
+    query_type: llm_assisted
+    persona: [compliance, auditor]
+    input_variables: [application, framework]
+    required_context: [evidence, framework_readiness, observations]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Evidence-gap data:
+      {deterministic_result}
+      Identify gaps that may lead to new observations. Include confidence,
+      assumptions, limitations, and data used.
+    expected_output_format: "structured_text"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, auditor]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: cross_application_comparison
+    category: analytics
+    name: "Cross-Application Comparison"
+    description: "Compare audit readiness across applications (deterministic matrix + LLM)."
+    query_type: hybrid
+    persona: [compliance, cio]
+    input_variables: [framework]
+    required_context: [framework_readiness, observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Cross-application readiness matrix:
+      {deterministic_result}
+      Compare applications (most/least ready, notable gaps) in 4-6 bullets.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, cio]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: national_compliance_summary
+    category: executive
+    name: "National / Pan-India Compliance Summary"
+    description: "Regional/national compliance posture summary."
+    query_type: hybrid
+    persona: [cio, executive]
+    input_variables: [region, framework]
+    required_context: [framework_readiness, observations, risk_summary]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Regional posture figures:
+      {deterministic_result}
+      Summarize national/regional compliance posture and top risks.
+    expected_output_format: "executive_summary"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [cio, owner]
+    recommended_model_size: medium
+    local_16gb_supported: false
+    local_20gb_supported: true
+
+  - prompt_id: stale_evidence_detection_summary
+    category: evidence
+    name: "Stale Evidence Detection Summary"
+    description: "Identify stale evidence older than the retention/freshness threshold."
+    query_type: hybrid
+    persona: [compliance, app_owner]
+    input_variables: [application, framework, date_range]
+    required_context: [evidence, evidence_freshness]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Stale-evidence figures:
+      {deterministic_result}
+      Summarize stale evidence and remediation priorities.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, owner]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: evidence_pack_summary
+    category: evidence
+    name: "Evidence Pack Summary"
+    description: "Summarize available evidence packs for audits."
+    query_type: hybrid
+    persona: [auditor, compliance]
+    input_variables: [application, framework]
+    required_context: [evidence_packs]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Evidence pack data:
+      {deterministic_result}
+      Summarize available packs (scope, item counts, integrity) for audit use.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: low
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [auditor, compliance_head]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: service_now_evidence_gap_summary
+    category: connectors
+    name: "ServiceNow Evidence Gap Summary"
+    description: "Summarize ServiceNow evidence gaps (connector evidence metadata)."
+    query_type: hybrid
+    persona: [compliance, ops]
+    input_variables: [application, framework]
+    required_context: [connector_evidence, evidence]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      ServiceNow evidence coverage data:
+      {deterministic_result}
+      Summarize ServiceNow evidence gaps and what to collect next.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, owner]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: sharepoint_evidence_availability_summary
+    category: connectors
+    name: "SharePoint Evidence Availability Summary"
+    description: "Summarize SharePoint evidence availability (connector evidence metadata)."
+    query_type: hybrid
+    persona: [compliance, ops]
+    input_variables: [application, framework]
+    required_context: [connector_evidence, evidence]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      SharePoint evidence availability data:
+      {deterministic_result}
+      Summarize what SharePoint evidence is available and any gaps.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: low
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, owner]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: audit_query_answering
+    category: qa
+    name: "Audit Query Answering (RAG)"
+    description: "Answer a free-form audit question grounded in ECS evidence + deterministic facts."
+    query_type: hybrid
+    persona: [auditor, compliance, app_owner]
+    input_variables: [application, framework, control]
+    required_context: [observations, evidence, framework_readiness]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      ECS facts + evidence context:
+      {deterministic_result}
+      Question: {user_query}
+      Answer using only the supplied facts/evidence, citing [E#] where available.
+    expected_output_format: "grounded_answer"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [auditor, compliance_head, owner, cio]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: app_owner_action_summary
+    category: operations
+    name: "App-Owner Pending Action Summary"
+    description: "App-owner-wise pending action summary (deterministic + LLM)."
+    query_type: hybrid
+    persona: [app_owner, compliance]
+    input_variables: [application, owner]
+    required_context: [owner_delays, observations, evidence]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Pending-action data by owner:
+      {deterministic_result}
+      Summarize pending actions per app owner with priorities.
+    expected_output_format: "table_like_text"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: low
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [owner, compliance_head]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: cio_compliance_briefing
+    category: executive
+    name: "CIO Compliance Briefing"
+    description: "CIO-level compliance briefing."
+    query_type: hybrid
+    persona: [cio]
+    input_variables: [framework]
+    required_context: [framework_readiness, risk_summary, observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Enterprise compliance figures:
+      {deterministic_result}
+      Produce a CIO-level compliance briefing (posture, risks, decisions needed).
+    expected_output_format: "executive_summary"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [cio]
+    recommended_model_size: medium
+    local_16gb_supported: false
+    local_20gb_supported: true
+
+  - prompt_id: framework_readiness_score_explanation
+    category: frameworks
+    name: "Framework Readiness Score Explanation"
+    description: "Explain a framework's readiness score (deterministic score + LLM explanation)."
+    query_type: hybrid
+    persona: [compliance, auditor]
+    input_variables: [framework]
+    required_context: [framework_readiness, evidence, observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Framework readiness breakdown:
+      {deterministic_result}
+      Explain what drives the readiness score and how to improve it.
+    expected_output_format: "structured_text"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: low
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, auditor]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: control_failure_history_summary
+    category: analytics
+    name: "Control Failure History Summary"
+    description: "What controls have failed repeatedly (deterministic + LLM)."
+    query_type: hybrid
+    persona: [compliance, auditor]
+    input_variables: [framework, technology, control]
+    required_context: [observations, control_mappings]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Control-failure history data:
+      {deterministic_result}
+      Summarize repeatedly failing controls and likely causes.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, auditor]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: regulatory_reporting_summary
+    category: executive
+    name: "Regulatory Reporting Summary"
+    description: "Generate audit preparation notes for an upcoming regulatory review."
+    query_type: hybrid
+    persona: [compliance, cio]
+    input_variables: [framework, date_range]
+    required_context: [framework_readiness, observations, evidence]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Regulatory posture data:
+      {deterministic_result}
+      Draft a regulatory reporting summary (status, gaps, remediation timeline).
+    expected_output_format: "structured_text"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, cio]
+    recommended_model_size: medium
+    local_16gb_supported: false
+    local_20gb_supported: true
+
+  - prompt_id: risk_acceptance_justification
+    category: drafting
+    name: "Risk Acceptance Justification"
+    description: "Draft a risk-acceptance justification for an observation (analytical)."
+    query_type: llm_assisted
+    persona: [compliance, app_owner]
+    input_variables: [application, control]
+    required_context: [observations, evidence, risk_summary]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Observation + risk context:
+      {deterministic_result}
+      Draft a risk-acceptance justification with explicit assumptions,
+      compensating controls, limitations, and confidence.
+    expected_output_format: "draft_response"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, owner]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: remediation_recommendation
+    category: analytics
+    name: "Remediation Recommendation"
+    description: "Recommend next best action for audit preparation / remediation."
+    query_type: llm_assisted
+    persona: [compliance, app_owner]
+    input_variables: [application, framework, control]
+    required_context: [observations, evidence, framework_readiness]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Remediation context:
+      {deterministic_result}
+      Recommend the next best remediation actions (prioritized). Include
+      assumptions, limitations, and confidence.
+    expected_output_format: "bullets"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, owner]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: audit_observation_drafting
+    category: drafting
+    name: "Audit Observation Drafting"
+    description: "Draft a well-formed audit observation from evidence gaps."
+    query_type: llm_assisted
+    persona: [auditor, compliance]
+    input_variables: [application, framework, control]
+    required_context: [evidence, observations, control_mappings]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Evidence gap context:
+      {deterministic_result}
+      Draft an audit observation (condition, criteria, cause, effect, recommendation).
+      State assumptions and cite evidence [E#] where available.
+    expected_output_format: "structured_text"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [auditor, compliance_head]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: audit_observation_challenge_response
+    category: drafting
+    name: "Audit Observation Challenge Response"
+    description: "Draft a response challenging or clarifying an audit observation."
+    query_type: llm_assisted
+    persona: [app_owner, compliance]
+    input_variables: [application, control]
+    required_context: [observations, evidence]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Observation + supporting evidence:
+      {deterministic_result}
+      Draft a measured challenge/clarification response citing evidence [E#].
+      State assumptions and limitations; do not overstate.
+    expected_output_format: "draft_response"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [owner, compliance_head]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: exception_expiry_risk_summary
+    category: analytics
+    name: "Exception Expiry Risk Summary"
+    description: "Summarize risk-acceptance/exception expiries that may create new gaps."
+    query_type: hybrid
+    persona: [compliance, cio]
+    input_variables: [application, framework, date_range]
+    required_context: [observations, evidence]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Exception/expiry data:
+      {deterministic_result}
+      Summarize upcoming exception expiries and the resulting risk.
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, cio]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: closure_probability_by_owner
+    category: prediction
+    name: "Closure Probability by Owner"
+    description: "Estimate closure probability by app owner (predictive)."
+    query_type: llm_assisted
+    persona: [compliance, cio]
+    input_variables: [owner, application, date_range]
+    required_context: [owner_delays, closure_history, observations]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Owner closure-history data:
+      {deterministic_result}
+      Estimate closure probability by owner. Include confidence, assumptions,
+      limitations, and data used.
+    expected_output_format: "prediction_with_confidence"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: large_16k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, cio]
+    recommended_model_size: medium
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: compliance_trend_forecast
+    category: prediction
+    name: "Compliance Trend Forecast"
+    description: "Forecast compliance/readiness trend (predictive)."
+    query_type: llm_assisted
+    persona: [cio, compliance]
+    input_variables: [framework, date_range]
+    required_context: [framework_readiness, closure_trend, observations]
+    system_prompt: *sys_analytical
+    user_prompt_template: |
+      Trend data:
+      {deterministic_result}
+      Forecast the compliance/readiness trend. Include confidence, assumptions,
+      limitations, and data used. Never present as certainty.
+    expected_output_format: "prediction_with_confidence"
+    confidence_policy: required
+    citation_policy: cite_when_available
+    risk_level: high
+    token_profile: extended_20k
+    applicable_frameworks: [ALL]
+    applicable_roles: [cio, compliance_head]
+    recommended_model_size: medium
+    local_16gb_supported: false
+    local_20gb_supported: true
+
+  - prompt_id: application_comparison_summary
+    category: analytics
+    name: "Application Comparison Summary"
+    description: "Compare open observations/readiness between two applications."
+    query_type: hybrid
+    persona: [compliance, cio]
+    input_variables: [application, framework]
+    required_context: [framework_readiness, observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Two-application comparison data:
+      {deterministic_result}
+      Summarize the comparison (who is more ready, key differences).
+    expected_output_format: "bullets"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: low
+    token_profile: medium_8k
+    applicable_frameworks: [ALL]
+    applicable_roles: [compliance_head, cio]
+    recommended_model_size: small
+    local_16gb_supported: true
+    local_20gb_supported: true
+
+  - prompt_id: enterprise_evidence_gap_summary
+    category: evidence
+    name: "Enterprise Evidence Gap Summary"
+    description: "Enterprise-wide evidence gap summary (worst-case dry-run friendly)."
+    query_type: hybrid
+    persona: [cio, compliance]
+    input_variables: [framework]
+    required_context: [evidence, framework_readiness, observations]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Enterprise evidence-gap data:
+      {deterministic_result}
+      Summarize enterprise-wide evidence gaps and the biggest exposures.
+    expected_output_format: "executive_summary"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: worst_case_enterprise_dry_run
+    applicable_frameworks: [ALL]
+    applicable_roles: [cio, compliance_head]
+    recommended_model_size: large
+    local_16gb_supported: false
+    local_20gb_supported: false
+
+  - prompt_id: pan_india_dashboard_summary
+    category: executive
+    name: "Pan-India Dashboard Summary"
+    description: "Summarize the pan-India compliance dashboard (worst-case dry-run friendly)."
+    query_type: hybrid
+    persona: [cio, executive]
+    input_variables: [region, framework]
+    required_context: [framework_readiness, observations, risk_summary]
+    system_prompt: *sys_base
+    user_prompt_template: |
+      Pan-India dashboard figures:
+      {deterministic_result}
+      Summarize regional posture, top risks, and priority actions.
+    expected_output_format: "executive_summary"
+    confidence_policy: optional
+    citation_policy: cite_when_available
+    risk_level: medium
+    token_profile: worst_case_enterprise_dry_run
+    applicable_frameworks: [ALL]
+    applicable_roles: [cio, owner]
+    recommended_model_size: large
+    local_16gb_supported: false
+    local_20gb_supported: false

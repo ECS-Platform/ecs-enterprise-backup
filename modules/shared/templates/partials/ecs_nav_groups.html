@@ -68,7 +68,7 @@
 {# ---------------------------------------------------- 2b. AUDIT INTELLIGENCE #}
 {% set audit_open = nav_module in ['audit_assets','audit_technology','audit_mapping',
     'audit_runs','audit_validation','audit_repository','audit_observations',
-    'audit_packs','audit_readiness_exec'] %}
+    'audit_packs','audit_readiness_exec','audit_llm_workbench'] %}
 <div class="ecs-nav-group">
 <button class="ecs-nav-group-toggle{% if audit_open %} is-open{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#nav-audit" aria-expanded="{{ 'true' if audit_open else 'false' }}">
 <span class="ecs-nav-group-label">Audit Intelligence</span>
@@ -84,6 +84,7 @@
 <a href="/mvp/audit/repository{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_repository' %} is-active{% endif %}">Evidence Repository</a>
 <a href="/mvp/audit/observations{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_observations' %} is-active{% endif %}">Observations</a>
 <a href="/mvp/audit/packs{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_packs' %} is-active{% endif %}">Evidence Packs</a>
+<a href="/mvp/audit/llm-workbench{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_llm_workbench' %} is-active{% endif %}">LLM Prompt Workbench</a>
 </div>
 </div>
 </div>

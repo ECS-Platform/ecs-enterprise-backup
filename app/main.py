@@ -1549,6 +1549,11 @@ from modules.audit_intelligence.routes.routes_audit_ui import register_audit_ui_
 
 register_audit_ui_routes(app, templates)
 
+# Audit LLM Prompt Workbench REST API (/api/audit-llm/*).
+from modules.audit_intelligence.routes.routes_audit_llm import register_audit_llm_routes
+
+register_audit_llm_routes(app)
+
 
 @app.get("/api/evidence-workflow/summary")
 def api_evidence_workflow_summary(role: str = "owner", user: str = "User"):

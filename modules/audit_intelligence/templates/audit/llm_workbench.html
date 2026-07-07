@@ -1,0 +1,237 @@
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Audit LLM Prompt Workbench — ECS{% endblock %}
+{% block audit_title %}Audit LLM Prompt Workbench{% endblock %}
+{% block audit_subtitle %}Generate, classify, estimate, run and benchmark audit LLM prompts on local 16 GB / 20 GB laptops{% endblock %}
+{% block audit_body %}
+<style>
+  .alw-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; white-space: pre-wrap; }
+  .alw-panel { max-height: 320px; overflow: auto; }
+  .alw-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .04em; color: #6c757d; }
+  .alw-metric { font-size: 0.8rem; }
+</style>
+
+<div class="row g-3">
+  <!-- ------------------------------------------------------------ inputs -->
+  <div class="col-12 col-lg-5">
+    <div class="card"><div class="card-body">
+      <h6 class="mb-2">1 · Query &amp; Prompt</h6>
+      <div class="mb-2">
+        <label class="alw-label">Natural language audit query</label>
+        <textarea id="alw-query" class="form-control form-control-sm" rows="3"
+          placeholder="e.g. What are the chances my C-SITE observations will not be raised on Net Banking this year?"></textarea>
+      </div>
+      <div class="row g-2">
+        <div class="col-6">
+          <label class="alw-label">Category</label>
+          <select id="alw-category" class="form-select form-select-sm"><option value="">All</option></select>
+        </div>
+        <div class="col-6">
+          <label class="alw-label">Prompt</label>
+          <select id="alw-prompt" class="form-select form-select-sm"><option value="">(auto / none)</option></select>
+        </div>
+      </div>
+
+      <h6 class="mt-3 mb-2">2 · Scope</h6>
+      <div class="row g-2">
+        <div class="col-6"><label class="alw-label">Application</label>
+          <input id="alw-application" class="form-control form-control-sm" placeholder="Net Banking"></div>
+        <div class="col-6"><label class="alw-label">Framework</label>
+          <input id="alw-framework" class="form-control form-control-sm" placeholder="C-SITE / PCI DSS"></div>
+        <div class="col-6"><label class="alw-label">Severity</label>
+          <input id="alw-severity" class="form-control form-control-sm" placeholder="High"></div>
+        <div class="col-6"><label class="alw-label">Date range</label>
+          <input id="alw-date" class="form-control form-control-sm" placeholder="90 days / this year"></div>
+      </div>
+
+      <h6 class="mt-3 mb-2">3 · Local LLM profile</h6>
+      <div class="row g-2">
+        <div class="col-6">
+          <label class="alw-label">RAM profile</label>
+          <select id="alw-ram" class="form-select form-select-sm">
+            <option value="local_16gb_safe">local_16gb_safe</option>
+            <option value="local_20gb_extended">local_20gb_extended</option>
+            <option value="worst_case_enterprise_dry_run">worst_case_enterprise_dry_run</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="alw-label">Token profile</label>
+          <select id="alw-token" class="form-select form-select-sm">
+            <option value="small_4k">small_4k</option>
+            <option value="medium_8k" selected>medium_8k</option>
+            <option value="large_16k">large_16k</option>
+            <option value="extended_20k">extended_20k</option>
+            <option value="worst_case_enterprise_dry_run">worst_case_enterprise_dry_run</option>
+          </select>
+        </div>
+        <div class="col-12"><label class="alw-label">Provider / model (optional; config-driven if blank)</label>
+          <input id="alw-model" class="form-control form-control-sm" placeholder="(uses config/llm.yaml — local Ollama)"></div>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button id="alw-btn-classify" class="btn btn-sm btn-outline-secondary">Classify</button>
+        <button id="alw-btn-estimate" class="btn btn-sm btn-outline-secondary">Estimate tokens</button>
+        <button id="alw-btn-run" class="btn btn-sm btn-primary">Run prompt</button>
+        <button id="alw-btn-bench" class="btn btn-sm btn-outline-dark">Run benchmark (dry-run)</button>
+        <button id="alw-btn-export" class="btn btn-sm btn-outline-dark">Export benchmark</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ------------------------------------------------------------ results -->
+  <div class="col-12 col-lg-7">
+    <div class="card mb-3"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">Result</h6>
+        <span id="alw-status" class="alw-metric text-muted"></span>
+      </div>
+      <div class="row g-2 mt-1">
+        <div class="col-auto"><span class="alw-label">Query type</span><div id="alw-qtype" class="alw-metric">—</div></div>
+        <div class="col-auto"><span class="alw-label">Tokens (in/out/total)</span><div id="alw-tokens" class="alw-metric">—</div></div>
+        <div class="col-auto"><span class="alw-label">Latency</span><div id="alw-latency" class="alw-metric">—</div></div>
+        <div class="col-auto"><span class="alw-label">Provider</span><div id="alw-provider" class="alw-metric">—</div></div>
+        <div class="col-auto"><span class="alw-label">Fallback</span><div id="alw-fallback" class="alw-metric">—</div></div>
+      </div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+      <h6 class="mb-1">Deterministic result</h6>
+      <div id="alw-deterministic" class="alw-mono alw-panel">—</div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+      <h6 class="mb-1">LLM response</h6>
+      <div id="alw-llm" class="alw-mono alw-panel">—</div>
+      <div class="mt-2"><span class="alw-label">Confidence</span> <span id="alw-confidence" class="alw-metric">—</span></div>
+      <div><span class="alw-label">Assumptions</span> <span id="alw-assumptions" class="alw-metric">—</span></div>
+      <div><span class="alw-label">Limitations</span> <span id="alw-limitations" class="alw-metric">—</span></div>
+      <div><span class="alw-label">Source references</span> <span id="alw-sources" class="alw-metric">—</span></div>
+    </div></div>
+
+    <div class="card"><div class="card-body">
+      <h6 class="mb-1">Warnings / memory</h6>
+      <div id="alw-warnings" class="alw-mono alw-panel">—</div>
+    </div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const q = "?role={{ role }}&user={{ user|urlencode }}";
+  const $ = (id) => document.getElementById(id);
+  const setText = (id, v) => { $(id).textContent = (v === undefined || v === null || v === "") ? "—" : v; };
+
+  function payload() {
+    return {
+      query: $("alw-query").value,
+      prompt_id: $("alw-prompt").value,
+      ram_profile: $("alw-ram").value,
+      token_profile: $("alw-token").value,
+      provider_model: $("alw-model").value,
+      input_variables: {
+        application: $("alw-application").value,
+        framework: $("alw-framework").value,
+        severity: $("alw-severity").value,
+        date_range: $("alw-date").value,
+      },
+    };
+  }
+
+  async function postJSON(url, body) {
+    const r = await fetch(url + q, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    return r.json();
+  }
+
+  // Load prompts + categories.
+  async function loadPrompts() {
+    const r = await fetch("/api/audit-llm/prompts" + q);
+    const data = await r.json();
+    const cats = data.categories || [];
+    const catSel = $("alw-category");
+    cats.forEach(c => { const o = document.createElement("option"); o.value = c; o.textContent = c; catSel.appendChild(o); });
+    fillPromptSelect(data.prompts || []);
+    catSel.addEventListener("change", async () => {
+      const rr = await fetch("/api/audit-llm/prompts" + q + "&category=" + encodeURIComponent(catSel.value));
+      const dd = await rr.json();
+      fillPromptSelect(dd.prompts || []);
+    });
+  }
+  function fillPromptSelect(prompts) {
+    const sel = $("alw-prompt");
+    sel.innerHTML = '<option value="">(auto / none)</option>';
+    prompts.forEach(p => {
+      const o = document.createElement("option");
+      o.value = p.prompt_id; o.textContent = p.name + " [" + p.query_type + "]";
+      sel.appendChild(o);
+    });
+  }
+
+  function renderResult(res) {
+    setText("alw-qtype", res.query_type);
+    const te = res.token_estimate || {};
+    setText("alw-tokens", (te.input_tokens||0) + " / " + (te.output_tokens||0) + " / " + (te.total_tokens||0));
+    setText("alw-latency", (res.latency_ms||0) + " ms");
+    const ps = res.provider_status || {};
+    setText("alw-provider", (ps.provider||"—") + " · " + (ps.model||"") + (ps.configured ? " (configured)" : " (not configured)"));
+    setText("alw-fallback", res.fallback_used ? "yes" : "no");
+    setText("alw-deterministic", (res.deterministic_result && res.deterministic_result.answer_text) ? res.deterministic_result.answer_text : JSON.stringify(res.deterministic_result, null, 2));
+    setText("alw-llm", res.llm_response || "(no LLM text — dry-run or fallback)");
+    setText("alw-confidence", res.confidence);
+    setText("alw-assumptions", (res.assumptions||[]).join(" · "));
+    setText("alw-limitations", (res.limitations||[]).join(" · "));
+    setText("alw-sources", (res.source_references||[]).join(", "));
+    setText("alw-warnings", (res.warnings||[]).join("\n"));
+  }
+
+  $("alw-btn-classify").addEventListener("click", async () => {
+    setText("alw-status", "classifying…");
+    const d = await postJSON("/api/audit-llm/classify", { query: $("alw-query").value });
+    if (d.ok) { setText("alw-qtype", d.classification.query_type + " (" + d.classification.confidence + ")");
+      setText("alw-warnings", "entities: " + JSON.stringify(d.classification.entities)); }
+    else setText("alw-warnings", d.message || "error");
+    setText("alw-status", "");
+  });
+
+  $("alw-btn-estimate").addEventListener("click", async () => {
+    setText("alw-status", "running…");
+    const p = payload(); p.use_rag = false;
+    const d = await postJSON("/api/audit-llm/query", p);   // reuse execute for a full estimate
+    if (d.ok) renderResult(d.result); else setText("alw-warnings", d.message || "error");
+    setText("alw-status", "");
+  });
+
+  $("alw-btn-run").addEventListener("click", async () => {
+    setText("alw-status", "running LLM…");
+    const d = await postJSON("/api/audit-llm/query", payload());
+    if (d.ok) renderResult(d.result); else setText("alw-warnings", d.message || "error");
+    setText("alw-status", "done");
+  });
+
+  $("alw-btn-bench").addEventListener("click", async () => {
+    setText("alw-status", "benchmarking…");
+    const d = await postJSON("/api/audit-llm/benchmark", {
+      category: $("alw-category").value, ram_profile: $("alw-ram").value,
+      token_profile: $("alw-token").value, dry_run: true,
+    });
+    if (d.ok) setText("alw-warnings", "Benchmark summary: " + JSON.stringify(d.report.summary, null, 2));
+    else setText("alw-warnings", d.message || "error");
+    setText("alw-status", "");
+  });
+
+  $("alw-btn-export").addEventListener("click", async () => {
+    setText("alw-status", "exporting…");
+    const d = await postJSON("/api/audit-llm/benchmark/export", {
+      category: $("alw-category").value, ram_profile: $("alw-ram").value,
+      token_profile: $("alw-token").value, dry_run: true,
+    });
+    if (d.ok) setText("alw-warnings", "Exported: " + JSON.stringify(d.written, null, 2));
+    else setText("alw-warnings", d.message || "error");
+    setText("alw-status", "");
+  });
+
+  loadPrompts();
+})();
+</script>
+{% endblock %}
