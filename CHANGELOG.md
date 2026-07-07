@@ -98,7 +98,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
     `EvidenceArtifact` + severities/statuses.
   - Tests: `test_observation_generation.py`, `test_evidence_repository.py`,
     `test_evidence_packs.py`. Guide:
-    `docs/DEVELOPER/OBSERVATION_AND_REPOSITORY_GUIDE.md`.
+    `docs/evidence-management/OBSERVATION_AND_REPOSITORY_GUIDE.md`.
 - **Audit Intelligence layer — Milestone 2** (Evidence Collection Orchestrator +
   Evidence Validation Engine; additive, reuses the predefined-query engine as the
   execution layer):
@@ -116,8 +116,8 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
     `EvidenceRecord`, `ValidationResult` + statuses.
   - Tests: `test_evidence_orchestrator.py`, `test_evidence_validation.py`,
     `test_evidence_service.py`. Guides:
-    `docs/DEVELOPER/EVIDENCE_COLLECTION_GUIDE.md`,
-    `docs/DEVELOPER/EVIDENCE_VALIDATION_GUIDE.md`.
+    `docs/evidence-management/EVIDENCE_COLLECTION_GUIDE.md`,
+    `docs/evidence-management/EVIDENCE_VALIDATION_GUIDE.md`.
 - **Audit Intelligence layer — Milestone 1** (new package `modules/audit_intelligence/`,
   additive; the predefined-query platform is untouched and used read-only):
   - **Technology → Control → Framework mapping engine**
@@ -138,8 +138,8 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - Serializable frozen dataclasses in `models.py`; comprehensive offline tests
     (`test_technology_control_mapping.py`, `test_technology_fingerprint.py`,
     `test_asset_discovery.py`, `test_audit_intelligence_report_cli.py`).
-  - Developer guides: `docs/DEVELOPER/TECHNOLOGY_MAPPING_GUIDE.md`,
-    `docs/DEVELOPER/ASSET_DISCOVERY_GUIDE.md`.
+  - Developer guides: `docs/developer-manual/TECHNOLOGY_MAPPING_GUIDE.md`,
+    `docs/scheduler/ASSET_DISCOVERY_GUIDE.md`.
 - Extended predefined-query technology coverage (+62 controls; total 167):
   - Redis `RDX-001..008`, Apache HTTPD `APX-001..008`, Tomcat `TCX-001..008`,
     SQL Server `MSX-001..010`, MongoDB `MGX-001..008`, Kubernetes `K8X-001..010`,
@@ -296,7 +296,7 @@ Aurora MySQL-compatible MySQL:
 > These are local, non-production demo defaults for Docker validation only. Do not
 > use these credentials outside local development; for UAT/cloud, set real
 > endpoints and read-only credentials via `.env` / environment YAML. See
-> [docs/DEVELOPER/PREDEFINED_DATABASE_QUERY_MODULE.md](docs/DEVELOPER/PREDEFINED_DATABASE_QUERY_MODULE.md).
+> [docs/developer-manual/PREDEFINED_DATABASE_QUERY_MODULE.md](docs/developer-manual/PREDEFINED_DATABASE_QUERY_MODULE.md).
 
 ### Tag
 

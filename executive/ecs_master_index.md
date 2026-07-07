@@ -68,8 +68,8 @@ This package deliberately separates **what is built** from **what is roadmap**. 
 
 - `ECS_ARCHITECTURE_BASELINE.md` — master handover/baseline.
 - `docs/architecture/ecs_enterprise_architecture_review.md` — current-state architecture review.
-- `docs/hld/ecs_hld.md`, `docs/lld/ecs_lld.md`, `docs/diagrams/` — design & diagrams.
-- `docs/operations/ecs_runbook.md`, `docs/RECOVERY_RUNBOOK.md` — operations.
-- `docs/ECS_MODULE_OWNERSHIP.md`, `docs/ECS_RBAC_LEGACY_FLAWS.md`, `docs/ECS_REFACTOR_PLAN.md` — governance & debt.
+- `docs/architecture/ecs_hld.md`, `docs/architecture/ecs_lld.md`, `docs/diagrams/` — design & diagrams.
+- `docs/operations/ecs_runbook.md`, `docs/operations/RECOVERY_RUNBOOK.md` — operations.
+- `docs/developer-manual/ECS_MODULE_OWNERSHIP.md`, `docs/developer-manual/ECS_RBAC_LEGACY_FLAWS.md`, `docs/developer-manual/ECS_REFACTOR_PLAN.md` — governance & debt.
 - `demo-data/ECS_DEMO_NARRATIVE.md`, `demo-data/SAAS_CONNECTOR_READINESS.md` — demo & connectors.
 - `config/*.yaml` — the deterministic, externalized configuration for ROI, RBAC, LLM, vector store, sufficiency, integrations.

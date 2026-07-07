@@ -5,7 +5,7 @@ endpoints are JSON under ``/api/audit/`` and are thin wrappers over the M1-M3
 service facades (no new business logic here). Read endpoints are GET; state-
 changing actions (run/retry/cancel/transition/store/pack) are POST.
 
-Production hardening (see docs/DEVELOPER/PERFORMANCE_AND_HARDENING_GUIDE.md)
+Production hardening (see docs/production/PERFORMANCE_AND_HARDENING_GUIDE.md)
 --------------------------------------------------------------------------
 * **Uniform response shape.** Success: ``{"ok": true, ...payload}``.
   Error: ``{"ok": false, "status": "error", "message": "...", "errors": [...]}``

@@ -8,7 +8,7 @@
 This pack gives platform/SRE teams a concrete starting point for deploying ECS
 (the Evidence Collection System) into UAT/production. It complements the operations
 runbooks in [`docs/operations/`](../docs/operations) and the readiness register in
-`docs/DEVELOPER/PRODUCTION_READINESS_GAP_REGISTER.md`.
+`docs/production/PRODUCTION_READINESS_GAP_REGISTER.md`.
 
 ---
 
@@ -73,7 +73,7 @@ python scripts/generate_env_template.py --env prod    # -> .env.prod.template
 
 - **Postgres (durable audit persistence).** Provision Postgres and apply
   `docs/DB_SCHEMA_AUDIT_INTELLIGENCE.sql`. Set `ECS_AUDIT_DB_URL` from a secret
-  manager. See `docs/DEVELOPER/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md`.
+  manager. See `docs/audit-intelligence/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md`.
 - **Object storage (evidence artifacts, optional).** If storing raw evidence
   blobs, use S3-compatible object storage (the demo compose uses MinIO). ECS
   stores **hashes + metadata**, never secrets, in the DB.

@@ -9,13 +9,13 @@ This README is the **executive quick start**. For depth, see the onboarding set:
 
 | Document | Purpose |
 |---|---|
-| [`docs/DEVELOPER_SETUP_GUIDE.md`](docs/DEVELOPER_SETUP_GUIDE.md) | Step-by-step setup for macOS / Linux / Windows (WSL) |
-| [`docs/LOCAL_DEVELOPMENT_GUIDE.md`](docs/LOCAL_DEVELOPMENT_GUIDE.md) | Day-to-day local dev workflow, hot reload, tests |
-| [`docs/ENVIRONMENT_CONFIGURATION.md`](docs/ENVIRONMENT_CONFIGURATION.md) | Every environment variable, required/default/purpose |
-| [`docs/DEMO_MODE_SETUP.md`](docs/DEMO_MODE_SETUP.md) | Running ECS in demo mode (no auth, no DB) |
-| [`docs/COMMON_COMMANDS.md`](docs/COMMON_COMMANDS.md) | Command catalog (start/stop/test/seed/backup…) |
-| [`docs/TROUBLESHOOTING_GUIDE.md`](docs/TROUBLESHOOTING_GUIDE.md) | Symptom → root cause → resolution → verification |
-| [`docs/ARCHITECTURE_OVERVIEW.md`](docs/ARCHITECTURE_OVERVIEW.md) | Mission, modules, evidence flow, RBAC, APIs, UI |
+| [`docs/developer-manual/DEVELOPER_SETUP_GUIDE.md`](docs/developer-manual/DEVELOPER_SETUP_GUIDE.md) | Step-by-step setup for macOS / Linux / Windows (WSL) |
+| [`docs/developer-manual/LOCAL_DEVELOPMENT_GUIDE.md`](docs/developer-manual/LOCAL_DEVELOPMENT_GUIDE.md) | Day-to-day local dev workflow, hot reload, tests |
+| [`docs/developer-manual/ENVIRONMENT_CONFIGURATION.md`](docs/developer-manual/ENVIRONMENT_CONFIGURATION.md) | Every environment variable, required/default/purpose |
+| [`docs/00-start-here/DEMO_MODE_SETUP.md`](docs/00-start-here/DEMO_MODE_SETUP.md) | Running ECS in demo mode (no auth, no DB) |
+| [`docs/00-start-here/COMMON_COMMANDS.md`](docs/00-start-here/COMMON_COMMANDS.md) | Command catalog (start/stop/test/seed/backup…) |
+| [`docs/00-start-here/TROUBLESHOOTING_GUIDE.md`](docs/00-start-here/TROUBLESHOOTING_GUIDE.md) | Symptom → root cause → resolution → verification |
+| [`docs/00-start-here/ARCHITECTURE_OVERVIEW.md`](docs/00-start-here/ARCHITECTURE_OVERVIEW.md) | Mission, modules, evidence flow, RBAC, APIs, UI |
 
 ---
 
@@ -60,7 +60,7 @@ uvicorn app.main:app --reload
 #   Liveness:  http://127.0.0.1:8000/healthz   -> {"status":"ok"}
 ```
 
-> **Note on `start_ecs.sh`:** the repo ships a convenience script, but it installs only a *subset* of dependencies (`fastapi uvicorn jinja2 python-multipart`) and kills existing uvicorn processes. Prefer `pip install -r requirements.txt` so `pyyaml`, `pyjwt`, `python-dotenv`, `psycopg2-binary` and `openpyxl` are present. See [`docs/COMMON_COMMANDS.md`](docs/COMMON_COMMANDS.md).
+> **Note on `start_ecs.sh`:** the repo ships a convenience script, but it installs only a *subset* of dependencies (`fastapi uvicorn jinja2 python-multipart`) and kills existing uvicorn processes. Prefer `pip install -r requirements.txt` so `pyyaml`, `pyjwt`, `python-dotenv`, `psycopg2-binary` and `openpyxl` are present. See [`docs/00-start-here/COMMON_COMMANDS.md`](docs/00-start-here/COMMON_COMMANDS.md).
 
 ### Expected startup output (abridged)
 

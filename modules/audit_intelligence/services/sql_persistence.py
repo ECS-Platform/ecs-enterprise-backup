@@ -15,7 +15,7 @@ backed by a DB-API 2.0 connection. It is intentionally a *skeleton*:
 
 No credentials/secrets are stored (the models only carry hashes + non-secret
 metadata). See ``docs/DB_SCHEMA_AUDIT_INTELLIGENCE.sql`` for the canonical schema
-and ``docs/DEVELOPER/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md`` for wiring notes.
+and ``docs/audit-intelligence/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md`` for wiring notes.
 """
 
 from __future__ import annotations

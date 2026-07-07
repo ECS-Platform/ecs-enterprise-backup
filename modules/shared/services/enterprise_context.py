@@ -39,10 +39,17 @@ from modules.shared.services.persona_display import resolve_persona_context
 def enterprise_widgets_context(role: str = "", page_module: str = "", framework: str = "", user: str = "", analytics_filters: dict | None = None):
     stats = ecs_state.build_evidence_analytics()
     nav_counters = build_nav_counters(role)
+    # The role summary strip (e.g. "Application Owner Summary") belongs on the main
+    # dashboard ONLY. Dashboards call this WITHOUT a page_module; every other page
+    # passes a page_module. So suppress the repeated strip whenever a page_module is
+    # present (framework landing pages are dashboards-of-a-framework -> keep it).
+    role_metrics = role_dashboard_metrics(role) if role else {}
+    if role_metrics and page_module and not framework:
+        role_metrics = {**role_metrics, "show_strip": False}
     ctx = {
         "nav_module": page_module or "",
         "catalog_stats": catalog_stats(),
-        "role_metrics": role_dashboard_metrics(role) if role else {},
+        "role_metrics": role_metrics,
         "notifications": get_notifications(),
         "recent_activity": get_recent_activity(),
         "approval_history": get_approval_history(10),

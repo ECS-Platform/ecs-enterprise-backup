@@ -156,7 +156,7 @@ rbac_catalog:
 # PolicyEngine while producing results byte-for-byte identical to the historical
 # role_permissions.py / framework_onboarding_engine.py predicates. It deliberately
 # reproduces legacy behavior, INCLUDING known flaws and inconsistencies (see
-# docs/ECS_RBAC_LEGACY_FLAWS.md). It is NOT the target model — the canonical
+# docs/developer-manual/ECS_RBAC_LEGACY_FLAWS.md). It is NOT the target model — the canonical
 # `rbac_catalog` above is. These flaws are corrected in a later RBAC
 # Rationalization phase, never here.
 #

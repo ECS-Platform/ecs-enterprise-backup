@@ -139,7 +139,7 @@ def register_audit_ui_routes(app, templates) -> None:
     # ------------------------------------------------------------------ aliases
     # Compatibility aliases: additive canonical paths that delegate to the
     # handlers above. Existing routes are kept unchanged so older links/bookmarks
-    # keep working. (See docs/DEVELOPER/PRODUCTION_READINESS_GAP_REGISTER.md.)
+    # keep working. (See docs/production/PRODUCTION_READINESS_GAP_REGISTER.md.)
     @app.get("/mvp/audit/dashboard", response_class=HTMLResponse)
     def ui_dashboard_alias(request: Request, role: str = "owner", user: str = "User"):
         return ui_exec_readiness(request, role=role, user=user)

@@ -148,7 +148,7 @@ ECS uses **no Chart.js** — all charts are CSS bars, SVG sparklines, and HTML h
 
 # Section 9 — New Joiner Learning Path (7 days)
 
-A structured plan to go from zero to self-sufficient. Each day: read, then *do* in demo mode (`DEMO_MODE=true`, see `docs/DEMO_MODE_SETUP.md`).
+A structured plan to go from zero to self-sufficient. Each day: read, then *do* in demo mode (`DEMO_MODE=true`, see `docs/00-start-here/DEMO_MODE_SETUP.md`).
 
 ### Day 1 — Platform overview & navigation
 - Read: this manual Section 1; `ECS_MODULE_REFERENCE.md` (nav map).

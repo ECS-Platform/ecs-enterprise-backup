@@ -103,7 +103,7 @@ It is implemented as a **modular monolith** (FastAPI, Python 3.12, Jinja2 server
 
 ## 4. Strengths
 
-1. **Clean modular decomposition** by business domain — each module owns its engines and templates and can evolve independently (`docs/ECS_MODULE_OWNERSHIP.md`).
+1. **Clean modular decomposition** by business domain — each module owns its engines and templates and can evolve independently (`docs/developer-manual/ECS_MODULE_OWNERSHIP.md`).
 2. **Differentiated reuse engine** — the 18-theme crosswalk and demonstrated 5× reuse is the commercial heart of the product.
 3. **Real, pluggable infrastructure** — connectors, vector store, object store, RAG and LLM provider all swap via config/env, not code.
 4. **Trustworthy AI posture** — citation-required, refuse-without-evidence RAG plus deterministic, explainable sufficiency scoring; AI Governance treats AI itself as a governed object.

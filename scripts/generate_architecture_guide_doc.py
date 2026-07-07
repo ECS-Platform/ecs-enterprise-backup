@@ -678,7 +678,7 @@ Copy to `.env` locally; **never commit** secrets.
 
 ### 18.1 First-week checklist
 
-1. Read `ECS_ARCHITECTURE_BASELINE.md` and `docs/ECS_DEPENDENCY_REPORT.md`.  
+1. Read `ECS_ARCHITECTURE_BASELINE.md` and `docs/developer-manual/ECS_DEPENDENCY_REPORT.md`.  
 2. Run `uvicorn app.main:app --reload` and walk through four primary roles.  
 3. Run `.venv/bin/python -m pytest tests/test_platform_ui.py -q`.  
 4. Trace one drill-down: UI click → `/api/ecs/universal-drill` → drill engine.  

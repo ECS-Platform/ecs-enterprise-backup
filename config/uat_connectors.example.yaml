@@ -17,7 +17,7 @@
 # (see modules/operations/integrations/__init__.py::lookup_yaml_config), so this
 # block name (`connectors`) is what the adapters resolve.
 #
-# Field guide + Connector Test Workbench validation: docs/uat_connector_credentials_guide.md
+# Field guide + Connector Test Workbench validation: docs/connectors/uat_connector_credentials_guide.md
 # =============================================================================
 
 connectors:

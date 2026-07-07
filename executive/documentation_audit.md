@@ -32,7 +32,7 @@
 
 ## 2. Issue A1 — Framework count (16 → 15) · **High**
 
-**Finding.** Multiple documents state "16 frameworks." The static `FRAMEWORK_CATALOG` contains exactly **15** keys: PCI DSS, DPSC, OS Baselining, DB Baselining, Nginx Baselining, AppSec, VAPT, CSITE, ITPP, ITDRM, SOC2, ISO27001, RBI Cyber Security, ISG, ASST. `catalog_stats()` returns `framework_count: 15`. (The "16" likely originated from `docs/ECS_MODULE_OWNERSHIP.md`, which states a *target* acceptance criterion, and from runtime growth via `get_merged_framework_catalog()`, which adds dynamically onboarded frameworks.)
+**Finding.** Multiple documents state "16 frameworks." The static `FRAMEWORK_CATALOG` contains exactly **15** keys: PCI DSS, DPSC, OS Baselining, DB Baselining, Nginx Baselining, AppSec, VAPT, CSITE, ITPP, ITDRM, SOC2, ISO27001, RBI Cyber Security, ISG, ASST. `catalog_stats()` returns `framework_count: 15`. (The "16" likely originated from `docs/developer-manual/ECS_MODULE_OWNERSHIP.md`, which states a *target* acceptance criterion, and from runtime growth via `get_merged_framework_catalog()`, which adds dynamically onboarded frameworks.)
 
 **Locations.**
 - `executive/ecs_board_summary.md` (§1 narrative; §3 capability table)

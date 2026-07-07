@@ -14,7 +14,7 @@
 
 {# Group open-state (max depth: Group -> Page -> Tab) #}
 {% set dash_open = nav_active in ['main_dashboard','role_dashboard'] %}
-{% set ops_open = nav_module in ['predefined_queries','evidence_explorer','integrations','evidence_story'] %}
+{% set ops_open = nav_module in ['predefined_queries','evidence_explorer','integrations','evidence_story','connector_test_workbench','ecs_benchmark'] %}
 {% set gov_open = nav_module in ['gov_audit_readiness','audit_prep','evidence_health','evidence_approval'] %}
 {% set admin_open = nav_module in ['admin_evidence','admin_application_management','scheduler','upload',
   'integration_health','onboarding','reuse','lifecycle',
@@ -33,17 +33,17 @@
 <div id="nav-dash" class="collapse{% if dash_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
 {% if role == "owner" or role == "auditor" %}
-<a href="/dashboard{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'main_dashboard' %} is-active{% endif %}">Dashboard {{ nav_badge(nav_counters.global.owner_pending if role == 'owner' and nav_counters is defined else (nav_counters.global.auditor_pending if nav_counters is defined else 0), nav_counters.global_tooltips.owner_pending if role == 'owner' and nav_counters is defined and nav_counters.global_tooltips is defined else (nav_counters.global_tooltips.auditor_pending if nav_counters is defined and nav_counters.global_tooltips is defined else '')) }}</a>
+<a href="/dashboard{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'main_dashboard' %} is-active{% endif %}">Overview {{ nav_badge(nav_counters.global.owner_pending if role == 'owner' and nav_counters is defined else (nav_counters.global.auditor_pending if nav_counters is defined else 0), nav_counters.global_tooltips.owner_pending if role == 'owner' and nav_counters is defined and nav_counters.global_tooltips is defined else (nav_counters.global_tooltips.auditor_pending if nav_counters is defined and nav_counters.global_tooltips is defined else '')) }}</a>
 {% elif role == "cio" %}
-<a href="/dashboard/cio{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
+<a href="/dashboard/cio{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Overview {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
 {% elif role == "vertical_head" %}
-<a href="/dashboard/vertical-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
+<a href="/dashboard/vertical-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Overview {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
 {% elif role == "compliance_head" or role == "compliance_officer" %}
-<a href="/dashboard/compliance-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
+<a href="/dashboard/compliance-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Overview {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
 {% elif role == "functional_head" %}
-<a href="/dashboard/functional-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Dashboard {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
+<a href="/dashboard/functional-head{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Overview {{ nav_badge(nav_counters.global.leadership if nav_counters is defined else 0, nav_counters.global_tooltips.leadership if nav_counters is defined and nav_counters.global_tooltips is defined else '') }}</a>
 {% else %}
-<a href="/dashboard/cio{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Dashboard</a>
+<a href="/dashboard/cio{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard{% if nav_active == 'role_dashboard' %} is-active{% endif %}">Overview</a>
 {% endif %}
 </div>
 </div>
@@ -62,6 +62,7 @@
 <a href="/mvp/evidence-story{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_story' %} is-active{% endif %}">Evidence Reuse Story</a>
 <a href="/mvp/integrations{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'integrations' %} is-active{% endif %}">Integrations {{ nav_badge(nav_counters.modules.integrations if nav_counters is defined else 0, nav_counters.module_tooltips.integrations if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 <a href="/mvp/connectors/test-workbench{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'connector_test_workbench' %} is-active{% endif %}">Connector Test Workbench</a>
+<a href="/mvp/ecs-benchmark{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ecs_benchmark' %} is-active{% endif %}">ECS Benchmark</a>
 </div>
 </div>
 </div>
@@ -138,10 +139,9 @@
    (partials/ecs_nav_ai_sdlc.html) visible outside the hidden Phase 2 block. #}
 {% include "partials/ecs_nav_ai_sdlc.html" %}
 
-{# ----------------------------------------------------------- 6. ECS BENCHMARK
-   Demo/simulation module (mock data only; no live benchmark execution).
-   First-class always-visible left-nav group for the CIO/MD demo. #}
-{% include "partials/ecs_nav_ecs_benchmark.html" %}
+{# ECS Benchmark (demo/simulation, mock data only) is now a single item under the
+   Operations group above — no separate one-child "ECS Benchmark" section. The
+   route (/mvp/ecs-benchmark) and page are unchanged and remain reachable. #}
 
 {# ============================================================================
    PHASE 2 — HIDDEN BY DEFAULT (routes/pages/services fully preserved).

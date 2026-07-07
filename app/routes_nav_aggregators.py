@@ -5,7 +5,7 @@ that groups several EXISTING ECS pages under one left-nav item. Each tab embeds 
 existing page (via iframe with ?embed=1) so all underlying routes, templates, and
 behaviour are reused unchanged and remain reachable by their original direct URLs.
 
-Added groups (see docs/ECS_NAVIGATION_REGROUPING_REPORT.md):
+Added groups (see docs/archive/ECS_NAVIGATION_REGROUPING_REPORT.md):
   * Administration -> Evidence               (/mvp/admin/evidence)
   * Administration -> Application Management  (/mvp/admin/application-management)
   * AI SDLC Governance -> Phases             (/mvp/ai-sdlc/phases)
