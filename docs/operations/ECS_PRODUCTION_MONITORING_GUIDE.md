@@ -84,3 +84,16 @@ Until a metrics exporter is added, monitoring relies on **probe polling + log sc
 - **Weekly:** restore drill (`validate_backup_restore.sh`); disk trends; evidence freshness; readiness KPIs with product owner.
 
 Escalation and triage: `ECS_SUPPORT_RUNBOOK.md`.
+
+---
+
+## 8. Connector health & runtime references
+
+- **Connector health endpoints:** `GET /api/audit/integrations/health` (all
+  adapters, config-based), `GET /api/audit/integrations/{name}/health` (one).
+- **Safe manual connector checks:** Connector Test Workbench —
+  [../connector_test_workbench_design.md](../connector_test_workbench_design.md).
+- **Scheduler dry-run readiness:** `scripts/run_uat_asset_scheduler.py --dry-run`
+  (see [../scheduler_runtime_flow.md](../scheduler_runtime_flow.md)).
+- **Connector API references:** [../enterprise_connector_api_reference.md](../enterprise_connector_api_reference.md),
+  [../microsoft_graph_connector_api_reference.md](../microsoft_graph_connector_api_reference.md).

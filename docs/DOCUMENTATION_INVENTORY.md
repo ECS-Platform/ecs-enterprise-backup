@@ -82,10 +82,30 @@ references. Generated during the final enterprise consolidation pass (pre-UAT).
 
 ---
 
-## 5. Maintenance
+## 5. Connector & runtime API references
+
+Repository-grounded developer references (added for connectors, Microsoft Graph,
+the Connector Test Workbench, and the scheduler runtime):
+
+| Document | Purpose |
+|---|---|
+| [microsoft_graph_connector_api_reference.md](microsoft_graph_connector_api_reference.md) | Microsoft Graph auth, discovery/retrieval, pagination, config |
+| [enterprise_connector_api_reference.md](enterprise_connector_api_reference.md) | All 11 connectors: adapter, auth, endpoints, normalizers, env, tests |
+| [connector_test_workbench_design.md](connector_test_workbench_design.md) | Workbench code path, APIs, sequence + dependency diagrams |
+| [scheduler_runtime_flow.md](scheduler_runtime_flow.md) | Full scheduler lifecycle (trigger → readiness → evidence → observations) |
+| [test_workbench_vs_scheduler.md](test_workbench_vs_scheduler.md) | Difference + shared connector code path |
+| [runtime_call_graph.md](runtime_call_graph.md) | Endpoint→service→repo→connector call graph + 12 sequence diagrams |
+| [connector_frontend_testing_matrix.md](connector_frontend_testing_matrix.md) | Per-connector frontend testing matrix |
+| [connector_frontend_manual_testing.md](connector_frontend_manual_testing.md) | Manual frontend test cases |
+| [evidence_reuse_lifecycle_functional_design.md](evidence_reuse_lifecycle_functional_design.md) | Functional evidence reuse / observation lifecycle |
+
+---
+
+## 6. Maintenance
 
 When adding a technology, connector, or module, update: this inventory, the
 relevant `DEVELOPER/*` guide, `API/ECS_API_REFERENCE.md` (if routes change),
-`ARCHITECTURE/ARCHITECTURE_INDEX.md` (if architecture changes), and the count
-references in DEMO_RUNBOOK / LEADERSHIP_DEMO_SCRIPT. Keep historical reports
-immutable; record new facts in current docs.
+`ARCHITECTURE/ARCHITECTURE_INDEX.md` (if architecture changes), the connector
+references above (if a connector changes), and the count references in
+DEMO_RUNBOOK / LEADERSHIP_DEMO_SCRIPT. Keep historical reports immutable; record
+new facts in current docs.

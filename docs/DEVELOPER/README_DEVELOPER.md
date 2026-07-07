@@ -331,6 +331,14 @@ docker compose --profile db-targets down
 - **Local auth / demo mode:** `docs/LOCAL_AUTH_DEMO_FIX.md`, `docs/DEMO_MODE_SETUP.md`
 - **Common commands:** `docs/COMMON_COMMANDS.md`
 
+### Connector & runtime API references (repository-grounded)
+- **Microsoft Graph connector API reference:** [../microsoft_graph_connector_api_reference.md](../microsoft_graph_connector_api_reference.md)
+- **Enterprise connector API reference (11 connectors):** [../enterprise_connector_api_reference.md](../enterprise_connector_api_reference.md)
+- **Connector Test Workbench design & runtime:** [../connector_test_workbench_design.md](../connector_test_workbench_design.md)
+- **Scheduler runtime flow:** [../scheduler_runtime_flow.md](../scheduler_runtime_flow.md)
+- **Test Workbench vs. Scheduler:** [../test_workbench_vs_scheduler.md](../test_workbench_vs_scheduler.md)
+- **Runtime call graph & sequence diagrams:** [../runtime_call_graph.md](../runtime_call_graph.md)
+
 ### Quick fixes
 | Symptom | Fix |
 |---------|-----|

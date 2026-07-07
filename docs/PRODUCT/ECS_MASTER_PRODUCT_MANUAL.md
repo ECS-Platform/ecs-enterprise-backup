@@ -114,3 +114,11 @@ Each screen row: **Screen — Route — Persona — Business value — KPIs — 
 - Personas → [ECS_PERSONA_GUIDE.md](../product_manual/ECS_PERSONA_GUIDE.md)
 - Modules → [ECS_MODULE_REFERENCE.md](../product_manual/ECS_MODULE_REFERENCE.md)
 - Use cases → [ECS_MASTER_USE_CASE_CATALOG.md](ECS_MASTER_USE_CASE_CATALOG.md)
+
+### Connector & integration references (developer/technical)
+
+- Enterprise connectors (11) → [../enterprise_connector_api_reference.md](../enterprise_connector_api_reference.md)
+- Microsoft Graph (SharePoint/Teams/Outlook) → [../microsoft_graph_connector_api_reference.md](../microsoft_graph_connector_api_reference.md)
+- Connector Test Workbench → [../connector_test_workbench_design.md](../connector_test_workbench_design.md)
+- Scheduler runtime flow → [../scheduler_runtime_flow.md](../scheduler_runtime_flow.md)
+- Runtime call graph & sequence diagrams → [../runtime_call_graph.md](../runtime_call_graph.md)

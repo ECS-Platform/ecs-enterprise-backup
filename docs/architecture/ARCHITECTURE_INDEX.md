@@ -73,3 +73,18 @@ Assets → Fingerprinting → Technology Rules → Predefined Query Engine (187 
 See [ARCHITECTURE_INDEX](ARCHITECTURE_INDEX.md) siblings above for the full text of
 each document. For the doc-wide inventory see
 [../DOCUMENTATION_INVENTORY.md](../DOCUMENTATION_INVENTORY.md).
+
+---
+
+## 4. Connector & runtime reference (API + sequence diagrams)
+
+Repository-grounded developer references for the enterprise connectors, Microsoft
+Graph integration, the Connector Test Workbench, and the scheduler runtime:
+
+- [Microsoft Graph connector API reference](../microsoft_graph_connector_api_reference.md)
+- [Enterprise connector API reference (11 connectors)](../enterprise_connector_api_reference.md)
+- [Connector Test Workbench design & runtime](../connector_test_workbench_design.md)
+- [Scheduler runtime flow](../scheduler_runtime_flow.md)
+- [Test Workbench vs. Scheduler](../test_workbench_vs_scheduler.md)
+- [Runtime call graph & sequence diagrams](../runtime_call_graph.md)
+- [Evidence reuse & observation lifecycle (functional design)](../evidence_reuse_lifecycle_functional_design.md)
