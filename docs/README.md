@@ -25,13 +25,37 @@ everything. **New here? Start with [`00-start-here/`](00-start-here/README.md).*
 | [`evidence-management/`](evidence-management/README.md) | Evidence collection, validation, reuse, hash integrity, observations |
 | [`audit-intelligence/`](audit-intelligence/README.md) | Audit LLM prompt inventory, NL audit queries, server-side processing |
 | [`ai-sdlc/`](ai-sdlc/README.md) | AI architecture, local-LLM strategy, model abstraction, AI governance |
-| [`architecture/`](architecture/README.md) | Architecture index, HLD/LLD, data & deployment architecture, workflows |
+| [`architecture/`](architecture/README.md) | Architecture index, enterprise/solution arch, HLD (C4)/LLD, data & deployment architecture, workflows |
+| [`deployment/`](deployment/GCP_DEPLOYMENT_GUIDE.md) | Cloud deployment (GCP: GKE, Cloud SQL/pgvector, GCS, IAM, CI/CD, promotion) |
+| [`runbooks/`](runbooks/README.md) | Focused incident runbooks (scheduler, evidence upload, DB Agent, LLM, config, readiness) |
 | [`product/`](product/README.md) | Product manual, feature/KPI/module refs, use-case catalogs, frameworks, training |
-| [`testing/`](testing/README.md) | Test strategy, load testing, UAT validation, E2E/smoke guides |
+| [`testing/`](testing/README.md) | Testing guide, test strategy, load testing, UAT validation, E2E/smoke guides |
 | [`production/`](production/README.md) | Deployment, hardening, monitoring, security, SSO/OIDC, readiness gaps |
 | [`use-cases/`](use-cases/README.md) | Use-case implementation matrix, API mapping, UAT readiness, phase plans |
 | [`diagrams/`](diagrams/README.md) | ER diagrams, sequence diagrams |
 | [`archive/`](archive/README.md) | Point-in-time reports/audits + superseded docs (history only) |
+
+---
+
+## Canonical guides (one entry point per topic)
+
+Newer navigator/hub docs that tie together the deep per-topic docs:
+
+| Topic | Canonical doc |
+| --- | --- |
+| Enterprise architecture (bank/GCP/AWS, security zones, jump server) | [`architecture/ENTERPRISE_ARCHITECTURE.md`](architecture/ENTERPRISE_ARCHITECTURE.md) |
+| Solution architecture (functional/runtime/integration/data/AI) | [`architecture/SOLUTION_ARCHITECTURE.md`](architecture/SOLUTION_ARCHITECTURE.md) |
+| High-level design (C4) | [`architecture/HIGH_LEVEL_DESIGN.md`](architecture/HIGH_LEVEL_DESIGN.md) |
+| Low-level design | [`architecture/LOW_LEVEL_DESIGN.md`](architecture/LOW_LEVEL_DESIGN.md) |
+| Developer manual | [`developer-manual/DEVELOPER_MANUAL.md`](developer-manual/DEVELOPER_MANUAL.md) |
+| Prompt testing (LLM/Ollama/Gemini/replay/benchmark) | [`developer-manual/PROMPT_TESTING_GUIDE.md`](developer-manual/PROMPT_TESTING_GUIDE.md) |
+| Connector Test Workbench | [`developer-manual/TEST_WORKBENCH_GUIDE.md`](developer-manual/TEST_WORKBENCH_GUIDE.md) |
+| Predefined query catalog | [`developer-manual/PREDEFINED_QUERY_CATALOG.md`](developer-manual/PREDEFINED_QUERY_CATALOG.md) |
+| Database Agent (jump server) | [`developer-manual/DATABASE_AGENT_GUIDE.md`](developer-manual/DATABASE_AGENT_GUIDE.md) |
+| Operations manual (day-2) | [`operations/OPERATIONS_MANUAL.md`](operations/OPERATIONS_MANUAL.md) |
+| Testing guide | [`testing/TESTING_GUIDE.md`](testing/TESTING_GUIDE.md) |
+| GCP deployment | [`deployment/GCP_DEPLOYMENT_GUIDE.md`](deployment/GCP_DEPLOYMENT_GUIDE.md) |
+| Incident runbooks | [`runbooks/README.md`](runbooks/README.md) |
 
 ---
 
