@@ -1,0 +1,48 @@
+# =============================================================================
+# ECS DB Agent — configuration (PROTOTYPE)
+# =============================================================================
+# THIS IS A PROTOTYPE. THIS IS NOT PRODUCTION SECURE.
+#
+# Placeholders only — NEVER commit real hosts, IPs, or credentials. Prefer env
+# vars / .env.db-agent for secrets; this file documents the shape. Any value may
+# also be supplied via environment variables (DB_HOST, SSH_HOST, DB_AGENT_PORT,
+# ...), which take precedence over the values here.
+#
+# The DB Agent starts even if every value below is blank — unconfigured targets
+# simply report configured=false and connectivity checks degrade gracefully.
+# =============================================================================
+
+agent:
+  # Bind address/port for the agent's own HTTP service (no hardcoded prod IP).
+  host: "${DB_AGENT_HOST}"
+  port: "${DB_AGENT_PORT}"
+
+db:
+  # Target database (prototype uses PostgreSQL via the reused ECS connector).
+  host: "${DB_HOST}"
+  port: "${DB_PORT}"
+  name: "${DB_NAME}"
+  username: "${DB_USERNAME}"
+  password: "${DB_PASSWORD}"      # prefer env / secret store; never commit real value
+  sslmode: "${DB_SSLMODE}"        # empty = driver default (prototype)
+  timeout_sec: "${DB_TIMEOUT_SEC}"
+
+ssh:
+  # Target host for SSH reachability checks (jump-server -> host).
+  host: "${SSH_HOST}"
+  port: "${SSH_PORT}"
+  username: "${SSH_USERNAME}"
+  password: "${SSH_PASSWORD}"     # prefer env / secret store; never commit real value
+  timeout_sec: "${SSH_TIMEOUT_SEC}"
+
+# -----------------------------------------------------------------------------
+# Optional future security — ALL DISABLED in the prototype. Enable later via env
+# (ENABLE_MTLS / ENABLE_JWT / ENABLE_VAULT / ENABLE_OIDC / ENABLE_CERT_AUTH)
+# without changing the DB Agent architecture. See db_agent/README.md.
+# -----------------------------------------------------------------------------
+security:
+  enable_mtls: false
+  enable_jwt: false
+  enable_vault: false
+  enable_oidc: false
+  enable_cert_auth: false
