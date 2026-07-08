@@ -1,8 +1,9 @@
 """ECS enterprise integration adapters (config-driven; no real calls in tests).
 
-Ships credential-externalised adapter *skeletons* for:
-  servicenow_cmdb, archer, sharepoint_graph, jira, confluence, sonarqube,
-  checkmarx, prisma_cloud, tripwire.
+Ships credential-externalised adapter *skeletons* for (see ``ADAPTER_MODULES``):
+  servicenow_cmdb, archer, sharepoint_graph, teams_graph, outlook_graph, jira,
+  confluence, sonarqube, checkmarx, prisma_cloud, tripwire, aws_connector,
+  gcp_connector, azure_connector, nessus, qualys.
 
 Every adapter:
   * reads config from env / YAML only (never hard-coded, never logged),

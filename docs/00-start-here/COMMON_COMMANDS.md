@@ -2,7 +2,7 @@
 
 Copy-paste command catalog. Every command is derived from the repository (`requirements.txt`, `Dockerfile`, `docker-compose.yml`, `start_ecs.sh`, `app/main.py`, `scripts/`, `demo-data/`). Run Python commands with the virtual environment activated.
 
-> **No `make`, no `npm`.** There is no `Makefile`/`pyproject.toml`/`pytest.ini` and no Node toolchain. Commands are plain `pip`, `uvicorn`, `pytest`, `docker compose`, and the shell scripts under `demo-data/` and `scripts/`.
+> **Tooling.** A `Makefile` provides convenience targets (`make help`, `make install`, `make run`, `make test`, `make ci`, `make smoke`, `make compile`, …) that wrap the underlying commands below. There is no `pyproject.toml`/`pytest.ini` and no Node/`npm` toolchain — the raw commands are plain `pip`, `uvicorn`, `pytest`, `docker compose`, and the shell scripts under `demo-data/` and `scripts/`.
 
 ---
 

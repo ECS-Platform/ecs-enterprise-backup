@@ -129,6 +129,7 @@ class PrismaCloudClient(BaseAdapter):
                      max_items: int = 1000) -> dict[str, Any]:
         if not self.is_configured():
             return _base.not_configured_response(SOURCE)
+        self.authenticate()  # obtain/cache JWT so _get() headers carry x-redlock-auth
         path = self._path("alert", "v2/alert")
         return collect_paginated(
             lambda off, lim: self._get(path, {"offset": off, "limit": lim}),
@@ -141,6 +142,7 @@ class PrismaCloudClient(BaseAdapter):
         """List onboarded cloud accounts (GET /cloud)."""
         if not self.is_configured():
             return _base.not_configured_response(SOURCE)
+        self.authenticate()  # obtain/cache JWT so _get() headers carry x-redlock-auth
         payload, status = self._get(self._path("cloud", "cloud"))
         if status is not None:
             return _base.error_response(SOURCE, status, f"cloud accounts fetch failed ({status})")
@@ -152,6 +154,7 @@ class PrismaCloudClient(BaseAdapter):
         """List cloud resources (GET /resource; offset pagination)."""
         if not self.is_configured():
             return _base.not_configured_response(SOURCE)
+        self.authenticate()  # obtain/cache JWT so _get() headers carry x-redlock-auth
         path = self._path("resource", "resource")
         return collect_paginated(
             lambda off, lim: self._get(path, {"offset": off, "limit": lim}),

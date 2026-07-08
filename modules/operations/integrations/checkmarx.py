@@ -128,6 +128,9 @@ class CheckmarxClient(BaseAdapter):
                     max_items: int = 1000) -> dict[str, Any]:
         if not self.is_configured():
             return _base.not_configured_response(SOURCE)
+        # Ensure a bearer token is obtained/cached before the fetch so _get()'s
+        # headers() include it (Checkmarx IAM client-credentials exchange).
+        self.authenticate()
         params_base = {}
         if project_id:
             params_base["project-id"] = project_id

@@ -183,6 +183,48 @@ connectors:
     username:     "${ECS_TRIPWIRE_USERNAME:-}"
     password_env: ECS_TRIPWIRE_PASSWORD
     timeout_sec:  "${ECS_TRIPWIRE_TIMEOUT_SECONDS:-30}"
+  # Cloud posture + vulnerability-scanner adapters (config-driven; secrets via
+  # *_env). Endpoints/regions come from env vars so AWS/GCP/Azure/Nessus/Qualys
+  # can be configured per environment WITHOUT code changes.
+  aws:
+    base_url:       "${AWS_POSTURE_BASE_URL:-}"
+    region:         "${AWS_REGION:-}"
+    account_id:     "${AWS_ACCOUNT_ID:-}"
+    access_key_env: AWS_ACCESS_KEY_ID
+    secret_key_env: AWS_SECRET_ACCESS_KEY
+    timeout_sec:    "${AWS_TIMEOUT_SECONDS:-30}"
+    max_retries:    "${AWS_MAX_RETRIES:-2}"
+  gcp:
+    base_url:            "${GCP_POSTURE_BASE_URL:-}"
+    project_id:          "${GCP_PROJECT_ID:-}"
+    region:              "${GCP_REGION:-}"
+    service_account_env: GCP_SERVICE_ACCOUNT_JSON
+    access_token_env:    GCP_ACCESS_TOKEN
+    timeout_sec:         "${GCP_TIMEOUT_SECONDS:-30}"
+    max_retries:         "${GCP_MAX_RETRIES:-2}"
+  azure:
+    base_url:          "${AZURE_MGMT_BASE_URL:-https://management.azure.com}"
+    tenant_id:         "${AZURE_TENANT_ID:-}"
+    client_id:         "${AZURE_CLIENT_ID:-}"
+    client_secret_env: AZURE_CLIENT_SECRET
+    subscription_id:   "${AZURE_SUBSCRIPTION_ID:-}"
+    authority_url:     "${AZURE_AUTHORITY_URL:-https://login.microsoftonline.com}"
+    scope:             "${AZURE_SCOPE:-https://management.azure.com/.default}"
+    access_token_env:  AZURE_ACCESS_TOKEN
+    timeout_sec:       "${AZURE_TIMEOUT_SECONDS:-30}"
+    max_retries:       "${AZURE_MAX_RETRIES:-2}"
+  nessus:
+    base_url:       "${NESSUS_BASE_URL:-}"
+    access_key_env: NESSUS_ACCESS_KEY
+    secret_key_env: NESSUS_SECRET_KEY
+    timeout_sec:    "${NESSUS_TIMEOUT_SECONDS:-30}"
+    max_retries:    "${NESSUS_MAX_RETRIES:-2}"
+  qualys:
+    base_url:     "${QUALYS_BASE_URL:-}"
+    username:     "${QUALYS_USERNAME:-}"
+    password_env: QUALYS_PASSWORD
+    timeout_sec:  "${QUALYS_TIMEOUT_SECONDS:-30}"
+    max_retries:  "${QUALYS_MAX_RETRIES:-2}"
 
 # -----------------------------------------------------------------------------
 # FRAMEWORK TARGETS — per-framework scope of systems each control set assesses.
