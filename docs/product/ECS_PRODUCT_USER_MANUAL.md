@@ -468,7 +468,7 @@ and packs carry a **verifiable manifest** an auditor can recompute.
 
 **How does ECS move from demo to real UAT?** It's **environment-driven** — the same
 code runs against localhost/demo today and bank UAT endpoints by setting env vars,
-with no code change. See [../DEVELOPER/UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md).
+with no code change. See [connectors/UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md).
 
 **What if a technology has no controls yet?** The asset is flagged **Unsupported**
 (manual review) — it never crashes a run.

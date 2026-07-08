@@ -234,5 +234,5 @@ docker compose config
 
 Cross references:
 [microsoft_graph_sharepoint_teams_uat_testing.md](../graph-api/microsoft_graph_sharepoint_teams_uat_testing.md) ·
-[DEVELOPER/UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md) ·
-[DEVELOPER/ENTERPRISE_CONNECTOR_UAT_SETUP.md](../connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md).
+[connectors/UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md) ·
+[connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md](../connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md).

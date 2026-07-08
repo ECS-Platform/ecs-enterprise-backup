@@ -59,7 +59,7 @@ live UAT for the caveated (🟡) use cases:
    scope, wire `enqueue_scheduled_run` + `asset_scheduler.execute_plan` into a
    worker; otherwise use the manual trigger + dry-run.
 
-See [DEVELOPER/UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md)
+See [connectors/UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md)
 (§ Bank Developer UAT Checklist),
 [DEVELOPER/ENTERPRISE_CONNECTOR_UAT_SETUP.md](../connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md),
 and [DEVELOPER/PRODUCTION_READINESS_GAP_REGISTER.md](../production/PRODUCTION_READINESS_GAP_REGISTER.md).
