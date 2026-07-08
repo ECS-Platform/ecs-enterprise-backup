@@ -1,0 +1,110 @@
+# =============================================================================
+# ECS Predefined-Query Target Registry — LOCAL
+# =============================================================================
+# An operator-facing, named-target registry for the predefined-query module.
+# It COMPLEMENTS (does not replace) the connector-level `predefined_query_targets`
+# blocks in config/environments/*.yaml — those define HOW to connect per
+# technology; this file enumerates the concrete named targets to assess.
+#
+# LOCAL points at the docker-compose demo containers (localhost is allowed here
+# ONLY). To move to a bank environment, edit predefined_query_targets.<env>.yaml
+# — no source-code change (see the Local→UAT Migration Guide).
+#
+# Each target supports: target_id, technology, hostname, ip, port, environment,
+# credential_ref, connector_ref, execution_method, tags, enabled, timeout_seconds.
+# =============================================================================
+
+environment: local
+
+targets:
+  - target_id: local-postgres-01
+    technology: postgresql
+    hostname: localhost
+    ip: 127.0.0.1
+    port: 5432
+    environment: local
+    credential_ref: env://ECS_PG_PASSWORD
+    connector_ref: postgresql
+    execution_method: sql
+    tags: [db-baseline, demo]
+    enabled: true
+    timeout_seconds: 30
+
+  - target_id: local-mysql-01
+    technology: aurora_mysql
+    hostname: localhost
+    ip: 127.0.0.1
+    port: 3306
+    environment: local
+    credential_ref: env://ECS_MYSQL_PASSWORD
+    connector_ref: aurora_mysql
+    execution_method: sql
+    tags: [db-baseline, demo]
+    enabled: true
+    timeout_seconds: 30
+
+  - target_id: local-redis-01
+    technology: redis
+    hostname: localhost
+    ip: 127.0.0.1
+    port: 6379
+    environment: local
+    credential_ref: env://ECS_REDIS_PASSWORD
+    connector_ref: redis
+    execution_method: shell
+    tags: [middleware-baseline, demo]
+    enabled: true
+    timeout_seconds: 30
+
+  - target_id: local-nginx-01
+    technology: nginx
+    hostname: nginx-demo          # docker-exec container name
+    ip: ""
+    port: 443
+    environment: local
+    credential_ref: none
+    connector_ref: nginx
+    execution_method: shell
+    tags: [middleware-baseline, tls, demo]
+    enabled: true
+    timeout_seconds: 30
+
+  - target_id: local-ubuntu-01
+    technology: linux
+    hostname: ubuntu-demo
+    ip: ""
+    port: 22
+    environment: local
+    credential_ref: none
+    connector_ref: linux
+    execution_method: shell
+    tags: [os-baseline, demo]
+    enabled: true
+    timeout_seconds: 30
+
+  # Heavier demo targets — enable per docker profile when running them.
+  - target_id: local-oracle-01
+    technology: oracle
+    hostname: localhost
+    ip: 127.0.0.1
+    port: 1521
+    environment: local
+    credential_ref: env://ECS_ORACLE_PASSWORD
+    connector_ref: oracle
+    execution_method: sql
+    tags: [db-baseline, heavy, demo]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: local-sqlserver-01
+    technology: sqlserver
+    hostname: localhost
+    ip: 127.0.0.1
+    port: 1433
+    environment: local
+    credential_ref: env://ECS_SQLSERVER_PASSWORD
+    connector_ref: sqlserver
+    execution_method: sql
+    tags: [db-baseline, heavy, demo]
+    enabled: false
+    timeout_seconds: 30

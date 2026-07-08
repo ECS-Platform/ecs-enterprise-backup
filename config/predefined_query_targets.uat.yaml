@@ -1,0 +1,92 @@
+# =============================================================================
+# ECS Predefined-Query Target Registry — UAT
+# =============================================================================
+# Named bank-UAT targets for the predefined-query module. PLACEHOLDERS ONLY —
+# fill in real UAT hostnames/IPs and set enabled: true when ready. NO localhost
+# is permitted in UAT (the config test enforces this). Secrets are referenced by
+# credential_ref (vault path / env var name); never inline a secret here.
+#
+# Moving from LOCAL to UAT = edit THIS file (hostnames/ips/credential_ref) —
+# no source-code change. See the Local→UAT Migration Guide.
+# =============================================================================
+
+environment: uat
+
+targets:
+  - target_id: nb-postgres-uat-01
+    technology: postgresql
+    hostname: <bank-uat-postgres-hostname>
+    ip: <bank-uat-postgres-ip>
+    port: 5432
+    environment: uat
+    credential_ref: vault://ecs/uat/postgres
+    connector_ref: postgresql
+    execution_method: sql
+    tags: [db-baseline]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-oracle-uat-01
+    technology: oracle
+    hostname: <bank-uat-oracle-hostname>
+    ip: <bank-uat-oracle-ip>
+    port: 1521
+    environment: uat
+    credential_ref: vault://ecs/uat/oracle
+    connector_ref: oracle
+    execution_method: sql
+    tags: [db-baseline]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-nginx-uat-01
+    technology: nginx
+    hostname: <bank-uat-nginx-hostname>
+    ip: <bank-uat-nginx-ip>
+    port: 443
+    environment: uat
+    credential_ref: vault://ecs/uat/nginx
+    connector_ref: nginx
+    execution_method: shell
+    tags: [middleware-baseline, tls]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-tomcat-uat-01
+    technology: tomcat
+    hostname: <bank-uat-tomcat-hostname>
+    ip: <bank-uat-tomcat-ip>
+    port: 8443
+    environment: uat
+    credential_ref: vault://ecs/uat/tomcat
+    connector_ref: tomcat
+    execution_method: shell
+    tags: [middleware-baseline]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-linux-uat-01
+    technology: linux
+    hostname: <bank-uat-linux-hostname>
+    ip: <bank-uat-linux-ip>
+    port: 22
+    environment: uat
+    credential_ref: vault://ecs/uat/linux-ssh
+    connector_ref: linux
+    execution_method: shell
+    tags: [os-baseline]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-redis-uat-01
+    technology: redis
+    hostname: <bank-uat-redis-hostname>
+    ip: <bank-uat-redis-ip>
+    port: 6379
+    environment: uat
+    credential_ref: vault://ecs/uat/redis
+    connector_ref: redis
+    execution_method: shell
+    tags: [middleware-baseline]
+    enabled: false
+    timeout_seconds: 30

@@ -1,0 +1,112 @@
+# =============================================================================
+# ECS Predefined-Query TEST TARGETS — profile-gated, laptop-friendly
+# =============================================================================
+# A focused, standalone compose that brings up ONLY the technology targets the
+# predefined-query module runs against, grouped by weight so 8 GB laptops are not
+# overwhelmed. It reuses the SAME images as the main docker-compose.yml — it does
+# not duplicate the ECS app/platform stack.
+#
+# Usage (choose a weight profile):
+#   docker compose -f docker-compose.predefined-queries.yml --profile minimal  up -d
+#   docker compose -f docker-compose.predefined-queries.yml --profile standard up -d
+#   docker compose -f docker-compose.predefined-queries.yml --profile extended up -d
+#
+# Weight profiles:
+#   minimal  — nginx, postgres, redis, ubuntu  (light; ~fits 8 GB)
+#   standard — minimal + mysql, apache, tompat, mongodb  (16 GB comfortable)
+#   extended — standard + oracle, sqlserver  (heavy; 16 GB+ / licensing)
+#
+# Container names match config/predefined_query_targets.local.yaml so the
+# predefined-query connectors (docker-exec / TCP) resolve them directly.
+# =============================================================================
+
+services:
+  # ---- minimal ----
+  pq-nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx-demo
+    profiles: ["minimal", "standard", "extended"]
+    volumes:
+      - ./demo-data/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "18080:80"
+
+  pq-postgres:
+    image: postgres:16
+    container_name: pq-postgres-demo
+    profiles: ["minimal", "standard", "extended"]
+    environment:
+      POSTGRES_DB: ${ECS_PG_DATABASE:-ecs_demo}
+      POSTGRES_USER: ${ECS_PG_USER:-ecs_user}
+      POSTGRES_PASSWORD: ${ECS_PG_PASSWORD:-ecs_password}
+    ports:
+      - "15432:5432"
+
+  pq-redis:
+    image: redis:7-alpine
+    container_name: pq-redis
+    profiles: ["minimal", "standard", "extended"]
+    ports:
+      - "16379:6379"
+
+  pq-ubuntu:
+    image: ubuntu:22.04
+    container_name: ubuntu-demo
+    profiles: ["minimal", "standard", "extended"]
+    command: ["sleep", "infinity"]
+
+  # ---- standard (adds middleware + secondary DBs) ----
+  pq-mysql:
+    image: mysql:8.0
+    container_name: pq-mysql-demo
+    profiles: ["standard", "extended"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ECS_MYSQL_PASSWORD:-ecs_password}
+      MYSQL_DATABASE: ${ECS_MYSQL_DATABASE:-ecs_demo}
+      MYSQL_USER: ${ECS_MYSQL_USER:-ecs_user}
+      MYSQL_PASSWORD: ${ECS_MYSQL_PASSWORD:-ecs_password}
+    ports:
+      - "13306:3306"
+
+  pq-apache:
+    image: httpd:2.4
+    container_name: apache-demo
+    profiles: ["standard", "extended"]
+    ports:
+      - "18081:80"
+
+  pq-tomcat:
+    image: tomcat:10.1
+    container_name: tomcat-demo
+    profiles: ["standard", "extended"]
+    ports:
+      - "18443:8080"
+
+  pq-mongodb:
+    image: mongo:7
+    container_name: mongodb-demo
+    profiles: ["standard", "extended"]
+    ports:
+      - "17017:27017"
+
+  # ---- extended (heavy / licensing) ----
+  pq-oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: pq-oracle-demo
+    profiles: ["extended"]
+    environment:
+      ORACLE_PASSWORD: ${ECS_ORACLE_PASSWORD:-ecs_password}
+      APP_USER: ${ECS_ORACLE_USER:-ecs_user}
+      APP_USER_PASSWORD: ${ECS_ORACLE_PASSWORD:-ecs_password}
+    ports:
+      - "11521:1521"
+
+  pq-sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pq-sqlserver-demo
+    profiles: ["extended"]
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${ECS_SQLSERVER_PASSWORD:-Ecs_Str0ng!Pass}
+    ports:
+      - "11433:1433"

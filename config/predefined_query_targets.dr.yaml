@@ -1,0 +1,66 @@
+# =============================================================================
+# ECS Predefined-Query Target Registry — DISASTER RECOVERY (DR)
+# =============================================================================
+# Named DR-site targets, mirroring PRODUCTION with DR hostnames/IPs.
+# PLACEHOLDERS ONLY — fill in real DR-site values and set enabled: true for a
+# DR assessment. NO localhost is permitted in DR (enforced by the config test).
+# Secrets via credential_ref (DR vault) only.
+#
+# Moving PROD -> DR = edit THIS file (DR hostnames/ips/credential_ref) — no code
+# change.
+# =============================================================================
+
+environment: dr
+
+targets:
+  - target_id: nb-postgres-dr-01
+    technology: postgresql
+    hostname: <bank-dr-postgres-hostname>
+    ip: <bank-dr-postgres-ip>
+    port: 5432
+    environment: dr
+    credential_ref: vault://ecs/dr/postgres
+    connector_ref: postgresql
+    execution_method: sql
+    tags: [db-baseline]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-oracle-dr-01
+    technology: oracle
+    hostname: <bank-dr-oracle-hostname>
+    ip: <bank-dr-oracle-ip>
+    port: 1521
+    environment: dr
+    credential_ref: vault://ecs/dr/oracle
+    connector_ref: oracle
+    execution_method: sql
+    tags: [db-baseline]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-nginx-dr-01
+    technology: nginx
+    hostname: <bank-dr-nginx-hostname>
+    ip: <bank-dr-nginx-ip>
+    port: 443
+    environment: dr
+    credential_ref: vault://ecs/dr/nginx
+    connector_ref: nginx
+    execution_method: shell
+    tags: [middleware-baseline, tls]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-linux-dr-01
+    technology: linux
+    hostname: <bank-dr-linux-hostname>
+    ip: <bank-dr-linux-ip>
+    port: 22
+    environment: dr
+    credential_ref: vault://ecs/dr/linux-ssh
+    connector_ref: linux
+    execution_method: shell
+    tags: [os-baseline]
+    enabled: false
+    timeout_seconds: 30

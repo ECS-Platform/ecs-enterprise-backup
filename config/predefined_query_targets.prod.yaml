@@ -1,0 +1,65 @@
+# =============================================================================
+# ECS Predefined-Query Target Registry — PRODUCTION
+# =============================================================================
+# Named bank-PRODUCTION targets. PLACEHOLDERS ONLY — fill in real prod
+# hostnames/IPs and set enabled: true at go-live. NO localhost is permitted in
+# prod (enforced by the config test). Secrets via credential_ref (vault) only.
+#
+# Moving UAT -> PROD = edit THIS file (hostnames/ips/credential_ref) — no code
+# change. Validate before go-live (see the Testing Guide).
+# =============================================================================
+
+environment: prod
+
+targets:
+  - target_id: nb-postgres-prod-01
+    technology: postgresql
+    hostname: <bank-prod-postgres-hostname>
+    ip: <bank-prod-postgres-ip>
+    port: 5432
+    environment: prod
+    credential_ref: vault://ecs/prod/postgres
+    connector_ref: postgresql
+    execution_method: sql
+    tags: [db-baseline]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-oracle-prod-01
+    technology: oracle
+    hostname: <bank-prod-oracle-hostname>
+    ip: <bank-prod-oracle-ip>
+    port: 1521
+    environment: prod
+    credential_ref: vault://ecs/prod/oracle
+    connector_ref: oracle
+    execution_method: sql
+    tags: [db-baseline]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-nginx-prod-01
+    technology: nginx
+    hostname: <bank-prod-nginx-hostname>
+    ip: <bank-prod-nginx-ip>
+    port: 443
+    environment: prod
+    credential_ref: vault://ecs/prod/nginx
+    connector_ref: nginx
+    execution_method: shell
+    tags: [middleware-baseline, tls]
+    enabled: false
+    timeout_seconds: 30
+
+  - target_id: nb-linux-prod-01
+    technology: linux
+    hostname: <bank-prod-linux-hostname>
+    ip: <bank-prod-linux-ip>
+    port: 22
+    environment: prod
+    credential_ref: vault://ecs/prod/linux-ssh
+    connector_ref: linux
+    execution_method: shell
+    tags: [os-baseline]
+    enabled: false
+    timeout_seconds: 30
