@@ -327,6 +327,49 @@ async def _request_id_mw(request, call_next):
     return response
 
 
+# Security-headers middleware (production hardening). The nginx edge
+# (deploy/nginx/ecs.conf.example) sets these when ECS is fronted by it, but the
+# app must also emit them so non-proxied/internal access (K8s probes, direct
+# service-to-service, port-forward during UAT) is still protected. Safe defaults
+# only; HSTS is emitted for HTTPS requests only (never breaks local HTTP demos),
+# and Content-Security-Policy stays opt-in (ECS templates carry inline
+# <style>/<script>, so a strict CSP is enabled explicitly via ECS_CSP). Never
+# overrides a header an upstream/other middleware already set. Never raises.
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Permitted-Cross-Domain-Policies": "none",
+    "Cross-Origin-Opener-Policy": "same-origin",
+}
+
+
+@app.middleware("http")
+async def _security_headers_mw(request, call_next):
+    response = await call_next(request)
+    try:
+        for name, value in _SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        # HSTS only over TLS (or when a proxy signals the original scheme was
+        # https) — sending it on plain HTTP is a spec violation and can wedge
+        # local/demo access. Bank/prod deployments terminate TLS at the edge.
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
+        is_https = request.url.scheme == "https" or forwarded_proto == "https"
+        if is_https:
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        # Content-Security-Policy is opt-in (ECS_CSP) because ECS templates use
+        # inline styles/scripts; operators supply a tuned policy string per env.
+        csp = os.environ.get("ECS_CSP", "").strip()
+        if csp:
+            response.headers.setdefault("Content-Security-Policy", csp)
+    except Exception:  # noqa: BLE001 - headers must never break the request
+        pass
+    return response
+
+
 app.mount("/static/ecs", StaticFiles(directory="modules/shared/static"), name="ecs_static")
 
 # ---- Phase 1: Authentication foundation (Azure AD / OIDC / JWT) ----

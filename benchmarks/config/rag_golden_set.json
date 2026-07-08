@@ -1,0 +1,72 @@
+[
+  {
+    "query_id": "gq-01",
+    "query": "Show PCI-DSS evidence for Mobile Banking.",
+    "framework": "PCI-DSS",
+    "application": "Mobile Banking",
+    "relevant": ["EVD-PCI-MOB-001", "EVD-PCI-MOB-002", "EVD-PCI-MOB-003"]
+  },
+  {
+    "query_id": "gq-02",
+    "query": "What SOC2 controls are covered for Payments Gateway?",
+    "framework": "SOC2",
+    "application": "Payments Gateway",
+    "relevant": ["EVD-SOC2-PAY-011", "EVD-SOC2-PAY-012"]
+  },
+  {
+    "query_id": "gq-03",
+    "query": "List rejected evidence for Loan Origination.",
+    "framework": "",
+    "application": "Loan Origination",
+    "relevant": ["EVD-LOAN-REJ-101"]
+  },
+  {
+    "query_id": "gq-04",
+    "query": "Show audit readiness gaps for Corporate Banking.",
+    "framework": "",
+    "application": "Corporate Banking",
+    "relevant": ["EVD-CORP-GAP-201", "EVD-CORP-GAP-202"]
+  },
+  {
+    "query_id": "gq-05",
+    "query": "Which evidence is reused across frameworks for Treasury Ops?",
+    "framework": "",
+    "application": "Treasury Ops",
+    "relevant": ["EVD-TREAS-REUSE-301", "EVD-TREAS-REUSE-302", "EVD-TREAS-REUSE-303"]
+  },
+  {
+    "query_id": "gq-06",
+    "query": "Show recent Jenkins build evidence for Mobile Banking.",
+    "framework": "",
+    "application": "Mobile Banking",
+    "relevant": ["EVD-JENKINS-MOB-401"]
+  },
+  {
+    "query_id": "gq-07",
+    "query": "Show Jira change records for Payments Gateway.",
+    "framework": "",
+    "application": "Payments Gateway",
+    "relevant": ["EVD-JIRA-PAY-501", "EVD-JIRA-PAY-502"]
+  },
+  {
+    "query_id": "gq-08",
+    "query": "What SonarQube quality issues exist for Loan Origination?",
+    "framework": "",
+    "application": "Loan Origination",
+    "relevant": ["EVD-SONAR-LOAN-601"]
+  },
+  {
+    "query_id": "gq-09",
+    "query": "Summarize framework coverage across all applications.",
+    "framework": "",
+    "application": "",
+    "relevant": ["EVD-COVERAGE-ALL-701", "EVD-COVERAGE-ALL-702"]
+  },
+  {
+    "query_id": "gq-10",
+    "query": "Show evidence collection status by source system.",
+    "framework": "",
+    "application": "",
+    "relevant": ["EVD-COLLECT-STATUS-801"]
+  }
+]

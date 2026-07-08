@@ -37,7 +37,8 @@ server {
     client_max_body_size 25m;
 
     # Health probe (kept fast; no auth needed for LB checks per security review).
-    location = /api/audit/health {
+    # /healthz does no I/O; use /readyz upstream to gate on DB readiness.
+    location = /healthz {
         proxy_pass http://ecs_app;
         access_log off;
     }

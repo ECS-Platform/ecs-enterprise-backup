@@ -44,8 +44,9 @@ Use these for liveness/readiness (all offline-safe, no live external calls):
 
 | Probe | Endpoint | Notes |
 |-------|----------|-------|
-| Liveness | `GET /api/audit/health` | Returns `ok`/`degraded`; never leaks secrets. |
-| Readiness | `GET /api/audit/health` | Same; gate traffic on 200. |
+| Liveness | `GET /healthz` | Process up; does no I/O so a slow dependency never restarts a healthy pod. |
+| Readiness | `GET /readyz` | Returns 200 when the PostgreSQL repository is reachable, else 503; gate traffic on 200. |
+| App health | `GET /api/audit/health` | Application-level `ok`/`degraded` summary (never leaks secrets). |
 | Integrations | `GET /api/audit/integrations/health` | Config-only adapter health (masked). |
 
 > Query params `?role=owner&user=probe` may be required depending on auth config;
@@ -88,7 +89,7 @@ python scripts/generate_env_template.py --env prod    # -> .env.prod.template
 2. Postgres provisioned + schema applied; `ECS_AUDIT_DB_URL` in the secret store.
 3. Secrets populated in the secret manager (never in Git).
 4. Reverse proxy / Ingress configured with TLS.
-5. Health probes wired (`/api/audit/health`).
+5. Health probes wired (liveness `/healthz`, readiness `/readyz`).
 6. Run the production smoke check: `python scripts/run_production_smoke.py --strict`.
 7. Follow `docs/operations/DEPLOYMENT_RUNBOOK.md` and `PRODUCTION_CHECKLIST.md`.
 

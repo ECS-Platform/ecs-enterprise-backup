@@ -5,7 +5,8 @@
 # - Replace <registry>/<ecs-image>:<tag> with your approved image reference.
 # - Non-secret config from the ConfigMap; secrets from the Secret (populate from
 #   a secrets manager / external-secrets operator). Never commit real secrets.
-# - Health probes hit /api/audit/health (offline-safe, no external calls).
+# - Liveness probe hits /healthz (no I/O); readiness hits /readyz (checks the
+#   PostgreSQL repository and returns 503 until it is reachable).
 # =============================================================================
 apiVersion: apps/v1
 kind: Deployment
@@ -56,9 +57,13 @@ spec:
             limits:
               cpu: "1"
               memory: "1Gi"
+          # Liveness uses /healthz (no I/O) so a slow/unreachable dependency
+          # never restarts a healthy pod. Readiness uses /readyz (checks the
+          # PostgreSQL repository, returns 503 when not reachable) so traffic is
+          # only routed once the app can serve DB-backed requests.
           livenessProbe:
             httpGet:
-              path: /api/audit/health
+              path: /healthz
               port: http
             initialDelaySeconds: 20
             periodSeconds: 30
@@ -66,7 +71,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /api/audit/health
+              path: /readyz
               port: http
             initialDelaySeconds: 10
             periodSeconds: 15

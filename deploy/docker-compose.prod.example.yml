@@ -36,7 +36,10 @@ services:
       # Read-only app config; evidence/runtime data goes to Postgres/object store.
       - ecs-data:/app/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/audit/health || exit 1"]
+      # Liveness-style container check: /healthz does no I/O (a slow dependency
+      # must not mark a healthy container unhealthy). Use /readyz at the
+      # orchestrator/LB layer to gate traffic on PostgreSQL reachability.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/healthz || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
