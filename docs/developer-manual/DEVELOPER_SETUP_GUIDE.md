@@ -64,6 +64,23 @@ pip install -r requirements.txt
 pip install pytest                 # optional: to run the test suite
 ```
 
+**Reproducible / production installs.** `requirements.txt` uses flexible minimum
+(`>=`) pins for development. For a **reproducible** build (production/UAT/CI-parity)
+install the pinned lockfile instead:
+
+```bash
+pip install -r requirements.lock          # exact pinned versions
+# or:  make install-locked
+```
+
+Regenerate the lock after changing `requirements.txt` (from a known-good venv):
+
+```bash
+make lock                                  # -> scripts/gen_requirements_lock.py
+# or, if pip-tools is available:
+pip install pip-tools && pip-compile --output-file=requirements.lock requirements.txt
+```
+
 ### 1.4 Environment variables (demo mode)
 
 ```bash

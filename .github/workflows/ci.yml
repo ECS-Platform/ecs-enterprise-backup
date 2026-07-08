@@ -56,4 +56,7 @@ jobs:
             tests/test_evidence_repository.py \
             tests/test_production_hardening.py \
             tests/test_enterprise_gap_close.py \
+            tests/test_scheduler_execution.py \
+            tests/test_audit_llm_evaluation.py \
+            tests/test_cloud_security_connectors.py \
             tests/test_ui_nav_and_summary_cleanup.py

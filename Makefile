@@ -22,6 +22,9 @@ CI_TESTS := \
 	tests/test_evidence_repository.py \
 	tests/test_production_hardening.py \
 	tests/test_enterprise_gap_close.py \
+	tests/test_scheduler_execution.py \
+	tests/test_audit_llm_evaluation.py \
+	tests/test_cloud_security_connectors.py \
 	tests/test_usecase_batch1_evidence_workflows.py \
 	tests/test_evidence_reuse_lifecycle.py
 
@@ -41,6 +44,16 @@ install: venv ## Install runtime + dev dependencies
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 	@test -f requirements-dev.txt && $(PIP) install -r requirements-dev.txt || true
+
+.PHONY: install-locked
+install-locked: venv ## Reproducible install from requirements.lock (pinned)
+	$(PIP) install --upgrade pip
+	$(PIP) install -r requirements.lock
+
+.PHONY: lock
+lock: ## Regenerate requirements.lock from the current (known-good) venv
+	$(PYBIN) scripts/gen_requirements_lock.py > requirements.lock
+	@echo "requirements.lock regenerated"
 
 .PHONY: run
 run: ## Run ECS locally in demo mode (http://127.0.0.1:8000)
