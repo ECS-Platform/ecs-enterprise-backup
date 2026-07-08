@@ -73,6 +73,8 @@
         <button id="alw-btn-run" class="btn btn-sm btn-primary">Run prompt</button>
         <button id="alw-btn-bench" class="btn btn-sm btn-outline-dark">Run benchmark (dry-run)</button>
         <button id="alw-btn-export" class="btn btn-sm btn-outline-dark">Export benchmark</button>
+        <button id="alw-btn-eval" class="btn btn-sm btn-outline-success" title="Grounding + citation check on the last run">Evaluate grounding</button>
+        <button id="alw-btn-replay" class="btn btn-sm btn-outline-secondary" title="Deterministically replay the last run (no LLM)">Replay (dry-run)</button>
       </div>
     </div></div>
   </div>
@@ -168,7 +170,9 @@
     });
   }
 
+  let _lastResult = null;   // last execution result (for evaluate/replay)
   function renderResult(res) {
+    _lastResult = res;
     setText("alw-qtype", res.query_type);
     const te = res.token_estimate || {};
     setText("alw-tokens", (te.input_tokens||0) + " / " + (te.output_tokens||0) + " / " + (te.total_tokens||0));
@@ -229,6 +233,30 @@
     if (d.ok) setText("alw-warnings", "Exported: " + JSON.stringify(d.written, null, 2));
     else setText("alw-warnings", d.message || "error");
     setText("alw-status", "");
+  });
+
+  $("alw-btn-eval").addEventListener("click", async () => {
+    if (!_lastResult) { setText("alw-warnings", "Run a prompt first, then evaluate."); return; }
+    setText("alw-status", "evaluating grounding…");
+    const d = await postJSON("/api/audit-llm/validate-grounding", { result: _lastResult });
+    if (d.ok) {
+      const g = d.grounding || {}, c = d.citations || {};
+      setText("alw-warnings",
+        "Grounding: " + (g.grounding || "?") + " (supported " + (g.supported_ratio ?? "?") + ")\n" +
+        "Unsupported terms: " + ((g.unsupported_terms || []).join(", ") || "none") + "\n" +
+        "Citations valid: " + c.valid + (c.missing && c.missing.length ? " · missing " + c.missing.join(", ") : ""));
+    } else setText("alw-warnings", d.message || "error");
+    setText("alw-status", "");
+  });
+
+  $("alw-btn-replay").addEventListener("click", async () => {
+    setText("alw-status", "replaying (dry-run)…");
+    const rec = _lastResult
+      ? { prompt_id: _lastResult.prompt_id, query: _lastResult.query }
+      : { prompt_id: $("alw-prompt").value, query: $("alw-query").value };
+    const d = await postJSON("/api/audit-llm/replay", { record: rec, live: false });
+    if (d.ok) { renderResult(d.replayed); setText("alw-status", "replayed (dry-run, no LLM)"); }
+    else { setText("alw-warnings", d.message || d.error || "error"); setText("alw-status", ""); }
   });
 
   loadPrompts();

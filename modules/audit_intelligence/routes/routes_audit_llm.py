@@ -156,3 +156,49 @@ def register_audit_llm_routes(app) -> None:
         )
         written = br.export_report(report)
         return _ok(written=written, summary=report["summary"])
+
+    # ------------------------------------------------------ evaluation suite
+    # Replay / compare / grounding+citation validation over the EXISTING audit
+    # LLM stack (llm_evaluation reuses execution_service; deterministic, offline).
+    @app.post("/api/audit-llm/replay")
+    @_safe
+    def api_llm_replay(payload: dict[str, Any] = Body(default_factory=dict)):
+        """Replay a prompt execution from a stored record (deterministic by default)."""
+        from modules.audit_intelligence.llm import llm_evaluation as ev
+
+        record = payload.get("record") or payload
+        res = ev.replay(record, live=bool(payload.get("live", False)))
+        if not res.get("ok"):
+            return _err(str(res.get("error") or "replay failed"), status=400)
+        return _ok(res)
+
+    @app.post("/api/audit-llm/compare")
+    @_safe
+    def api_llm_compare(payload: dict[str, Any] = Body(default_factory=dict)):
+        """Structured diff of two execution results (a vs b)."""
+        from modules.audit_intelligence.llm import llm_evaluation as ev
+
+        a, b = payload.get("a"), payload.get("b")
+        if not isinstance(a, dict) or not isinstance(b, dict):
+            return _err("Provide 'a' and 'b' execution results.", status=400)
+        return _ok(ev.compare(a, b))
+
+    @app.post("/api/audit-llm/validate-grounding")
+    @_safe
+    def api_llm_validate_grounding(payload: dict[str, Any] = Body(default_factory=dict)):
+        """Grounding + citation validation for an answer against its evidence context.
+
+        Accepts either a full execution ``result`` (evaluates its response +
+        evidence_context) or an explicit ``answer`` + ``evidence_context``.
+        """
+        from modules.audit_intelligence.llm import llm_evaluation as ev
+
+        if isinstance(payload.get("result"), dict):
+            return _ok(ev.evaluate(payload["result"]))
+        answer = str(payload.get("answer") or "")
+        ev_ctx = payload.get("evidence_context") or {}
+        return _ok(
+            grounding=ev.validate_grounding(answer, ev_ctx),
+            citations=ev.validate_citations(
+                answer, ev_ctx, assembled_prompt=str(payload.get("assembled_prompt") or "")),
+        )
