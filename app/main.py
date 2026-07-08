@@ -123,8 +123,24 @@ async def ecs_lifespan(application: FastAPI):
     try:
         from config.environment_loader import active_environment
         from config.config_validation import validate_environment
+        from app import security_mode
 
         env_name = active_environment()
+        # Log the resolved security posture so operators can see, at a glance,
+        # exactly which gates are active in prototype/demo vs UAT/PROD.
+        try:
+            posture = security_mode.summary()
+            ecs_logging.info(
+                "ECSSecurity",
+                f"Security mode: {posture['security_mode']} "
+                f"(auth={posture['auth_enabled']}, rbac={posture['rbac_enforcement']}, "
+                f"require_tls={posture['require_tls']}, require_secrets={posture['require_secrets']}, "
+                f"connector_exec={posture['connector_execution_enabled']}, "
+                f"fail_on_config_error={posture['startup_fail_on_config_error']})",
+            )
+        except Exception:  # noqa: BLE001 - posture logging must never break startup
+            pass
+
         rep = validate_environment(env_name)
         ecs_logging.info(
             "ECSEnvironment",
@@ -136,11 +152,11 @@ async def ecs_lifespan(application: FastAPI):
         for err in rep.errors:
             ecs_logging.info("ECSEnvironment", f"ERROR: {err}")
 
-        _flag = os.environ.get("ECS_VALIDATE_CONFIG", "").strip().lower()
-        _opt_out = _flag in {"off", "0", "false", "no"}
-        _force = _flag in {"1", "true", "yes", "strict", "on"}
-        _strict_env = env_name in {"sit", "uat", "prod"}
-        if rep.errors and not _opt_out and (_force or _strict_env):
+        # Whether config-validation ERRORS abort startup is centralized in
+        # app.security_mode: demo/prototype is NON-blocking (warn only) while
+        # prod/DR stays strict. Honors ECS_STARTUP_FAIL_ON_CONFIG_ERROR,
+        # ECS_STRICT_CONFIG_VALIDATION, and the legacy ECS_VALIDATE_CONFIG.
+        if rep.errors and security_mode.startup_fail_on_config_error():
             raise RuntimeError(
                 f"ECS environment '{env_name}' configuration is invalid: "
                 + "; ".join(rep.errors)

@@ -4,6 +4,13 @@ How ECS runs as a **self-contained demo**: no Azure AD, no JWT, no RBAC enforcem
 
 > See also the original incident writeup `docs/00-start-here/ECS_DEMO_MODE_SETUP_AND_TROUBLESHOOTING.md`. **This document supersedes its env-loading guidance:** the current build *does* load `.env` automatically via `app/env_bootstrap.py`, so you no longer have to `export` flags in the same shell (though that still works).
 
+> **Prototype / budget-approval run mode:** for the full set of configurable
+> security gates (auth, RBAC, TLS, Vault, OIDC, secrets, config validation) and
+> how to run with **none of them blocking** while keeping the code intact for
+> UAT/PROD, see [`docs/operations/PROTOTYPE_DEMO_RUN_MODE.md`](../operations/PROTOTYPE_DEMO_RUN_MODE.md).
+> The canonical flags are resolved centrally by `app/security_mode.py` and
+> documented in the "SECURITY MODE" block at the top of `.env.example`.
+
 ---
 
 ## 1. What "demo mode" actually does
