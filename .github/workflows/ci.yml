@@ -55,4 +55,5 @@ jobs:
             tests/test_connector_test_workbench.py \
             tests/test_evidence_repository.py \
             tests/test_production_hardening.py \
+            tests/test_enterprise_gap_close.py \
             tests/test_ui_nav_and_summary_cleanup.py

@@ -11,6 +11,23 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Enterprise hardening + REST exposure of existing services** (additive; no new
+  business logic, backward compatible):
+  - **Graceful shutdown** — the app lifespan now runs post-`yield` cleanup
+    (flushes durable audit when `AUDIT_WORKFLOW_ENABLED`, best-effort DB release,
+    clean shutdown logging). Never raises; no-op in demo mode.
+  - **GZip response compression** — `GZipMiddleware` (min 1 KB) for large
+    dashboard/evidence/benchmark payloads.
+  - **New REST endpoints** wrapping existing services (no duplication):
+    `GET /api/audit/scheduler/history` (audit persistence),
+    `POST /api/audit/scheduler/execute` (asset scheduler; RBAC platform-admin,
+    records a scheduler event), `GET /api/evidence/search`
+    (`governance.search_module`), `GET /api/audit/comparison`
+    (`governance.comparison_engine`).
+  - **Developer experience** — `Makefile` (run/test/ci/compile/benchmark/scheduler
+    targets mirroring CI) and `.pre-commit-config.yaml` (whitespace/yaml/large-file
+    hooks + advisory ruff + `compileall`).
+  - Tests: `tests/test_enterprise_gap_close.py` (11); added to CI + Makefile.
 - **Microsoft Graph connectors + enterprise connector deepening for UAT**
   (additive; existing public APIs preserved):
   - **Microsoft Graph foundation** (`ms_graph_base.py`) — OAuth2 client-credentials

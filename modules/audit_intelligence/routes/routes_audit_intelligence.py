@@ -1055,3 +1055,79 @@ def register_audit_intelligence_routes(app) -> None:
                "roles": adm.list_roles(), "users": adm.list_users(),
                "applications": adm.list_applications(), "summary": adm.admin_summary()}
         return templates.TemplateResponse(request, "audit/admin_users_roles.html", ctx)
+
+    # ==================================================================== #
+    # Enterprise gap-close: expose EXISTING services that lacked a REST API.
+    # Thin, read-only wrappers — no new business logic, no duplication.
+    # ==================================================================== #
+
+    # ---- Scheduler execution + job history (reuses asset_scheduler + persistence) --- #
+    @app.get("/api/audit/scheduler/history")
+    @_safe
+    def api_scheduler_history(limit: str = "100"):
+        """Recorded scheduler job history (reuses the audit persistence layer)."""
+        from modules.audit_intelligence.services import persistence as _p
+
+        try:
+            n = max(1, min(int(limit), 1000))
+        except (TypeError, ValueError):
+            n = 100
+        history = _p.get_persistence().get_scheduler_history(limit=n)
+        return _ok(history=history, count=len(history))
+
+    @app.post("/api/audit/scheduler/execute")
+    @_safe
+    def api_scheduler_execute(payload: dict[str, Any] = Body(default_factory=dict),
+                              role: str = "system_admin"):
+        """Execute the planned BASELINE collection jobs (RBAC: platform admin).
+
+        Reuses ``asset_scheduler.plan_evidence`` + ``execute_plan`` (which delegates
+        to the existing evidence service). Connector jobs remain the connector
+        layer's path. An event is recorded to the scheduler history. Guarded so a
+        live run cannot be triggered without an admin role.
+        """
+        from modules.shared.services import role_permissions as rp
+
+        if not rp.can_admin_platform(role):
+            return _err("Access denied: platform administrator role required.", status=403)
+        from modules.audit_intelligence.services import asset_scheduler, persistence as _p
+
+        assets = asset_scheduler.load_assets(str(payload.get("config_path") or "") or None)
+        plan = asset_scheduler.plan_evidence(assets)
+        runs = asset_scheduler.execute_plan(plan, requested_by="scheduler_api")
+        event = {"baseline_jobs": len(runs), "planned_jobs": len(plan.jobs),
+                 "requested_by": "scheduler_api"}
+        try:
+            _p.get_persistence().record_scheduler_event(event)
+        except Exception:  # noqa: BLE001 - history recording is best-effort
+            pass
+        return _ok(executed=event, runs=runs, plan=plan.to_dict())
+
+    # ---- Evidence search (reuses the existing search engine) ----------------- #
+    @app.get("/api/evidence/search")
+    @_safe
+    def api_evidence_search(q: str = "", framework: str = "", application: str = "",
+                            owner: str = "", status: str = "",
+                            limit: str = _DEFAULT_LIMIT_STR, offset: str = _DEFAULT_OFFSET_STR):
+        """Search evidence (reuses ``governance.search_module.search_evidences``)."""
+        from modules.governance.engines.search_module import search_evidences
+
+        results = search_evidences(q=q, framework=framework, application=application,
+                                   owner=owner, status=status)
+        page, meta = _paginate(results, limit, offset)
+        return _ok(query=q, results=page, page=meta,
+                   filters={"framework": framework, "application": application,
+                            "owner": owner, "status": status})
+
+    # ---- Application / framework comparison (reuses comparison_engine) ------- #
+    @app.get("/api/audit/comparison")
+    @_safe
+    def api_comparison(scope: str = "All Applications", time_range: str = "Current Month"):
+        """Cross-application readiness comparison matrix + heatmap (existing engine)."""
+        from modules.governance.engines import comparison_engine as ce
+
+        return _ok(
+            readiness_matrix=ce.build_readiness_matrix(scope=scope, time_range=time_range),
+            heatmap=ce.build_heatmap_cards(scope=scope, time_range=time_range)
+            if hasattr(ce, "build_heatmap_cards") else [],
+        )

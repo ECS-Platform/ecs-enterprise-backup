@@ -237,9 +237,47 @@ async def ecs_lifespan(application: FastAPI):
     mark_startup_complete()
     log_platform_ready(host="127.0.0.1", port=8000)
     yield
+    # ---- Graceful shutdown (production hardening) --------------------------- #
+    # Runs on SIGTERM/SIGINT and normal shutdown. Best-effort cleanup that never
+    # raises so shutdown is always clean: flush the durable audit buffer (when
+    # enabled) and drop cached DB/vector connections. Demo mode has nothing to
+    # release, so this is effectively a no-op there.
+    try:
+        ecs_logging.info("ECSStartup", "ECS graceful shutdown initiated")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if os.getenv("AUDIT_WORKFLOW_ENABLED", "").lower() in ("1", "true", "yes", "on"):
+            from app.audit import service as _audit_service
+
+            flush = getattr(_audit_service, "flush", None)
+            if callable(flush):
+                flush()
+    except Exception:  # noqa: BLE001 - shutdown must never raise
+        pass
+    try:
+        from ecs_platform.repository import close_all as _close_repo
+
+        _close_repo()
+    except Exception:  # noqa: BLE001 - optional; absent in demo mode
+        pass
+    try:
+        ecs_logging.info("ECSStartup", "ECS graceful shutdown complete")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 app = FastAPI(title="ECS Consolidated Demo V13", lifespan=ecs_lifespan)
+
+# Response compression (production hardening). GZip large JSON/HTML payloads
+# (dashboards, evidence lists, benchmark reports) to cut bandwidth; small
+# responses are left untouched. Safe + transparent to clients.
+try:
+    from starlette.middleware.gzip import GZipMiddleware
+
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
+except Exception:  # noqa: BLE001 - compression is optional, never fatal
+    pass
 
 
 @app.middleware("http")

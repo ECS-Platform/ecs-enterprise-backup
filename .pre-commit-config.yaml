@@ -1,0 +1,38 @@
+# ECS pre-commit hooks. Install once with:  pip install pre-commit && pre-commit install
+# Keep hooks fast and offline. Ruff is optional; the compile check is the safety net.
+minimum_pre_commit_version: "3.0.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.(md|csv|json|jsonl|html)$|tests/artifacts/|benchmarks/output/'
+      - id: end-of-file-fixer
+        exclude: '\.(csv|json|jsonl)$|tests/artifacts/|benchmarks/output/|docs/product/screenshots/'
+      - id: check-yaml
+        args: ["--allow-multiple-documents"]
+        exclude: 'docker-compose.*\.yml$'   # compose uses custom tags in some setups
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+        exclude: 'benchmarks/output/|tests/artifacts/'
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--exit-zero"]   # advisory only; do not block commits on lint
+        files: '^(app|modules|scripts|tests)/.*\.py$'
+
+  - repo: local
+    hooks:
+      - id: compileall
+        name: python compileall (syntax check)
+        entry: python -m compileall -q
+        language: system
+        pass_filenames: false
+        args: ["app", "modules", "scripts", "config"]
+        types: [python]
