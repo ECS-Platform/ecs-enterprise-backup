@@ -166,3 +166,62 @@ def test_azure_auth_uses_mock_token():
     assert out["ok"] is True
     assert calls["token"] == 1  # token acquired once
     assert out["items"][0]["evidence_type"] == "azure_security_assessment"
+
+
+def test_aws_fetch_findings_with_mock_transport():
+    from modules.operations.integrations.aws_connector import AWSClient
+
+    def transport(method, url, headers, params, timeout=None):
+        return {"Findings": [{"Id": "aws-f1", "Title": "Public S3 bucket",
+                "Severity": {"Label": "HIGH"},
+                "Resources": [{"Id": "arn:aws:s3:::bucket"}],
+                "Compliance": {"Status": "FAILED"}, "Region": "us-east-1"}]}
+
+    cfg = {"base_url": "https://collector.example", "region": "us-east-1",
+           "access_key_id": "ak", "secret_access_key": "sk"}
+    out = AWSClient(config=cfg, transport=transport).fetch_findings()
+    assert out["ok"] is True
+    assert out["items"][0]["finding_id"] == "aws-f1"
+    assert out["items"][0]["severity"] == "HIGH"
+    assert out["items"][0]["evidence_type"] == "aws_finding"
+
+
+def test_aws_fetch_requires_collector_endpoint_when_configured():
+    # Credentials present but no collector base_url -> safe not_configured, no crash.
+    from modules.operations.integrations.aws_connector import AWSClient
+
+    cfg = {"base_url": "", "region": "us-east-1",
+           "access_key_id": "ak", "secret_access_key": "sk"}
+    out = AWSClient(config=cfg, transport=lambda *a, **k: {}).fetch_findings()
+    assert out["ok"] is False
+    assert out["status"] == "not_configured"
+
+
+def test_gcp_fetch_findings_with_mock_transport():
+    from modules.operations.integrations.gcp_connector import GCPClient
+
+    def transport(method, url, headers, params, timeout=None):
+        return {"findings": [{"name": "gcp-f1", "category": "PUBLIC_BUCKET",
+                "severity": "HIGH", "state": "ACTIVE",
+                "resourceName": "//storage.googleapis.com/bucket"}]}
+
+    cfg = {"base_url": "https://collector.example", "project_id": "proj",
+           "access_token": "tok"}
+    out = GCPClient(config=cfg, transport=transport).fetch_findings()
+    assert out["ok"] is True
+    assert out["items"][0]["finding_id"] == "gcp-f1"
+    assert out["items"][0]["evidence_type"] == "gcp_finding"
+
+
+def test_qualys_fetch_host_detections_with_mock_transport():
+    from modules.operations.integrations.qualys import QualysClient
+
+    def transport(method, url, headers, params, timeout=None):
+        return {"hosts": [{"ID": "q-h1", "IP": "10.0.0.5", "DNS": "host.internal",
+                "OS": "Linux", "QID": "38173", "SEVERITY": "4", "STATUS": "Active"}]}
+
+    cfg = {"base_url": "https://qualysapi.example", "username": "u", "password": "p"}
+    out = QualysClient(config=cfg, transport=transport).fetch_host_detections()
+    assert out["ok"] is True
+    assert out["items"][0]["host_id"] == "q-h1"
+    assert out["items"][0]["evidence_type"] == "qualys_detection"
