@@ -78,6 +78,12 @@ _CONNECTOR_ROUTES: dict[str, str] = {
     # Collaboration / ALM
     "jira": "jira",
     "confluence": "confluence",
+    # CI/CD + SCM (adapters wrap the ecs_platform connector clients)
+    "github": "github",
+    "jenkins": "jenkins",
+    "azure_devops": "azure_devops",
+    "azuredevops": "azure_devops",
+    "azure devops": "azure_devops",
     # AppSec
     "sonarqube": "sonarqube",
     "checkmarx": "checkmarx",

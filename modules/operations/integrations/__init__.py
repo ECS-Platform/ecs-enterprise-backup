@@ -69,6 +69,11 @@ ADAPTER_MODULES = (
     "azure_connector",
     "nessus",
     "qualys",
+    # CI/CD + SCM adapters — thin wrappers reusing the ecs_platform connector
+    # clients (no duplicate HTTP/auth); see _platform_bridge.py.
+    "github",
+    "jenkins",
+    "azure_devops",
 )
 
 

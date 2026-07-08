@@ -23,8 +23,25 @@
 | UC-I09 | **Jenkins** | ⚙ | builds, test results | CI/CD controls | AppSec | Evidence collection | token |
 | UC-I11 | **Gitea** | ⚙ | repos, PRs | SCM controls | AppSec | Evidence collection | token |
 | UC-I12 | **Figma** | ⚙ | design files | design controls | AppSec/UX | Evidence collection | token |
+| UC-I13 | **Outlook** | ⚙ | mail folders/messages | approval/comms trail | governance | Evidence collection | Azure AD (Graph) |
+| UC-I14 | **Checkmarx** | ⚙ | SAST scans | AppSec controls | Application Security | Evidence + risk | OAuth2 |
+| UC-I15 | **Tripwire** | ⚙ | FIM policy results | integrity controls | Security | Evidence collection | Basic |
+| UC-I16 | **AWS** (posture) | ⚙ | Security Hub findings, Config compliance | cloud controls | Cloud Security | Evidence + risk | access/secret key (+ collector) |
+| UC-I17 | **Azure** (posture) | ⚙ | Defender security assessments | cloud controls | Cloud Security | Evidence + risk | OAuth2 / token |
+| UC-I18 | **GCP** (posture) | ⚙ | SCC findings, asset inventory | cloud controls | Cloud Security | Evidence + risk | SA JSON / token (+ collector) |
+| UC-I19 | **Nessus** (Tenable) | ⚙ | scans, vulnerabilities | vuln controls | VAPT | Evidence + risk | access/secret key |
+| UC-I20 | **Qualys** | ⚙ | host detections, posture | vuln controls | VAPT | Evidence + risk | Basic |
+| UC-I21 | **RSA Archer** | ⚙ | controls/frameworks | GRC controls | governance | Evidence collection | API token |
 
 *Defaults (this plane): `enabled:false` in `config/integrations.yaml`; Scheduling = Scheduler; Frequency = daily [default]; Failure = retry + connector-health flag + structured error; Security = least-privilege API user, TLS, secrets via `*_env`/vault; UAT = sandbox tenant; PROD = prod tenant + vault creds.*
+
+> **Adapter stack note:** UC-I01–I09 and I13–I21 are implemented as
+> audit-intelligence adapters in `modules/operations/integrations/` (registry +
+> Connector Test Workbench + scheduler + executor). UC-I07/I08/I09 (Azure DevOps,
+> GitHub, Jenkins) are **thin wrappers that reuse the `ecs_platform/connectors/`
+> clients** via `_platform_bridge.py` (no HTTP/auth duplication). UC-I11/I12
+> (Gitea, Figma) currently exist in the `ecs_platform/connectors/` ingestion stack
+> only. See [INTEGRATION_ADAPTERS_GUIDE.md](INTEGRATION_ADAPTERS_GUIDE.md) §1.
 
 ## 2. Predefined-query connectors (control testing plane)
 
@@ -59,8 +76,8 @@ Use Case → Integration (connector) → Data retrieved → Evidence generated
 | Database Baselining | PostgreSQL, Oracle🔵, MySQL🔵, SQL Server🔵, Yugabyte🟡 |
 | Nginx/Middleware Baselining | Linux/Nginx🟡 |
 | Application Security | SonarQube, Trivy, Gitleaks, GitHub, Azure DevOps, Jenkins, Gitea |
-| VAPT | Trivy, Prisma Cloud |
-| Cloud Security | Prisma Cloud |
+| VAPT | Trivy, Prisma Cloud, Nessus, Qualys |
+| Cloud Security | Prisma Cloud, AWS, Azure, GCP |
 | ITPP / ITDRM | Jira, Confluence, ServiceNow |
 | Governance | Teams, SharePoint |
 

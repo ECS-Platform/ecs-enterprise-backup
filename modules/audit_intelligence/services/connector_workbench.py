@@ -147,6 +147,34 @@ _ADAPTER_TESTS: dict[str, dict[str, Any]] = {
             {"ID": "q1", "IP": "10.0.0.5", "QID": "38173", "SEVERITY": "3",
              "STATUS": "Active"}]},
     },
+    # CI/CD + SCM adapters — thin wrappers over the ecs_platform connector clients
+    # (no duplicate HTTP/auth). The mock payload mirrors each platform connector's
+    # first REST response so parser_test drives the real collect_evidence offline.
+    "github": {
+        "label": "GitHub", "auth": "Bearer (PAT / GitHub App)",
+        "client": "GitHubClient", "method": "fetch_repositories",
+        # GitHubConnector._repos() GETs /orgs/{org}/repos -> a JSON array of repos.
+        "mock": [
+            {"full_name": "acme/payments", "name": "payments",
+             "description": "Payments service", "html_url": "https://git/acme/payments",
+             "owner": {"login": "acme"}, "private": True, "default_branch": "main"}],
+    },
+    "jenkins": {
+        "label": "Jenkins", "auth": "Basic (user + API token)",
+        "client": "JenkinsClient", "method": "fetch_jobs",
+        # JenkinsConnector._jobs() GETs /api/json -> {"jobs": [...]}.
+        "mock": {"jobs": [
+            {"name": "build-payments", "url": "https://jenkins/job/build-payments",
+             "color": "blue", "lastBuild": {"number": 42, "url": "https://jenkins/42"}}]},
+    },
+    "azure_devops": {
+        "label": "Azure DevOps", "auth": "PAT (basic)",
+        "client": "AzureDevOpsClient", "method": "fetch_repositories",
+        # AzureDevOpsConnector reads {"value": [...]} for both projects and repos;
+        # a single value payload satisfies the projects->repos call chain.
+        "mock": {"value": [
+            {"id": "repo-1", "name": "payments", "webUrl": "https://azdo/payments"}]},
+    },
 }
 
 #: Config keys that make a client "configured enough" to run a mock parser test
@@ -174,6 +202,9 @@ _TEST_STUB_CONFIG: dict[str, dict[str, Any]] = {
                         "client_id": "c", "client_secret": "s", "subscription_id": "sub"},
     "nessus": {"base_url": "https://nessus.example", "access_key": "ak", "secret_key": "sk"},
     "qualys": {"base_url": "https://qualys.example", "username": "u", "password": "p"},
+    "github": {"base_url": "https://api.github.example", "org": "acme", "token": "t"},
+    "jenkins": {"base_url": "https://jenkins.example", "username": "u", "api_token": "t"},
+    "azure_devops": {"base_url": "https://azdo.example", "organization": "acme", "token": "t"},
 }
 
 
@@ -327,12 +358,22 @@ def parser_test(name: str, *, max_preview: int = 5) -> dict[str, Any]:
                 "method": meta.get("method"), "errors": [type(exc).__name__]}
 
     items = list(result.get("items", []) if isinstance(result, dict) else result or [])
+    # Count synthetic source objects in the mock. Most mocks are a dict whose first
+    # value is the record list; some connectors (e.g. GitHub) return a bare JSON
+    # array, so handle a list mock too.
+    _mock = meta["mock"]
+    if isinstance(_mock, list):
+        _source_count = len(_mock)
+    elif isinstance(_mock, dict) and _mock:
+        _source_count = len(_mock.get(next(iter(_mock)), []) or [])
+    else:
+        _source_count = 0
     return {
         "ok": bool(result.get("ok", True)) if isinstance(result, dict) else True,
         "name": name,
         "method": meta["method"],
         "status": result.get("status") if isinstance(result, dict) else "ok",
-        "source_object_count": len(meta["mock"].get(next(iter(meta["mock"])), []) or []),
+        "source_object_count": _source_count,
         "evidence_objects_detected": len(items),
         "parser_output_preview": items[:max_preview],
         "note": "Mock transport — deterministic synthetic data, no network call, "
