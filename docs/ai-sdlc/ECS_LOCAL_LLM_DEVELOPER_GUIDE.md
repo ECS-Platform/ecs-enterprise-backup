@@ -226,3 +226,13 @@ export ECS_VECTOR_DIM=768
 
 Then: `GET /api/platform/rag/status` → expect configured; `GET /api/platform/assistant?q=...` → expect
 `"mode":"rag","grounded":true`. See the Testing Guide for full validation.
+
+## 11. Prompt testing & benchmarking
+
+This guide covers the **provider/RAG** stack. For testing the **audit prompts**
+themselves — execution, benchmark datasets, replay, comparison, grounding /
+hallucination checks, and the latency/token metrics they produce (the
+`/api/audit-llm/*` surface + `/mvp/audit/llm-workbench`) — see the
+[Prompt Testing Guide](../testing/PROMPT_TESTING_GUIDE.md). RAM-profile benchmark
+planning (16 GB / 20 GB) is in
+[`docs/benchmarks/audit_llm_16gb_20gb_testing_guide.md`](../benchmarks/audit_llm_16gb_20gb_testing_guide.md).

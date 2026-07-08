@@ -72,6 +72,27 @@ POSTGRESQL_QUERIES: list[dict[str, Any]] = [
     _entry("PGX-008", "PostgreSQL Audit Extension Check",
            "SELECT extname FROM pg_extension WHERE extname IN ('pgaudit');", "PostgreSQL",
            "Checks whether the pgaudit auditing extension is installed."),
+    _entry("PGX-009", "PostgreSQL Connection Limits",
+           "SELECT name, setting FROM pg_settings WHERE name IN "
+           "('max_connections', 'superuser_reserved_connections');", "PostgreSQL",
+           "Reports the configured max_connections and reserved-connection limits."),
+    _entry("PGX-010", "PostgreSQL Long Running Queries",
+           "SELECT pid, usename, state, now() - query_start AS runtime FROM pg_stat_activity "
+           "WHERE state <> 'idle' AND now() - query_start > interval '5 minutes';", "PostgreSQL",
+           "Lists sessions running a statement for longer than five minutes."),
+    _entry("PGX-011", "PostgreSQL Database Uptime",
+           "SELECT pg_postmaster_start_time() AS start_time, "
+           "now() - pg_postmaster_start_time() AS uptime;", "PostgreSQL",
+           "Reports server start time and uptime (service availability evidence)."),
+    _entry("PGX-012", "PostgreSQL Schema Inventory",
+           "SELECT schemaname, count(*) AS table_count FROM pg_tables "
+           "WHERE schemaname NOT IN ('pg_catalog', 'information_schema') GROUP BY schemaname;", "PostgreSQL",
+           "Summarises user schemas and their table counts (object inventory)."),
+    _entry("PGX-013", "PostgreSQL Security Parameters",
+           "SELECT name, setting FROM pg_settings WHERE name IN "
+           "('log_connections', 'log_disconnections', 'ssl', 'password_encryption', "
+           "'log_statement');", "PostgreSQL",
+           "Reports key security/audit-relevant server parameters."),
 ]
 
 
@@ -101,6 +122,18 @@ YUGABYTE_QUERIES: list[dict[str, Any]] = [
            "Enumerates installed extensions and versions."),
     _entry("YBX-008", "YugabyteDB SSL Check", "SHOW ssl;", "YugabyteDB",
            "Confirms whether SSL/TLS is enabled on the YSQL endpoint."),
+    _entry("YBX-009", "YugabyteDB Connection Limits",
+           "SELECT name, setting FROM pg_settings WHERE name IN "
+           "('max_connections', 'superuser_reserved_connections');", "YugabyteDB",
+           "Reports the configured max_connections and reserved-connection limits."),
+    _entry("YBX-010", "YugabyteDB Long Running Queries",
+           "SELECT pid, usename, state, now() - query_start AS runtime FROM pg_stat_activity "
+           "WHERE state <> 'idle' AND now() - query_start > interval '5 minutes';", "YugabyteDB",
+           "Lists YSQL sessions running a statement for longer than five minutes."),
+    _entry("YBX-011", "YugabyteDB Security Parameters",
+           "SELECT name, setting FROM pg_settings WHERE name IN "
+           "('log_connections', 'log_disconnections', 'ssl', 'password_encryption');", "YugabyteDB",
+           "Reports key security/audit-relevant YSQL parameters."),
 ]
 
 
@@ -135,6 +168,19 @@ AURORA_MYSQL_QUERIES: list[dict[str, Any]] = [
            "Summarises global privilege flags per account."),
     _entry("MYX-010", "Aurora MySQL TLS Config", "SHOW VARIABLES LIKE '%ssl%';", "Aurora MySQL",
            "Reports all SSL/TLS-related server variables."),
+    _entry("MYX-011", "Aurora MySQL Connection Limits",
+           "SHOW VARIABLES LIKE 'max_connections';", "Aurora MySQL",
+           "Reports the configured maximum client connections."),
+    _entry("MYX-012", "Aurora MySQL Long Running Queries",
+           "SELECT id, user, host, db, time, state FROM information_schema.processlist "
+           "WHERE command <> 'Sleep' AND time > 300;", "Aurora MySQL",
+           "Lists queries running longer than 300 seconds."),
+    _entry("MYX-013", "Aurora MySQL Failed Connections",
+           "SHOW GLOBAL STATUS LIKE 'Aborted_connects';", "Aurora MySQL",
+           "Reports the count of failed/aborted connection attempts."),
+    _entry("MYX-014", "Aurora MySQL Uptime",
+           "SHOW GLOBAL STATUS LIKE 'Uptime';", "Aurora MySQL",
+           "Reports server uptime in seconds (service availability evidence)."),
 ]
 
 
@@ -197,6 +243,21 @@ ORACLE_QUERIES: list[dict[str, Any]] = [
     _entry("ORX-010", "Oracle Active Sessions",
            "SELECT username, status, machine, program FROM v$session WHERE username IS NOT NULL;", "Oracle",
            "Lists active non-background sessions."),
+    _entry("ORX-011", "Oracle Connection/Resource Limits",
+           "SELECT resource_name, current_utilization, max_utilization, limit_value "
+           "FROM v$resource_limit WHERE resource_name IN ('sessions', 'processes');", "Oracle",
+           "Reports session/process resource limits and current utilisation."),
+    _entry("ORX-012", "Oracle Instance Uptime",
+           "SELECT instance_name, status, startup_time FROM v$instance;", "Oracle",
+           "Reports instance name, status, and startup time (uptime evidence)."),
+    _entry("ORX-013", "Oracle Long Running Sessions",
+           "SELECT sid, username, status, last_call_et FROM v$session "
+           "WHERE username IS NOT NULL AND status = 'ACTIVE' AND last_call_et > 300;", "Oracle",
+           "Lists active user sessions busy for longer than 300 seconds."),
+    _entry("ORX-014", "Oracle Schema Object Inventory",
+           "SELECT owner, object_type, COUNT(*) AS object_count FROM dba_objects "
+           "WHERE owner NOT IN ('SYS','SYSTEM') GROUP BY owner, object_type;", "Oracle",
+           "Summarises non-system schema objects by owner and type (object inventory)."),
 ]
 
 
@@ -499,6 +560,16 @@ SQLSERVER_QUERIES: list[dict[str, Any]] = [
     _mssql_entry("MSX-010", "SQL Server Failed Login Auditing",
                  "SELECT value_in_use FROM sys.configurations WHERE name = 'default trace enabled';",
                  "Shows whether the default trace (auditing) is enabled.", "Auditing"),
+    _mssql_entry("MSX-011", "SQL Server Connection Limit",
+                 "SELECT value_in_use FROM sys.configurations WHERE name = 'user connections';",
+                 "Reports the configured user-connections limit (0 = unlimited).", "Configuration"),
+    _mssql_entry("MSX-012", "SQL Server Long Running Requests",
+                 "SELECT session_id, status, command, total_elapsed_time FROM sys.dm_exec_requests "
+                 "WHERE total_elapsed_time > 300000;",
+                 "Lists requests running longer than 300 seconds.", "Performance"),
+    _mssql_entry("MSX-013", "SQL Server Uptime",
+                 "SELECT sqlserver_start_time FROM sys.dm_os_sys_info;",
+                 "Reports the SQL Server service start time (uptime evidence).", "Availability"),
 ]
 
 
@@ -525,6 +596,10 @@ MONGODB_QUERIES: list[dict[str, Any]] = [
     _mongo_entry("MGX-007", "MongoDB Databases", "listDatabases", "Lists databases.", "Inventory"),
     _mongo_entry("MGX-008", "MongoDB Audit Config", "getParameter:auditAuthorizationSuccess",
                  "Reports the audit authorization-success parameter.", "Auditing"),
+    _mongo_entry("MGX-009", "MongoDB Replication Status", "replSetGetStatus",
+                 "Reports replica-set member state and replication health.", "Resilience"),
+    _mongo_entry("MGX-010", "MongoDB Current Operations", "currentOp",
+                 "Lists in-progress operations/sessions on the server.", "Availability"),
 ]
 
 

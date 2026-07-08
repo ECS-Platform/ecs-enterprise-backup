@@ -75,6 +75,16 @@ ALLOWED_POSTGRESQL_QUERIES: frozenset[str] = frozenset({
     "select datname, usename, application_name, client_addr, state from pg_stat_activity;",
     "select extname, extversion from pg_extension;",
     "select extname from pg_extension where extname in ('pgaudit');",
+    "select name, setting from pg_settings where name in ('max_connections', "
+    "'superuser_reserved_connections');",
+    "select pid, usename, state, now() - query_start as runtime from pg_stat_activity "
+    "where state <> 'idle' and now() - query_start > interval '5 minutes';",
+    "select pg_postmaster_start_time() as start_time, now() - pg_postmaster_start_time() "
+    "as uptime;",
+    "select schemaname, count(*) as table_count from pg_tables where schemaname not in "
+    "('pg_catalog', 'information_schema') group by schemaname;",
+    "select name, setting from pg_settings where name in ('log_connections', "
+    "'log_disconnections', 'ssl', 'password_encryption', 'log_statement');",
 })
 
 ALLOWED_YUGABYTE_QUERIES: frozenset[str] = frozenset({
@@ -87,6 +97,12 @@ ALLOWED_YUGABYTE_QUERIES: frozenset[str] = frozenset({
     "('pg_catalog', 'information_schema');",
     "select extname, extversion from pg_extension;",
     "show ssl;",
+    "select name, setting from pg_settings where name in ('max_connections', "
+    "'superuser_reserved_connections');",
+    "select pid, usename, state, now() - query_start as runtime from pg_stat_activity "
+    "where state <> 'idle' and now() - query_start > interval '5 minutes';",
+    "select name, setting from pg_settings where name in ('log_connections', "
+    "'log_disconnections', 'ssl', 'password_encryption');",
 })
 
 ALLOWED_MYSQL_QUERIES: frozenset[str] = frozenset({
@@ -101,6 +117,11 @@ ALLOWED_MYSQL_QUERIES: frozenset[str] = frozenset({
     "select user, host, select_priv, insert_priv, update_priv, delete_priv, create_priv, "
     "drop_priv, super_priv from mysql.user;",
     "show variables like '%ssl%';",
+    "show variables like 'max_connections';",
+    "select id, user, host, db, time, state from information_schema.processlist "
+    "where command <> 'sleep' and time > 300;",
+    "show global status like 'aborted_connects';",
+    "show global status like 'uptime';",
 })
 
 ALLOWED_ORACLE_QUERIES: frozenset[str] = frozenset({
@@ -116,6 +137,13 @@ ALLOWED_ORACLE_QUERIES: frozenset[str] = frozenset({
     "select tablespace_name, status, contents from dba_tablespaces;",
     "select tablespace_name, encrypted from dba_tablespaces;",
     "select username, status, machine, program from v$session where username is not null;",
+    "select resource_name, current_utilization, max_utilization, limit_value from "
+    "v$resource_limit where resource_name in ('sessions', 'processes');",
+    "select instance_name, status, startup_time from v$instance;",
+    "select sid, username, status, last_call_et from v$session where username is not null "
+    "and status = 'active' and last_call_et > 300;",
+    "select owner, object_type, count(*) as object_count from dba_objects where owner not "
+    "in ('sys','system') group by owner, object_type;",
 })
 
 

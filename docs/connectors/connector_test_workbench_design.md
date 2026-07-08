@@ -124,12 +124,34 @@ sequenceDiagram
   with a deterministic synthetic payload — so the adapter's **real** parse path
   runs with **no network** and **no secrets**. The mock token never appears in any
   output (verified by tests).
-- Primary method per connector (`_ADAPTER_TESTS` in `connector_workbench.py`):
-  ServiceNow→`fetch_servers`, Archer→`fetch_mapped_controls`,
+- Primary method per connector (`_ADAPTER_TESTS` in `connector_workbench.py`) —
+  **19 adapters**: ServiceNow→`fetch_servers`, Archer→`fetch_mapped_controls`,
   SharePoint→`fetch_drive_items`, Teams→`fetch_channels`,
   Outlook→`fetch_mail_folders`, Jira→`fetch_projects`,
   Confluence→`fetch_spaces`, SonarQube→`fetch_projects`,
-  Checkmarx→`fetch_scans`, Prisma→`fetch_alerts`, Tripwire→`fetch_policy_results`.
+  Checkmarx→`fetch_scans`, Prisma→`fetch_alerts`, Tripwire→`fetch_policy_results`,
+  AWS→`fetch_findings`, GCP→`fetch_findings`, Azure→`fetch_security_assessments`,
+  Nessus→`fetch_scans`, Qualys→`fetch_host_detections`, GitHub→`fetch_repositories`,
+  Jenkins→`fetch_jobs`, Azure DevOps→`fetch_repositories`. The connector list is
+  registry-driven (`integrations.list_adapters()`), so the workbench always
+  reflects the current adapter set.
+
+### 4.6 Demo placeholder stubs (`_TEST_STUB_CONFIG`)
+
+When an adapter is **not yet configured**, `parser_test` merges a per-adapter
+**non-secret placeholder stub** (`_TEST_STUB_CONFIG` in `connector_workbench.py`)
+so the parse path still runs end-to-end offline. These are deliberately
+self-describing so a demo reviewer sees exactly what each field is:
+
+- URLs use the reserved demo domain, e.g. `https://servicenow.example.internal`.
+- Identifiers/secrets use `${VAR}` tokens naming the real env var, e.g.
+  `${SERVICENOW_CLIENT_ID}`, `${JIRA_API_TOKEN}`, `${AWS_SECRET_ACCESS_KEY}`.
+
+They are **never real secrets**, the injected mock transport answers every call so
+the values never leave the process, and they never surface in any response
+(masked config still shows real secrets only as `SET`/`MISSING`). To run a **real**
+parser test, set the adapter's actual environment variables — the stub is then
+ignored because `is_configured()` returns true.
 
 ### 4.5 Live Test (future)
 Live connectivity is **not** performed by the workbench by design (it stays

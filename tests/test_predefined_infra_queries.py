@@ -22,7 +22,7 @@ from modules.operations.engines import predefined_queries_engine as engine
 from modules.operations.engines import supplementary_query_catalog as catalog
 from modules.operations.engines.query_connectors import connector_for_technology
 
-ORX = [f"ORX-0{i:02d}" for i in range(1, 11)]  # ORX-001..010
+ORX = [f"ORX-0{i:02d}" for i in range(1, 15)]  # ORX-001..014
 NGX = [f"NGX-00{i}" for i in range(1, 9)]       # NGX-001..008
 LNX = [f"LNX-00{i}" for i in range(1, 9)]       # LNX-001..008
 RH8 = [f"RH8-00{i}" for i in range(1, 9)]       # RH8-001..008
@@ -43,7 +43,7 @@ def test_infra_catalog_counts():
     by_tech = {}
     for c in sup:
         by_tech.setdefault(c["technology"], []).append(c["control_id"])
-    assert len(by_tech[ORACLE]) == 10
+    assert len(by_tech[ORACLE]) == 14
     assert len(by_tech[NGINX]) == 8
     assert len(by_tech[LINUX]) == 8
     assert len(by_tech[RHEL8]) == 8
@@ -211,7 +211,7 @@ def test_technology_filter_options_include_infra():
 
 
 @pytest.mark.parametrize("tech,prefix,count", [
-    ("Oracle", "ORX", 10),
+    ("Oracle", "ORX", 14),
     ("NGINX", "NGX", 8),
     ("Red Hat Enterprise Linux 8.x", "RH8", 8),
     ("Red Hat Enterprise Linux 9.x", "RH9", 8),

@@ -8,8 +8,8 @@
 
 ## Summary
 
-- **Total controls:** 187
-- **Executable (connector + driver/target available in a configured env):** 147
+- **Total controls:** 208
+- **Executable (connector + driver/target available in a configured env):** 141
 - **Technologies:** 21
 - **Frameworks:** 16
 
@@ -19,25 +19,25 @@
 |---|---:|
 | Aerospike | 20 |
 | Apache HTTPD | 8 |
-| Aurora MySQL | 11 |
+| Aurora MySQL | 15 |
 | GitLeaks | 1 |
 | Kubernetes | 10 |
 | Linux | 15 |
-| MongoDB | 8 |
+| MongoDB | 10 |
 | NGINX | 9 |
 | OpenShift | 10 |
-| Oracle | 12 |
-| PostgreSQL | 11 |
+| Oracle | 16 |
+| PostgreSQL | 16 |
 | Red Hat Enterprise Linux 8.x | 8 |
 | Red Hat Enterprise Linux 9.x | 8 |
 | Redis | 8 |
-| SQL Server | 10 |
+| SQL Server | 13 |
 | SonarQube | 1 |
 | Tomcat | 9 |
 | Trivy | 1 |
 | Unknown | 15 |
 | Windows | 3 |
-| YugabyteDB | 9 |
+| YugabyteDB | 12 |
 
 ## Query catalog
 
@@ -86,6 +86,10 @@ and validation live in the engine and per-technology connectors.
 | MYX-008 | Aurora MySQL Process List | DB Baselining, ISO27001, RBI Cyber Security | Aurora MySQL | SQL | Database configuration query output | Ready | yes |
 | MYX-009 | Aurora MySQL Grants Summary | DB Baselining, ISO27001, RBI Cyber Security | Aurora MySQL | SQL | Database configuration query output | Ready | yes |
 | MYX-010 | Aurora MySQL TLS Config | DB Baselining, ISO27001, RBI Cyber Security | Aurora MySQL | SQL | Database configuration query output | Ready | yes |
+| MYX-011 | Aurora MySQL Connection Limits | DB Baselining, ISO27001, RBI Cyber Security | Aurora MySQL | SQL | Database configuration query output | Ready | yes |
+| MYX-012 | Aurora MySQL Long Running Queries | DB Baselining, ISO27001, RBI Cyber Security | Aurora MySQL | SQL | Database configuration query output | Ready | yes |
+| MYX-013 | Aurora MySQL Failed Connections | DB Baselining, ISO27001, RBI Cyber Security | Aurora MySQL | SQL | Database configuration query output | Ready | yes |
+| MYX-014 | Aurora MySQL Uptime | DB Baselining, ISO27001, RBI Cyber Security | Aurora MySQL | SQL | Database configuration query output | Ready | yes |
 | APP-002 | Secrets Scanning | AppSec, ASST, DPSC | GitLeaks | CLI scanner | Scan Report | Ready | yes |
 | K8X-001 | Kubernetes Version | Container Platform Baselining, ISO27001, RBI Cyber Security | Kubernetes | CLI (kubectl/oc) | Kubernetes kubectl output | Ready | yes |
 | K8X-002 | Kubernetes Nodes | Container Platform Baselining, ISO27001, RBI Cyber Security | Kubernetes | CLI (kubectl/oc) | Kubernetes kubectl output | Ready | yes |
@@ -112,14 +116,16 @@ and validation live in the engine and per-technology connectors.
 | OS-003 | NTP Synchronization | OS Baselining | Linux | Shell command | Command Output | Configuration Required | no |
 | OS-004 | User Account Review | OS Baselining, PCI DSS | Linux | Shell command | Configuration File | Configuration Required | no |
 | OS-005 | Service Hardening | OS Baselining | Linux | Shell command | Command Output | Configuration Required | no |
-| MGX-001 | MongoDB Build Info | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Ready | yes |
-| MGX-002 | MongoDB Server Status | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Ready | yes |
-| MGX-003 | MongoDB Auth Enabled | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Ready | yes |
-| MGX-004 | MongoDB TLS Config | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Ready | yes |
-| MGX-005 | MongoDB Users | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Ready | yes |
-| MGX-006 | MongoDB Roles | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Ready | yes |
-| MGX-007 | MongoDB Databases | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Ready | yes |
-| MGX-008 | MongoDB Audit Config | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Ready | yes |
+| MGX-001 | MongoDB Build Info | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-002 | MongoDB Server Status | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-003 | MongoDB Auth Enabled | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-004 | MongoDB TLS Config | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-005 | MongoDB Users | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-006 | MongoDB Roles | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-007 | MongoDB Databases | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-008 | MongoDB Audit Config | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-009 | MongoDB Replication Status | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
+| MGX-010 | MongoDB Current Operations | DB Baselining, ISO27001, RBI Cyber Security | MongoDB | Mongo command | MongoDB command output | Dependency Missing | no |
 | MW-001 | TLS Configuration | Middleware Baselining, PCI DSS, DPSC | NGINX | Shell command | Configuration Export | Configuration Required | no |
 | NGX-001 | NGINX Version | Middleware Baselining, ISO27001, RBI Cyber Security | NGINX | Shell command | Middleware command output | Ready | yes |
 | NGX-002 | NGINX Config Test | Middleware Baselining, ISO27001, RBI Cyber Security | NGINX | Shell command | Middleware command output | Ready | yes |
@@ -140,16 +146,20 @@ and validation live in the engine and per-technology connectors.
 | OCX-009 | OpenShift Routes | Container Platform Baselining, ISO27001, RBI Cyber Security | OpenShift | CLI (kubectl/oc) | OpenShift oc output | Ready | yes |
 | OCX-010 | OpenShift Image Policies | Container Platform Baselining, ISO27001, RBI Cyber Security | OpenShift | CLI (kubectl/oc) | OpenShift oc output | Ready | yes |
 | DB-004 | Encryption At Rest | DB Baselining, PCI DSS, DPSC | Oracle | SQL | SQL Output | Configuration Required | no |
-| ORX-001 | Oracle Version | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-002 | Oracle Database Open Mode | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-003 | Oracle Encryption Wallet Status | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-004 | Oracle Audit Trail Setting | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-005 | Oracle Failed Login Profile Settings | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-006 | Oracle Privileged Users | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-007 | Oracle Roles Granted To Users | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-008 | Oracle Tablespace Usage | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-009 | Oracle Datafile Encryption Status | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
-| ORX-010 | Oracle Active Sessions | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Ready | yes |
+| ORX-001 | Oracle Version | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-002 | Oracle Database Open Mode | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-003 | Oracle Encryption Wallet Status | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-004 | Oracle Audit Trail Setting | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-005 | Oracle Failed Login Profile Settings | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-006 | Oracle Privileged Users | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-007 | Oracle Roles Granted To Users | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-008 | Oracle Tablespace Usage | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-009 | Oracle Datafile Encryption Status | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-010 | Oracle Active Sessions | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-011 | Oracle Connection/Resource Limits | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-012 | Oracle Instance Uptime | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-013 | Oracle Long Running Sessions | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
+| ORX-014 | Oracle Schema Object Inventory | DB Baselining, ISO27001, RBI Cyber Security | Oracle | SQL | Database configuration query output | Dependency Missing | no |
 | PCI-003 | Privileged Access Review | PCI DSS, DPSC, DB Baselining | Oracle | SQL | SQL Output | Configuration Required | no |
 | DB-001 | SSL Enabled | DB Baselining, PCI DSS, DPSC | PostgreSQL | SQL | SQL Output | Ready | yes |
 | DB-002 | Password Policy | DB Baselining, PCI DSS | PostgreSQL | SQL | SQL Output | Ready | yes |
@@ -162,6 +172,11 @@ and validation live in the engine and per-technology connectors.
 | PGX-006 | PostgreSQL Active Sessions | DB Baselining, ISO27001, RBI Cyber Security | PostgreSQL | SQL | Database configuration query output | Ready | yes |
 | PGX-007 | PostgreSQL Installed Extensions | DB Baselining, ISO27001, RBI Cyber Security | PostgreSQL | SQL | Database configuration query output | Ready | yes |
 | PGX-008 | PostgreSQL Audit Extension Check | DB Baselining, ISO27001, RBI Cyber Security | PostgreSQL | SQL | Database configuration query output | Ready | yes |
+| PGX-009 | PostgreSQL Connection Limits | DB Baselining, ISO27001, RBI Cyber Security | PostgreSQL | SQL | Database configuration query output | Ready | yes |
+| PGX-010 | PostgreSQL Long Running Queries | DB Baselining, ISO27001, RBI Cyber Security | PostgreSQL | SQL | Database configuration query output | Ready | yes |
+| PGX-011 | PostgreSQL Database Uptime | DB Baselining, ISO27001, RBI Cyber Security | PostgreSQL | SQL | Database configuration query output | Ready | yes |
+| PGX-012 | PostgreSQL Schema Inventory | DB Baselining, ISO27001, RBI Cyber Security | PostgreSQL | SQL | Database configuration query output | Ready | yes |
+| PGX-013 | PostgreSQL Security Parameters | DB Baselining, ISO27001, RBI Cyber Security | PostgreSQL | SQL | Database configuration query output | Ready | yes |
 | RH8-001 | RHEL 8 Version Check | OS Baselining, ISO27001, RBI Cyber Security | Red Hat Enterprise Linux 8.x | Shell command | OS configuration command output | Ready | yes |
 | RH8-002 | RHEL 8 Crypto Policy | OS Baselining, ISO27001, RBI Cyber Security | Red Hat Enterprise Linux 8.x | Shell command | OS configuration command output | Ready | yes |
 | RH8-003 | RHEL 8 SELinux Status | OS Baselining, ISO27001, RBI Cyber Security | Red Hat Enterprise Linux 8.x | Shell command | OS configuration command output | Ready | yes |
@@ -196,6 +211,9 @@ and validation live in the engine and per-technology connectors.
 | MSX-008 | SQL Server Force Encryption | DB Baselining, ISO27001, RBI Cyber Security | SQL Server | SQL | SQL Server query output | Dependency Missing | no |
 | MSX-009 | SQL Server Audit Specifications | DB Baselining, ISO27001, RBI Cyber Security | SQL Server | SQL | SQL Server query output | Dependency Missing | no |
 | MSX-010 | SQL Server Failed Login Auditing | DB Baselining, ISO27001, RBI Cyber Security | SQL Server | SQL | SQL Server query output | Dependency Missing | no |
+| MSX-011 | SQL Server Connection Limit | DB Baselining, ISO27001, RBI Cyber Security | SQL Server | SQL | SQL Server query output | Dependency Missing | no |
+| MSX-012 | SQL Server Long Running Requests | DB Baselining, ISO27001, RBI Cyber Security | SQL Server | SQL | SQL Server query output | Dependency Missing | no |
+| MSX-013 | SQL Server Uptime | DB Baselining, ISO27001, RBI Cyber Security | SQL Server | SQL | SQL Server query output | Dependency Missing | no |
 | APP-001 | SAST Scan | AppSec, ASST, DPSC | SonarQube | REST API | API Output | Ready | yes |
 | MW-003 | Admin Account Review | Middleware Baselining, PCI DSS | Tomcat | Shell command | Configuration File | Configuration Required | no |
 | TCX-001 | Tomcat Version | Middleware Baselining, ISO27001, RBI Cyber Security | Tomcat | Shell command | Tomcat command/config output | Ready | yes |
@@ -234,3 +252,6 @@ and validation live in the engine and per-technology connectors.
 | YBX-006 | YugabyteDB Table List | DB Baselining, ISO27001, RBI Cyber Security | YugabyteDB | SQL | Database configuration query output | Ready | yes |
 | YBX-007 | YugabyteDB Extensions | DB Baselining, ISO27001, RBI Cyber Security | YugabyteDB | SQL | Database configuration query output | Ready | yes |
 | YBX-008 | YugabyteDB SSL Check | DB Baselining, ISO27001, RBI Cyber Security | YugabyteDB | SQL | Database configuration query output | Ready | yes |
+| YBX-009 | YugabyteDB Connection Limits | DB Baselining, ISO27001, RBI Cyber Security | YugabyteDB | SQL | Database configuration query output | Ready | yes |
+| YBX-010 | YugabyteDB Long Running Queries | DB Baselining, ISO27001, RBI Cyber Security | YugabyteDB | SQL | Database configuration query output | Ready | yes |
+| YBX-011 | YugabyteDB Security Parameters | DB Baselining, ISO27001, RBI Cyber Security | YugabyteDB | SQL | Database configuration query output | Ready | yes |

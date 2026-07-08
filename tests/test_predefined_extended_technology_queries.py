@@ -21,8 +21,8 @@ from modules.operations.engines import supplementary_query_catalog as catalog
 RDX = [f"RDX-00{i}" for i in range(1, 9)]
 APX = [f"APX-00{i}" for i in range(1, 9)]
 TCX = [f"TCX-00{i}" for i in range(1, 9)]
-MSX = [f"MSX-0{i:02d}" for i in range(1, 11)]
-MGX = [f"MGX-00{i}" for i in range(1, 9)]
+MSX = [f"MSX-0{i:02d}" for i in range(1, 14)]
+MGX = [f"MGX-0{i:02d}" for i in range(1, 11)]
 K8X = [f"K8X-0{i:02d}" for i in range(1, 11)]
 OCX = [f"OCX-0{i:02d}" for i in range(1, 11)]
 
@@ -30,18 +30,18 @@ EXPECTED = {
     "Redis": (RDX, 8),
     "Apache HTTPD": (APX, 8),
     "Tomcat": (TCX, 8),
-    "SQL Server": (MSX, 10),
-    "MongoDB": (MGX, 8),
+    "SQL Server": (MSX, 13),
+    "MongoDB": (MGX, 10),
     "Kubernetes": (K8X, 10),
     "OpenShift": (OCX, 10),
 }
 
 # Earlier expansion (must remain intact)
 PRIOR_IDS = (
-    [f"PGX-00{i}" for i in range(1, 9)]
-    + [f"YBX-00{i}" for i in range(1, 9)]
-    + [f"MYX-0{i:02d}" for i in range(1, 11)]
-    + [f"ORX-0{i:02d}" for i in range(1, 11)]
+    [f"PGX-0{i:02d}" for i in range(1, 14)]
+    + [f"YBX-0{i:02d}" for i in range(1, 12)]
+    + [f"MYX-0{i:02d}" for i in range(1, 15)]
+    + [f"ORX-0{i:02d}" for i in range(1, 15)]
     + [f"NGX-00{i}" for i in range(1, 9)]
     + [f"LNX-00{i}" for i in range(1, 9)]
     + [f"RH8-00{i}" for i in range(1, 9)]
@@ -58,7 +58,7 @@ def test_new_catalog_counts():
     for tech, (_ids, count) in EXPECTED.items():
         assert len(by_tech.get(tech, [])) == count, f"{tech} count wrong"
         total_new += count
-    assert total_new == 62
+    assert total_new == 67
 
 
 @pytest.mark.parametrize("tech", list(EXPECTED.keys()))
@@ -91,10 +91,11 @@ def test_no_duplicate_ids():
     assert not dupes, f"duplicate ids: {dupes}"
 
 
-def test_total_is_187():
+def test_total_is_208():
     rep = engine.load_predefined_queries(force=True)
-    # 37 Excel + 150 supplementary (130 prior + 20 Aerospike ASX-001..020)
-    assert rep["controls_loaded"] == 187
+    # 37 Excel + 171 supplementary (150 prior + 21 DB evidence-gap additions:
+    # PGX +5, YBX +3, MYX +4, ORX +4, MSX +3, MGX +2).
+    assert rep["controls_loaded"] == 208
 
 
 def test_prior_controls_intact():
@@ -111,7 +112,7 @@ def test_technology_filter_includes_all_new():
 
 
 @pytest.mark.parametrize("term,count", [("RDX", 8), ("APX", 8), ("TCX", 8),
-                                        ("MSX", 10), ("MGX", 8), ("K8X", 10), ("OCX", 10)])
+                                        ("MSX", 13), ("MGX", 10), ("K8X", 10), ("OCX", 10)])
 def test_search_counts(term, count):
     dash = engine.get_predefined_queries_dashboard(search=term, per_page=50)
     found = [r for r in dash["rows"] if r["control_id"].startswith(term)]
@@ -120,7 +121,7 @@ def test_search_counts(term, count):
 
 @pytest.mark.parametrize("tech,prefix,count", [
     ("Redis", "RDX", 8), ("Apache HTTPD", "APX", 8), ("Tomcat", "TCX", 8),
-    ("SQL Server", "MSX", 10), ("MongoDB", "MGX", 8),
+    ("SQL Server", "MSX", 13), ("MongoDB", "MGX", 10),
     ("Kubernetes", "K8X", 10), ("OpenShift", "OCX", 10),
 ])
 def test_technology_filter_narrows(tech, prefix, count):

@@ -59,24 +59,31 @@ separate from execution logic). The primary control library remains the Excel
 workbook `ECS_Query_Driven_Control_Library_Consolidated.xlsx`; supplementary
 entries are merged additively (Excel always wins on `control_id` collision).
 
-### PostgreSQL (`PGX-001`..`PGX-008`)
+### PostgreSQL (`PGX-001`..`PGX-013`)
 `SHOW ssl;` · `SHOW password_encryption;` · `SELECT * FROM pg_stat_replication;` ·
 roles/privileges · database sizes · active sessions · installed extensions ·
-pgaudit check.
+pgaudit check · connection limits (`max_connections`) · long-running queries ·
+database uptime (`pg_postmaster_start_time`) · schema/object inventory ·
+security parameters (`log_connections`/`ssl`/`log_statement`).
 
-### YugabyteDB / YSQL (`YBX-001`..`YBX-008`)
+### YugabyteDB / YSQL (`YBX-001`..`YBX-011`)
 `SELECT * FROM yb_servers();` · `SELECT version();` · active sessions ·
-roles/privileges · database sizes · user table list · extensions · `SHOW ssl;`.
+roles/privileges · database sizes · user table list · extensions · `SHOW ssl;` ·
+connection limits · long-running queries · security parameters.
 
-### Aurora MySQL (`MYX-001`..`MYX-010`)
+### Aurora MySQL (`MYX-001`..`MYX-014`)
 `SHOW VARIABLES LIKE 'have_ssl';` · `require_secure_transport` · `log_bin` ·
 `server_audit%` · `mysql.user` accounts · `SELECT VERSION();` · `SHOW DATABASES;` ·
-`SHOW PROCESSLIST;` · grants summary · `SHOW VARIABLES LIKE '%ssl%'`.
+`SHOW PROCESSLIST;` · grants summary · `SHOW VARIABLES LIKE '%ssl%'` · connection
+limit (`max_connections`) · long-running queries (`information_schema.processlist`) ·
+failed connections (`Aborted_connects`) · uptime (`Uptime`).
 
-### Oracle (`ORX-001`..`ORX-010`)
+### Oracle (`ORX-001`..`ORX-014`)
 `v$version` · `v$database` open mode · `v$encryption_wallet` · `audit_trail`
 parameter · profile failed-login/password policy · privileged users · role grants ·
-tablespaces · datafile encryption · active sessions.
+tablespaces · datafile encryption · active sessions · connection/resource limits
+(`v$resource_limit`) · instance uptime (`v$instance`) · long-running sessions ·
+schema object inventory (`dba_objects`).
 
 ### NGINX (`NGX-001`..`NGX-008`)
 `nginx -v` · `nginx -t` · TLS protocols/ciphers · `server_tokens` · access/error
@@ -107,13 +114,17 @@ version · config test · loaded modules · `ServerTokens`/`ServerSignature` ·
 version · Catalina process · `server.xml` · Connectors · manager app · `tomcat-users.xml` ·
 shutdown port · `AccessLogValve`. Missing files/processes → "not available".
 
-### SQL Server (`MSX-001`..`MSX-010`)
+### SQL Server (`MSX-001`..`MSX-013`)
 `@@VERSION` · edition/level · auth mode · logins · sysadmin members · databases ·
-TDE state · security config · audit specs · default-trace auditing.
+TDE state · security config · audit specs · default-trace auditing · connection
+limit (`user connections`) · long-running requests (`sys.dm_exec_requests`) ·
+uptime (`sys.dm_os_sys_info`). SQL Server/MongoDB allow-lists derive from the
+catalog automatically (no engine edit needed to add a query).
 
-### MongoDB (`MGX-001`..`MGX-008`)
+### MongoDB (`MGX-001`..`MGX-010`)
 `buildInfo` · `serverStatus` · auth (`getCmdLineOpts`) · TLS (`sslMode`) · users ·
-roles · databases · audit param. Admin commands run via `db.command()`.
+roles · databases · audit param · replication status (`replSetGetStatus`) ·
+current operations (`currentOp`). Admin commands run via `db.command()`.
 
 ### Kubernetes (`K8X-001`..`K8X-010`)
 version · nodes · namespaces · cluster roles/bindings · pods · network policies ·
@@ -593,13 +604,20 @@ the Aurora MySQL troubleshooting row in §12.
 1. Add an entry to the appropriate list in
    `modules/operations/engines/supplementary_query_catalog.py` (id, name, SQL,
    `technology`, description). Use an id prefix that won't collide with Excel
-   (`PGX-`, `YBX-`, `MYX-`).
+   (`PGX-`, `YBX-`, `MYX-`, `ORX-`, `MSX-`, `MGX-`).
 2. Add the **exact normalized SQL** to the matching allow-list in
-   `predefined_queries_engine.py` (`ALLOWED_POSTGRESQL_QUERIES` /
-   `ALLOWED_YUGABYTE_QUERIES` / `ALLOWED_MYSQL_QUERIES`). Normalization =
-   lowercase, collapsed whitespace, trailing `;`.
-3. (Optional) Add a test asserting it's covered by the allow-list.
-4. `python -m compileall modules` and `pytest tests/test_predefined_db_connectors.py`.
+   `predefined_queries_engine.py` — **only** for the hardcoded allow-lists:
+   `ALLOWED_POSTGRESQL_QUERIES` / `ALLOWED_YUGABYTE_QUERIES` /
+   `ALLOWED_MYSQL_QUERIES` / `ALLOWED_ORACLE_QUERIES`. Normalization = lowercase,
+   collapsed whitespace, trailing `;`.
+   - **SQL Server (`MSX-*`) and MongoDB (`MGX-*`) need no engine edit** — their
+     allow-lists (`ALLOWED_SQLSERVER_QUERIES` / `ALLOWED_MONGODB_COMMANDS`) are
+     **derived from the catalog** automatically. Adding a catalog entry is enough.
+3. (Optional) Add a test asserting it's covered by the allow-list
+   (`tests/test_predefined_db_connectors.py::test_every_supplementary_query_in_allowlist`
+   covers PG/YB/MY; extend the per-technology counts there when you add entries).
+4. Regenerate the inventory doc: `python scripts/run_predefined_query_tests.py inventory`.
+5. `python -m compileall modules` and `pytest tests/test_predefined_db_connectors.py`.
 
 The control becomes **Ready** automatically when its driver is installed and the
 control id is in `LIVE_CONTROL_IDS` (supplementary ids are added there

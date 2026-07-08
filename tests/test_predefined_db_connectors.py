@@ -146,12 +146,12 @@ def test_supplementary_catalog_counts():
     pg = [c for c in sup if c["technology"] == "PostgreSQL"]
     yb = [c for c in sup if c["technology"] == "YugabyteDB"]
     my = [c for c in sup if c["technology"] == "Aurora MySQL"]
-    assert len(pg) == 8
-    assert len(yb) == 8
-    assert len(my) == 10
-    # DB technologies contribute 26 supplementary controls (this file is DB-scoped;
+    assert len(pg) == 13
+    assert len(yb) == 11
+    assert len(my) == 14
+    # DB technologies contribute 38 supplementary controls (this file is DB-scoped;
     # infrastructure controls — Oracle/NGINX/Linux/RHEL — are covered separately).
-    assert len(pg) + len(yb) + len(my) == 26
+    assert len(pg) + len(yb) + len(my) == 38
 
 
 def test_supplementary_entries_have_required_fields():
