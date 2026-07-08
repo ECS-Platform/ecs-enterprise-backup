@@ -359,3 +359,97 @@ llm:
 reporting:
   export_path: "${ECS_REPORT_EXPORT_PATH:-./exports}"
   format:      "${ECS_REPORT_FORMAT:-pdf}"
+
+# =============================================================================
+# DEPLOYMENT SECTIONS (added for LOCAL→UAT→PROD→DR portability).
+# Everything below is env-var driven so moving environments needs ONLY config.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# APPLICATION — the ECS application's own bind + public identity.
+# host/port are what the process binds to; public_url/base_url are what clients
+# (SSO callbacks, links, connectors calling back) use to reach ECS.
+# -----------------------------------------------------------------------------
+application:
+  host:        "${ECS_HOST:-0.0.0.0}"
+  port:        "${ECS_PORT:-8000}"
+  public_url:  "${ECS_PUBLIC_URL:-http://localhost:8000}"
+  base_url:    "${ECS_BASE_URL:-http://localhost:8000}"
+  workers:     "${ECS_WEB_WORKERS:-1}"
+
+# -----------------------------------------------------------------------------
+# REDIS / CACHING — app cache + scheduler broker (distinct from the Redis query
+# target under predefined_query_targets, which is an assessed system).
+# -----------------------------------------------------------------------------
+redis:
+  host:        "${REDIS_HOST:-redis}"
+  port:        "${REDIS_PORT:-6379}"
+  db:          "${REDIS_DB:-0}"
+  password_env: REDIS_PASSWORD
+  ssl:         "${REDIS_SSL:-false}"
+
+caching:
+  enabled:     "${ECS_CACHE_ENABLED:-true}"
+  backend:     "${ECS_CACHE_BACKEND:-memory}"   # memory | redis
+  ttl_seconds: "${ECS_CACHE_TTL_SECONDS:-300}"
+
+# -----------------------------------------------------------------------------
+# SCHEDULER — background job execution (config-only; internals owned elsewhere).
+# -----------------------------------------------------------------------------
+scheduler:
+  enabled:       "${ECS_SCHEDULER_ENABLED:-false}"
+  worker_count:  "${ECS_SCHEDULER_WORKERS:-2}"
+  timeout_sec:   "${ECS_SCHEDULER_TIMEOUT_SECONDS:-600}"
+  max_retries:   "${ECS_SCHEDULER_MAX_RETRIES:-3}"
+  poll_interval_sec: "${ECS_SCHEDULER_POLL_INTERVAL_SECONDS:-30}"
+
+# -----------------------------------------------------------------------------
+# CONNECTOR EXECUTION — global defaults for evidence-collection connectors.
+# Per-connector overrides live under `connectors:` above.
+# -----------------------------------------------------------------------------
+connector_execution:
+  enabled:      "${ECS_CONNECTORS_ENABLED:-true}"
+  timeout_sec:  "${ECS_CONNECTOR_TIMEOUT_SECONDS:-30}"
+  max_retries:  "${ECS_CONNECTOR_MAX_RETRIES:-2}"
+  ssl_verify:   "${ECS_CONNECTOR_SSL_VERIFY:-true}"
+  proxy_url:    "${ECS_CONNECTOR_PROXY_URL:-}"
+
+# -----------------------------------------------------------------------------
+# VECTOR STORE — evidence embeddings. Detailed provider config in vectorstore.yaml;
+# these are the deployment-level switches so DR/prod can repoint without code.
+# -----------------------------------------------------------------------------
+vector_store:
+  provider:     "${ECS_VECTOR_PROVIDER:-pgvector}"   # pgvector | chroma | milvus
+  host:         "${ECS_VECTOR_PG_HOST:-pgvector}"
+  port:         "${ECS_VECTOR_PG_PORT:-5432}"
+  database:     "${ECS_VECTOR_PG_DATABASE:-ecs_vectors}"
+  collection:   "${ECS_VECTOR_COLLECTION:-ecs_evidence_chunks}"
+
+# -----------------------------------------------------------------------------
+# LOGGING / MONITORING / SECURITY — deployment-profile knobs (config-only).
+# -----------------------------------------------------------------------------
+logging:
+  level:        "${ECS_LOG_LEVEL:-INFO}"
+  format:       "${ECS_LOG_FORMAT:-text}"           # text | json
+  mask_secrets: "${ECS_LOG_MASK_SECRETS:-true}"
+
+monitoring:
+  enabled:         "${ECS_MONITORING_ENABLED:-false}"
+  metrics_path:    "${ECS_METRICS_PATH:-/metrics}"
+  health_path:     "${ECS_HEALTH_PATH:-/healthz}"
+  readiness_path:  "${ECS_READINESS_PATH:-/readyz}"
+
+security:
+  auth_enabled:      "${ECS_AUTH_ENABLED:-false}"
+  local_auth_bypass: "${ECS_LOCAL_AUTH_BYPASS:-false}"
+  force_https:       "${ECS_FORCE_HTTPS:-false}"
+  hsts_enabled:      "${ECS_HSTS_ENABLED:-false}"
+
+# -----------------------------------------------------------------------------
+# FUTURE EXTENSION ENDPOINTS — reserved config slots (no code depends on these
+# yet; present so MCP/agent/plugin endpoints are config-only when introduced).
+# -----------------------------------------------------------------------------
+extensions:
+  mcp_endpoint:     "${ECS_MCP_ENDPOINT:-}"
+  agent_endpoint:   "${ECS_AGENT_ENDPOINT:-}"
+  plugin_endpoint:  "${ECS_PLUGIN_ENDPOINT:-}"

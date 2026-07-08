@@ -39,6 +39,10 @@ modules/enterprise_grc/reports/ECS_Validation_Report.json
 # .env.uat stays ignored by .env.* above).
 !.env.uat.example
 !.env.prod.template
+# Placeholder-only deployment examples for PROD/DR (no real secrets; the real
+# .env.prod / .env.dr stay ignored by .env.* above).
+!.env.prod.example
+!.env.dr.example
 
 # Connector tokens (kept local only; never commit live credentials)
 demo-data/.gitea_token

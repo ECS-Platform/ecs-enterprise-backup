@@ -1,0 +1,96 @@
+# =============================================================================
+# ECS ENVIRONMENT — DISASTER RECOVERY (DR)
+# =============================================================================
+# Deep-merged over _base.yaml. DR mirrors the PRODUCTION topology on the
+# secondary (DR) site: same shape, DR-site hostnames/IPs. Select with ECS_ENV=dr.
+#
+# RULES (same as prod)
+#   * NO secrets here — set the *_env environment variables (from the DR vault /
+#     K8s secret) instead.
+#   * Every value is ${VAR:-default} so the DR site is reachable by editing ONLY
+#     env vars / this file — never source code.
+#   * SSO + TLS are expected ON in DR (it can be promoted to serve production).
+#   * Defaults below are non-secret DR-site placeholders (private-range IPs /
+#     *.dr.bank.internal names); replace via env vars for the real DR landscape.
+# =============================================================================
+
+environment: dr
+tenant: "${ECS_TENANT:-prod}"          # DR serves the same tenant as prod
+region: "${ECS_REGION:-in-hyderabad-dr}"
+
+# ECS application on the DR site.
+application:
+  host:       "${ECS_HOST:-0.0.0.0}"
+  port:       "${ECS_PORT:-8000}"
+  public_url: "${ECS_PUBLIC_URL:-https://ecs.dr.bank.internal}"
+  base_url:   "${ECS_BASE_URL:-https://ecs.dr.bank.internal}"
+  workers:    "${ECS_WEB_WORKERS:-4}"
+
+applications:
+  netbanking:    {host: "${APP_NETBANKING_HOST:-netbanking.dr.bank.com}", port: "${APP_NETBANKING_PORT:-443}", base_url: "${APP_NETBANKING_URL:-https://netbanking.dr.bank.com}"}
+  mobilebanking: {host: "${APP_MOBILEBANKING_HOST:-mobile.dr.bank.com}",  port: "${APP_MOBILEBANKING_PORT:-443}", base_url: "${APP_MOBILEBANKING_URL:-https://mobile.dr.bank.com}"}
+  payments:      {host: "${APP_PAYMENTS_HOST:-payments.dr.bank.com}",     port: "${APP_PAYMENTS_PORT:-443}", base_url: "${APP_PAYMENTS_URL:-https://payments.dr.bank.com}"}
+  cbs:           {host: "${APP_CBS_HOST:-cbs.dr.bank.com}",               port: "${APP_CBS_PORT:-443}", base_url: "${APP_CBS_URL:-https://cbs.dr.bank.com}"}
+  upi:           {host: "${APP_UPI_HOST:-upi.dr.bank.com}",               port: "${APP_UPI_PORT:-443}", base_url: "${APP_UPI_URL:-https://upi.dr.bank.com}"}
+
+databases:
+  postgres: {host: "${ECS_REPO_PG_HOST:-pg.dr.bank.internal}", port: "${ECS_REPO_PG_PORT:-5432}", database: "${ECS_REPO_PG_DATABASE:-ecs_repository}"}
+  oracle:   {host: "${DB_ORACLE_HOST:-oracle.dr.bank.internal}", service: "${DB_ORACLE_SERVICE:-ECSDR}"}
+  mysql:    {host: "${DB_MYSQL_HOST:-mysql.dr.bank.internal}"}
+
+# App cache / scheduler broker on the DR site.
+redis:
+  host: "${REDIS_HOST:-redis.dr.bank.internal}"
+  port: "${REDIS_PORT:-6379}"
+  ssl:  "${REDIS_SSL:-true}"
+
+connectors:
+  jira:       {url: "${JIRA_URL:-https://jira.bank.com}",             enabled: "${ECS_JIRA_ENABLED:-true}"}
+  confluence: {url: "${CONFLUENCE_URL:-https://confluence.bank.com}", enabled: "${ECS_CONFLUENCE_ENABLED:-true}"}
+  servicenow: {url: "${SNOW_URL:-https://bank.service-now.com}",      enabled: "${ECS_SNOW_ENABLED:-true}"}
+
+# DR predefined-query execution targets. Populate the DR-site host/IP lists via
+# the ECS_TARGET_* env vars (comma-separated) — the loader converts them to lists.
+predefined_query_targets:
+  os_servers:          []
+  db_servers:          []
+  middleware_servers:  []
+  appsec_targets:      []
+
+storage:
+  object_store:
+    endpoint: "${MINIO_ENDPOINT:-objectstore.dr.bank.internal:9000}"
+    bucket:   "${MINIO_BUCKET:-ecs-evidence-dr}"
+    secure:   "${MINIO_SECURE:-true}"
+
+vector_store:
+  provider: "${ECS_VECTOR_PROVIDER:-pgvector}"
+  host:     "${ECS_VECTOR_PG_HOST:-pgvector.dr.bank.internal}"
+
+llm:
+  provider: "${ECS_LLM_PROVIDER:-ollama}"
+  model:    "${ECS_LLM_MODEL:-qwen3:8b}"
+  base_url: "${OLLAMA_URL:-http://llm.dr.bank.internal:11434}"
+
+authentication:
+  sso:
+    enabled:  "${ECS_SSO_ENABLED:-true}"
+    provider: "${ECS_SSO_PROVIDER:-saml}"
+
+security:
+  auth_enabled: "${ECS_AUTH_ENABLED:-true}"
+  force_https:  "${ECS_FORCE_HTTPS:-true}"
+  hsts_enabled: "${ECS_HSTS_ENABLED:-true}"
+
+scheduler:
+  enabled: "${ECS_SCHEDULER_ENABLED:-true}"
+
+monitoring:
+  enabled: "${ECS_MONITORING_ENABLED:-true}"
+
+logging:
+  level:  "${ECS_LOG_LEVEL:-INFO}"
+  format: "${ECS_LOG_FORMAT:-json}"
+
+reporting:
+  export_path: "${ECS_REPORT_EXPORT_PATH:-/var/ecs/exports/dr}"

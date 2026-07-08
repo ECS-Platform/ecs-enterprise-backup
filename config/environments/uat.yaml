@@ -14,6 +14,28 @@ environment: uat
 tenant: "${ECS_TENANT:-uat}"                 # logical tenant label
 region: "${ECS_REGION:-in-mumbai-uat}"       # logical region label
 
+# ECS application's own public identity in UAT (never localhost — real UAT host).
+application:
+  host:       "${ECS_HOST:-0.0.0.0}"
+  port:       "${ECS_PORT:-8000}"
+  public_url: "${ECS_PUBLIC_URL:-https://ecs.uat.bank.local}"
+  base_url:   "${ECS_BASE_URL:-https://ecs.uat.bank.local}"
+
+# LLM endpoint in UAT (on-prem/UAT inference host; never host.docker.internal).
+llm:
+  provider: "${ECS_LLM_PROVIDER:-ollama}"
+  model:    "${ECS_LLM_MODEL:-qwen3:8b}"
+  base_url: "${OLLAMA_URL:-http://llm.uat.bank.local:11434}"
+
+# App cache / scheduler broker in UAT.
+redis:
+  host: "${REDIS_HOST:-redis.uat.bank.local}"
+  port: "${REDIS_PORT:-6379}"
+
+vector_store:
+  provider: "${ECS_VECTOR_PROVIDER:-pgvector}"
+  host:     "${ECS_VECTOR_PG_HOST:-pgvector.uat.bank.local}"
+
 # Business applications under test (example FQDNs; override per env var).
 applications:
   netbanking:    {host: "${APP_NETBANKING_HOST:-netbanking.uat.bank.local}", port: "${APP_NETBANKING_PORT:-443}", base_url: "${APP_NETBANKING_URL:-https://netbanking.uat.bank.local}"}

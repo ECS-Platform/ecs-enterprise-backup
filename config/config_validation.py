@@ -20,6 +20,8 @@ CLI use
 
 from __future__ import annotations
 
+import os
+import re
 import sys
 from dataclasses import dataclass, field
 from typing import Any
@@ -32,7 +34,43 @@ from config.environment_loader import (
 )
 
 # Environments where missing real integration targets is a hard error.
-_STRICT_ENVS = {"sit", "uat", "prod"}
+# DR mirrors prod, so it is strict too.
+_STRICT_ENVS = {"sit", "uat", "prod", "dr"}
+
+# Environments where pointing at localhost/loopback is a hard error (a real
+# remote environment must never resolve to the local machine).
+_NO_LOCALHOST_ENVS = {"uat", "prod", "dr"}
+
+_LOCALHOST_TOKENS = ("localhost", "127.0.0.1", "0.0.0.0", "::1", "host.docker.internal")
+
+# Field-name fragments that identify a URL/endpoint value worth validating.
+_URL_FIELD_HINTS = ("url", "endpoint", "base_url", "public_url", "authority")
+
+# Fields whose value NAMES an env var that must hold a secret (checked non-blank
+# in strict envs). These are the *_env pointer conventions used across the YAML.
+_SECRET_ENV_SUFFIX = "_env"
+
+
+def _looks_like_url(field_name: str) -> bool:
+    fn = field_name.lower()
+    return any(h in fn for h in _URL_FIELD_HINTS)
+
+
+def _contains_localhost(value: str) -> bool:
+    low = str(value).lower()
+    return any(tok in low for tok in _LOCALHOST_TOKENS)
+
+
+def mask_secret(value: Any) -> str:
+    """Return a masked representation of a secret — never the raw value.
+
+    Empty -> 'MISSING'; otherwise the first 2 chars + fixed asterisks so logs and
+    validation output never reveal a credential.
+    """
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return "MISSING"
+    s = str(value)
+    return f"{s[:2]}****" if len(s) > 2 else "****"
 
 _REQUIRED_SECTIONS = (
     "applications",
@@ -76,11 +114,22 @@ def _is_blank(value: Any) -> bool:
     return value is None or (isinstance(value, str) and value.strip() == "")
 
 
-def validate_environment(env: str | None = None) -> ValidationReport:
+def validate_environment(
+    env: str | None = None, *, check_secrets: bool | None = None
+) -> ValidationReport:
     """Validate one environment. Never raises — returns a structured report.
 
     A failure to even load the YAML is captured as a single fatal error.
+
+    :param check_secrets: when True, ``*_env`` secret pointers must resolve to a
+        non-empty environment variable (a *deployment* gate — run with the target
+        env's secrets loaded). When False (the default for structural / CI config
+        validation) secret presence is reported as a warning only, so config files
+        can be validated without real credentials. Defaults to the value of
+        ``ECS_VALIDATE_SECRETS`` (truthy) else False.
     """
+    if check_secrets is None:
+        check_secrets = _as_bool(os.environ.get("ECS_VALIDATE_SECRETS"))
     target = (env or "").strip().lower() or None
     rep = ValidationReport(environment=target or "active")
 
@@ -156,21 +205,136 @@ def validate_environment(env: str | None = None) -> ValidationReport:
     if _is_blank((cfg.get("reporting") or {}).get("export_path")):
         rep.error("reporting.export_path is empty")
 
-    # --- production hardening expectations -------------------------------------
-    if name == "prod":
+    # --- application bind/public config (deployment portability) --------------
+    app = cfg.get("application") or {}
+    if app:
+        rep.checks_run += 1
+        port = app.get("port")
+        if not _is_blank(port) and not _valid_port(port):
+            rep.error(f"application.port is not a valid port: '{port}'")
+        for url_field in ("public_url", "base_url"):
+            val = app.get(url_field)
+            if _is_blank(val):
+                continue
+            rep.checks_run += 1
+            if not _valid_url(val):
+                rep.error(f"application.{url_field} is not a valid URL: '{val}'")
+
+    # --- no localhost/loopback in remote environments -------------------------
+    if name in _NO_LOCALHOST_ENVS:
+        for path, value in _iter_url_like(cfg):
+            rep.checks_run += 1
+            if _contains_localhost(value):
+                rep.error(
+                    f"{path} points at localhost/loopback ('{value}') which is "
+                    f"invalid for environment '{name}'"
+                )
+
+    # --- URL / port shape checks (all environments) ---------------------------
+    for path, value in _iter_url_like(cfg):
+        rep.checks_run += 1
+        if not _valid_url(value):
+            rep.warn(f"{path} does not look like a valid URL: '{value}'")
+
+    # --- required secrets present in strict environments ----------------------
+    # Only enforced as ERRORS when check_secrets is on (a deployment gate run with
+    # the target env's secrets loaded). Otherwise reported as warnings so config
+    # files validate structurally in CI without real credentials.
+    if strict:
+        for path, env_var in _iter_secret_env_pointers(cfg):
+            rep.checks_run += 1
+            if _is_blank(os.environ.get(env_var)):
+                msg = (
+                    f"{path} -> environment variable '{env_var}' is empty "
+                    f"(required secret in '{name}'); value: {mask_secret(os.environ.get(env_var))}"
+                )
+                if check_secrets:
+                    rep.error(msg)
+                else:
+                    rep.warn(msg + " [set ECS_VALIDATE_SECRETS=1 to enforce]")
+
+    # --- SSL/TLS expectations in remote environments --------------------------
+    if name in _NO_LOCALHOST_ENVS:
+        rep.checks_run += 1
+        sec = cfg.get("security") or {}
+        if "force_https" in sec and not _as_bool(sec.get("force_https")):
+            rep.warn(f"security.force_https is false in '{name}' (TLS recommended)")
+
+    # --- production/DR hardening expectations ----------------------------------
+    if name in ("prod", "dr"):
         rep.checks_run += 1
         if not bool((((cfg.get("authentication") or {}).get("sso")) or {}).get("enabled")):
-            rep.warn("authentication.sso.enabled is false in production")
+            rep.warn(f"authentication.sso.enabled is false in '{name}'")
         rep.checks_run += 1
         if not bool((((cfg.get("storage") or {}).get("object_store")) or {}).get("secure")):
-            rep.warn("storage.object_store.secure is false in production")
+            rep.warn(f"storage.object_store.secure is false in '{name}'")
 
     return rep
 
 
-def validate_or_raise(env: str | None = None) -> ValidationReport:
+# --------------------------------------------------------------------------- #
+# Validation helpers
+# --------------------------------------------------------------------------- #
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _valid_port(value: Any) -> bool:
+    try:
+        n = int(str(value).strip())
+    except (TypeError, ValueError):
+        return False
+    return 1 <= n <= 65535
+
+
+_URL_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s]+$")
+
+
+def _valid_url(value: Any) -> bool:
+    """True for a http(s)/scheme URL OR a bare host[:port] (both are used in YAML)."""
+    s = str(value).strip()
+    if not s or s.startswith("${"):
+        return True  # unresolved placeholder — not this validator's concern
+    if _URL_RE.match(s):
+        return True
+    # Accept bare host or host:port (e.g. object-store endpoint "minio:9000").
+    return bool(re.match(r"^[A-Za-z0-9._\-]+(:\d{1,5})?$", s))
+
+
+def _iter_url_like(cfg: dict[str, Any], _prefix: str = ""):
+    """Yield (dotted_path, value) for every string field that looks like a URL/endpoint."""
+    for key, val in cfg.items():
+        path = f"{_prefix}.{key}" if _prefix else str(key)
+        if isinstance(val, dict):
+            yield from _iter_url_like(val, path)
+        elif isinstance(val, list):
+            for i, item in enumerate(val):
+                if isinstance(item, dict):
+                    yield from _iter_url_like(item, f"{path}[{i}]")
+        elif isinstance(val, str) and val.strip() and _looks_like_url(str(key)):
+            yield path, val
+
+
+def _iter_secret_env_pointers(cfg: dict[str, Any], _prefix: str = ""):
+    """Yield (dotted_path, env_var_name) for every ``*_env`` secret pointer."""
+    for key, val in cfg.items():
+        path = f"{_prefix}.{key}" if _prefix else str(key)
+        if isinstance(val, dict):
+            yield from _iter_secret_env_pointers(val, path)
+        elif (
+            isinstance(key, str)
+            and key.endswith(_SECRET_ENV_SUFFIX)
+            and isinstance(val, str)
+            and val.strip()
+        ):
+            yield path, val.strip()
+
+
+def validate_or_raise(env: str | None = None, *, check_secrets: bool | None = None) -> ValidationReport:
     """Validate and raise :class:`EnvironmentConfigError` if any errors are found."""
-    rep = validate_environment(env)
+    rep = validate_environment(env, check_secrets=check_secrets)
     if not rep.ok:
         bullet = "\n  - ".join(rep.errors)
         raise EnvironmentConfigError(
@@ -179,9 +343,12 @@ def validate_or_raise(env: str | None = None) -> ValidationReport:
     return rep
 
 
-def validate_all() -> dict[str, ValidationReport]:
+def validate_all(*, check_secrets: bool | None = None) -> dict[str, ValidationReport]:
     """Validate every environment that has a YAML file present."""
-    return {env: validate_environment(env) for env in available_environments()}
+    return {
+        env: validate_environment(env, check_secrets=check_secrets)
+        for env in available_environments()
+    }
 
 
 def _format(rep: ValidationReport) -> str:
@@ -197,12 +364,13 @@ def _format(rep: ValidationReport) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    check_secrets = "--check-secrets" in argv
     if "--all" in argv:
-        reports = validate_all()
+        reports = validate_all(check_secrets=check_secrets)
         print("\n".join(_format(r) for r in reports.values()))
         return 0 if all(r.ok for r in reports.values()) else 1
     env = next((a for a in argv if not a.startswith("-")), None)
-    rep = validate_environment(env)
+    rep = validate_environment(env, check_secrets=check_secrets)
     print(_format(rep))
     return 0 if rep.ok else 1
 

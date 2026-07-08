@@ -1,0 +1,93 @@
+name: ECS Config Validation
+
+# Validates the ECS environment-configuration framework so that moving
+# LOCAL -> UAT -> PROD -> DR stays configuration-only. Structural validation runs
+# WITHOUT real secrets (config files must be well-formed on their own), and the
+# workflow hard-fails if any remote environment (uat/prod/dr) resolves an endpoint
+# to localhost/loopback or if a mandatory section/variable is missing.
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "config/**"
+      - ".env*.example"
+      - ".env*.template"
+      - "scripts/config_tools.py"
+      - "tests/test_deployment_config.py"
+      - ".github/workflows/config-validation.yml"
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch: {}
+
+concurrency:
+  group: config-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ECS_VALIDATE_CONFIG: "off"
+      PYTHONPATH: "."
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml pytest
+
+      - name: Compile config module
+        run: python -m compileall -q config scripts/config_tools.py
+
+      - name: Validate every environment (structural)
+        run: python scripts/config_tools.py validate-all
+
+      - name: Reject localhost in remote environments (uat / prod / dr)
+        run: |
+          set -e
+          fail=0
+          for env in uat prod dr; do
+            out="$(ECS_ENV=$env python -m config.config_validation $env 2>&1 || true)"
+            if echo "$out" | grep -Eiq "localhost|loopback"; then
+              echo "::error::Environment '$env' resolves an endpoint to localhost/loopback:"
+              echo "$out" | grep -Ei "localhost|loopback"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::localhost/loopback is not allowed in remote environments."
+            exit 1
+          fi
+          echo "OK: no localhost/loopback endpoints in uat/prod/dr."
+
+      - name: Verify mandatory sections + DR profile present
+        run: |
+          python - <<'PY'
+          import sys
+          from config.environment_loader import available_environments, get_environment_config
+          required = ("application","databases","connectors","redis","scheduler",
+                      "llm","vector_store","storage","security","reporting")
+          assert "dr" in available_environments(), "dr environment missing"
+          for env in ("local","uat","prod","dr"):
+              cfg = get_environment_config(env=env)
+              missing = [s for s in required if s not in cfg]
+              assert not missing, f"{env} missing sections: {missing}"
+          print("OK: mandatory sections present for local/uat/prod/dr.")
+          PY
+
+      - name: Deployment-profile diff sanity (local vs prod)
+        run: python scripts/config_tools.py compare-envs local prod >/dev/null
+
+      - name: Run deployment configuration tests
+        run: pytest -q -p no:cacheprovider tests/test_deployment_config.py

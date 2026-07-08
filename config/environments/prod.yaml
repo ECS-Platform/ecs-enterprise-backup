@@ -10,6 +10,45 @@ environment: prod
 tenant: "${ECS_TENANT:-prod}"
 region: "${ECS_REGION:-in-mumbai}"
 
+# ECS application's own public identity in PRODUCTION (never localhost).
+application:
+  host:       "${ECS_HOST:-0.0.0.0}"
+  port:       "${ECS_PORT:-8000}"
+  public_url: "${ECS_PUBLIC_URL:-https://ecs.bank.internal}"
+  base_url:   "${ECS_BASE_URL:-https://ecs.bank.internal}"
+  workers:    "${ECS_WEB_WORKERS:-4}"
+
+# LLM endpoint in PRODUCTION (on-prem inference host; never host.docker.internal).
+llm:
+  provider: "${ECS_LLM_PROVIDER:-ollama}"
+  model:    "${ECS_LLM_MODEL:-qwen3:8b}"
+  base_url: "${OLLAMA_URL:-http://llm.prod.bank.internal:11434}"
+
+# App cache / scheduler broker in PRODUCTION.
+redis:
+  host: "${REDIS_HOST:-redis.prod.bank.internal}"
+  port: "${REDIS_PORT:-6379}"
+  ssl:  "${REDIS_SSL:-true}"
+
+vector_store:
+  provider: "${ECS_VECTOR_PROVIDER:-pgvector}"
+  host:     "${ECS_VECTOR_PG_HOST:-pgvector.prod.bank.internal}"
+
+security:
+  auth_enabled: "${ECS_AUTH_ENABLED:-true}"
+  force_https:  "${ECS_FORCE_HTTPS:-true}"
+  hsts_enabled: "${ECS_HSTS_ENABLED:-true}"
+
+scheduler:
+  enabled: "${ECS_SCHEDULER_ENABLED:-true}"
+
+monitoring:
+  enabled: "${ECS_MONITORING_ENABLED:-true}"
+
+logging:
+  level:  "${ECS_LOG_LEVEL:-INFO}"
+  format: "${ECS_LOG_FORMAT:-json}"
+
 applications:
   netbanking:    {host: "${APP_NETBANKING_HOST:-netbanking.bank.com}", port: "${APP_NETBANKING_PORT:-443}", base_url: "${APP_NETBANKING_URL:-https://netbanking.bank.com}"}
   mobilebanking: {host: "${APP_MOBILEBANKING_HOST:-mobile.bank.com}",  port: "${APP_MOBILEBANKING_PORT:-443}", base_url: "${APP_MOBILEBANKING_URL:-https://mobile.bank.com}"}
@@ -36,7 +75,8 @@ predefined_query_targets:
 
 storage:
   object_store:
-    secure: "${MINIO_SECURE:-true}"
+    endpoint: "${MINIO_ENDPOINT:-objectstore.prod.bank.internal:9000}"
+    secure:   "${MINIO_SECURE:-true}"
 
 authentication:
   sso:

@@ -30,7 +30,9 @@ from typing import Any
 from ecs_platform.config.loader import ConfigError, config_dir, load_config
 
 #: Environments ECS recognises. ``ECS_ENV`` must resolve to one of these.
-VALID_ENVIRONMENTS: tuple[str, ...] = ("local", "dev", "sit", "uat", "prod")
+#: ``dr`` (disaster recovery) mirrors ``prod`` topology on a secondary site and is
+#: selected the same way — by ``ECS_ENV=dr`` with a ``dr.yaml`` env file.
+VALID_ENVIRONMENTS: tuple[str, ...] = ("local", "dev", "sit", "uat", "prod", "dr")
 
 #: Env var that selects the active environment.
 _ENV_SELECTOR = "ECS_ENV"
@@ -184,3 +186,48 @@ def get_reporting(*, env: str | None = None) -> dict[str, Any]:
 
 def get_tenant(*, env: str | None = None) -> str:
     return str(get_environment_config(env=env).get("tenant", "") or "")
+
+
+# --------------------------------------------------------------------------- #
+# Deployment-section accessors (application / redis / scheduler / etc.).
+# Added for LOCAL→UAT→PROD→DR portability; all values are env-var driven.
+# --------------------------------------------------------------------------- #
+def get_application_config(*, env: str | None = None) -> dict[str, Any]:
+    """The ECS application's own bind/public config (host/port/public_url/base_url)."""
+    return get_section("application", env=env)
+
+
+def get_redis(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("redis", env=env)
+
+
+def get_caching(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("caching", env=env)
+
+
+def get_scheduler(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("scheduler", env=env)
+
+
+def get_connector_execution(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("connector_execution", env=env)
+
+
+def get_vector_store(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("vector_store", env=env)
+
+
+def get_logging(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("logging", env=env)
+
+
+def get_monitoring(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("monitoring", env=env)
+
+
+def get_security(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("security", env=env)
+
+
+def get_extensions(*, env: str | None = None) -> dict[str, Any]:
+    return get_section("extensions", env=env)
