@@ -1131,3 +1131,74 @@ def register_audit_intelligence_routes(app) -> None:
             heatmap=ce.build_heatmap_cards(scope=scope, time_range=time_range)
             if hasattr(ce, "build_heatmap_cards") else [],
         )
+
+    # ==================================================================== #
+    # Scheduler priority queue + dead-letter queue + parallel execution.
+    # Reuses the EXISTING asset scheduler (plan/execute_plan) + persistence via
+    # scheduler_execution (additive orchestration; no parallel scheduler).
+    # ==================================================================== #
+    @app.get("/api/audit/scheduler/queue")
+    @_safe
+    def api_scheduler_queue(config_path: str = ""):
+        """Priority-ordered scheduler queue for the configured assets (no run)."""
+        from modules.audit_intelligence.services import scheduler_execution as se
+
+        return _ok(se.preview_queue(config_path or None))
+
+    @app.get("/api/audit/scheduler/dead-letter")
+    @_safe
+    def api_scheduler_dlq():
+        """List dead-letter jobs (failed after max retries)."""
+        from modules.audit_intelligence.services import scheduler_execution as se
+
+        dlq = se.list_dead_letters()
+        return _ok(dead_letter=dlq, count=len(dlq))
+
+    @app.post("/api/audit/scheduler/dead-letter/{item_id}/requeue")
+    @_safe
+    def api_scheduler_dlq_requeue(item_id: str,
+                                  payload: dict[str, Any] = Body(default_factory=dict),
+                                  role: str = "system_admin"):
+        """Requeue a dead-letter job and re-run it once (RBAC: platform admin).
+
+        Connector live execution stays OFF unless ``run_connectors=true`` is passed
+        AND the connector execution flag/transport allows it — a requeue can never
+        accidentally hit the network.
+        """
+        from modules.shared.services import role_permissions as rp
+
+        if not rp.can_admin_platform(role):
+            return _err("Access denied: platform administrator role required.", status=403)
+        from modules.audit_intelligence.services import scheduler_execution as se
+
+        res = se.requeue_dead_letter(
+            item_id, run_connectors=bool(payload.get("run_connectors", False)))
+        if res.get("error") == "unknown_dead_letter":
+            return _err(f"Unknown dead-letter item: {item_id}", status=404)
+        return _ok(res)
+
+    @app.post("/api/audit/scheduler/execute-parallel")
+    @_safe
+    def api_scheduler_execute_parallel(payload: dict[str, Any] = Body(default_factory=dict),
+                                       role: str = "system_admin"):
+        """Execute the plan with priority ordering + bounded workers + DLQ.
+
+        RBAC: platform admin. Workers default to 1 (deterministic, sequential) and
+        are hard-capped. Connector live execution follows the same safe-by-default
+        contract as ``execute_plan`` (off unless explicitly enabled).
+        """
+        from modules.shared.services import role_permissions as rp
+
+        if not rp.can_admin_platform(role):
+            return _err("Access denied: platform administrator role required.", status=403)
+        from modules.audit_intelligence.services import asset_scheduler, scheduler_execution as se
+
+        assets = asset_scheduler.load_assets(str(payload.get("config_path") or "") or None)
+        plan = asset_scheduler.plan_evidence(assets)
+        result = se.execute_parallel(
+            plan,
+            workers=int(payload.get("workers", 1) or 1),
+            max_retries=int(payload.get("max_retries", se.DEFAULT_MAX_RETRIES)),
+            run_connectors=bool(payload.get("run_connectors", False)),
+        )
+        return _ok(result)
