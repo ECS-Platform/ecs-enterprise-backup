@@ -130,7 +130,7 @@ def test_yaml_files_are_valid():
 
 def test_uat_guide_has_bank_developer_checklist():
     """The UAT guide must carry the Bank Developer UAT Checklist with all gates."""
-    guide = ROOT / "docs" / "DEVELOPER" / "UAT_INTEGRATION_GUIDE.md"
+    guide = ROOT / "docs" / "connectors" / "UAT_INTEGRATION_GUIDE.md"
     text = guide.read_text(encoding="utf-8").lower()
     assert "bank developer uat checklist" in text
     for gate in ("vpn connected", "dns reachable", "port opened",
