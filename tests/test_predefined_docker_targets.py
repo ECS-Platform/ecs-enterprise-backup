@@ -191,7 +191,7 @@ def test_windows_not_in_compose(compose):
 
 
 def test_windows_documented_unsupported():
-    doc = (ROOT / "docs" / "DEVELOPER" / "PREDEFINED_DATABASE_QUERY_MODULE.md").read_text(encoding="utf-8")
+    doc = (ROOT / "docs" / "developer-manual" / "PREDEFINED_DATABASE_QUERY_MODULE.md").read_text(encoding="utf-8")
     low = doc.lower()
     assert "windows" in low
     # Documented as remote/enterprise-only / not supported by local Docker.
