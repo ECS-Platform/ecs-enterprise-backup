@@ -87,7 +87,8 @@ def test_api_health_reports_status_and_integrations():
     assert body["ok"] is True
     assert body["status"] in ("ok", "degraded")
     assert "integrations" in body and "total" in body["integrations"]
-    assert body["integrations"]["total"] == 11
+    from modules.operations import integrations
+    assert body["integrations"]["total"] == len(integrations.list_adapters())
 
 
 def test_api_packs_base_lists_pack_types():

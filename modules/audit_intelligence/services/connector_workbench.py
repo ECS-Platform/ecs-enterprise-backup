@@ -112,6 +112,41 @@ _ADAPTER_TESTS: dict[str, dict[str, Any]] = {
         "mock": {"results": [
             {"id": "P1", "name": "CIS", "node": "srv-1", "status": "pass", "score": 98}]},
     },
+    "aws_connector": {
+        "label": "AWS", "auth": "Access key / secret key",
+        "client": "AWSClient", "method": "fetch_findings",
+        "mock": {"Findings": [
+            {"Id": "aws-1", "Title": "S3 bucket public", "Severity": {"Label": "HIGH"},
+             "Compliance": {"Status": "FAILED"}, "Region": "us-east-1"}]},
+    },
+    "gcp_connector": {
+        "label": "GCP", "auth": "Service-account JSON",
+        "client": "GCPClient", "method": "fetch_findings",
+        "mock": {"findings": [
+            {"name": "gcp-1", "category": "PUBLIC_BUCKET_ACL", "severity": "HIGH",
+             "state": "ACTIVE", "resourceName": "//storage/buckets/x"}]},
+    },
+    "azure_connector": {
+        "label": "Azure", "auth": "OAuth client-credentials",
+        "client": "AzureClient", "method": "fetch_security_assessments",
+        "mock": {"value": [
+            {"id": "az-1", "properties": {"displayName": "MFA enabled",
+             "status": {"code": "Unhealthy", "severity": "High"}}}]},
+        "token_key": "access_token",
+    },
+    "nessus": {
+        "label": "Nessus / Tenable", "auth": "API keys (access + secret)",
+        "client": "NessusClient", "method": "fetch_scans",
+        "mock": {"scans": [
+            {"id": "n1", "name": "Weekly scan", "status": "completed"}]},
+    },
+    "qualys": {
+        "label": "Qualys", "auth": "Basic (username + password)",
+        "client": "QualysClient", "method": "fetch_host_detections",
+        "mock": {"hosts": [
+            {"ID": "q1", "IP": "10.0.0.5", "QID": "38173", "SEVERITY": "3",
+             "STATUS": "Active"}]},
+    },
 }
 
 #: Config keys that make a client "configured enough" to run a mock parser test
@@ -131,6 +166,14 @@ _TEST_STUB_CONFIG: dict[str, dict[str, Any]] = {
     "checkmarx": {"base_url": "https://cx.example", "client_id": "c", "client_secret": "s"},
     "prisma_cloud": {"base_url": "https://prisma.example", "access_key": "ak", "secret_key": "sk"},
     "tripwire": {"base_url": "https://tw.example", "username": "u", "password": "p"},
+    "aws_connector": {"base_url": "https://aws-collector.example", "region": "us-east-1",
+                      "access_key_id": "ak", "secret_access_key": "sk"},
+    "gcp_connector": {"base_url": "https://gcp-collector.example", "project_id": "proj",
+                      "access_token": "tok"},
+    "azure_connector": {"base_url": "https://management.example", "tenant_id": "t",
+                        "client_id": "c", "client_secret": "s", "subscription_id": "sub"},
+    "nessus": {"base_url": "https://nessus.example", "access_key": "ak", "secret_key": "sk"},
+    "qualys": {"base_url": "https://qualys.example", "username": "u", "password": "p"},
 }
 
 

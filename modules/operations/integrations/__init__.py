@@ -62,6 +62,12 @@ ADAPTER_MODULES = (
     "checkmarx",
     "prisma_cloud",
     "tripwire",
+    # Cloud posture + vulnerability scanners (config-driven; safe-by-default).
+    "aws_connector",
+    "gcp_connector",
+    "azure_connector",
+    "nessus",
+    "qualys",
 )
 
 

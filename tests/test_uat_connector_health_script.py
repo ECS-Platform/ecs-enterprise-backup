@@ -25,7 +25,10 @@ def test_resolve_all_returns_registry_order():
     adapters = h.resolve_adapters("all")
     assert "servicenow_cmdb" in adapters and "sharepoint_graph" in adapters
     assert "prisma_cloud" in adapters and "tripwire" in adapters
-    assert len(adapters) == 11
+    # Registry-driven: "all" resolves to every registered adapter.
+    from modules.operations import integrations
+    assert len(adapters) == len(integrations.list_adapters())
+    assert len(adapters) >= 11
 
 
 @pytest.mark.parametrize("alias,module", [
@@ -176,7 +179,7 @@ def test_run_all_summary(monkeypatch):
              for name in h.resolve_adapters("all")}
     _install_multi(monkeypatch, fakes)
     report = h.run("all", live=False, no_network=False)
-    assert report["total"] == 11 and report["configured"] == 0
+    assert report["total"] == len(h.resolve_adapters("all")) and report["configured"] == 0
     assert report["unhealthy_configured"] == 0  # unconfigured never counts as unhealthy
 
 

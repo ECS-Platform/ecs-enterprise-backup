@@ -93,7 +93,10 @@ def test_api_list_connectors():
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
-    assert len(body["connectors"]) == 11
+    # Count is dynamic (registry-driven) so adding connectors never breaks this.
+    from modules.operations import integrations
+    assert len(body["connectors"]) == len(integrations.list_adapters())
+    assert len(body["connectors"]) >= 11  # the original enterprise set at minimum
 
 
 def test_api_config_status():
@@ -151,8 +154,9 @@ def test_ui_workbench_renders():
     assert "text/html" in r.headers.get("content-type", "")
     assert "Connector Test Workbench" in r.text
     assert 'id="cw-connector"' in r.text
-    # Lists all 11 connectors as options.
-    assert r.text.count("data-configured=") == 11
+    # Lists all connectors as options (registry-driven count).
+    from modules.operations import integrations
+    assert r.text.count("data-configured=") == len(integrations.list_adapters())
 
 
 def test_ui_workbench_mvp_alias():

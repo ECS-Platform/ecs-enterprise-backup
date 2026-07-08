@@ -85,6 +85,14 @@ _CONNECTOR_ROUTES: dict[str, str] = {
     "prisma_cloud": "prisma_cloud",
     # FIM
     "tripwire": "tripwire",
+    # Cloud posture
+    "aws": "aws_connector",
+    "gcp": "gcp_connector",
+    "azure": "azure_connector",
+    # Vulnerability scanners
+    "nessus": "nessus",
+    "tenable": "nessus",
+    "qualys": "qualys",
 }
 
 
