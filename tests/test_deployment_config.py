@@ -38,9 +38,28 @@ from config.environment_loader import (
 DEPLOY_ENVS = ("local", "uat", "prod", "dr")
 
 
+# Env-var prefixes that the environment YAML resolves via ${VAR}. Other test
+# files import app.main, which loads the repo `.env` into os.environ (e.g.
+# OLLAMA_URL=http://host.docker.internal:11434). To validate the committed YAML
+# DEFAULTS deterministically (independent of any co-running test / ambient .env),
+# these overrides are stripped for the duration of each test here.
+_STRIP_PREFIXES = (
+    "ECS_", "OLLAMA_URL", "REDIS_", "MINIO_", "DB_", "APP_", "JIRA_", "SNOW_",
+    "CONFLUENCE_", "SONAR_", "PRISMA_", "AZDO_", "JENKINS_", "GITHUB_", "GITEA_",
+    "MS_GRAPH_", "CHROMA_", "MILVUS_",
+)
+_KEEP = {"ECS_VALIDATE_CONFIG", "ECS_VALIDATE_SECRETS"}
+
+
 @pytest.fixture(autouse=True)
-def _fresh():
-    # Ensure the loader cache doesn't leak env-var overrides between tests.
+def _fresh(monkeypatch):
+    # Strip ambient deployment overrides so tests see the committed YAML defaults.
+    for key in list(os.environ):
+        if key in _KEEP:
+            continue
+        if any(key == p or key.startswith(p) for p in _STRIP_PREFIXES):
+            monkeypatch.delenv(key, raising=False)
+    # Clear the loader cache so the stripped environment is re-resolved.
     get_environment_config(refresh=True)
     yield
     get_environment_config(refresh=True)
