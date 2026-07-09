@@ -90,9 +90,42 @@ def db_durability(p: CapacityProfile, base_year1_gib: float,
             "full_backup_gib": _gib(backup_size),
             "compression_ratio": c.backup_compression_ratio,
             "restore_working_gib": _gib(restore_size),
+            "restore_time_minutes_est": _round(max(5.0, _gib(restore_size) * 1.5), 1),  # ~1.5 min/GiB
             "note": "Enable PITR/WAL archiving for banking retention; test restores.",
         },
+        "performance": db_performance(p, base_year1_gib),
         "_basis": "Daily logical writes x row bytes -> WAL x amplification; backup = live x compression.",
+    }
+
+
+def db_performance(p: CapacityProfile, base_year1_gib: float) -> dict[str, Any]:
+    """Queries/sec, TPS, pool size, slow-query risk, Cloud SQL refinement (PART 6)."""
+    work_seconds = 9.0 * 3600.0
+    reads_per_day = p.api_requests_per_day * 2.0 + p.prompt_runs_per_day * 3.0   # UI + RAG lookups
+    writes_per_day = p.connector_runs_per_day * 5 + p.prompt_runs_per_day + p.scheduler_jobs_per_day
+    qps_avg = (reads_per_day + writes_per_day) / work_seconds if work_seconds else 0.0
+    qps_peak = qps_avg * 3.0
+    tps_peak = (writes_per_day / work_seconds * 3.0) if work_seconds else 0.0
+
+    # Connection pool: enough for peak concurrency with headroom; capped sanely.
+    pool = max(10, min(400, int(qps_peak * 0.2) + 10))
+    slow_query_risk = "medium" if base_year1_gib > 100 else "low"
+    # Refine Cloud SQL vCPU from peak QPS (heuristic: ~150 qps/vCPU sustained).
+    refined_vcpu = max(2, int(qps_peak / 150) + 1)
+
+    return {
+        "queries_per_second_avg": _round(qps_avg, 2),
+        "queries_per_second_peak": _round(qps_peak, 2),
+        "transactions_per_second_peak": _round(tps_peak, 2),
+        "recommended_connection_pool": pool,
+        "recommended_pgbouncer": pool > 100,
+        "slow_query_risk": slow_query_risk,
+        "index_growth_note": "Index share ~35% of table size; monitor bloat on history tables.",
+        "cloud_sql_vcpu_refined_min": refined_vcpu,
+        "vacuum_impact": "Schedule autovacuum aggressively on append-heavy history/"
+                         "observation tables; watch for wraparound on high-write tenants.",
+        "_basis": "Read/write mix -> QPS/TPS at peak; pool from peak concurrency; "
+                  "vCPU refined from sustained QPS heuristic.",
     }
 
 
@@ -206,6 +239,64 @@ def object_storage_detail(p: CapacityProfile, base_year1_gib: float,
         "retention_projection_gib": retention,
         "lifecycle_tiers": lifecycle,
         "bucket_layout": bucket_layout,
+        "throughput": object_storage_throughput(p, c),
         "_basis": "File counts x size distribution; dedup/compression multipliers; "
                   "linear retention growth; GCS tiering by object age.",
+    }
+
+
+@dataclass
+class ThroughputConstants:
+    upload_latency_ms_base: float = 80.0        # per-object connect/finalize
+    upload_ms_per_mib: float = 12.0             # transfer time per MiB
+    download_latency_ms_base: float = 60.0
+    download_ms_per_mib: float = 8.0
+    small_file_kb_threshold: float = 256.0
+    large_file_mib_threshold: float = 5.0       # multipart above this
+    class_a_ops_cost_per_10k: float = 0.05      # writes/lists (GCS Class A)
+    class_b_ops_cost_per_10k: float = 0.004     # reads (GCS Class B)
+    working_days_per_month: int = 22
+
+
+def object_storage_throughput(p: CapacityProfile,
+                              osc: ObjectStorageConstants | None = None,
+                              t: ThroughputConstants | None = None) -> dict[str, Any]:
+    """Upload/download latency, concurrency, small/large-file, ops-cost (PART 5)."""
+    t = t or ThroughputConstants()
+    avg_mib = p.avg_evidence_size_kb / 1024.0
+    upload_ms = t.upload_latency_ms_base + avg_mib * t.upload_ms_per_mib
+    download_ms = t.download_latency_ms_base + avg_mib * t.download_ms_per_mib
+
+    uploads_per_day = p.connector_runs_per_day * 5 + p.prompt_runs_per_day * 0.5
+    downloads_per_day = uploads_per_day * 0.3
+    work_seconds = 9.0 * 3600.0
+    peak_upload_concurrency = max(1, int(uploads_per_day / work_seconds * 3.0)) if work_seconds else 1
+    peak_download_concurrency = max(1, int(downloads_per_day / work_seconds * 3.0)) if work_seconds else 1
+
+    is_small = p.avg_evidence_size_kb <= t.small_file_kb_threshold
+    is_large = avg_mib >= t.large_file_mib_threshold
+
+    # GCS operation costs (Class A: writes/list; Class B: reads).
+    class_a_ops_month = (uploads_per_day * t.working_days_per_month) * 1.2  # write + occasional list
+    class_b_ops_month = (downloads_per_day * t.working_days_per_month)
+    ops_cost_month = (class_a_ops_month / 10000.0 * t.class_a_ops_cost_per_10k
+                      + class_b_ops_month / 10000.0 * t.class_b_ops_cost_per_10k)
+
+    return {
+        "upload_latency_ms_avg": _round(upload_ms, 1),
+        "download_latency_ms_avg": _round(download_ms, 1),
+        "peak_concurrent_uploads": peak_upload_concurrency,
+        "peak_concurrent_downloads": peak_download_concurrency,
+        "workload_profile": "small-file" if is_small else ("large-file" if is_large else "mixed"),
+        "multipart_upload_recommended": is_large,
+        "compression_savings_pct": _round((1.0 - (osc or ObjectStorageConstants()).compression_ratio) * 100, 1),
+        "lifecycle_savings_note": "Tiering to Nearline/Coldline/Archive can cut storage "
+                                  "cost 50-95% for cold evidence.",
+        "object_operations_per_month": {
+            "class_a_writes_list": int(class_a_ops_month),
+            "class_b_reads": int(class_b_ops_month),
+        },
+        "gcs_operation_cost_per_month": _round(ops_cost_month, 3),
+        "_basis": "Latency = base + per-MiB transfer; concurrency from peak rate; "
+                  "ops-cost from Class A/B counts (illustrative GCS rates).",
     }

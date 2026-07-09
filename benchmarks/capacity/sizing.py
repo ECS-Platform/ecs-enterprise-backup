@@ -447,9 +447,21 @@ def estimate_capacity(
     except Exception:  # noqa: BLE001
         pass
     try:
+        from benchmarks.capacity import ai as _ai
+
+        estimate["ai_throughput"] = _ai.ai_throughput(profile, estimate)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         from benchmarks.capacity import cost as _cost
 
         estimate["cost"] = _cost.estimate_cost(estimate)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from benchmarks.capacity import kubernetes as _k8s
+
+        estimate["kubernetes"] = _k8s.recommend(estimate)
     except Exception:  # noqa: BLE001
         pass
 

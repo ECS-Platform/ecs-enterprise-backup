@@ -415,3 +415,220 @@ def test_cli_section_flags(flag, tmp_path, capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert "#" in out   # printed a markdown report
+
+
+# =========================================================================== #
+# Advanced extension: telemetry / kubernetes / stress / calibration /
+# throughput / AI / executive
+# =========================================================================== #
+
+# ---- Runtime telemetry (PART 1) ----
+def test_telemetry_context_manager_and_json():
+    import json
+    from benchmarks.capacity.telemetry import RuntimeTelemetry, telemetry_availability
+    with RuntimeTelemetry("unit", trace_python_heap=True) as t:
+        t.add_step("mid")
+        _ = sum(range(50000))
+    r = t.result
+    assert r["name"] == "unit"
+    assert "available" in r and isinstance(r["available"], dict)
+    assert r["wall_clock_s"] >= 0
+    assert any(s["label"] == "mid" for s in r["steps"])
+    # Must be JSON-serializable.
+    json.dumps(r, default=str)
+    assert set(telemetry_availability().keys()) == {"psutil", "resource", "tracemalloc"}
+
+
+def test_telemetry_never_raises_on_exception():
+    from benchmarks.capacity.telemetry import RuntimeTelemetry
+    # Telemetry must not suppress the exception, and must still record data.
+    t = RuntimeTelemetry("err")
+    with pytest.raises(ValueError):
+        with t:
+            raise ValueError("boom")
+    assert t.result.get("error") == "ValueError"
+
+
+# ---- Kubernetes recommendations (PART 2) ----
+def test_kubernetes_recommendation_model():
+    from benchmarks.capacity import kubernetes_recommend
+    est = estimate_capacity(get_profile("enterprise"))
+    k = kubernetes_recommend(est)
+    assert k["workload"]["replicas"] >= 2
+    assert k["workload"]["pod_requests"]["cpu"].endswith("m")
+    assert k["hpa"]["min_replicas"] <= k["hpa"]["max_replicas"]
+    assert k["pod_disruption_budget"]["min_available"] >= 1
+    assert k["cluster_autoscaler"]["max_nodes"] >= k["cluster_autoscaler"]["min_nodes"]
+    assert "eviction_risk" in k
+    # also wired into estimate
+    assert "kubernetes" in est
+
+
+# ---- Stress scenarios (PART 3) ----
+def test_stress_scenarios_listed_and_generated():
+    from benchmarks.capacity import list_scenarios, run_scenario
+    scenarios = list_scenarios()
+    assert "connector_storm" in scenarios
+    assert "sim_1000_connectors" in scenarios
+    assert len(scenarios) >= 12
+    sc = run_scenario(get_profile("enterprise"), "connector_storm")
+    assert sc["impact"]["cpu"]["impact_factor"] >= 1.0
+    assert sc["expected_bottleneck"] and sc["recommended_mitigation"]
+    for dim in ("cpu", "ram", "network", "storage", "queue"):
+        assert dim in sc["impact"]
+
+
+def test_stress_unknown_scenario():
+    from benchmarks.capacity import run_scenario
+    r = run_scenario(get_profile("phase1"), "nope")
+    assert r.get("error") == "unknown_scenario"
+
+
+def test_stress_run_all():
+    from benchmarks.capacity import stress_run_all
+    allr = stress_run_all(get_profile("phase1"))
+    assert len(allr["scenarios"]) >= 12
+
+
+# ---- Calibration (PART 4) ----
+def test_calibration_factor_calculation():
+    from benchmarks.capacity import calibrate
+    rep = calibrate(get_profile("phase1"),
+                    {"observed_cpu_cores": 2.0, "observed_ram_mib": 1500,
+                     "observed_evidence_size_kb": 300})
+    assert rep["applied"] is False
+    entries = {e["metric"]: e for e in rep["calibration"]}
+    assert "peak_cpu_cores" in entries
+    cpu = entries["peak_cpu_cores"]
+    # factor = observed / old_estimate; recommended = current_constant * factor
+    assert cpu["calibration_factor"] is not None
+    assert cpu["recommended_new_constant"] is not None
+    assert cpu["confidence"] in ("medium", "low", "very_low")
+
+
+def test_calibration_empty_observed_is_safe():
+    from benchmarks.capacity import calibrate
+    rep = calibrate(get_profile("phase1"), {})
+    assert rep["calibration"] == []
+    assert rep["overall_calibration_factor"] is None
+
+
+# ---- Object storage throughput (PART 5) ----
+def test_object_storage_throughput():
+    est = estimate_capacity(get_profile("enterprise"))
+    tp = est["object_storage_detail"]["throughput"]
+    for k in ("upload_latency_ms_avg", "download_latency_ms_avg",
+              "peak_concurrent_uploads", "peak_concurrent_downloads",
+              "workload_profile", "multipart_upload_recommended",
+              "object_operations_per_month", "gcs_operation_cost_per_month"):
+        assert k in tp
+    assert tp["upload_latency_ms_avg"] > 0
+
+
+# ---- Database performance (PART 6) ----
+def test_database_performance():
+    est = estimate_capacity(get_profile("enterprise"))
+    perf = est["db_durability"]["performance"]
+    for k in ("queries_per_second_avg", "queries_per_second_peak",
+              "transactions_per_second_peak", "recommended_connection_pool",
+              "slow_query_risk", "cloud_sql_vcpu_refined_min"):
+        assert k in perf
+    assert perf["queries_per_second_peak"] >= perf["queries_per_second_avg"]
+    assert "restore_time_minutes_est" in est["db_durability"]["backup"]
+
+
+# ---- AI throughput (PART 7) ----
+def test_ai_throughput():
+    est = estimate_capacity(get_profile("enterprise"))
+    ai = est["ai_throughput"]
+    for k in ("prompts_per_second_single_stream", "tokens_per_second_local",
+              "embeddings_per_second", "concurrent_capacity",
+              "context_window_scaling", "local_ollama_ram_warning",
+              "remote_gemini_assumptions"):
+        assert k in ai
+    cc = ai["concurrent_capacity"]
+    assert "local_16gb" in cc and "local_20gb" in cc and "server_gpu_pool" in cc
+
+
+def test_ai_throughput_uses_measured_tokens():
+    from benchmarks.capacity import ai_throughput
+    est = estimate_capacity(get_profile("phase1"),
+                            measured_tokens={"avg_input_tokens": 1000,
+                                             "avg_output_tokens": 500,
+                                             "avg_total_tokens": 1500})
+    ai = ai_throughput(get_profile("phase1"), est)
+    assert ai["avg_tokens_per_prompt"] == 1500.0
+
+
+# ---- Executive report (PART 8) ----
+def test_executive_report_markdown_json_csv():
+    import json
+    from benchmarks.capacity import executive
+    ests = [estimate_capacity(get_profile(k)) for k in ("demo", "phase1", "enterprise")]
+    md = executive.to_markdown(ests)
+    assert "Executive Capacity Planner" in md
+    assert "Top 5 bottlenecks" in md and "Top 5 risks" in md and "Top 5 cost optimizations" in md
+    data = json.loads(executive.to_json(ests))
+    assert data["report"] == "ecs_executive_capacity_planner"
+    assert len(data["top_bottlenecks"]) <= 5 and data["top_bottlenecks"]
+    csv_text = executive.to_csv(ests)
+    assert csv_text.splitlines()[0].startswith("profile,name,apps")
+
+
+def test_executive_html_and_write(tmp_path):
+    from benchmarks.capacity import executive
+    ests = [estimate_capacity(get_profile("phase1"))]
+    html = executive.to_html(ests)
+    assert "<html" in html and "Executive Capacity Planner" in html
+    paths = executive.write_executive(ests, str(tmp_path), html=True)
+    written = {p.name for p in tmp_path.iterdir()}
+    for f in ("executive.md", "executive.json", "executive.csv", "executive.html"):
+        assert f in written
+
+
+# ---- New CLI flags ----
+def test_cli_kubernetes_flag(capsys):
+    from scripts.benchmark_capacity import main
+    rc = main(["--profile", "phase1", "--kubernetes", "--dry-run"])
+    out = capsys.readouterr().out
+    assert rc == 0 and "Kubernetes/GKE" in out
+
+
+def test_cli_stress_flag(capsys):
+    from scripts.benchmark_capacity import main
+    rc = main(["--profile", "phase1", "--stress", "--dry-run"])
+    out = capsys.readouterr().out
+    assert rc == 0 and "Stress" in out
+
+
+def test_cli_stress_scenario_flag(capsys):
+    from scripts.benchmark_capacity import main
+    rc = main(["--profile", "phase1", "--stress-scenario", "connector_storm"])
+    out = capsys.readouterr().out
+    assert rc == 0 and "connector_storm" in out
+
+
+def test_cli_telemetry_flag(capsys):
+    from scripts.benchmark_capacity import main
+    rc = main(["--profile", "phase1", "--telemetry", "--dry-run"])
+    out = capsys.readouterr().out
+    assert rc == 0 and "runtime telemetry" in out
+
+
+def test_cli_executive_flag_writes(tmp_path, capsys):
+    from scripts.benchmark_capacity import main
+    rc = main(["--all", "--executive", "--html", "--out", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0 and "Executive Capacity Planner" in out
+    written = {p.name for p in tmp_path.iterdir()}
+    assert "executive.md" in written and "executive.html" in written
+
+
+def test_cli_calibrate_flag(tmp_path, capsys):
+    import json
+    from scripts.benchmark_capacity import main
+    obs = tmp_path / "observed.json"
+    obs.write_text(json.dumps({"observed_cpu_cores": 1.0, "observed_ram_mib": 800}))
+    rc = main(["--calibrate", str(obs), "--profile", "phase1"])
+    out = capsys.readouterr().out
+    assert rc == 0 and "calibration" in out

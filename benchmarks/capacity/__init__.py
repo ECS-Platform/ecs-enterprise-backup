@@ -31,8 +31,24 @@ from benchmarks.capacity.network import (
     network_bandwidth,
 )
 from benchmarks.capacity.cost import CostRates, estimate_cost
+from benchmarks.capacity.telemetry import RuntimeTelemetry, telemetry_availability
+from benchmarks.capacity.kubernetes import recommend as kubernetes_recommend
+from benchmarks.capacity.stress import list_scenarios, run_all as stress_run_all, run_scenario
+from benchmarks.capacity.calibration import calibrate
+from benchmarks.capacity.ai import AiThroughputConstants, ai_throughput
+from benchmarks.capacity import executive
 
 __all__ = [
+    "RuntimeTelemetry",
+    "telemetry_availability",
+    "kubernetes_recommend",
+    "list_scenarios",
+    "stress_run_all",
+    "run_scenario",
+    "calibrate",
+    "AiThroughputConstants",
+    "ai_throughput",
+    "executive",
     "PROFILES",
     "CapacityProfile",
     "get_profile",

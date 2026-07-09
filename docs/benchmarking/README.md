@@ -12,6 +12,12 @@ database, object storage, network, cost) plus the existing LLM/prompt benchmarks
 |-------|--------|
 | [`INFRASTRUCTURE_BENCHMARK_GUIDE.md`](INFRASTRUCTURE_BENCHMARK_GUIDE.md) | **Umbrella guide** — methodology, all sections (CPU/RAM/DB/storage/network/cost), GCP sizing, profiles, interpretation, limitations |
 | [`GCP_CAPACITY_BENCHMARK_GUIDE.md`](GCP_CAPACITY_BENCHMARK_GUIDE.md) | Capacity-sizing companion — GKE / Cloud SQL / pgvector / GCS / logging focus |
+| [`ADVANCED_INFRASTRUCTURE_BENCHMARK_GUIDE.md`](ADVANCED_INFRASTRUCTURE_BENCHMARK_GUIDE.md) | **Advanced extensions** — telemetry, Kubernetes, stress, calibration, throughput, executive planner |
+| [`RUNTIME_TELEMETRY_GUIDE.md`](RUNTIME_TELEMETRY_GUIDE.md) | Runtime telemetry capture (CPU/RAM/disk/network/timing) |
+| [`KUBERNETES_GKE_BENCHMARK_GUIDE.md`](KUBERNETES_GKE_BENCHMARK_GUIDE.md) | Kubernetes/GKE recommendations (pods, HPA, autoscaler, PDB, rollout) |
+| [`STRESS_TESTING_GUIDE.md`](STRESS_TESTING_GUIDE.md) | Stress-test scenario models + bottlenecks/mitigations |
+| [`CALIBRATION_GUIDE.md`](CALIBRATION_GUIDE.md) | Calibrate model constants from observed telemetry |
+| [`EXECUTIVE_CAPACITY_PLANNER_GUIDE.md`](EXECUTIVE_CAPACITY_PLANNER_GUIDE.md) | Executive report (sizing, cost, top-5, phase-wise) |
 
 The umbrella guide contains the CPU, RAM, Object Storage, Database, Network, GCP
 Sizing, Cost, Methodology, Profiles, and Interpretation sections (one document,

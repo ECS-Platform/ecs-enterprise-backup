@@ -52,6 +52,21 @@ def main(argv=None) -> int:
     for sec in ("cpu", "ram", "database", "network", "storage", "cost"):
         parser.add_argument(f"--{sec}", action="store_true",
                             help=f"Print the {sec} benchmark report to the console.")
+    # Advanced extension flags (backward compatible; all optional).
+    parser.add_argument("--telemetry", action="store_true",
+                        help="Capture runtime telemetry around the benchmark computation.")
+    parser.add_argument("--kubernetes", action="store_true",
+                        help="Print Kubernetes/GKE recommendations.")
+    parser.add_argument("--stress", action="store_true",
+                        help="Print all stress-test scenario estimates.")
+    parser.add_argument("--stress-scenario", default="",
+                        help="Print a single stress scenario (e.g. connector_storm).")
+    parser.add_argument("--calibrate", default="",
+                        help="Path to observed-telemetry JSON; print a calibration report.")
+    parser.add_argument("--executive", action="store_true",
+                        help="Generate the executive capacity planner report.")
+    parser.add_argument("--html", action="store_true",
+                        help="Also write an HTML dashboard (with --executive).")
     args = parser.parse_args(argv)
 
     from benchmarks.capacity import estimate_capacity, get_profile, list_profiles
@@ -62,12 +77,27 @@ def main(argv=None) -> int:
             print(f"  {key:12} {get_profile(key).name}")
         return 0
 
+    # --calibrate: read observed JSON, calibrate against a profile, print, exit.
+    if args.calibrate:
+        import json as _json
+        from benchmarks.capacity import calibrate as _calibrate
+        try:
+            with open(args.calibrate, encoding="utf-8") as fh:
+                observed = _json.load(fh)
+        except Exception as exc:  # noqa: BLE001
+            print(f"ERROR: cannot read observed JSON '{args.calibrate}': {exc}", file=sys.stderr)
+            return 2
+        prof = get_profile(args.profile) if args.profile else get_profile("phase1")
+        report = _calibrate(prof, observed)
+        print(_json.dumps(report, indent=2, default=str))
+        return 0
+
     if args.all:
         keys = list_profiles()
     elif args.profile:
         keys = [args.profile]
     else:
-        parser.error("provide --profile <key>, --all, or --list")
+        parser.error("provide --profile <key>, --all, --list, or --calibrate")
         return 2
 
     try:
@@ -76,7 +106,53 @@ def main(argv=None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    estimates = [estimate_capacity(p) for p in profiles]
+    # Optionally capture runtime telemetry around the estimate computation.
+    if args.telemetry:
+        from benchmarks.capacity import RuntimeTelemetry
+        with RuntimeTelemetry("benchmark_capacity") as _t:
+            estimates = [estimate_capacity(p) for p in profiles]
+        import json as _json
+        print("=== runtime telemetry ===")
+        print(_json.dumps(_t.result, indent=2, default=str))
+        print()
+    else:
+        estimates = [estimate_capacity(p) for p in profiles]
+
+    # --kubernetes: print K8s recommendations and exit.
+    if args.kubernetes:
+        import json as _json
+        for e in estimates:
+            print(f"=== Kubernetes/GKE — {e['profile']['name']} ===")
+            print(_json.dumps(e.get("kubernetes", {}), indent=2, default=str))
+            print()
+        if not (args.stress or args.executive):
+            return 0
+
+    # --stress / --stress-scenario: print stress estimates.
+    if args.stress or args.stress_scenario:
+        import json as _json
+        from benchmarks.capacity import run_scenario, stress_run_all
+        for p in profiles:
+            print(f"=== Stress — {p.name} ===")
+            if args.stress_scenario:
+                print(_json.dumps(run_scenario(p, args.stress_scenario), indent=2, default=str))
+            else:
+                print(_json.dumps(stress_run_all(p), indent=2, default=str))
+            print()
+        if not args.executive:
+            return 0
+
+    # --executive: generate the executive capacity planner report.
+    if args.executive:
+        from benchmarks.capacity import executive as execmod
+        print(execmod.to_markdown(estimates))
+        if not args.dry_run:
+            paths = execmod.write_executive(estimates, args.out, basename="executive",
+                                            html=args.html)
+            print("\nWrote executive report:")
+            for k, v in paths.items():
+                print(f"  {v}")
+        return 0
 
     # Section flags: print the requested section report(s) and exit.
     requested_sections = [s for s in ("cpu", "ram", "database", "network", "storage", "cost")

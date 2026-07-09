@@ -132,6 +132,13 @@ daily connector/prompt/scheduler/API activity, evidence size, and retention.
   SLOs ([`../testing/ECS_LOAD_TESTING_REFERENCE.md`](../testing/ECS_LOAD_TESTING_REFERENCE.md)).
 - Cost rates are illustrative; assumes state externalized for horizontal scaling.
 
+## Advanced extensions
+
+Telemetry, Kubernetes/GKE recommendations, stress testing, calibration, throughput
+enhancements, and the executive planner are documented in:
+- [`ADVANCED_INFRASTRUCTURE_BENCHMARK_GUIDE.md`](ADVANCED_INFRASTRUCTURE_BENCHMARK_GUIDE.md) (umbrella)
+- [`RUNTIME_TELEMETRY_GUIDE.md`](RUNTIME_TELEMETRY_GUIDE.md) · [`KUBERNETES_GKE_BENCHMARK_GUIDE.md`](KUBERNETES_GKE_BENCHMARK_GUIDE.md) · [`STRESS_TESTING_GUIDE.md`](STRESS_TESTING_GUIDE.md) · [`CALIBRATION_GUIDE.md`](CALIBRATION_GUIDE.md) · [`EXECUTIVE_CAPACITY_PLANNER_GUIDE.md`](EXECUTIVE_CAPACITY_PLANNER_GUIDE.md)
+
 ## Related
 - [`GCP_CAPACITY_BENCHMARK_GUIDE.md`](GCP_CAPACITY_BENCHMARK_GUIDE.md) — the capacity-sizing companion (GKE/Cloud SQL/GCS focus)
 - [`../deployment/GCP_DEPLOYMENT_GUIDE.md`](../deployment/GCP_DEPLOYMENT_GUIDE.md)
