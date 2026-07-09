@@ -23,6 +23,17 @@ The umbrella guide contains the CPU, RAM, Object Storage, Database, Network, GCP
 Sizing, Cost, Methodology, Profiles, and Interpretation sections (one document,
 cross-referenced) so guidance stays in sync rather than duplicated across files.
 
+## Engineering closure & validation
+
+| Document | Covers |
+|----------|--------|
+| [`BENCHMARK_ASSUMPTIONS_AND_LIMITATIONS.md`](BENCHMARK_ASSUMPTIONS_AND_LIMITATIONS.md) | Every assumption (source/reason/formula/confidence/calibrate) + estimated-vs-measured-vs-calibrated matrix + limitations |
+| [`BENCHMARK_TRACEABILITY.md`](BENCHMARK_TRACEABILITY.md) | Profile → workload → CPU → RAM → storage → DB → network → GKE → cost (diagram + module map) |
+| [`BENCHMARK_REPRODUCIBILITY_GUIDE.md`](BENCHMARK_REPRODUCIBILITY_GUIDE.md) | Commands, outputs, config, profiles, validation, troubleshooting |
+| [`BENCHMARK_MATURITY_ASSESSMENT.md`](BENCHMARK_MATURITY_ASSESSMENT.md) | Maturity/coverage/confidence/accuracy scores + roadmap + readiness checklists |
+| [`BENCHMARK_ENGINEERING_CHECKLIST.md`](BENCHMARK_ENGINEERING_CHECKLIST.md) | Final engineering checklist across all areas |
+| [`SAMPLE_EXECUTIVE_CAPACITY_REPORT.md`](SAMPLE_EXECUTIVE_CAPACITY_REPORT.md) | Checked-in sample executive report (regenerate via CLI) |
+
 ## Where each PART is documented
 
 | Topic | Section |
