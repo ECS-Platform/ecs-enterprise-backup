@@ -27,6 +27,12 @@ cross-referenced) so guidance stays in sync rather than duplicated across files.
 
 | Document | Covers |
 |----------|--------|
+| [`BENCHMARK_METHODOLOGY.md`](BENCHMARK_METHODOLOGY.md) | Architecture, report generation flow, estimator pipeline, Mermaid diagrams |
+| [`BENCHMARK_EXECUTIVE_REPORT_EXPLANATION.md`](BENCHMARK_EXECUTIVE_REPORT_EXPLANATION.md) | Executive report sections + per-recommendation justification |
+| [`CAPACITY_PLANNING_FORMULAS.md`](CAPACITY_PLANNING_FORMULAS.md) | All sizing formulas with worked examples |
+| [`BENCHMARK_CALCULATION_TRACEABILITY.md`](BENCHMARK_CALCULATION_TRACEABILITY.md) | Calculation-level traceability (file/function map + numeric trace) |
+| [`BENCHMARK_RESULT_INTERPRETATION.md`](BENCHMARK_RESULT_INTERPRETATION.md) | How to read each report format (executive, section, stress, telemetry, calibration) |
+| [`BENCHMARK_VALIDATION_REPORT.md`](BENCHMARK_VALIDATION_REPORT.md) | Validation commands run, results, PYTHONPATH note |
 | [`BENCHMARK_ASSUMPTIONS_AND_LIMITATIONS.md`](BENCHMARK_ASSUMPTIONS_AND_LIMITATIONS.md) | Every assumption (source/reason/formula/confidence/calibrate) + estimated-vs-measured-vs-calibrated matrix + limitations |
 | [`BENCHMARK_TRACEABILITY.md`](BENCHMARK_TRACEABILITY.md) | Profile → workload → CPU → RAM → storage → DB → network → GKE → cost (diagram + module map) |
 | [`BENCHMARK_REPRODUCIBILITY_GUIDE.md`](BENCHMARK_REPRODUCIBILITY_GUIDE.md) | Commands, outputs, config, profiles, validation, troubleshooting |
@@ -47,7 +53,12 @@ cross-referenced) so guidance stays in sync rather than duplicated across files.
 | Cost estimation | INFRASTRUCTURE_BENCHMARK_GUIDE §6 (`cost.py`) |
 | Capacity planning | GCP_CAPACITY_BENCHMARK_GUIDE |
 | GCP sizing | INFRASTRUCTURE_BENCHMARK_GUIDE §7 + [`../deployment/GCP_DEPLOYMENT_GUIDE.md`](../deployment/GCP_DEPLOYMENT_GUIDE.md) |
-| Benchmark methodology | INFRASTRUCTURE_BENCHMARK_GUIDE §2 |
+| Benchmark methodology | [`BENCHMARK_METHODOLOGY.md`](BENCHMARK_METHODOLOGY.md) + INFRASTRUCTURE_BENCHMARK_GUIDE §2 |
+| Formulas | [`CAPACITY_PLANNING_FORMULAS.md`](CAPACITY_PLANNING_FORMULAS.md) |
+| Calculation traceability | [`BENCHMARK_CALCULATION_TRACEABILITY.md`](BENCHMARK_CALCULATION_TRACEABILITY.md) |
+| Report interpretation | [`BENCHMARK_RESULT_INTERPRETATION.md`](BENCHMARK_RESULT_INTERPRETATION.md) |
+| Executive justification | [`BENCHMARK_EXECUTIVE_REPORT_EXPLANATION.md`](BENCHMARK_EXECUTIVE_REPORT_EXPLANATION.md) |
+| Validation record | [`BENCHMARK_VALIDATION_REPORT.md`](BENCHMARK_VALIDATION_REPORT.md) |
 | Benchmark profiles | INFRASTRUCTURE_BENCHMARK_GUIDE §8 |
 | Interpretation | INFRASTRUCTURE_BENCHMARK_GUIDE §6 |
 
