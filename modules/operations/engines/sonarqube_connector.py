@@ -37,6 +37,31 @@ def get_sonarqube_config() -> dict[str, Any]:
     }
 
 
+def _classify_http_error(exc: urllib.error.HTTPError, base_url: str) -> tuple[str, str]:
+    body = exc.read().decode("utf-8", errors="replace")[:300]
+    code = exc.code
+    if code == 401:
+        return (
+            "authentication_failure",
+            f"SonarQube authentication failed at {base_url} (HTTP 401). "
+            "Verify ECS_SONAR_TOKEN or ECS_SONAR_USER/ECS_SONAR_PASSWORD.",
+        )
+    if code == 403:
+        return ("query_failure", f"SonarQube authorization denied (HTTP 403): {body}")
+    if code == 404:
+        return ("query_failure", f"SonarQube endpoint not found (HTTP 404): {body}")
+    if code >= 500:
+        return ("remote_service_failure", f"SonarQube server error (HTTP {code}): {body}")
+    return ("query_failure", f"SonarQube API error (HTTP {code}): {body}")
+
+
+def _classify_url_error(exc: urllib.error.URLError, base_url: str) -> tuple[str, str]:
+    reason = str(exc.reason).lower()
+    if "timed out" in reason or "timeout" in reason:
+        return ("connection_failure", f"SonarQube connection timed out at {base_url}.")
+    return ("connection_failure", f"SonarQube is not reachable at {base_url}. ({exc.reason})")
+
+
 class SonarQubeConnector:
     def __init__(
         self,
@@ -52,27 +77,48 @@ class SonarQubeConnector:
         self.password = password
         self.timeout_sec = timeout_sec
         self._last_error = ""
+        self._last_error_type = "execution_failure"
+
+    def _auth_headers(self) -> dict[str, str]:
+        # SonarQube user tokens authenticate as Basic username with an empty password.
+        if self.token:
+            encoded = base64.b64encode(f"{self.token}:".encode("utf-8")).decode("ascii")
+            return {"Authorization": f"Basic {encoded}"}
+        if self.user or self.password:
+            auth = base64.b64encode(f"{self.user}:{self.password}".encode()).decode()
+            return {"Authorization": f"Basic {auth}"}
+        return {}
 
     def connect(self) -> bool:
         try:
-            self._request("/api/system/status")
+            # /api/system/status is anonymous; omit auth so a bad token/password
+            # cannot make a healthy instance appear unreachable.
+            self._request("/api/system/status", auth=False)
+            self._last_error = ""
+            self._last_error_type = ""
             return True
-        except Exception as exc:
-            self._last_error = (
-                f"SonarQube is not reachable at {self.base_url}. "
-                f"Start with: docker compose --profile demo-connectors up -d sonarqube-demo ({exc})"
-            )
+        except urllib.error.HTTPError as exc:
+            self._last_error_type, self._last_error = _classify_http_error(exc, self.base_url)
+            return False
+        except urllib.error.URLError as exc:
+            self._last_error_type, self._last_error = _classify_url_error(exc, self.base_url)
+            return False
+        except json.JSONDecodeError as exc:
+            self._last_error_type = "response_validation_failure"
+            self._last_error = f"SonarQube health response was not valid JSON at {self.base_url}: {exc}"
+            return False
+        except Exception as exc:  # noqa: BLE001 - last-resort guard
+            self._last_error_type = "connection_failure"
+            self._last_error = f"SonarQube is not reachable at {self.base_url}. ({exc})"
             return False
 
-    def _request(self, path: str, params: dict[str, str] | None = None) -> dict[str, Any]:
+    def _request(self, path: str, params: dict[str, str] | None = None, *, auth: bool = True) -> dict[str, Any]:
         query = f"?{urllib.parse.urlencode(params)}" if params else ""
         url = f"{self.base_url}{path}{query}"
         req = urllib.request.Request(url, method="GET")
-        if self.token:
-            req.add_header("Authorization", f"Bearer {self.token}")
-        else:
-            auth = base64.b64encode(f"{self.user}:{self.password}".encode()).decode()
-            req.add_header("Authorization", f"Basic {auth}")
+        if auth:
+            for key, value in self._auth_headers().items():
+                req.add_header(key, value)
         with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
@@ -105,20 +151,37 @@ class SonarQubeConnector:
             )
         except urllib.error.HTTPError as exc:
             duration_ms = int((time.perf_counter() - started) * 1000)
-            body = exc.read().decode("utf-8", errors="replace")[:300]
+            error_type, error_message = _classify_http_error(exc, self.base_url)
             return ConnectorResult(
                 success=False,
-                error_message=f"SonarQube API error ({exc.code}): {body}",
+                error_message=error_message,
                 duration_ms=duration_ms,
-                metadata={"error_type": "query_failure", "rows_returned": 0},
+                metadata={"error_type": error_type, "rows_returned": 0},
             )
-        except Exception as exc:
+        except urllib.error.URLError as exc:
+            duration_ms = int((time.perf_counter() - started) * 1000)
+            error_type, error_message = _classify_url_error(exc, self.base_url)
+            return ConnectorResult(
+                success=False,
+                error_message=error_message,
+                duration_ms=duration_ms,
+                metadata={"error_type": error_type, "rows_returned": 0},
+            )
+        except json.JSONDecodeError as exc:
+            duration_ms = int((time.perf_counter() - started) * 1000)
+            return ConnectorResult(
+                success=False,
+                error_message=f"SonarQube response was not valid JSON: {exc}",
+                duration_ms=duration_ms,
+                metadata={"error_type": "response_validation_failure", "rows_returned": 0},
+            )
+        except Exception as exc:  # noqa: BLE001
             duration_ms = int((time.perf_counter() - started) * 1000)
             return ConnectorResult(
                 success=False,
                 error_message=f"SonarQube execution failed: {exc}",
                 duration_ms=duration_ms,
-                metadata={"error_type": "connection_failure", "rows_returned": 0},
+                metadata={"error_type": "query_failure", "rows_returned": 0},
             )
 
     def disconnect(self) -> None:

@@ -26,7 +26,7 @@ services:
       ECS_LINUX_CONTAINER: ubuntu-demo
       ECS_SONAR_URL: http://sonarqube-demo:9000
       ECS_SONAR_USER: admin
-      ECS_SONAR_PASSWORD: admin123
+      ECS_SONAR_PASSWORD: admin
       ECS_GITLEAKS_SCAN_PATH: /app/demo-data/gitleaks-sample
       # ---- ECS platform (evidence repository / vector store / object store) ----
       ECS_CONFIG_DIR: /app/config
@@ -137,7 +137,7 @@ services:
     container_name: yugabyte
     command: ["bin/yugabyted", "start", "--daemon=false", "--background=false"]
     ports:
-      - "5433:5433"   # YSQL (PostgreSQL-wire)
+      - "15433:5433"   # YSQL (PostgreSQL-wire)
       - "7000:7000"   # admin UI (optional)
     restart: unless-stopped
 

@@ -1386,12 +1386,13 @@ def _run_connector_query(control: dict[str, Any], user: str, technology: str, qu
 
     if not connector.connect():
         err = getattr(connector, "_last_error", "") or "Connection failed"
+        err_type = getattr(connector, "_last_error_type", "") or "connection_failure"
         return complete_connector_execution(
             control,
             user,
             technology,
             query,
-            ConnectorResult(success=False, error_message=err),
+            ConnectorResult(success=False, error_message=err, metadata={"error_type": err_type}),
             connect_error=err,
         )
     try:

@@ -37,6 +37,7 @@ from modules.operations.engines.mysql_connector import (
     get_mysql_config,
     DEFAULT_MYSQL_PORT,
     _as_bool,
+    _friendly_error,
 )
 
 
@@ -136,6 +137,32 @@ def test_as_bool_variants():
     assert _as_bool("false") is False
     assert _as_bool("${ECS_MYSQL_SSL:-false}") is False
     assert _as_bool(None) is False
+
+
+@pytest.mark.parametrize(
+    "message, expected_type, expected_snippet",
+    [
+        (
+            "(1045, \"Access denied for user 'ecs_user'@'mysql-demo' (using password: YES)\")",
+            "authentication_failure",
+            "Authentication failed. Verify MySQL credentials.",
+        ),
+        (
+            "Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN privilege(s) for this operation",
+            "query_failure",
+            "Query failed:",
+        ),
+        (
+            "Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.",
+            "connection_failure",
+            "Secure transport required. Set ECS_MYSQL_SSL=true or use TLS.",
+        ),
+    ],
+)
+def test_mysql_friendly_error_classification(message, expected_type, expected_snippet):
+    etype, friendly = _friendly_error(Exception(message))
+    assert etype == expected_type
+    assert expected_snippet in friendly
 
 
 # --------------------------------------------------------------------------- #

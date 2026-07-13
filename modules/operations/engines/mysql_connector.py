@@ -68,11 +68,23 @@ def _friendly_error(exc: Exception) -> tuple[str, str]:
     lower = message.lower()
     if "timeout" in lower or "timed out" in lower:
         return "timeout", "Query timed out. Check database availability and try again."
-    if "access denied" in lower or "authentication" in lower:
+    if "requires secure connection" in lower or "insecure transport" in lower:
+        return (
+            "connection_failure",
+            "Secure transport required. Set ECS_MYSQL_SSL=true or use TLS.",
+        )
+    if "(1045," in message or "access denied for user" in lower:
         return "authentication_failure", "Authentication failed. Verify MySQL credentials."
     if "can't connect" in lower or "connection refused" in lower or "no route to host" in lower or "cannot connect" in lower:
         return "connection_failure", "Could not connect to MySQL. Ensure the MySQL/Aurora endpoint is reachable."
-    if "unknown database" in lower or "syntax" in lower or "command denied" in lower or "denied to user" in lower:
+    if (
+        "denied to user" in lower
+        or "command denied" in lower
+        or ("access denied" in lower and "privilege" in lower)
+        or ("access denied" in lower and "you need" in lower)
+    ):
+        return "query_failure", f"Query failed: {message}"
+    if "unknown database" in lower or "syntax" in lower:
         return "query_failure", f"Query failed: {message}"
     return "query_failure", f"Database error: {message}"
 
