@@ -49,16 +49,25 @@ def register_platform_routes(app, templates):
                           notice: str = ""):
         from ecs_platform.ingestion import list_evidence
 
-        data = list_evidence(application=application, source_system=source_system, object_type=object_type)
-        # Provide the FULL dataset for live client-side filtering (chips + dropdowns
-        # + Filter button) so visible rows, counters and relationships update without
-        # a page reload and filters survive navigation (persisted in sessionStorage).
+        # Single load: full dataset powers client-side filtering (chips, dropdowns,
+        # Filter button) without a second repository round-trip.
         full = list_evidence(limit=100000)
+        rows = full.get("rows", [])
+        if application or source_system or object_type:
+            filtered = [
+                r for r in rows
+                if (not application or r.get("application") == application)
+                and (not source_system or r.get("source_system") == source_system)
+                and (not object_type or r.get("object_type") == object_type)
+            ]
+            data = {**full, "rows": filtered}
+        else:
+            data = full
         ctx = {
             "request": request, "role": role, "user": user, "notice": notice,
             "frameworks": _frameworks(), "nav_module": "evidence_explorer",
             "data": data,
-            "all_rows": full.get("rows", []),
+            "all_rows": rows,
             "all_correlations": full.get("correlations", []),
             "selected": {"application": application, "source_system": source_system, "object_type": object_type},
         }

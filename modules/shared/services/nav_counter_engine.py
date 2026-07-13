@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from app import ecs_state
 from modules.frameworks.engines.framework_catalog import FRAMEWORK_CATALOG, get_all_evidence_records
 from modules.shared.services.module_capabilities import module_counter_rows
@@ -9,8 +11,21 @@ from modules.governance.engines.workflow_module import (
     build_auditor_review_queue,
     build_leadership_queue,
     build_owner_work_queue,
-    framework_pending_count,
 )
+
+# Badges shown in ecs_nav_groups.html only — avoid building full views for hidden modules.
+SIDEBAR_MODULE_KEYS = (
+    "predefined_queries",
+    "integrations",
+    "audit_prep",
+    "evidence_health",
+    "evidence_approval",
+    "scheduler",
+    "onboarding",
+)
+
+_NAV_COUNTERS_CACHE: dict[str, tuple[float, dict]] = {}
+_NAV_COUNTERS_TTL_SEC = 45.0
 
 MODULE_LABELS = {
     "scheduler": "scheduler / aging evidence pulls",
@@ -53,17 +68,37 @@ def _tooltip(count: int, label: str) -> str:
     return f"{count} pending workflow {noun} — {label}"
 
 
+def invalidate_nav_counters_cache(role: str | None = None) -> None:
+    """Drop cached nav counters after workflow mutations (optional; TTL also applies)."""
+    if role is None:
+        _NAV_COUNTERS_CACHE.clear()
+    else:
+        _NAV_COUNTERS_CACHE.pop(role, None)
+
+
 def build_nav_counters(role: str = "owner") -> dict:
+    now = time.monotonic()
+    cached = _NAV_COUNTERS_CACHE.get(role)
+    if cached and now - cached[0] < _NAV_COUNTERS_TTL_SEC:
+        return cached[1]
+
     owner_q = build_owner_work_queue(limit=500)
     auditor_q = build_auditor_review_queue(limit=500)
     leadership_q = build_leadership_queue(role, limit=500) if role in (
         "cio", "vertical_head", "compliance_head", "functional_head"
     ) else []
 
+    if role == "auditor":
+        framework_q = auditor_q
+    elif role in ("cio", "vertical_head", "compliance_head", "functional_head"):
+        framework_q = leadership_q
+    else:
+        framework_q = owner_q
+
     frameworks: dict[str, int] = {}
     framework_tooltips: dict[str, str] = {}
     for fw in FRAMEWORK_CATALOG:
-        cnt = framework_pending_count(fw, role)
+        cnt = sum(1 for i in framework_q if i.get("framework") == fw)
         frameworks[fw] = cnt
         if role == "auditor":
             label = f"auditor reviews in {fw}"
@@ -73,9 +108,11 @@ def build_nav_counters(role: str = "owner") -> dict:
             label = f"App Owner actions in {fw}"
         framework_tooltips[fw] = _tooltip(cnt, label)
 
-    modules: dict[str, int] = {}
-    module_tooltips: dict[str, str] = {}
-    for mod in MODULE_KEYS:
+    modules: dict[str, int] = {mod: 0 for mod in MODULE_KEYS}
+    module_tooltips: dict[str, str] = {
+        mod: _tooltip(0, MODULE_LABELS[mod]) for mod in MODULE_KEYS
+    }
+    for mod in SIDEBAR_MODULE_KEYS:
         cnt = module_counter_rows(mod, role)
         modules[mod] = cnt
         module_tooltips[mod] = _tooltip(cnt, MODULE_LABELS[mod])
@@ -94,7 +131,7 @@ def build_nav_counters(role: str = "owner") -> dict:
         "leadership": len(leadership_q),
     }
 
-    return {
+    result = {
         "frameworks": frameworks,
         "framework_tooltips": framework_tooltips,
         "modules": modules,
@@ -106,6 +143,8 @@ def build_nav_counters(role: str = "owner") -> dict:
             "leadership": _tooltip(global_counts["leadership"], "executive / leadership queue"),
         },
     }
+    _NAV_COUNTERS_CACHE[role] = (now, result)
+    return result
 
 
 def counter_for_framework(name: str, counters: dict | None = None) -> int:

@@ -282,7 +282,7 @@
         '<td class="small">' + esc(e.message) + '</td><td>' + esc(e.outcome) + '</td></tr>';
     });
     var sum = document.getElementById('ecsOpsFilterSummary');
-    if (sum && !document.getElementById('ecsIntegFilterSummary')) {
+    if (sum) {
       sum.textContent = 'Showing ' + events.length + ' integration events (filtered).';
     }
   }

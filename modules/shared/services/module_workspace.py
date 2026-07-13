@@ -98,6 +98,7 @@ DEFAULT_TABS: dict[str, list[Tab]] = {
         {"id": "connectors", "label": "Connectors"},
         {"id": "sync", "label": "Sync Status"},
         {"id": "logs", "label": "Logs"},
+        {"id": "evidence_explorer", "label": "Evidence Explorer"},
     ],
     "scheduler": [
         {"id": "overview", "label": "Overview"},

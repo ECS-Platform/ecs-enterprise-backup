@@ -108,37 +108,48 @@
     }
   }
 
+  function applyCounterData(data) {
+    if (!data) return;
+    if (data.counters) {
+      data.counters.forEach(function(c) {
+        var key = c.label.toLowerCase().replace(/\s+/g, '_');
+        document.querySelectorAll('[data-ecs-wf-count="' + key + '"]').forEach(function(el){ el.textContent = c.value; });
+      });
+    }
+    document.dispatchEvent(new CustomEvent('ecsWorkflowCountsUpdated', { detail: data }));
+    if (data.pending_review != null) {
+      document.querySelectorAll('[data-queue-id="pending"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.pending_review; });
+    }
+    if (data.approved != null) {
+      document.querySelectorAll('[data-queue-id="approved"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.approved; });
+    }
+    if (data.rejected != null) {
+      document.querySelectorAll('[data-queue-id="rejected"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.rejected; });
+    }
+    if (data.submitted != null) {
+      document.querySelectorAll('[data-queue-id="submitted"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.submitted; });
+    }
+    if (data.draft != null) {
+      document.querySelectorAll('[data-queue-id="draft"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.draft; });
+    }
+    if (data.reupload_requested != null) {
+      document.querySelectorAll('[data-queue-id="reupload"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.reupload_requested; });
+    }
+  }
+
+  function applyEmbeddedCounters() {
+    var el = document.getElementById('ecsWorkflowSummaryData');
+    if (!el || !el.textContent) return;
+    try { applyCounterData(JSON.parse(el.textContent)); } catch (e) {}
+  }
+
   function refreshCounters() {
     var role = new URLSearchParams(window.location.search).get('role') || 'owner';
     var user = new URLSearchParams(window.location.search).get('user') || 'User';
     fetch('/api/evidence-workflow/summary?role=' + encodeURIComponent(role) + '&user=' + encodeURIComponent(user))
       .then(function(r){ return r.json(); })
-      .then(function(data) {
-        if (!data || !data.counters) return;
-        data.counters.forEach(function(c) {
-          var key = c.label.toLowerCase().replace(/\s+/g, '_');
-          document.querySelectorAll('[data-ecs-wf-count="' + key + '"]').forEach(function(el){ el.textContent = c.value; });
-        });
-        document.dispatchEvent(new CustomEvent('ecsWorkflowCountsUpdated', { detail: data }));
-        if (data.pending_review != null) {
-          document.querySelectorAll('[data-queue-id="pending"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.pending_review; });
-        }
-        if (data.approved != null) {
-          document.querySelectorAll('[data-queue-id="approved"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.approved; });
-        }
-        if (data.rejected != null) {
-          document.querySelectorAll('[data-queue-id="rejected"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.rejected; });
-        }
-        if (data.submitted != null) {
-          document.querySelectorAll('[data-queue-id="submitted"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.submitted; });
-        }
-        if (data.draft != null) {
-          document.querySelectorAll('[data-queue-id="draft"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.draft; });
-        }
-        if (data.reupload_requested != null) {
-          document.querySelectorAll('[data-queue-id="reupload"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.reupload_requested; });
-        }
-      }).catch(function(){});
+      .then(applyCounterData)
+      .catch(function(){});
   }
 
   function applyRowStates() {
@@ -166,9 +177,9 @@
   });
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ parseNoticeToast(); applyRowStates(); refreshCounters(); });
+    document.addEventListener('DOMContentLoaded', function(){ parseNoticeToast(); applyRowStates(); applyEmbeddedCounters(); });
   } else {
-    parseNoticeToast(); applyRowStates(); refreshCounters();
+    parseNoticeToast(); applyRowStates(); applyEmbeddedCounters();
   }
   window.ecsRefreshWorkflowCounters = refreshCounters;
 })();

@@ -1,7 +1,7 @@
 {# Dynamic application onboarding — custom input, workflow simulation, results dashboard #}
 <div class="ecs-onboard-intake card shadow-sm mb-3">
 <div class="card-body py-3">
-<h6 class="text-uppercase text-muted small mb-2">New Application Onboarding</h6>
+<h6 class="text-uppercase text-muted small mb-2">Application Onboarding</h6>
 <form id="ecsOnboardIntakeForm" class="ecs-onboard-form" autocomplete="off">
 <div class="row g-2">
 <div class="col-md-4 col-lg-3">
@@ -26,50 +26,115 @@
 <label class="form-label ecs-ws-filter-lbl mb-0">Owner</label>
 <input type="text" name="owner" class="form-control form-control-sm" placeholder="R. Mehta" value="{{ user }}">
 </div>
-<div class="col-md-3 col-lg-1">
-<label class="form-label ecs-ws-filter-lbl mb-0">Environment</label>
-<select name="environment" class="form-select form-select-sm">
-<option>PROD</option><option>UAT</option><option>DR</option>
-</select>
-</div>
-<div class="col-md-3 col-lg-1">
-<label class="form-label ecs-ws-filter-lbl mb-0">Criticality</label>
-<select name="criticality" class="form-select form-select-sm">
+<div class="col-md-3 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Customer Criticality / Rating</label>
+<select name="customer_criticality" class="form-select form-select-sm">
 <option>High</option><option selected>Medium</option><option>Low</option>
 </select>
 </div>
 <div class="col-md-3 col-lg-1">
-<label class="form-label ecs-ws-filter-lbl mb-0">Internet Facing?</label>
-<select name="internet_facing" class="form-select form-select-sm">
-<option>Yes</option><option>No</option>
-</select>
+<label class="form-label ecs-ws-filter-lbl mb-0">Customer Facing?</label>
+<select name="customer_facing" class="form-select form-select-sm"><option>Yes</option><option>No</option></select>
 </div>
 <div class="col-md-3 col-lg-1">
-<label class="form-label ecs-ws-filter-lbl mb-0">Hosting</label>
-<select name="hosting" class="form-select form-select-sm">
-<option>Cloud</option><option>On-Prem</option><option>Hybrid</option>
-</select>
+<label class="form-label ecs-ws-filter-lbl mb-0">Environment</label>
+<select name="environment" class="form-select form-select-sm"><option>PROD</option><option>UAT</option><option>DR</option></select>
 </div>
-<div class="col-md-4 col-lg-2">
-<label class="form-label ecs-ws-filter-lbl mb-0">Authentication Type</label>
-<select name="auth_type" class="form-select form-select-sm">
-<option>SAML SSO</option><option>OAuth 2.0</option><option>LDAP + MFA</option><option>Certificate-based</option>
-</select>
+<div class="col-md-3 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Hosting / Cloud</label>
+<select name="hosting" class="form-select form-select-sm"><option>Cloud</option><option>On-Prem</option><option>Hybrid</option></select>
 </div>
-<div class="col-md-4 col-lg-2">
+<div class="col-md-3 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">Internet Facing?</label>
+<select name="internet_facing" class="form-select form-select-sm"><option>Yes</option><option>No</option></select>
+</div>
+<div class="col-md-3 col-lg-2">
 <label class="form-label ecs-ws-filter-lbl mb-0">Data Classification</label>
-<select name="data_classification" class="form-select form-select-sm">
-<option>Restricted</option><option>Confidential</option><option>Internal</option>
-</select>
+<select name="data_classification" class="form-select form-select-sm"><option>Restricted</option><option>Confidential</option><option>Internal</option></select>
 </div>
-<div class="col-md-4 col-lg-2 d-flex align-items-end gap-1 flex-wrap">
-<button type="button" class="btn btn-primary btn-sm" id="ecsOnboardStartBtn">Start Onboarding</button>
+<div class="col-md-3 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Authentication Type</label>
+<select name="auth_type" class="form-select form-select-sm"><option>SAML SSO</option><option>OAuth 2.0</option><option>LDAP + MFA</option><option>Certificate-based</option></select>
+</div>
+<div class="col-md-2 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">PCI DSS In Scope?</label>
+<select name="pci_dss_in_scope" class="form-select form-select-sm"><option>Yes</option><option>No</option></select>
+</div>
+<div class="col-md-2 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">DPSC In Scope?</label>
+<select name="dpsc_in_scope" class="form-select form-select-sm"><option>Yes</option><option>No</option></select>
+</div>
+<div class="col-md-2 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">RBI C-SITE?</label>
+<select name="rbi_csite_in_scope" class="form-select form-select-sm"><option>Yes</option><option>No</option></select>
+</div>
+<div class="col-md-2 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">Internal Audit?</label>
+<select name="internal_audit_in_scope" class="form-select form-select-sm"><option>Yes</option><option>No</option></select>
+</div>
+<div class="col-md-2 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">DR Required?</label>
+<select name="dr_required" class="form-select form-select-sm"><option>Yes</option><option>No</option></select>
+</div>
+<div class="col-md-2 col-lg-1">
+<label class="form-label ecs-ws-filter-lbl mb-0">Backup Required?</label>
+<select name="backup_required" class="form-select form-select-sm"><option>Yes</option><option>No</option></select>
+</div>
+<div class="col-md-3 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Database Technology</label>
+<input type="text" name="database_technology" class="form-control form-control-sm" placeholder="Oracle / PostgreSQL">
+</div>
+<div class="col-md-3 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Middleware Technology</label>
+<input type="text" name="middleware_technology" class="form-control form-control-sm" placeholder="WebLogic / Tomcat">
+</div>
+<div class="col-md-3 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">Object Storage Location</label>
+<input type="text" name="object_storage_location" class="form-control form-control-sm" placeholder="S3 / SharePoint">
+</div>
+<div class="col-md-3 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">CMDB Identifier</label>
+<input type="text" name="cmdb_identifier" class="form-control form-control-sm" placeholder="CI-123456">
+</div>
+<div class="col-12 d-flex align-items-end gap-2 flex-wrap mt-1">
+<button type="button" class="btn btn-primary btn-sm" id="ecsOnboardStartBtn">Start Application Onboarding</button>
 <button type="button" class="btn btn-outline-secondary btn-sm" data-onboard-wizard>Wizard</button>
 </div>
 </div>
-<p class="small text-muted mb-0 mt-2">Enter any application name — ECS will simulate CMDB sync, framework discovery, and control mapping across all 9 governance frameworks.</p>
+<p class="small text-muted mb-0 mt-2">Uses existing ECS onboarding simulator and repositories. CMDB/object-storage steps are labeled <em>simulated</em> unless ServiceNow CMDB is configured — no live bank network scan.</p>
 </form>
 </div></div>
+
+{# Application Onboarder scheduler — reuses onboarding engine batch runner #}
+{% set ob = module_view.onboarder|default({}) %}
+{% set obs = ob.summary|default({}) %}
+<div class="card shadow-sm mb-3" id="ecsOnboarderScheduler">
+<div class="card-body py-3">
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+<div>
+<h6 class="text-uppercase text-muted small mb-1">Run Application Onboarder</h6>
+<p class="small text-muted mb-0" id="ecsOnboarderDisclaimer">{{ ob.disclaimer|default('Deterministic demo queue.') }}</p>
+</div>
+<button type="button" class="btn btn-outline-primary btn-sm" id="ecsOnboarderRunBtn">Run Application Onboarder</button>
+</div>
+<div class="row g-2 mb-2 text-center">
+<div class="col"><div class="border rounded p-2"><div class="small text-muted">Total</div><div class="fw-bold" id="ecsObTotal">{{ obs.total_applications|default('—') }}</div></div></div>
+<div class="col"><div class="border rounded p-2"><div class="small text-muted">Completed</div><div class="fw-bold text-success" id="ecsObCompleted">{{ obs.completed|default('—') }}</div></div></div>
+<div class="col"><div class="border rounded p-2"><div class="small text-muted">Running</div><div class="fw-bold text-primary" id="ecsObRunning">{{ obs.running|default('—') }}</div></div></div>
+<div class="col"><div class="border rounded p-2"><div class="small text-muted">Failed</div><div class="fw-bold text-danger" id="ecsObFailed">{{ obs.failed|default('—') }}</div></div></div>
+<div class="col"><div class="border rounded p-2"><div class="small text-muted">Remaining</div><div class="fw-bold" id="ecsObRemaining">{{ obs.remaining|default('—') }}</div></div></div>
+</div>
+<div class="table-responsive ecs-fit-view">
+<table class="table table-sm table-bordered ecs-compact-table mb-0"><thead><tr>
+<th>Application</th><th>Status</th><th>Progress</th><th>Stage</th><th>Owner</th>
+</tr></thead><tbody id="ecsOnboarderAppBody">
+{% for a in ob.applications|default([]) %}
+<tr><td><strong>{{ a.application }}</strong></td><td>{{ a.status }}</td><td>{{ a.progress_pct }}%</td><td class="small">{{ a.stage }}</td><td class="small">{{ a.owner }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</div></div>
+
+<script type="application/json" id="ecsOnboardProgressSteps">{{ module_view.progress_steps|default([])|tojson }}</script>
 
 {# Onboarding workflow modal #}
 <div class="modal fade" id="ecsOnboardWorkflowModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -163,16 +228,18 @@
   if (window.__ecsOnboardSimInit) return;
   window.__ecsOnboardSimInit = true;
 
-  var STEPS = [
-    'Discovering application metadata',
-    'CMDB sync',
-    'Infra fingerprinting',
-    'Security tool mapping',
-    'Framework applicability analysis',
-    'Control inheritance mapping',
-    'Evidence source registration',
-    'Compliance readiness estimation'
-  ];
+  var STEPS = [];
+  try {
+    STEPS = JSON.parse(document.getElementById('ecsOnboardProgressSteps').textContent || '[]');
+  } catch (e) {}
+  if (!STEPS.length) {
+    STEPS = [
+      'Loading application data', 'Loading CMDB data', 'Populating ECS metadata',
+      'Loading object-storage files', 'Loading relational metadata', 'Loading configuration files',
+      'Mapping frameworks and controls', 'Onboarding complete'
+    ];
+  }
+  var stepModes = [];
   var STEP_MS = 750;
   var lastResult = null;
   var workflowModal = null;
@@ -208,7 +275,9 @@
     ul.innerHTML = STEPS.map(function(s, i) {
       var icon = i < activeIdx ? '✔' : (i === activeIdx ? '◉' : '○');
       var cls = i < activeIdx ? 'done' : (i === activeIdx ? 'active' : '');
-      return '<li class="ecs-onboard-step-item ' + cls + '"><span class="ecs-onboard-step-icon">' + icon + '</span> ' + s + '</li>';
+      var mode = (stepModes[i] && stepModes[i].mode) ? ' <span class="badge bg-light text-dark">' + stepModes[i].mode + '</span>' : '';
+      var label = (typeof s === 'string') ? s : (s.label || s);
+      return '<li class="ecs-onboard-step-item ' + cls + '"><span class="ecs-onboard-step-icon">' + icon + '</span> ' + label + mode + '</li>';
     }).join('');
   }
 
@@ -334,10 +403,11 @@
     }).then(function(r) { return r.json(); });
 
     var step = 0;
-    var statusMsgs = ['Analyzing application metadata…', 'Syncing integrations…', 'Mapping controls…', 'Registering evidence sources…', 'Analyzing frameworks…'];
+    var statusMsgs = STEPS.slice(0, -1).map(function(s) { return (typeof s === 'string' ? s : s.label || s); });
     function nextStep() {
       if (step >= STEPS.length) {
         fetchPromise.then(function(result) {
+          stepModes = result.progress_steps || stepModes;
           renderAllFrameworks(result);
           setProgress(100, 'Onboarding analysis complete');
           document.getElementById('ecsOnboardWorkflowTitle').textContent = 'Onboarding complete';
@@ -420,5 +490,37 @@
     var cached = sessionStorage.getItem('ecsOnboardLastResult');
     if (cached) renderResults(JSON.parse(cached));
   } catch (e) {}
+
+  function renderOnboarderDashboard(dash) {
+    if (!dash || !dash.summary) return;
+    var s = dash.summary;
+    var el;
+    el = document.getElementById('ecsObTotal'); if (el) el.textContent = s.total_applications;
+    el = document.getElementById('ecsObCompleted'); if (el) el.textContent = s.completed;
+    el = document.getElementById('ecsObRunning'); if (el) el.textContent = s.running;
+    el = document.getElementById('ecsObFailed'); if (el) el.textContent = s.failed;
+    el = document.getElementById('ecsObRemaining'); if (el) el.textContent = s.remaining;
+    el = document.getElementById('ecsOnboarderDisclaimer'); if (el && dash.disclaimer) el.textContent = dash.disclaimer;
+    var body = document.getElementById('ecsOnboarderAppBody');
+    if (body && dash.applications) {
+      body.innerHTML = dash.applications.map(function(a) {
+        return '<tr><td><strong>' + a.application + '</strong></td><td>' + a.status + '</td><td>' + a.progress_pct + '%</td><td class="small">' + a.stage + '</td><td class="small">' + a.owner + '</td></tr>';
+      }).join('');
+    }
+  }
+
+  document.getElementById('ecsOnboarderRunBtn')?.addEventListener('click', function() {
+    var btn = document.getElementById('ecsOnboarderRunBtn');
+    if (btn) btn.disabled = true;
+    fetch('/api/onboarding/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ action: 'run_onboarder', role: {{ role|tojson }}, user: {{ user|tojson }} })
+    }).then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.dashboard) renderOnboarderDashboard(res.dashboard);
+        if (btn) btn.disabled = false;
+      }).catch(function() { if (btn) btn.disabled = false; });
+  });
 })();
 </script>

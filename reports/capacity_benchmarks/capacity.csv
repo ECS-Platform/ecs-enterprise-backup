@@ -1,0 +1,2 @@
+profile,name,apps,frameworks,total_controls,total_evidences,connector_runs_per_day,prompt_runs_per_day,avg_evidence_size_kb,retention_years,peak_cores,peak_ram_mib,pod_cpu_request,pod_memory_request,replicas,gke_nodes,gke_node_type,cloud_sql_tier,cloud_sql_storage_gib,db_year1_gib,db_year5_gib,gcs_year1_gib,gcs_year5_gib,logs_per_day_gib,logs_per_year_gib
+enterprise,Enterprise — 100 applications,100,10,12000,15000,1200,1500,300.0,5,0.756,300.4,500m,1024Mi,3,2,e2-standard-4,db-custom-2-7680,20,2.1888,9.8349,68.7311,326.4896,0.2426,88.5544

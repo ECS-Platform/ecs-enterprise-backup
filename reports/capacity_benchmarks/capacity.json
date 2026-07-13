@@ -1,0 +1,224 @@
+{
+  "report": "ecs_gcp_capacity_benchmark",
+  "profiles": [
+    "enterprise"
+  ],
+  "estimates": [
+    {
+      "profile": {
+        "key": "enterprise",
+        "name": "Enterprise \u2014 100 applications",
+        "description": "Enterprise-wide GRC across ~100 applications.",
+        "apps": 100,
+        "frameworks": 10,
+        "controls_per_app": 120,
+        "evidences_per_app": 150,
+        "connector_runs_per_day": 1200,
+        "prompt_runs_per_day": 1500,
+        "api_requests_per_day": 120000,
+        "scheduler_jobs_per_day": 800,
+        "concurrent_users": 300,
+        "avg_evidence_size_kb": 300.0,
+        "evidence_versions_per_year": 3.0,
+        "retention_years": 5,
+        "new_evidence_per_app_per_month": 20,
+        "total_controls": 12000,
+        "total_evidences": 15000
+      },
+      "token_feed": {
+        "input": 390.0,
+        "output": 512.0,
+        "total": 902.0,
+        "_source": "estimated (token_estimator)"
+      },
+      "gke_compute": {
+        "per_unit_cpu_ms": {
+          "api_request": 40.0,
+          "connector_run": 800.0,
+          "scheduler_job": 200.0,
+          "prompt_run": 1500.0
+        },
+        "per_unit_ram_mib": {
+          "api_request": 4.0,
+          "connector_run": 64.0,
+          "scheduler_job": 16.0,
+          "prompt_run": 256.0
+        },
+        "daily_cpu_core_hours": {
+          "api": 1.333,
+          "connectors": 0.267,
+          "scheduler": 0.044,
+          "prompts": 0.625,
+          "total": 2.269
+        },
+        "avg_cores_working_hours": 0.252,
+        "peak_cores": 0.756,
+        "peak_requests_per_second": 11.111,
+        "peak_ram_mib": 300.4,
+        "recommended_pod": {
+          "cpu_request": "500m",
+          "cpu_limit": "1000m",
+          "memory_request": "1024Mi",
+          "memory_limit": "2048Mi"
+        },
+        "recommended_replicas": 3,
+        "_basis": "Daily per-unit CPU-ms x workload counts -> peak cores at peak_to_average_factor; replicas at target CPU utilization with HA floor."
+      },
+      "node_pool": {
+        "node_machine_type": "e2-standard-4",
+        "node_vcpu": 4,
+        "node_ram_gib": 16.0,
+        "replicas": 3,
+        "total_cpu_request_cores": 1.5,
+        "total_ram_request_gib": 3.0,
+        "recommended_nodes": 2,
+        "_basis": "Replicas x pod requests / node allocatable (75%); +1 node headroom, min 2 (multi-AZ)."
+      },
+      "postgres_pgvector": {
+        "row_growth": {
+          "control_rows": 12000,
+          "evidence_meta_rows": 15000,
+          "observation_rows_per_year": 6000,
+          "prompt_history_rows_per_year": 396000,
+          "benchmark_result_rows_per_year": 2600
+        },
+        "storage_gib": {
+          "controls": 0.0154,
+          "evidence_metadata": 0.0386,
+          "vectors_current": 0.2232,
+          "index_overhead_factor": 1.35,
+          "growth_per_year": 1.9115,
+          "year_1_total": 2.1888,
+          "year_5_total": 9.8349
+        },
+        "vectors": {
+          "embedding_dimensions": 768,
+          "bytes_per_chunk": 3993.6,
+          "total_chunks": 60000,
+          "new_chunks_per_year": 96000
+        },
+        "recommended_cloud_sql": {
+          "tier": "db-custom-2-7680",
+          "vcpu": 2,
+          "ram_gib": 7.5,
+          "storage_gib": 20,
+          "ha": "zonal (uat) / regional (prod)"
+        },
+        "_basis": "Row counts x per-row bytes x (1+index overhead); vectors = dims x 4B x 1.3."
+      },
+      "gcs_object_storage": {
+        "current_evidence_gib": 4.2915,
+        "growth_per_year_gib": {
+          "new_evidence": 6.8665,
+          "evidence_versions": 8.5831,
+          "benchmark_exports": 0.0254,
+          "audit_reports": 4.6875,
+          "log_exports": 44.2772,
+          "total": 64.4396
+        },
+        "year_1_total_gib": 68.7311,
+        "year_5_total_gib": 326.4896,
+        "retention_years": 5,
+        "_basis": "Evidence count x avg size + versions/exports/reports/log-archive growth."
+      },
+      "logging_monitoring": {
+        "per_day_gib": {
+          "application": 0.1717,
+          "connector": 0.0057,
+          "scheduler": 0.0023,
+          "llm_execution": 0.0057,
+          "audit_trail": 0.0572,
+          "total": 0.2426
+        },
+        "per_month_gib": 7.2784,
+        "per_year_gib": 88.5544,
+        "total_bytes_per_year": 95084544000.0,
+        "_basis": "Event counts x events-per-unit x bytes-per-event (Cloud Logging ingestion)."
+      },
+      "constants": {
+        "cpu_ms_per_api_request": 40.0,
+        "ram_mib_per_api_request": 4.0,
+        "cpu_ms_per_connector_run": 800.0,
+        "ram_mib_per_connector_run": 64.0,
+        "cpu_ms_per_scheduler_job": 200.0,
+        "ram_mib_per_scheduler_job": 16.0,
+        "cpu_ms_per_prompt_run": 1500.0,
+        "ram_mib_per_prompt_run": 256.0,
+        "pod_base_cpu_ms": 250.0,
+        "pod_base_ram_mib": 512.0,
+        "pod_cpu_request_ms": 500.0,
+        "pod_cpu_limit_ms": 1000.0,
+        "pod_ram_request_mib": 1024.0,
+        "pod_ram_limit_mib": 2048.0,
+        "target_cpu_utilization": 0.6,
+        "working_hours_per_day": 9.0,
+        "peak_to_average_factor": 3.0,
+        "min_replicas": 2,
+        "node_vcpu": 4,
+        "node_ram_gib": 16.0,
+        "node_allocatable_factor": 0.75,
+        "bytes_per_control_row": 1024,
+        "bytes_per_evidence_meta_row": 2048,
+        "bytes_per_observation_row": 1536,
+        "bytes_per_prompt_history_row": 3072,
+        "bytes_per_benchmark_result_row": 4096,
+        "pg_index_overhead_factor": 0.35,
+        "observations_per_app_per_year": 60,
+        "embedding_dimensions": 768,
+        "bytes_per_dimension": 4,
+        "vector_index_overhead_factor": 1.3,
+        "chunks_per_evidence": 4.0,
+        "benchmark_export_kb": 512.0,
+        "audit_report_mb": 2.0,
+        "reports_per_app_per_month": 2.0,
+        "log_export_fraction": 0.5,
+        "bytes_per_app_log": 512,
+        "app_logs_per_api_request": 3.0,
+        "bytes_per_connector_log": 1024,
+        "connector_logs_per_run": 5.0,
+        "bytes_per_scheduler_log": 768,
+        "scheduler_logs_per_job": 4.0,
+        "bytes_per_llm_log": 2048,
+        "llm_logs_per_prompt": 2.0,
+        "bytes_per_audit_log": 1024,
+        "audit_logs_per_api_request": 0.5,
+        "working_days_per_month": 22,
+        "months_per_year": 12
+      },
+      "_meta": {
+        "kind": "gcp_capacity_estimate",
+        "provenance": "ESTIMATE \u2014 documented per-unit assumptions x scenario profile. Not a measurement. Calibrate constants from a real benchmark run.",
+        "token_source": "estimated (token_estimator)"
+      }
+    }
+  ],
+  "recommendation_table": [
+    {
+      "profile": "enterprise",
+      "name": "Enterprise \u2014 100 applications",
+      "apps": 100,
+      "frameworks": 10,
+      "total_controls": 12000,
+      "total_evidences": 15000,
+      "connector_runs_per_day": 1200,
+      "prompt_runs_per_day": 1500,
+      "avg_evidence_size_kb": 300.0,
+      "retention_years": 5,
+      "peak_cores": 0.756,
+      "peak_ram_mib": 300.4,
+      "pod_cpu_request": "500m",
+      "pod_memory_request": "1024Mi",
+      "replicas": 3,
+      "gke_nodes": 2,
+      "gke_node_type": "e2-standard-4",
+      "cloud_sql_tier": "db-custom-2-7680",
+      "cloud_sql_storage_gib": 20,
+      "db_year1_gib": 2.1888,
+      "db_year5_gib": 9.8349,
+      "gcs_year1_gib": 68.7311,
+      "gcs_year5_gib": 326.4896,
+      "logs_per_day_gib": 0.2426,
+      "logs_per_year_gib": 88.5544
+    }
+  ]
+}

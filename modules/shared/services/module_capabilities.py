@@ -67,7 +67,36 @@ def _ts() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+def _analytics_filters_key(analytics_filters: dict | None) -> str:
+    if not analytics_filters:
+        return ""
+    import json
+    return json.dumps(analytics_filters, sort_keys=True, default=str)
+
+
 def get_module_capability(module: str, role: str = "owner", analytics_filters: dict | None = None) -> dict:
+    filters_key = _analytics_filters_key(analytics_filters)
+    cached = _MODULE_CAPABILITY_CACHE.get((module, role, filters_key))
+    if cached is not None:
+        return cached
+    view = _build_module_capability(module, role, analytics_filters)
+    _MODULE_CAPABILITY_CACHE[(module, role, filters_key)] = view
+    return view
+
+
+_MODULE_CAPABILITY_CACHE: dict[tuple[str, str, str], dict] = {}
+
+
+def invalidate_module_capability_cache(module: str | None = None) -> None:
+    if module is None:
+        _MODULE_CAPABILITY_CACHE.clear()
+        return
+    for key in list(_MODULE_CAPABILITY_CACHE):
+        if key[0] == module:
+            del _MODULE_CAPABILITY_CACHE[key]
+
+
+def _build_module_capability(module: str, role: str, analytics_filters: dict | None) -> dict:
     builders = {
         "scheduler": _scheduler_view,
         "upload": _upload_view,
@@ -529,7 +558,12 @@ def _trends_view(role: str, filters: dict | None = None) -> dict:
 
 
 def _onboarding_view(role: str) -> dict:
-    from modules.operations.engines.onboarding_engine import ALL_FRAMEWORKS, recent_onboarding_suggestions
+    from modules.operations.engines.onboarding_engine import (
+        ALL_FRAMEWORKS,
+        WORKFLOW_STEPS,
+        build_application_onboarder_dashboard,
+        recent_onboarding_suggestions,
+    )
     from modules.operations.engines.operations_mock_data import build_operations_dataset
     from modules.governance.engines.operational_mock_data import build_onboarding_pipelines, build_post_onboarding_metrics, build_onboarding_challenges
 
@@ -573,6 +607,8 @@ def _onboarding_view(role: str) -> dict:
         "stages": ["Initial Setup", "Framework Mapping", "Owner Assignment", "Registration Complete"],
         "onboarding_apps": suggestions,
         "onboarding_frameworks": ALL_FRAMEWORKS,
+        "progress_steps": WORKFLOW_STEPS,
+        "onboarder": build_application_onboarder_dashboard(),
         "business_units": [u["unit"] for u in BUSINESS_UNITS],
         "actions": _actions_for(role, onboarding=True),
     }

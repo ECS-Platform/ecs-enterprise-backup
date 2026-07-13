@@ -593,20 +593,13 @@ def register_audit_intelligence_routes(app) -> None:
     @app.get("/connectors/test-workbench", response_class=HTMLResponse)
     @app.get("/mvp/connectors/test-workbench", response_class=HTMLResponse)
     def connector_test_workbench(request: Request, role: str = "owner", user: str = "User"):
-        """Server-rendered Connector Test Workbench page.
-
-        Uses a self-contained Jinja2Templates pointed at the audit templates dir so
-        it renders without depending on the shared app templates registration.
-        """
-        from pathlib import Path
-
-        from fastapi.templating import Jinja2Templates
-
+        """Server-rendered Connector Test Workbench inside the standard ECS shell."""
+        from app.main import templates
+        from modules.audit_intelligence.routes.routes_audit_ui import _base_ctx
         from modules.audit_intelligence.services import connector_workbench as wb
 
-        tmpl_dir = Path(__file__).resolve().parents[1] / "templates"
-        templates = Jinja2Templates(directory=str(tmpl_dir))
-        ctx = {"role": role, "user": user, "connectors": wb.list_connectors()}
+        ctx = _base_ctx(role, user, "connector_test_workbench")
+        ctx["connectors"] = wb.list_connectors()
         return templates.TemplateResponse(request, "audit/connector_test_workbench.html", ctx)
 
     # ==================================================================== #
@@ -1040,20 +1033,20 @@ def register_audit_intelligence_routes(app) -> None:
     @app.get("/admin/users-roles", response_class=HTMLResponse)
     @app.get("/mvp/admin/users-roles", response_class=HTMLResponse)
     def admin_users_roles_page(request: Request, role: str = "system_admin", user: str = "Admin"):
-        """Server-rendered ECS Admin console for users / roles / applications."""
-        from pathlib import Path
-
-        from fastapi.templating import Jinja2Templates
-
+        """Server-rendered ECS Admin console inside the standard ECS shell."""
+        from app.main import templates
+        from modules.audit_intelligence.routes.routes_audit_ui import _base_ctx
         from modules.shared.services import admin_service as adm
         from modules.shared.services import role_permissions as rp
 
-        tmpl_dir = Path(__file__).resolve().parents[1] / "templates"
-        templates = Jinja2Templates(directory=str(tmpl_dir))
-        ctx = {"role": role, "user": user,
-               "is_admin": rp.can_admin_platform(role),
-               "roles": adm.list_roles(), "users": adm.list_users(),
-               "applications": adm.list_applications(), "summary": adm.admin_summary()}
+        ctx = _base_ctx(role, user, "admin_users_roles")
+        ctx.update({
+            "is_admin": rp.can_admin_platform(role),
+            "roles": adm.list_roles(),
+            "users": adm.list_users(),
+            "applications": adm.list_applications(),
+            "summary": adm.admin_summary(),
+        })
         return templates.TemplateResponse(request, "audit/admin_users_roles.html", ctx)
 
     # ==================================================================== #

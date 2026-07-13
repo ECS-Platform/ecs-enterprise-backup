@@ -1,0 +1,409 @@
+services:
+  ecs:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DEMO_MODE: "true"
+      ECS_AUTH_ENABLED: "false"
+      ECS_PG_HOST: postgres-demo
+      ECS_PG_PORT: 5432
+      ECS_PG_DATABASE: ecs_demo
+      ECS_PG_USER: ecs_user
+      ECS_PG_PASSWORD: ecs_password
+      # Predefined-query DB targets (used only when the "db-targets" profile is up;
+      # harmless otherwise — connectors just report the target unreachable).
+      ECS_YB_HOST: ${ECS_YB_HOST:-yugabyte}
+      ECS_YB_PORT: ${ECS_YB_PORT:-5433}
+      ECS_YB_DATABASE: ${ECS_YB_DATABASE:-yugabyte}
+      ECS_YB_USER: ${ECS_YB_USER:-yugabyte}
+      ECS_YB_PASSWORD: ${ECS_YB_PASSWORD:-yugabyte}
+      ECS_MYSQL_HOST: ${ECS_MYSQL_HOST:-mysql-demo}
+      ECS_MYSQL_PORT: ${ECS_MYSQL_PORT:-3306}
+      ECS_MYSQL_DATABASE: ${ECS_MYSQL_DATABASE:-ecs_demo}
+      ECS_MYSQL_USER: ${ECS_MYSQL_USER:-ecs_user}
+      ECS_MYSQL_PASSWORD: ${ECS_MYSQL_PASSWORD:-ecs_password}
+      ECS_LINUX_CONTAINER: ubuntu-demo
+      ECS_SONAR_URL: http://sonarqube-demo:9000
+      ECS_SONAR_USER: admin
+      ECS_SONAR_PASSWORD: admin123
+      ECS_GITLEAKS_SCAN_PATH: /app/demo-data/gitleaks-sample
+      # ---- ECS platform (evidence repository / vector store / object store) ----
+      ECS_CONFIG_DIR: /app/config
+      ECS_REPO_PG_HOST: postgres
+      ECS_REPO_PG_DATABASE: ecs_repository
+      ECS_REPO_PG_USER: ecs_user
+      ECS_REPO_PG_PASSWORD: ecs_password
+      ECS_VECTOR_PG_HOST: pgvector
+      ECS_VECTOR_PG_DATABASE: ecs_vectors
+      ECS_VECTOR_PG_USER: ecs_user
+      ECS_VECTOR_PG_PASSWORD: ecs_password
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ecs_minio
+      MINIO_SECRET_KEY: ecs_minio_secret
+      REDIS_URL: redis://redis:6379/0
+      # ---- self-hosted source systems (real connectivity) ----
+      GITEA_URL: http://gitea:3000
+      GITEA_TOKEN: ${GITEA_TOKEN:-}
+      SONAR_URL: http://sonarqube-demo:9000
+      SONAR_USER: ${SONAR_USER:-admin}
+      SONAR_PASSWORD: ${SONAR_PASSWORD:-a123}
+      JENKINS_URL: http://jenkins:8080
+      JENKINS_USER: ${JENKINS_USER:-admin}
+      JENKINS_TOKEN: ${JENKINS_TOKEN:-admin123}
+      # ---- SaaS sources: enabled + credentials injected from host env (never hardcoded) ----
+      ECS_JIRA_ENABLED: ${ECS_JIRA_ENABLED:-false}
+      JIRA_URL: ${JIRA_URL:-}
+      JIRA_USER: ${JIRA_USER:-}
+      JIRA_TOKEN: ${JIRA_TOKEN:-}
+      ECS_CONFLUENCE_ENABLED: ${ECS_CONFLUENCE_ENABLED:-false}
+      CONFLUENCE_URL: ${CONFLUENCE_URL:-}
+      CONFLUENCE_USER: ${CONFLUENCE_USER:-}
+      CONFLUENCE_TOKEN: ${CONFLUENCE_TOKEN:-}
+      ECS_GITHUB_ENABLED: ${ECS_GITHUB_ENABLED:-false}
+      GITHUB_URL: ${GITHUB_URL:-https://api.github.com}
+      GITHUB_ORG: ${GITHUB_ORG:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      ECS_FIGMA_ENABLED: ${ECS_FIGMA_ENABLED:-false}
+      FIGMA_URL: ${FIGMA_URL:-https://api.figma.com}
+      FIGMA_TOKEN: ${FIGMA_TOKEN:-}
+      FIGMA_TEAM_IDS: ${FIGMA_TEAM_IDS:-}
+      # ---- Microsoft 365 (Teams + SharePoint via Graph, shared app registration) ----
+      ECS_TEAMS_ENABLED: ${ECS_TEAMS_ENABLED:-false}
+      ECS_SHAREPOINT_ENABLED: ${ECS_SHAREPOINT_ENABLED:-false}
+      MS_GRAPH_URL: ${MS_GRAPH_URL:-https://graph.microsoft.com/v1.0}
+      MS_TENANT_ID: ${MS_TENANT_ID:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      SHAREPOINT_SITE_ID: ${SHAREPOINT_SITE_ID:-}
+      # LLM provider/keys are injected from the host environment (never hardcoded).
+      # Default provider is local Ollama (qwen3:8b); switch with ECS_LLM_PROVIDER=gemini.
+      ECS_LLM_PROVIDER: ${ECS_LLM_PROVIDER:-ollama}
+      ECS_LLM_MODEL: ${ECS_LLM_MODEL:-}
+      ECS_EMBEDDING_MODEL: ${ECS_EMBEDDING_MODEL:-}
+      ECS_VECTOR_DIM: ${ECS_VECTOR_DIM:-768}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - ./ECS_Query_Driven_Control_Library_Consolidated.xlsx:/app/ECS_Query_Driven_Control_Library_Consolidated.xlsx:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./demo-data/gitleaks-sample:/app/demo-data/gitleaks-sample:ro
+      - ./config:/app/config:ro
+      # ---- dev hot-reload: source bind-mounts (no rebuild on .py edits) ----
+      - ./app:/app/app
+      - ./modules:/app/modules
+      - ./ecs_platform:/app/ecs_platform
+      - ./benchmarks:/app/benchmarks
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000",
+              "--reload", "--reload-dir", "/app/app", "--reload-dir", "/app/modules",
+              "--reload-dir", "/app/ecs_platform"]
+    depends_on:
+      - postgres-demo
+      - postgres
+      - pgvector
+    # Reach a host-local Ollama daemon (qwen3:8b) from inside the container.
+    # Required on Linux; a no-op on Docker Desktop where this is auto-provided.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  postgres-demo:
+    image: postgres:16
+    # Pin the container name so the predefined-query PostgreSQL connector
+    # (ECS_PG_HOST=postgres-demo) resolves the same DNS name regardless of the
+    # compose project prefix.
+    container_name: postgres-demo
+    environment:
+      POSTGRES_DB: ecs_demo
+      POSTGRES_USER: ecs_user
+      POSTGRES_PASSWORD: ecs_password
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # ============================================================
+  # Predefined-query DATABASE TARGETS (opt-in; profile "db-targets").
+  # Additive: NOT started by default (keeps 8 GB laptops light). Start on a
+  # 16 GB machine with:  docker compose --profile db-targets up -d
+  #   Yugabyte YSQL -> localhost:5433 ; MySQL 8 (Aurora sim) -> localhost:3306
+  # The ECS container reaches them via ECS_YB_HOST / ECS_MYSQL_HOST below.
+  # ============================================================
+  yugabyte:
+    image: yugabytedb/yugabyte:2.20.5.0-b72
+    profiles: ["db-targets"]
+    container_name: yugabyte
+    command: ["bin/yugabyted", "start", "--daemon=false", "--background=false"]
+    ports:
+      - "5433:5433"   # YSQL (PostgreSQL-wire)
+      - "7000:7000"   # admin UI (optional)
+    restart: unless-stopped
+
+  # ============================================================
+  # Aerospike demo target (opt-in; profiles "aerospike" / "demo").
+  # Additive: NOT started by default. Host ports are configurable and default to
+  # the 13000 range because host port 3000 is already taken by Gitea locally.
+  #   docker compose --profile aerospike up -d aerospike
+  # ECS reaches it via AEROSPIKE_HOST=localhost AEROSPIKE_PORT=13000 (namespace
+  # "test"). No credentials are set for the demo (security is OFF by default in
+  # the community image); real UAT credentials come from env, never from here.
+  # ============================================================
+  aerospike:
+    image: aerospike/aerospike-server:latest
+    container_name: ecs-aerospike
+    profiles: ["aerospike", "demo"]
+    ports:
+      - "${AEROSPIKE_HOST_PORT:-13000}:3000"       # client service (NOT 3000: Gitea uses it)
+      - "${AEROSPIKE_FABRIC_PORT:-13001}:3001"     # fabric
+      - "${AEROSPIKE_HEARTBEAT_PORT:-13002}:3002"  # heartbeat
+    restart: unless-stopped
+
+  # ============================================================
+  # Predefined-query INFRASTRUCTURE demo targets (opt-in; profiles below).
+  # Lightweight (NGINX + RHEL UBI) — safe on 8 GB. Start with e.g.:
+  #   docker compose --profile nginx-demo --profile rhel-demo up -d \
+  #       nginx-demo rhel8-demo rhel9-demo
+  # (or the umbrella "infra-demo" profile). Oracle is separate & heavy — see below.
+  # ============================================================
+  # NGINX demo target for predefined NGINX shell checks (docker exec).
+  nginx-demo:
+    image: nginx:1.27-alpine
+    container_name: nginx-demo
+    ports:
+      - "8081:80"
+    volumes:
+      - ./demo-data/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    profiles: ["nginx-demo", "infra-demo"]
+    restart: unless-stopped
+
+  # RHEL 8.x demo target (Red Hat UBI8 — no RHEL entitlement needed for demo).
+  # Minimal UBI has no systemd/auditd/firewalld; the predefined checks tolerate
+  # missing tools (each command ends with "|| true").
+  rhel8-demo:
+    image: registry.access.redhat.com/ubi8/ubi:latest
+    container_name: rhel8-demo
+    command: ["sleep", "infinity"]
+    profiles: ["rhel-demo", "infra-demo"]
+    restart: unless-stopped
+
+  # RHEL 9.x demo target (Red Hat UBI9).
+  rhel9-demo:
+    image: registry.access.redhat.com/ubi9/ubi:latest
+    container_name: rhel9-demo
+    command: ["sleep", "infinity"]
+    profiles: ["rhel-demo", "infra-demo"]
+    restart: unless-stopped
+
+  # Oracle demo target — HEAVY. Only the "oracle-demo" profile (NOT infra-demo,
+  # NOT default). Recommended on 16/20 GB machines only. Start with:
+  #   docker compose --profile oracle-demo up -d oracle-demo
+  oracle-demo:
+    image: gvenzl/oracle-free:23-slim
+    container_name: oracle-demo
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: ecs_oracle_password
+      APP_USER: ecs_user
+      APP_USER_PASSWORD: ecs_password
+    profiles: ["oracle-demo"]
+    restart: unless-stopped
+
+  # ============================================================
+  # Extended MIDDLEWARE demo targets (opt-in). Lightweight — safe on 8 GB.
+  #   docker compose --profile infra-demo-extended up -d apache-demo tomcat-demo
+  # ============================================================
+  apache-demo:
+    image: httpd:2.4
+    container_name: apache-demo
+    ports:
+      - "8082:80"
+    profiles: ["apache-demo", "infra-demo-extended"]
+    restart: unless-stopped
+
+  tomcat-demo:
+    image: tomcat:10.1
+    container_name: tomcat-demo
+    ports:
+      - "8083:8080"
+    profiles: ["tomcat-demo", "infra-demo-extended"]
+    restart: unless-stopped
+
+  # ============================================================
+  # Extended DATABASE demo targets (opt-in).
+  #   MongoDB (lightweight): docker compose --profile db-demo-extended up -d mongodb-demo
+  #   SQL Server (HEAVY, optional, NOT in any umbrella profile / default):
+  #     docker compose --profile sqlserver-demo up -d sqlserver-demo
+  # ============================================================
+  mongodb-demo:
+    image: mongo:7
+    container_name: mongodb-demo
+    ports:
+      - "27017:27017"
+    profiles: ["mongodb-demo", "db-demo-extended"]
+    restart: unless-stopped
+
+  # SQL Server — HEAVY (~2 GB+ RAM), Linux/amd64 image (emulated on Apple Silicon),
+  # and subject to Microsoft EULA. Only the sqlserver-demo profile; never default,
+  # never in infra-demo / db-demo-extended.
+  sqlserver-demo:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-demo
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Ecs_Str0ng_Passw0rd!"
+      MSSQL_PID: Developer
+    profiles: ["sqlserver-demo"]
+    restart: unless-stopped
+
+  mysql-demo:
+    image: mysql:8.0
+    profiles: ["db-targets"]
+    # MySQL 8 stands in for Aurora MySQL locally (wire-compatible for these
+    # read-only baselining checks). Aurora itself is AWS-managed.
+    container_name: mysql-demo
+    environment:
+      MYSQL_ROOT_PASSWORD: ecs_root_password
+      MYSQL_DATABASE: ecs_demo
+      MYSQL_USER: ecs_user
+      MYSQL_PASSWORD: ecs_password
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+
+  ubuntu-demo:
+    image: ubuntu:22.04
+    profiles: ["demo-connectors"]
+    # Pin the container name: the Linux connector runs `docker exec ubuntu-demo`
+    # (ECS_LINUX_CONTAINER=ubuntu-demo). Without this, compose names the
+    # container "<project>-ubuntu-demo-1" and the exec fails with
+    # "No such container: ubuntu-demo".
+    container_name: ubuntu-demo
+    hostname: ubuntu-demo
+    command: ["sleep", "infinity"]
+    restart: unless-stopped
+
+  sonarqube-demo:
+    image: sonarqube:lts-community
+    profiles: ["demo-connectors"]
+    # Pin the container name so the SonarQube connector
+    # (ECS_SONAR_URL=http://sonarqube-demo:9000) resolves the same DNS name
+    # regardless of the compose project prefix.
+    container_name: sonarqube-demo
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    restart: unless-stopped
+
+  # ============================================================
+  # ECS platform backing services (system of record + AI layer)
+  # ============================================================
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ecs_repository
+      POSTGRES_USER: ecs_user
+      POSTGRES_PASSWORD: ecs_password
+    volumes:
+      - ecs_repo_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecs_user -d ecs_repository"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  pgvector:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ecs_vectors
+      POSTGRES_USER: ecs_user
+      POSTGRES_PASSWORD: ecs_password
+    volumes:
+      - ecs_vector_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecs_user -d ecs_vectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ecs_redis_data:/data
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ecs_minio
+      MINIO_ROOT_PASSWORD: ecs_minio_secret
+    ports:
+      - "9002:9000"
+      - "9001:9001"
+    volumes:
+      - ecs_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ---- Self-hosted source systems (GitHub substitute + CI) ----
+  gitea:
+    image: gitea/gitea:1.22
+    profiles: ["sources"]
+    environment:
+      GITEA__database__DB_TYPE: sqlite3
+      GITEA__server__ROOT_URL: http://localhost:3000/
+      # Install is completed via the /install HTTP form by the seeding script
+      # (creates the admin user too), so no `docker compose exec` is required.
+      GITEA__service__DISABLE_REGISTRATION: "true"
+      GITEA__server__OFFLINE_MODE: "true"
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    volumes:
+      - ecs_gitea_data:/data
+    restart: unless-stopped
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    profiles: ["sources"]
+    environment:
+      # Skip the setup wizard. An init.groovy.d script then sets up a deterministic
+      # admin account and allows anonymous read, so the ECS connector reports
+      # connected=true and the seed script can create jobs with admin creds.
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+      JENKINS_ADMIN_USER: ${JENKINS_USER:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_TOKEN:-admin123}
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - ecs_jenkins_data:/var/jenkins_home
+      - ./demo-data/jenkins/init.groovy.d:/var/jenkins_home/init.groovy.d:ro
+    restart: unless-stopped
+
+volumes:
+  ecs_repo_data:
+  ecs_vector_data:
+  ecs_redis_data:
+  ecs_minio_data:
+  ecs_gitea_data:
+  ecs_jenkins_data:

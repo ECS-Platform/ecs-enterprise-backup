@@ -1,17 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connector Test Workbench — ECS</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
-      onerror="document.documentElement.classList.add('no-bootstrap')">
+{% extends "audit/_shell.html" %}
+{% block audit_page_title %}Connector Test Workbench — ECS{% endblock %}
+{% block audit_title %}Connector Test Workbench{% endblock %}
+{% block audit_subtitle %}Safe, read-only connector testing — health check, config status, dry-run, and mock parser test. No live network calls. No secrets are shown or stored.{% endblock %}
+{% block audit_body %}
 <style>
-  body { background:#f8fafc; }
-  .cw-hero { background:linear-gradient(135deg,#0f766e,#115e59); color:#fff; border-radius:.6rem;
-             padding:1rem 1.25rem; margin:1rem 0; }
-  .cw-hero h1 { font-size:1.3rem; font-weight:700; margin:0; }
-  .cw-hero .sub { opacity:.85; font-size:.85rem; }
   .cw-card { border:1px solid #e5e7eb; border-radius:.5rem; background:#fff; padding:1rem; }
   .cw-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.78rem; }
   .cw-pre { background:#0f172a; color:#e2e8f0; border-radius:.4rem; padding:.75rem;
@@ -23,98 +15,85 @@
   .cw-err { background:#fee2e2; color:#991b1b; }
   .btn-cw { font-size:.8rem; }
 </style>
-</head>
-<body>
-<div class="container-fluid" style="max-width:1100px;">
-  <div class="cw-hero d-flex flex-wrap align-items-center justify-content-between">
-    <div>
-      <h1>Connector Test Workbench</h1>
-      <div class="sub">Safe, read-only connector testing — health check, config status, dry-run, and mock parser test. No live network calls. No secrets are shown or stored.</div>
-    </div>
-    <span class="badge bg-light text-dark">AUDIT INTELLIGENCE</span>
-  </div>
 
-  <div class="row g-3">
-    <!-- Controls -->
-    <div class="col-md-4">
-      <div class="cw-card">
-        <h6 class="text-uppercase text-muted" style="font-size:.72rem;letter-spacing:.03em;">Test controls</h6>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="cw-card">
+      <h6 class="text-uppercase text-muted" style="font-size:.72rem;letter-spacing:.03em;">Test controls</h6>
 
-        <label class="form-label small mb-1">Connector</label>
-        <select id="cw-connector" class="form-select form-select-sm mb-2">
-          {% for c in connectors %}
-          <option value="{{ c.name }}" data-configured="{{ c.configured|lower }}"
-                  data-testable="{{ c.testable_in_workbench|lower }}">
-            {{ c.label }} ({{ c.name }})
-          </option>
-          {% endfor %}
-        </select>
+      <label class="form-label small mb-1">Connector</label>
+      <select id="cw-connector" class="form-select form-select-sm mb-2">
+        {% for c in connectors %}
+        <option value="{{ c.name }}" data-configured="{{ c.configured|lower }}"
+                data-testable="{{ c.testable_in_workbench|lower }}">
+          {{ c.label }} ({{ c.name }})
+        </option>
+        {% endfor %}
+      </select>
 
-        <label class="form-label small mb-1">Environment profile</label>
-        <select id="cw-env" class="form-select form-select-sm mb-3">
-          <option value="local">local</option>
-          <option value="uat">UAT</option>
-        </select>
+      <label class="form-label small mb-1">Environment profile</label>
+      <select id="cw-env" class="form-select form-select-sm mb-3">
+        <option value="local">local</option>
+        <option value="uat">UAT</option>
+      </select>
 
-        <div id="cw-config-badge" class="mb-3 small"></div>
+      <div id="cw-config-badge" class="mb-3 small"></div>
 
-        <div class="d-grid gap-2">
-          <button class="btn btn-outline-secondary btn-sm btn-cw" data-action="config-status" data-method="GET">Config status</button>
-          <button class="btn btn-outline-primary btn-sm btn-cw" data-action="health-check" data-method="POST">Run health check</button>
-          <button class="btn btn-outline-primary btn-sm btn-cw" data-action="dry-run" data-method="POST">Dry-run evidence pull</button>
-          <button class="btn btn-outline-success btn-sm btn-cw" data-action="parser-test" data-method="POST">Run parser test (mock)</button>
-        </div>
-
-        <p class="text-muted mt-3" style="font-size:.72rem;">
-          All actions are read-only. Parser test uses a deterministic mock transport
-          (no network, no secrets). Provide real credentials via <code>.env.uat</code>
-          / a secret manager for live collection.
-        </p>
-
-        <hr class="my-2">
-        <h6 class="text-uppercase text-muted" style="font-size:.72rem;letter-spacing:.03em;">Evidence intelligence</h6>
-        <div class="d-grid gap-2">
-          <button class="btn btn-outline-dark btn-sm btn-cw" data-url="/api/evidence/completeness?role=owner" data-method="GET">Evidence completeness</button>
-          <button class="btn btn-outline-dark btn-sm btn-cw" data-url="/api/evidence/quality" data-method="GET">Evidence quality (repo)</button>
-        </div>
-        <p class="text-muted mt-2" style="font-size:.72rem;">
-          Batch 2 read-only reports over real repository data (completeness %,
-          composite quality score). Collected connector evidence appears here.
-        </p>
+      <div class="d-grid gap-2">
+        <button class="btn btn-outline-secondary btn-sm btn-cw" data-action="config-status" data-method="GET">Config status</button>
+        <button class="btn btn-outline-primary btn-sm btn-cw" data-action="health-check" data-method="POST">Run health check</button>
+        <button class="btn btn-outline-primary btn-sm btn-cw" data-action="dry-run" data-method="POST">Dry-run evidence pull</button>
+        <button class="btn btn-outline-success btn-sm btn-cw" data-action="parser-test" data-method="POST">Run parser test (mock)</button>
       </div>
-    </div>
 
-    <!-- Results -->
-    <div class="col-md-8">
-      <div class="cw-card">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="text-uppercase text-muted mb-0" style="font-size:.72rem;letter-spacing:.03em;">Result</h6>
-          <span id="cw-status" class="cw-chip cw-no">idle</span>
-        </div>
+      <p class="text-muted mt-3" style="font-size:.72rem;">
+        All actions are read-only. Parser test uses a deterministic mock transport
+        (no network, no secrets). Provide real credentials via <code>.env.uat</code>
+        / a secret manager for live collection.
+      </p>
 
-        <div class="row g-2 mb-2" id="cw-summary" style="display:none;">
-          <div class="col-4"><div class="cw-card p-2 text-center"><div class="text-muted" style="font-size:.65rem;">SOURCE OBJECTS</div><div id="cw-src" class="fw-bold">—</div></div></div>
-          <div class="col-4"><div class="cw-card p-2 text-center"><div class="text-muted" style="font-size:.65rem;">EVIDENCE DETECTED</div><div id="cw-evd" class="fw-bold">—</div></div></div>
-          <div class="col-4"><div class="cw-card p-2 text-center"><div class="text-muted" style="font-size:.65rem;">LAST RUN</div><div id="cw-ts" class="fw-bold cw-mono" style="font-size:.72rem;">—</div></div></div>
-        </div>
-
-        <div id="cw-error" class="alert alert-warning py-2 px-3 small" style="display:none;"></div>
-        <pre id="cw-output" class="cw-pre">Select a connector and run an action.</pre>
+      <hr class="my-2">
+      <h6 class="text-uppercase text-muted" style="font-size:.72rem;letter-spacing:.03em;">Evidence intelligence</h6>
+      <div class="d-grid gap-2">
+        <button class="btn btn-outline-dark btn-sm btn-cw" data-url="/api/evidence/completeness?role=owner" data-method="GET">Evidence completeness</button>
+        <button class="btn btn-outline-dark btn-sm btn-cw" data-url="/api/evidence/quality" data-method="GET">Evidence quality (repo)</button>
       </div>
+      <p class="text-muted mt-2" style="font-size:.72rem;">
+        Batch 2 read-only reports over real repository data (completeness %,
+        composite quality score). Collected connector evidence appears here.
+      </p>
     </div>
   </div>
 
-  <p class="text-muted mt-3" style="font-size:.72rem;">
-    APIs used (read-only / dry-run): <code>GET /api/connectors</code>,
-    <code>GET /api/connectors/{name}/config-status</code>,
-    <code>POST /api/connectors/{name}/health-check</code>,
-    <code>POST /api/connectors/{name}/dry-run</code>,
-    <code>POST /api/connectors/{name}/parser-test</code>,
-    <code>POST /api/connectors/{name}/collect</code> (flag-gated),
-    <code>GET /api/evidence/completeness</code>,
-    <code>GET /api/evidence/quality</code>.
-  </p>
+  <div class="col-md-8">
+    <div class="cw-card">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="text-uppercase text-muted mb-0" style="font-size:.72rem;letter-spacing:.03em;">Result</h6>
+        <span id="cw-status" class="cw-chip cw-no">idle</span>
+      </div>
+
+      <div class="row g-2 mb-2" id="cw-summary" style="display:none;">
+        <div class="col-4"><div class="cw-card p-2 text-center"><div class="text-muted" style="font-size:.65rem;">SOURCE OBJECTS</div><div id="cw-src" class="fw-bold">—</div></div></div>
+        <div class="col-4"><div class="cw-card p-2 text-center"><div class="text-muted" style="font-size:.65rem;">EVIDENCE DETECTED</div><div id="cw-evd" class="fw-bold">—</div></div></div>
+        <div class="col-4"><div class="cw-card p-2 text-center"><div class="text-muted" style="font-size:.65rem;">LAST RUN</div><div id="cw-ts" class="fw-bold cw-mono" style="font-size:.72rem;">—</div></div></div>
+      </div>
+
+      <div id="cw-error" class="alert alert-warning py-2 px-3 small" style="display:none;"></div>
+      <pre id="cw-output" class="cw-pre">Select a connector and run an action.</pre>
+    </div>
+  </div>
 </div>
+
+<p class="text-muted mt-3" style="font-size:.72rem;">
+  APIs used (read-only / dry-run): <code>GET /api/connectors</code>,
+  <code>GET /api/connectors/{name}/config-status</code>,
+  <code>POST /api/connectors/{name}/health-check</code>,
+  <code>POST /api/connectors/{name}/dry-run</code>,
+  <code>POST /api/connectors/{name}/parser-test</code>,
+  <code>POST /api/connectors/{name}/collect</code> (flag-gated),
+  <code>GET /api/evidence/completeness</code>,
+  <code>GET /api/evidence/quality</code>.
+</p>
 
 <script>
 (function () {
@@ -144,7 +123,6 @@
   connectorSel.addEventListener("change", refreshConfigBadge);
   refreshConfigBadge();
 
-  // Batch 2 evidence-intelligence actions (absolute URL, connector-independent).
   document.querySelectorAll("button[data-url]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var url = btn.getAttribute("data-url");
@@ -183,7 +161,6 @@
         .then(function (res) {
           var b = res.body || {};
           outputEl.textContent = JSON.stringify(b, null, 2);
-          // Summary numbers (parser-test / dry-run).
           var hasSummary = (b.source_object_count !== undefined) || (b.evidence_objects_detected !== undefined);
           summaryEl.style.display = hasSummary ? "" : "none";
           if (hasSummary) {
@@ -208,5 +185,4 @@
   });
 })();
 </script>
-</body>
-</html>
+{% endblock %}

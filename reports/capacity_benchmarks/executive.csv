@@ -1,0 +1,13 @@
+profile,name,apps,replicas,gke_nodes,gke_node_type,pod_cpu_request,pod_memory_request,cloud_sql_tier,cloud_sql_storage_gib,gcs_year1_gib,gcs_year5_gib,cost_monthly,cost_annual,cost_5yr
+laptop,Developer Laptop,1,2,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,0.1657,0.1657,558.25,6699.0,33498.6
+pilot,Pilot,2,2,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,1.106,3.2035,558.63,6703.56,33548.76
+demo,Demo / Local,3,2,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,0.4683,0.4683,558.33,6699.96,33509.16
+phase1,Phase 1 — NB / MB / Payments,3,2,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,2.6738,12.7967,559.21,6710.52,33625.32
+phase2,Phase 2 — 15 applications,15,2,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,11.1052,52.9509,562.02,6744.24,33996.24
+apps25,25 applications,25,2,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,18.1646,86.2833,564.47,6773.64,34319.64
+apps50,50 applications,50,2,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,36.0502,171.4011,570.72,6848.64,35144.64
+enterprise,Enterprise — 100 applications,100,3,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,68.7311,326.4896,582.13,6985.56,36650.76
+apps250,250 applications,250,6,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,163.3722,1081.3779,615.29,7383.48,41027.88
+pan-bank,Pan-Bank — 500 applications,500,11,2,e2-standard-4,500m,1024Mi,db-custom-2-7680,20,303.4092,2003.7016,664.33,7971.96,47501.16
+apps1000,1000 applications,1000,21,4,e2-standard-4,500m,1024Mi,db-custom-2-7680,34,656.4509,4349.6803,1060.79,12729.48,79392.36
+large,Large Enterprise — 2000 applications,2000,41,7,e2-standard-4,500m,1024Mi,db-custom-4-15360,100,1313.7728,8715.7577,1925.62,23107.44,147584.4

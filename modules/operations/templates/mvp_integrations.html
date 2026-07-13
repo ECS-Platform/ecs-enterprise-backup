@@ -5,6 +5,7 @@
 .ecs-integ-dep-chip { background:#f8fafc; font-size:0.72rem; }
 .ecs-cap-integrations #ecsIntegHealthTable th,
 .ecs-cap-integrations #ecsIntegHealthTable td { white-space:normal; word-wrap:break-word; font-size:0.72rem; }
+.ecs-integ-embed-frame { width:100%; min-height:72vh; border:1px solid #e5e7eb; border-radius:0 0 .4rem .4rem; background:#fff; }
 </style></head>
 <body class="bg-light ecs-cap-integrations"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
@@ -81,10 +82,33 @@
 </tbody></table></div>
 {{ workspace_pane_end() }}
 
+{{ workspace_pane('evidence_explorer', false) }}
+<iframe id="ecsIntegEvidenceExplorerFrame" class="ecs-integ-embed-frame" title="Evidence Explorer" loading="lazy"></iframe>
+{{ workspace_pane_end() }}
+
 </div></div></div>
 {% if module_view.operations_dataset is defined %}
 <script type="application/json" id="ecsOperationsDataset">{{ module_view.operations_dataset|tojson }}</script>
 {% include "partials/operations_filter_client.html" %}
 {% endif %}
+<script>
+(function(){
+  var frame = document.getElementById('ecsIntegEvidenceExplorerFrame');
+  if (!frame) return;
+  var role = {{ role|tojson }};
+  var user = {{ user|tojson }};
+  var src = '/mvp/evidence-explorer?role=' + encodeURIComponent(role) + '&user=' + encodeURIComponent(user) + '&embed=1';
+  function loadFrame() {
+    if (!frame.getAttribute('src')) frame.setAttribute('src', src);
+  }
+  document.querySelectorAll('.ecs-workspace-tab').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (btn.getAttribute('data-workspace-tab') === 'evidence_explorer') loadFrame();
+    });
+  });
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('tab') === 'evidence_explorer') loadFrame();
+})();
+</script>
 {% include "partials/integrations_modals.html" %}
 {% include "partials/chatbot_global.html" %}</body></html>

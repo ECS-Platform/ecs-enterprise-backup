@@ -116,9 +116,10 @@ def test_dashboard_keeps_owner_summary_context():
 # --------------------------------------------------------------------------- #
 def test_nav_has_overview_not_duplicate_dashboard():
     t = _get("/dashboard").text
-    assert ">Overview" in t                       # renamed dashboard child
-    # The Dashboard *group label* remains, but the child link is no longer "Dashboard".
-    assert 'class="ecs-nav-group-label">Dashboard<' in t
+    assert ">Overview" in t
+    # Dashboard is a direct link (no expandable group / chevron).
+    assert 'data-bs-target="#nav-dash"' not in t
+    assert 'ecs-sidebar-btn-dashboard' in t
 
 
 def test_nav_ecs_benchmark_single_item_under_operations():
@@ -135,7 +136,7 @@ def test_nav_top_level_groups():
     labels = [re.sub(r"\s+", " ", m).strip()
               for m in re.findall(r'ecs-nav-group-label">([^<]+)</span>', t)]
     # 5 target sections + AI SDLC Governance (kept: has 4 active children).
-    assert labels == ["Dashboard", "Operations", "Audit Intelligence",
+    assert labels == ["Operations", "Audit Intelligence",
                       "Governance", "Administration", "AI SDLC Governance"]
 
 
@@ -167,6 +168,71 @@ def test_benchmark_route_unbroken_and_highlighted():
 
 def test_operations_group_target_items():
     t = _get("/dashboard").text
-    for item in ["Predefined Queries", "Evidence Explorer", "Evidence Reuse Story",
-                 "Integrations", "Connector Test Workbench", "ECS Benchmark"]:
+    for item in ["Predefined Queries", "Evidence Reuse Story",
+                 "Integrations", "Connector Test Workbench", "Application Onboarding", "ECS Benchmark"]:
         assert item in t, f"Operations missing {item}"
+    assert "Evidence Explorer" not in t, "Evidence Explorer should be under Integrations tabs"
+
+
+def test_operations_has_application_onboarding():
+    t = _get("/dashboard").text
+    assert "Application Onboarding" in t
+    assert "/mvp/onboarding" in t
+    assert "Application Onboarding" not in t.split("Administration")[1].split("AI SDLC")[0] if "Administration" in t else True
+    r = _get("/mvp/onboarding")
+    assert r.status_code == 200
+    assert "ecs-nav-groups" in r.text and "ecs-workspace-main" in r.text
+    assert "ecsOnboardStartBtn" in r.text
+    assert "Start Application Onboarding" in r.text
+    assert "ecsOnboarderRunBtn" in r.text
+    assert "Run Application Onboarder" in r.text
+    assert "customer_criticality" in r.text or "Customer Criticality" in r.text
+
+
+def test_onboarding_run_onboarder_api():
+    r = client.post("/api/onboarding/simulate", json={"action": "run_onboarder", "role": "owner"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("ok") is True
+    assert "dashboard" in body
+    assert body["dashboard"]["summary"]["remaining"] >= 0
+
+
+def test_onboarding_simulate_progress_steps():
+    r = client.post("/api/onboarding/simulate", json={
+        "application_name": "Demo App X",
+        "owner": "U",
+        "pci_dss_in_scope": "No",
+        "role": "owner",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert "progress_steps" in body
+    assert len(body["progress_steps"]) == 8
+    assert body["progress_steps"][1]["label"] == "Loading CMDB data"
+    fw_names = [f["framework"] for f in body["framework_results"]]
+    assert "PCI DSS" not in fw_names
+
+
+def test_application_management_aggregator_still_reachable():
+    r = _get("/mvp/admin/application-management")
+    assert r.status_code == 200
+    assert "Application Inventory" in r.text
+    assert "App Comparison" in r.text
+
+
+def test_onboarding_start_uses_existing_simulate_api():
+    r = _get("/mvp/onboarding")
+    assert r.status_code == 200
+    html = r.text
+    assert "ecsOnboardStartBtn" in html
+    assert "/api/onboarding/simulate" in html
+    assert "ecsOnboardIntakeForm" in html
+    assert "ecs-nav-groups" in html
+
+
+def test_integrations_has_evidence_explorer_tab():
+    t = _get("/mvp/integrations").text
+    assert "Evidence Explorer" in t
+    assert 'data-workspace-tab="evidence_explorer"' in t
+    assert "/mvp/evidence-explorer" in t

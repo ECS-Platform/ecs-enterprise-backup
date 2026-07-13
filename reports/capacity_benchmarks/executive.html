@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>ECS Executive Capacity Planner</title>
+<style>
+ body{font-family:system-ui,Arial,sans-serif;margin:2rem;color:#1a2733;max-width:1100px}
+ h1{color:#0b3d5c} h2{color:#0b3d5c;border-bottom:1px solid #dde;padding-bottom:.25rem}
+ table{border-collapse:collapse;width:100%;margin:.5rem 0}
+ th,td{border:1px solid #cbd5e0;padding:.4rem .6rem;text-align:left;font-size:.9rem}
+ th{background:#eef4f8} .note{color:#666;font-size:.85rem}
+ ol{line-height:1.6}
+</style></head><body>
+<h1>ECS Executive Capacity Planner</h1>
+<p class="note">Executive estimate — documented assumptions × profiles; cost rates illustrative. Calibrate before spend decisions.</p>
+<h2>Recommended sizing</h2>
+<table><thead><tr><th>name</th><th>apps</th><th>replicas</th><th>gke_nodes</th><th>cloud_sql_tier</th><th>gcs_year5_gib</th><th>cost_monthly</th><th>cost_5yr</th></tr></thead><tbody><tr><td>Enterprise — 100 applications</td><td>100</td><td>3</td><td>2</td><td>db-custom-2-7680</td><td>326.4896</td><td>582.13</td><td>36650.76</td></tr></tbody></table>
+<h2>Phase-wise sizing</h2>
+<table><thead><tr><th>name</th><th>apps</th><th>replicas</th><th>gke_nodes</th><th>cloud_sql_tier</th><th>gcs_year5_gib</th><th>cost_monthly</th><th>cost_5yr</th></tr></thead><tbody><tr><td>Enterprise — 100 applications</td><td>100</td><td>3</td><td>2</td><td>db-custom-2-7680</td><td>326.4896</td><td>582.13</td><td>36650.76</td></tr></tbody></table>
+<h2>Top 5 bottlenecks</h2><ol><li>GKE compute: peak ~0.756 cores → 3 replicas (scale the web tier).</li><li>Cloud SQL: db-custom-2-7680 — connection limits + query load are the DB ceiling.</li><li>AI/RAG: single-stream ~0.076 prompts/s — prompt concurrency is RAM-bound; use a dedicated RAG pool.</li><li>Cross-cloud egress: ~3.577 GiB/mo (AWS Net Banking ↔ GCP) — bandwidth + cost.</li><li>Cloud Logging: ~0.2426 GiB/day ingestion.</li></ol>
+<h2>Top 5 risks</h2><ol><li>Pod eviction/OOM risk: low — size memory requests ≥ working set.</li><li>DB slow-query risk: low at 2.1888 GiB year-1.</li><li>State externalization required before multi-replica scaling (in-memory ecs_state).</li><li>Cross-cloud connectivity + IAM must be least-privilege and monitored.</li><li>Backups/PITR + restore drills required for banking retention/DR.</li></ol>
+<h2>Top 5 cost optimizations</h2><ol><li>GCS lifecycle tiering (Nearline/Coldline/Archive) for cold evidence — large storage cost reduction.</li><li>Compression on evidence (~40.0% savings where compressible).</li><li>Committed-use discounts / autoscaling to match compute to real demand.</li><li>PgBouncer + read replicas to right-size Cloud SQL vCPU.</li><li>Batch small object writes + multipart large uploads to cut GCS op costs.</li></ol>
+</body></html>

@@ -641,6 +641,15 @@ def register_mvp_routes(app, templates):
                               fallback_role=payload.get("role", "cio"), response="json")
         if deny:
             return deny
+        action = (payload.get("action") or "").strip().lower()
+        if action == "run_onboarder":
+            from modules.operations.engines.onboarding_engine import run_application_onboarder
+            return JSONResponse(run_application_onboarder())
+        if action == "onboarder_status":
+            from modules.operations.engines.onboarding_engine import build_application_onboarder_dashboard
+            body = build_application_onboarder_dashboard()
+            body["ok"] = True
+            return JSONResponse(body)
         result = simulate_onboarding(payload)
         return JSONResponse(result)
 
