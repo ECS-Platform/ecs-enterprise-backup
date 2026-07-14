@@ -5,7 +5,142 @@ predefined-query demonstrations. Everything here uses **existing** commands only
 (`scripts/start_ecs_demo.sh`, `docker compose`, `docker ps`).
 
 > Sources: `scripts/start_ecs_demo.sh`, `scripts/ecs_demo_startup.py`,
-> `docker-compose.yml`. Run all commands from the repository root.
+> `docker-compose.yml`, root `start_ecs.sh`. Run all commands from the repository root.
+
+---
+
+## 0. Unified startup — `./start_ecs.sh` (recommended entry point)
+
+`./start_ecs.sh` is the single launcher for the demo. **You never need to run
+Uvicorn manually** — the launcher owns starting/stopping the ECS backend.
+
+Run it with no arguments for the interactive menu:
+
+```bash
+./start_ecs.sh
+```
+
+```text
+D = Docker demo mode
+R = normal development / host Uvicorn mode
+S = status
+Q = quit
+```
+
+Equivalent non-interactive flags (interactive keys and flags do the same thing):
+
+```bash
+./start_ecs.sh --demo     # D: Docker demo mode
+./start_ecs.sh --run      # R: normal development / host Uvicorn mode
+./start_ecs.sh --status   # S: status (read-only)
+./start_ecs.sh --help     # usage
+```
+
+How each mode behaves:
+
+- **D / `--demo` (Docker demo mode):** stops any confirmed **host** ECS/Uvicorn
+  processes, then starts the Docker ECS stack via
+  `./scripts/start_ecs_demo.sh --all --skip-heavy`. Demo mode **never** starts
+  Uvicorn itself.
+- **R / `--run` (normal development / host Uvicorn):** stops **only** the Docker
+  ECS application container, then starts the existing host-development flow
+  (`.venv/bin/python -m uvicorn app.main:app --reload`, or the plain `uvicorn`
+  fallback when there is no `.venv`). Supporting services — **PostgreSQL, Redis,
+  MinIO, the demo databases, and connector containers — keep running** (they are
+  never stopped, and no volumes are removed).
+- **S / `--status`:** reports the current runtime as one of `docker`,
+  `host-python`, `none`, or `conflict`, plus the Docker ECS container state, host
+  ECS PID(s), the owner of port 8000, and the `/healthz` result. Read-only.
+- **Q:** quit without changes.
+
+Key guarantees:
+
+- **Only one ECS backend runs at a time** — Docker demo mode and host development
+  mode are mutually exclusive; the launcher stops the other runtime's ECS before
+  starting.
+- **Unrelated processes on port 8000 are never killed automatically.** If a
+  non-ECS process owns :8000, the launcher prints its PID and full command and
+  exits without touching it — free the port yourself, then retry.
+- **Ctrl+C** stops host development mode when Uvicorn is running in the
+  foreground.
+
+> The `./scripts/start_ecs_demo.sh …` commands in the sections below are the
+> underlying demo orchestrator that `./start_ecs.sh --demo` calls; use them
+> directly when you need a specific mode (e.g. `--core` or `--status-only`).
+
+---
+
+## 0A. Final demo workflow (single source for the CIO demo)
+
+This is the authoritative, up-to-date workflow after all launcher improvements.
+Startup modes and runtime behaviour are detailed in **§0** above; this section
+adds the recommended demo sequence, screen order, limitations, troubleshooting
+pointers, and success criteria.
+
+### Startup modes (recap of §0)
+
+| Mode | Command | What it does |
+|---|---|---|
+| Development (host Uvicorn) | `./start_ecs.sh --run` (menu **R**) | Stops only the Docker ECS container, then runs host Uvicorn (`.venv` preferred). |
+| Docker Demo | `./start_ecs.sh --demo` (menu **D**) | Stops host ECS, then starts the Docker ECS stack (`start_ecs_demo.sh --all --skip-heavy`). |
+| Status | `./start_ecs.sh --status` (menu **S**) | Read-only: runtime, container, host PIDs, :8000 owner, `/healthz`. |
+| Interactive | `./start_ecs.sh` | Menu with **D / R / S / Q**. |
+
+**Do not start Uvicorn manually** — the launcher owns the ECS backend.
+
+### Runtime behaviour (recap of §0)
+- Only **one** ECS runtime is active at a time.
+- **Docker mode stops the host ECS**; **development mode stops the Docker ECS**.
+- Duplicate ECS instances are prevented (a healthy host instance is kept; strays are stopped).
+- **Unrelated processes are never terminated** — a non-ECS owner of :8000 is reported (PID + command) and the launcher exits.
+
+### Recommended demo startup sequence
+1. **Docker running** — confirm Docker Desktop is up (`docker ps`).
+2. `./start_ecs.sh --status` — confirm state before starting.
+3. `./start_ecs.sh --demo` — bring up the Docker demo stack.
+4. **Verify `/healthz`** — status shows `runtime: docker` and `/healthz: ok`.
+5. **Open the browser** at `http://127.0.0.1:8000` (hard-refresh if a stale tab).
+6. **Verify one predefined query** — run an enabled control (e.g. a PostgreSQL `PGX-*`).
+7. **Optional LLM warm-up** — pre-warm the local model if you will demo the assistant.
+
+### Recommended demo flow (screen order)
+1. Executive Dashboard (`/dashboard/cio`)
+2. Predefined Queries (`/mvp/predefined-queries`)
+3. Connector Test Workbench (`/mvp/connectors/test-workbench`)
+4. Evidence Repository (`/mvp/audit/repository`)
+5. Evidence Packs (`/mvp/audit/packs`)
+6. Evidence Reuse (`/mvp/evidence-story`)
+7. ECS Benchmark (`/mvp/ecs-benchmark`)
+8. LLM Prompt Workbench (`/mvp/audit/llm-workbench`)
+
+### Known demo limitations (expected, not defects)
+- **Connector Test Workbench** uses a **mock transport** without live credentials — demo Dry Run + Parser Test; do not run live "Collect".
+- **ECS Benchmark** is a **simulated** comparison (ECS vs manual) — press Run to animate; state that real numbers come from the pilot.
+- **Evidence Repository** seeded data may show **Unknown / Unassessed** in the technology/verdict breakdown until validation runs — lead with volume + versioning, avoid that drill.
+- **Heavy demo targets** (Yugabyte, Oracle, SQL Server, SonarQube, Aerospike) may show **SKIPPED** under `--all --skip-heavy` — expected on a typical laptop.
+- **Kubernetes / OpenShift / Windows** show **EXTERNAL** (no local target) — informational only.
+
+### Troubleshooting (summary — see recovery guide for step-by-step)
+- **Port 8000 conflict** — launcher prints the non-ECS PID/command; free that process and retry.
+- **Docker unavailable** — start Docker Desktop; re-run `--status`.
+- **Runtime conflict** (host + Docker) — use `./start_ecs.sh` (it stops the other runtime); confirm `runtime: docker`.
+- **Health check failure** — `/healthz` not ok → restart the failing service; re-run `--demo`.
+- **Browser cache** — hard-refresh / reopen the tab; keep demo tabs pre-opened.
+- **Predefined query failure** — use a control already marked **Ready**; or show catalog + expected evidence.
+- **LLM unavailable** — use offline-safe features (Classify / Token Estimate / dry-run benchmark); deterministic outputs still work.
+
+> Full step-by-step recovery is maintained separately in the **ECS Demo Recovery
+> Cheat Sheet**; this section is a summary and does not duplicate it. See also
+> §7 (troubleshooting table) below.
+
+### Demo success criteria (healthy state)
+- `runtime: docker`
+- `/healthz` = OK
+- Executive Dashboard loads
+- Connector Test Workbench opens
+- Evidence Repository populated (evidence keys / versions shown)
+- One predefined query executes successfully
+- No blocking **FAIL** status for the screens you will demo
 
 ---
 

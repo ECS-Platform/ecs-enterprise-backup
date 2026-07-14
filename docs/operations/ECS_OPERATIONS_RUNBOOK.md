@@ -8,7 +8,18 @@
 
 ## 1. Global startup sequence
 
-Bring up in dependency order (the app `depends_on: postgres-demo, postgres, pgvector`):
+**Recommended (idempotent after Mac restart):**
+
+```bash
+./scripts/start_ecs_demo.sh --core          # core backing + ECS only (default)
+./scripts/start_ecs_demo.sh --all           # core + standard demo targets (+ heavy)
+./scripts/start_ecs_demo.sh --all --skip-heavy   # core + light demo targets
+./scripts/start_ecs_demo.sh --status-only   # health table only; no compose changes
+```
+
+The script detects Docker Desktop, stops only host `uvicorn` processes conflicting on `:8000`, starts existing compose services with their declared profiles, waits for real readiness (not just `running`), validates connector runtime config (secrets masked), then prints a technology status table. Exit code `1` only for core failures (Docker down, `:8000` conflict, core backing not ready, ECS `/healthz` down). Optional/heavy/external targets are reported without blocking core startup.
+
+**Manual sequence (equivalent to `--core`):**
 
 ```bash
 # 1. Backing data services first (they have container healthchecks)

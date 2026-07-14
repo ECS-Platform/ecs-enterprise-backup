@@ -153,6 +153,7 @@ class MySQLConnector:
                 # server / security group per bank policy. No secrets logged.
                 connect_kwargs["ssl"] = {"ssl": {}}
             self._conn = pymysql.connect(**connect_kwargs)
+            self._last_error = ""
             return True
         except Exception as exc:  # noqa: BLE001 - normalise to friendly error
             _, self._last_error = _friendly_error(exc)

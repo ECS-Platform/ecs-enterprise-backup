@@ -143,6 +143,11 @@ def test_as_bool_variants():
     "message, expected_type, expected_snippet",
     [
         (
+            "Access denied; you need (at least one of) the SYSTEM_VARIABLES_ADMIN privilege(s) for this operation",
+            "query_failure",
+            "Query failed:",
+        ),
+        (
             "(1045, \"Access denied for user 'ecs_user'@'mysql-demo' (using password: YES)\")",
             "authentication_failure",
             "Authentication failed. Verify MySQL credentials.",

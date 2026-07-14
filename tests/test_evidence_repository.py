@@ -83,6 +83,33 @@ def test_stats():
     assert s["by_technology"]["NGINX"] == 1
 
 
+def test_stats_falls_back_to_unknown_unassessed_only_when_source_empty():
+    """Confirmed behavior: `Unknown`/`Unassessed` in stats reflect genuinely-empty
+    technology/verdict on the source records (e.g. framework-evidence uploads that
+    carry frameworks but no technology and are not yet validated) — NOT a wrong
+    field mapping. Records that DO carry technology/verdict are reported verbatim.
+    """
+    # Framework-evidence-style records: frameworks present, technology + verdict empty
+    # (mirrors modules/operations/engines/evidence_repository._mirror_to_audit_repository,
+    # which stores verdict=""/control_status="" for unassessed uploads and only
+    # enriches technology when the control resolves in the mapping).
+    repo.store_evidence(control_id="Req 3.4 — Encryption at Rest", content="a",
+                        asset_id="Net Banking", frameworks=("PCI DSS",),
+                        technology="", verdict="", source="manual_upload")
+    repo.store_evidence(control_id="Req 4.1 — Encryption in Transit", content="b",
+                        asset_id="Payments", frameworks=("PCI DSS",),
+                        technology="", verdict="", source="manual_upload")
+    # One properly-classified record proves the fallback is value-driven, not global.
+    repo.store_evidence(control_id="NGX-003", content="ssl on", technology="NGINX",
+                        asset_id="web-1", frameworks=("PCI DSS",), verdict="PASS")
+
+    s = repo.stats()
+    assert s["evidence_keys"] == 3
+    # Empty-source records fall back; the classified record is reported as-is.
+    assert s["by_technology"] == {"NGINX": 1, "Unknown": 2}
+    assert s["by_verdict"] == {"PASS": 1, "Unassessed": 2}
+
+
 def test_store_from_run_like_object():
     class Rec:
         def __init__(self, cid, ok):

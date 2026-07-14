@@ -25,6 +25,9 @@ services:
       ECS_MYSQL_PASSWORD: ${ECS_MYSQL_PASSWORD:-ecs_password}
       ECS_LINUX_CONTAINER: ubuntu-demo
       ECS_SONAR_URL: http://sonarqube-demo:9000
+      ECS_MONGODB_URI: mongodb://mongodb-demo:27017
+      ECS_MONGODB_DATABASE: admin
+      ECS_MONGODB_CONTAINER: mongodb-demo
       ECS_SONAR_USER: admin
       ECS_SONAR_PASSWORD: admin
       ECS_GITLEAKS_SCAN_PATH: /app/demo-data/gitleaks-sample
