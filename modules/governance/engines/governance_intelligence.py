@@ -508,6 +508,7 @@ def build_contextual_trends(filters: dict | None = None) -> dict:
         "extended_trends": extended,
         "executive_kpis": tab["executive_kpis"],
         "trends_payload": tab,
+        "data_source": tab.get("data_source"),
     }
 
 
@@ -541,6 +542,7 @@ def build_trends_module_view(role: str, filters: dict | None = None) -> dict:
         "aging_buckets": aging["buckets"],
         "intel": intel,
         "role": role,
+        "data_source": intel.get("data_source"),
     }
 
 

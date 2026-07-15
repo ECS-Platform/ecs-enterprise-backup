@@ -123,7 +123,13 @@ def build_pan_india_posture() -> dict:
                 "risk": "High" if fw_score < 72 else ("Medium" if fw_score < 85 else "Low"),
                 "status": "Monitoring",
             })
-    return {"regions": regions, "framework_matrix": framework_matrix}
+    from modules.shared.utils.data_source_marker import pan_india_posture_data_source
+
+    return {
+        "regions": regions,
+        "framework_matrix": framework_matrix,
+        "data_source": pan_india_posture_data_source(),
+    }
 
 
 def build_reuse_mappings(count: int = 120) -> dict:

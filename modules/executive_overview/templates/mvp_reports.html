@@ -5,7 +5,11 @@
 <body class="bg-light ecs-cap-reports"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
-<h1 class="ecs-workspace-title h5">Audit-Ready Export Center</h1>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+<h1 class="ecs-workspace-title h5 mb-0">Audit-Ready Export Center</h1>
+{% from "partials/ecs_data_source_indicator.html" import ecs_data_source_indicator %}
+{{ ecs_data_source_indicator(module_view.data_source|default(none)) }}
+</div>
 {% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
 {% include "partials/role_metrics_strip.html" %}
 {% from "partials/mvp_workspace_macros.html" import workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}

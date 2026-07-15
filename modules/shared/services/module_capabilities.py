@@ -438,6 +438,7 @@ def _enterprise_view(role: str) -> dict:
         "maturity_heatmap": [{"framework": r["framework"], "pct": r["maturity_pct"]} for r in rows],
         "standard_dataset": std,
         "actions": _actions_for(role, enterprise=True),
+        "data_source": ent.get("data_source"),
     }
 
 
@@ -473,6 +474,7 @@ def _pan_india_view(role: str) -> dict:
         ],
         "standard_dataset": std,
         "actions": _actions_for(role, pan_india=True),
+        "data_source": posture.get("data_source"),
     }
 
 
@@ -509,6 +511,7 @@ def _reports_view(role: str) -> dict:
         "reports_overview": overview,
         "standard_dataset": std,
         "actions": _actions_for(role, reports=True),
+        "data_source": overview.get("data_source"),
     }
 
 
@@ -554,6 +557,8 @@ def _trends_view(role: str, filters: dict | None = None) -> dict:
     view = build_trends_module_view(role, filters)
     view["granularity_trends"] = build_granularity_trends(filters)
     view["actions"] = _actions_for(role, trends=True)
+    if not view.get("data_source"):
+        view["data_source"] = (view.get("intel") or {}).get("data_source")
     return view
 
 

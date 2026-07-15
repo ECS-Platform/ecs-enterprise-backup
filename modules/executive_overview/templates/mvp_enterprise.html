@@ -2,7 +2,11 @@
 <body class="bg-light ecs-cap-enterprise"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
-<h1 class="ecs-workspace-title h5">Enterprise Governance Overview</h1>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+<h1 class="ecs-workspace-title h5 mb-0">Enterprise Governance Overview</h1>
+{% from "partials/ecs_data_source_indicator.html" import ecs_data_source_indicator %}
+{{ ecs_data_source_indicator(module_view.data_source|default(none)) }}
+</div>
 {% include "partials/role_metrics_strip.html" %}
 {% if role_metrics and role_metrics.show_strip|default(true) %}
 <div class="card shadow-sm mb-2 border-warning border-opacity-25">
