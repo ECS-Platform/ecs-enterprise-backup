@@ -1,0 +1,24 @@
+{# Reusable LIVE / DEMO / PARTIAL data-source indicator — reuses demo-mode-pill styling. #}
+{% macro ecs_data_source_indicator(data_source) %}
+{% if data_source is defined and data_source.status %}
+<style>
+.ecs-data-source-pill {
+  background: linear-gradient(90deg, #16a34a, #2563eb); color: #fff;
+  padding: 0.2rem 0.7rem; border-radius: 14px; font-size: 0.66rem;
+  font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.ecs-data-source-pill::before { content: '●'; font-size: 0.9rem; }
+.ecs-data-source-pill.ecs-data-source-live::before { color: #4ade80; }
+.ecs-data-source-pill.ecs-data-source-demo::before { color: #facc15; }
+.ecs-data-source-pill.ecs-data-source-partial {
+  background: linear-gradient(90deg, #0d9488, #2563eb);
+}
+.ecs-data-source-pill.ecs-data-source-partial::before { color: #fdba74; }
+</style>
+<span class="ecs-data-source-pill ecs-data-source-{{ data_source.status|lower }}"
+  title="{{ data_source.tooltip }}"
+  data-ecs-data-source="{{ data_source.status }}"
+  data-ecs-data-provider="{{ data_source.provider }}">{{ data_source.label }}</span>
+{% endif %}
+{% endmacro %}

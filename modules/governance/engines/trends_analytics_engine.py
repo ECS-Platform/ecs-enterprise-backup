@@ -280,6 +280,8 @@ def build_trends_tab_payload(filters: dict | None = None) -> dict[str, Any]:
     records = get_all_evidence_records()
     expired = sum(1 for r in records if r.get("evidence_status") == "Expired")
 
+    from modules.shared.utils.data_source_marker import trends_analytics_data_source
+
     return {
         "filters": f,
         "scope_summary": _scope_label(f),
@@ -303,4 +305,5 @@ def build_trends_tab_payload(filters: dict | None = None) -> dict[str, Any]:
             "due_refresh": sum(1 for r in records if r.get("evidence_status") == "Due for Refresh"),
         },
         "executive_kpis": build_executive_trends_kpis(f),
+        "data_source": trends_analytics_data_source(),
     }

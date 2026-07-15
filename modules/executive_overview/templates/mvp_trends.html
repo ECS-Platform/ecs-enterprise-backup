@@ -7,7 +7,11 @@
 <body class="bg-light ecs-cap-trends ecs-analytics-live"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
-<h1 class="ecs-workspace-title h5">Compliance Analytics &amp; Trends</h1>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+<h1 class="ecs-workspace-title h5 mb-0">Compliance Analytics &amp; Trends</h1>
+{% from "partials/ecs_data_source_indicator.html" import ecs_data_source_indicator %}
+{{ ecs_data_source_indicator(module_view.data_source|default(none)) }}
+</div>
 {% include "partials/role_metrics_strip.html" %}
 {% from "partials/mvp_workspace_macros.html" import workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/analytics_macros.html" import metric_info %}

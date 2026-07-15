@@ -125,6 +125,8 @@ def enterprise_dashboard():
         / len(ecs_state.PAN_INDIA_REGIONS),
         1,
     )
+    from modules.shared.utils.data_source_marker import enterprise_dashboard_data_source
+
     return {
         "analytics": stats,
         "completeness": comp,
@@ -136,6 +138,7 @@ def enterprise_dashboard():
         "branch_total": ecs_state.PAN_INDIA_BRANCH_TOTAL,
         "kpis": enterprise_kpis(),
         "approval_history": get_approval_history(8),
+        "data_source": enterprise_dashboard_data_source(),
     }
 
 

@@ -11,6 +11,7 @@ from modules.shared.utils.demo_data_standards import (
     seed,
     between,
 )
+from modules.shared.utils.data_source_marker import ecs_regulatory_report_data_source
 from modules.frameworks.engines.framework_catalog import FRAMEWORK_CATALOG
 
 REPORT_TYPES = {
@@ -168,7 +169,11 @@ def build_report(report_type: str) -> dict | None:
         "findings-remediation": build_findings_remediation_report,
     }
     fn = builders.get(report_type)
-    return fn() if fn else None
+    if not fn:
+        return None
+    report = fn()
+    report["data_source"] = ecs_regulatory_report_data_source(report_type)
+    return report
 
 
 def report_type_for_catalog_id(report_id: str) -> str | None:

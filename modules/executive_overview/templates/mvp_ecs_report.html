@@ -4,7 +4,11 @@
 <div class="col-md-10 ecs-workspace-main">
 <div class="d-flex justify-content-between align-items-start mb-2">
 <div>
-<h1 class="ecs-workspace-title h5 mb-1">{{ report.title }}</h1>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+<h1 class="ecs-workspace-title h5 mb-0">{{ report.title }}</h1>
+{% from "partials/ecs_data_source_indicator.html" import ecs_data_source_indicator %}
+{{ ecs_data_source_indicator(report.data_source|default(none)) }}
+</div>
 <p class="ecs-exec-desc-muted mb-0">{{ report.subtitle }}</p>
 </div>
 <a href="/mvp/reports?role={{ role }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-secondary">← Reports</a>

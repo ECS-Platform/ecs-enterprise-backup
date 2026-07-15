@@ -289,6 +289,8 @@ def build_reports_overview(role: str = "cio") -> dict[str, Any]:
     failed = list_failed_export_records()
     kpis = build_reporting_health_kpis()
 
+    from modules.shared.utils.data_source_marker import reports_overview_data_source
+
     return {
         "catalog": catalog,
         "generated_records": generated,
@@ -310,4 +312,5 @@ def build_reports_overview(role: str = "cio") -> dict[str, Any]:
             "pending": len(pending),
             "failed": len(failed),
         },
+        "data_source": reports_overview_data_source(),
     }
