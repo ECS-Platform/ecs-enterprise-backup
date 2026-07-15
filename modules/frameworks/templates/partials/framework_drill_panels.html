@@ -61,7 +61,7 @@ data-ecs-framework-row-drill data-ecs-framework-row-framework="{{ fw|e }}" data-
 </tbody></table></div></div>
 
 {# CONTROL LIBRARY #}
-<div class="tab-pane fade{% if default_tab in ['control-library', 'controls'] %} show active{% endif %}" id="pane-control-library" role="tabpanel">
+<div class="tab-pane fade{% if default_tab in ['controls', 'control-library'] %} show active{% endif %}" id="pane-controls" role="tabpanel">
 {% if gc %}<p class="small text-muted mb-2"><strong>{{ framework_name }} control library</strong> — {{ gc.scope.control_count }} controls mapped to {{ gc.scope.application_count }} applications</p>{% endif %}
 <div class="table-responsive ecs-paginated-wrap ecs-table-wrap ecs-fit-view">
 <table class="table ecs-table-modern ecs-paginated-table ecs-force-paginate ecs-fit-table ecs-compact-table table-sm mb-0">

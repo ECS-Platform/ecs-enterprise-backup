@@ -475,7 +475,7 @@ def _executive_extras(framework_name: str, controls: list[dict], stats: dict[str
 def _drill_modules(framework_name: str) -> list[dict]:
     base = [
         {"id": "applications", "label": "Applications", "icon": "◫"},
-        {"id": "control-library", "label": "Control Library", "icon": "☑"},
+        {"id": "controls", "label": "Control Library", "icon": "☑"},
         {"id": "evidence", "label": "Evidence Repository", "icon": "📁"},
         {"id": "pending", "label": "Pending Actions & Gaps", "icon": "⏳"},
         {"id": "findings", "label": "Open Observations", "icon": "⚠"},

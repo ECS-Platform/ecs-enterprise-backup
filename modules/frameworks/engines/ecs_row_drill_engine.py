@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from modules.shared.utils.demo_data_standards import ensure_drill_rows, generate_standard_drill_row, pick, seed, between
+from modules.shared.utils.demo_data_standards import BANKING_APPLICATIONS, ensure_drill_rows, generate_standard_drill_row, pick, seed, between
 from modules.frameworks.engines.framework_catalog import get_framework_controls
 from modules.governance.engines.governance_relational_model import get_framework_graph
 from modules.frameworks.engines.framework_workflow_engine import _fw_apps
@@ -91,13 +91,25 @@ def _standard_row(
     return row
 
 
+def _scope_all(row_id: str) -> bool:
+    return (row_id or "").strip().lower() in {
+        "all", "repository", "open", "actions", "hub", "register", "mapping", "analytics", "",
+    }
+
+
 def drill_framework_row(framework: str, row_type: str, row_id: str) -> dict[str, Any]:
     fw = framework.strip()
     row_type = (row_type or "application").strip().lower()
     row_id = (row_id or "").strip()
     controls = get_framework_controls(fw)
     apps = list(_fw_apps(fw, controls))
-    application = row_id if row_id in apps or row_type == "application" else (apps[0] if apps else "Net Banking")
+    scope_all = _scope_all(row_id)
+    if scope_all:
+        application = apps[0] if apps else "Net Banking"
+    elif row_id in apps or row_type == "application":
+        application = row_id
+    else:
+        application = apps[0] if apps else "Net Banking"
 
     detail: dict[str, Any] = {
         "application": application,
@@ -152,8 +164,8 @@ def drill_framework_row(framework: str, row_type: str, row_id: str) -> dict[str,
         detail["finding"] = row_id
 
     graph = get_framework_graph(fw)
-    app_meta = next((a for a in graph.get("applications", []) if a.get("name") == application), None)
-    selected_owner = app_meta.get("owner") if app_meta else detail.get("owner")
+    app_meta = next((a for a in graph.get("applications", []) if a.get("name") == application), None) if not scope_all else None
+    selected_owner = app_meta.get("owner") if app_meta else None
     if selected_owner:
         detail["owner"] = selected_owner
 
@@ -245,36 +257,79 @@ def drill_framework_row(framework: str, row_type: str, row_id: str) -> dict[str,
         else:
             primary = _related_rows(fw, application, row_type, 8)
     else:
-        app_controls = [c for c in graph.get("controls", []) if c.get("application") == application]
-        app_findings = [f for f in graph.get("findings", []) if f.get("application") == application]
-        for c in app_controls:
-            related_controls.append(_standard_row(
-                fw, application,
-                domain=c.get("domain", "Governance"),
-                control=c.get("control_name", c.get("control_id", "—")),
-                evidence=c.get("evidence_name", "—"),
-                owner=c.get("owner", selected_owner or "—"),
-                status=c.get("workflow", "—"),
-                risk="High" if c.get("validation") == "FAIL" else ("Medium" if c.get("validation") == "WARN" else "Low"),
-                control_id=c.get("control_id", ""),
-            ))
-        for f in app_findings:
-            related_findings.append(_standard_row(
-                fw, application,
-                control=f.get("linked_control", "—"),
-                finding=f.get("observation", f.get("finding_id", "—")),
-                evidence=f.get("linked_evidence", "—"),
-                owner=f.get("owner", selected_owner or "—"),
-                status=f.get("status", "Open"),
-                risk=f.get("severity", "High"),
-                last_updated=f.get("open_since", "—"),
-                control_id=f.get("linked_control", ""),
-                finding_id=f.get("finding_id", ""),
-            ))
-        primary = related_findings + related_controls
+        if scope_all and row_type == "application":
+            for app_name in (apps or BANKING_APPLICATIONS[:8]):
+                app_controls = [c for c in graph.get("controls", []) if c.get("application") == app_name]
+                app_findings = [f for f in graph.get("findings", []) if f.get("application") == app_name]
+                for c in app_controls:
+                    related_controls.append(_standard_row(
+                        fw, app_name,
+                        domain=c.get("domain", "Governance"),
+                        control=c.get("control_name", c.get("control_id", "—")),
+                        evidence=c.get("evidence_name", "—"),
+                        owner=c.get("owner", "—"),
+                        status=c.get("workflow", "—"),
+                        risk="High" if c.get("validation") == "FAIL" else ("Medium" if c.get("validation") == "WARN" else "Low"),
+                        control_id=c.get("control_id", ""),
+                    ))
+                for f in app_findings:
+                    related_findings.append(_standard_row(
+                        fw, app_name,
+                        control=f.get("linked_control", "—"),
+                        finding=f.get("observation", f.get("finding_id", "—")),
+                        evidence=f.get("linked_evidence", "—"),
+                        owner=f.get("owner", "—"),
+                        status=f.get("status", "Open"),
+                        risk=f.get("severity", "High"),
+                        last_updated=f.get("open_since", "—"),
+                        control_id=f.get("linked_control", ""),
+                        finding_id=f.get("finding_id", ""),
+                    ))
+            primary = related_findings + related_controls
+        else:
+            app_controls = [c for c in graph.get("controls", []) if c.get("application") == application]
+            app_findings = [f for f in graph.get("findings", []) if f.get("application") == application]
+            for c in app_controls:
+                related_controls.append(_standard_row(
+                    fw, application,
+                    domain=c.get("domain", "Governance"),
+                    control=c.get("control_name", c.get("control_id", "—")),
+                    evidence=c.get("evidence_name", "—"),
+                    owner=c.get("owner", selected_owner or "—"),
+                    status=c.get("workflow", "—"),
+                    risk="High" if c.get("validation") == "FAIL" else ("Medium" if c.get("validation") == "WARN" else "Low"),
+                    control_id=c.get("control_id", ""),
+                ))
+            for f in app_findings:
+                related_findings.append(_standard_row(
+                    fw, application,
+                    control=f.get("linked_control", "—"),
+                    finding=f.get("observation", f.get("finding_id", "—")),
+                    evidence=f.get("linked_evidence", "—"),
+                    owner=f.get("owner", selected_owner or "—"),
+                    status=f.get("status", "Open"),
+                    risk=f.get("severity", "High"),
+                    last_updated=f.get("open_since", "—"),
+                    control_id=f.get("linked_control", ""),
+                    finding_id=f.get("finding_id", ""),
+                ))
+            primary = related_findings + related_controls
 
     if not primary:
         primary = _related_rows(fw, application, row_type, 8)
+    if scope_all and row_type == "control":
+        for ctrl in controls:
+            related_controls.append(_standard_row(
+                fw,
+                pick(seed(fw, ctrl.get("control_id", "")), apps or BANKING_APPLICATIONS),
+                domain="Governance",
+                control=ctrl.get("control", ctrl.get("control_id", "—")),
+                evidence="—",
+                owner=pick(seed(ctrl.get("control_id", ""), fw), ["R. Mehta", "A. Sharma", "S. Banerjee"]),
+                status="Pending",
+                risk="Medium",
+                control_id=ctrl.get("control_id", ""),
+            ))
     if not related_controls:
         related_controls = _related_rows(fw, application, "control", 6)
     if not related_evidence:
@@ -286,11 +341,16 @@ def drill_framework_row(framework: str, row_type: str, row_id: str) -> dict[str,
 
     all_rows = primary + related_controls + related_evidence + related_findings
     rows = ensure_drill_rows(all_rows, 25, metric=f"{fw}:row:{row_type}")
-    rows = [r for r in rows if r.get("framework") == fw]
-    if application:
+    for r in rows:
+        r["framework"] = fw
+    if application and not scope_all:
         rows = [r for r in rows if r.get("application") in (application, "—")]
-    if selected_owner:
+    if selected_owner and not scope_all and row_type == "application" and row_id in apps:
         rows = [r for r in rows if r.get("owner") in (selected_owner, "—")]
+    if len(rows) < 25:
+        rows = ensure_drill_rows(rows, 25, metric=f"{fw}:row:{row_type}")
+        for r in rows:
+            r["framework"] = fw
 
     sections = {
         "related_controls": ensure_drill_rows(related_controls, 10, metric="ctrl"),
@@ -300,12 +360,16 @@ def drill_framework_row(framework: str, row_type: str, row_id: str) -> dict[str,
         "related_framework_mappings": ensure_drill_rows(related_mappings, 10, metric="map"),
     }
     for k, v in list(sections.items()):
-        scoped = [r for r in v if r.get("framework") == fw]
-        if application:
+        scoped = list(v)
+        if application and not scope_all:
             scoped = [r for r in scoped if r.get("application") in (application, "—")]
-        if selected_owner:
+        if selected_owner and not scope_all and row_type == "application" and row_id in apps:
             scoped = [r for r in scoped if r.get("owner") in (selected_owner, "—")]
-        sections[k] = scoped
+        for r in scoped:
+            r["framework"] = fw
+        sections[k] = ensure_drill_rows(scoped, 10, metric=f"{fw}:sec:{k}")
+        for r in sections[k]:
+            r["framework"] = fw
 
     for r in rows:
         for c in STANDARD_COLUMNS:
