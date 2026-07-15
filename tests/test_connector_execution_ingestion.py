@@ -222,7 +222,16 @@ def test_representative_connector_full_ingestion_chain(connector, payload):
     # The collected object is present in the audit-intelligence repository.
     keys_after = {a.evidence_key for a in ai_repo.all_latest()}
     assert len(keys_after) >= len(keys_before)
-    assert any(connector in k for k in keys_after)  # mirrored into audit repo
+    new_artifacts = [a for a in ai_repo.all_latest() if a.evidence_key not in keys_before]
+    assert len(new_artifacts) == 1
+    art = new_artifacts[0]
+    assert art.source_connector == connector
+    assert art.asset_id == "Net Banking"
+    assert fw in art.frameworks
+    assert len(art.content_hash) == 64
+    assert art.version >= 1
+    if art.source_item_id:
+        assert art.source_item_id  # preserved when the normalized item exposes an id
     rcpt = res["receipts"][0]
     assert rcpt["sha256"]                     # SHA-256 computed
     assert rcpt["audit_repository_synced"] is True

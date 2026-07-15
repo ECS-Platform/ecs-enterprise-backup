@@ -57,10 +57,10 @@ def register_upload(
     environment: str = "",
     mime_type: str = "",
     metadata: dict | None = None,
+    source_modified_at: str = "",
+    custody_mode: str = "",
 ):
     std_name = enforce_naming(filename, framework or "GENERAL", application)
-    file_hash = compute_hash(content or std_name.encode())
-    integrity = integrity_check(file_hash, content or b"")
     now = datetime.now(timezone.utc).isoformat()
 
     record = {
@@ -72,9 +72,8 @@ def register_upload(
         "control": control,
         "uploaded_by": uploaded_by,
         "uploaded_at": now,
-        "sha256": file_hash,
-        "integrity": integrity["status"],
-        "integrity_valid": integrity["valid"],
+        "integrity": "Valid",
+        "integrity_valid": True,
         "lifecycle": "Draft",
         "summary": "",
         "size_bytes": len(content) if content else 0,
@@ -85,9 +84,20 @@ def register_upload(
         "environment": environment,
         "mime_type": mime_type,
         "metadata": dict(metadata or {}),
+        "source_modified_at": source_modified_at,
+        "custody_mode": custody_mode,
+        "version": 1,
     }
+    custody = _apply_custody(record, content or b"", application, control)
+    file_hash = custody.content_hash
+    integrity = integrity_check(file_hash, content or b"")
+    record["sha256"] = file_hash
+    record["integrity"] = integrity["status"]
+    record["integrity_valid"] = integrity["valid"]
+    record["custody_mode"] = custody.custody_mode
+    record["object_uri"] = custody.object_uri
+    record["size_bytes"] = custody.size_bytes
     record["summary"] = generate_summary(record)
-    record["version"] = 1
     record["reviewer"] = "Pending Assignment"
     evidence_repository.append(record)
     # Mirror the upload into the audit-intelligence evidence repository so manual /
@@ -117,6 +127,47 @@ def register_upload(
     )
     _link_reuse(record)
     return record
+
+
+def _apply_custody(record, content: bytes, application: str, control: str):
+    """Resolve evidence custody (REFERENCE_ONLY default). Never raises."""
+    try:
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+        from modules.audit_intelligence.services import evidence_custody as custody
+
+        evidence_key = ai_repo.make_evidence_key(application, control or record.get("filename", "UPLOAD"))
+        result = custody.resolve_custody(
+            source_connector=record.get("source_connector", ""),
+            source_item_id=record.get("source_item_id", ""),
+            source_url=record.get("source_url", ""),
+            source_modified_at=record.get("source_modified_at", ""),
+            filename=record.get("filename", ""),
+            mime_type=record.get("mime_type", ""),
+            evidence_key=evidence_key,
+            version=int(record.get("version", 1) or 1),
+            content=content or None,
+            custody_mode=record.get("custody_mode") or None,
+        )
+        if result.reason:
+            meta = dict(record.get("metadata") or {})
+            meta["custody_reason"] = result.reason
+            record["metadata"] = meta
+        return result
+    except Exception:  # noqa: BLE001
+        from modules.audit_intelligence.services.evidence_custody import CustodyResult
+
+        fallback_hash = compute_hash(content or record.get("filename", "").encode())
+        return CustodyResult(
+            custody_mode="REFERENCE_ONLY",
+            content_hash=fallback_hash,
+            size_bytes=len(content) if content else 0,
+            source_url=record.get("source_url", ""),
+            source_item_id=record.get("source_item_id", ""),
+            source_modified_at=record.get("source_modified_at", ""),
+            object_uri="",
+            stored=False,
+            reason="custody_fallback",
+        )
 
 
 def _mirror_to_audit_repository(record, content, framework, application, control):
@@ -164,6 +215,11 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             source_url=record.get("source_url", ""),
             mime_type=record.get("mime_type", ""),
             metadata=record.get("metadata") or {},
+            custody_mode=record.get("custody_mode", "REFERENCE_ONLY"),
+            source_modified_at=record.get("source_modified_at", ""),
+            object_uri=record.get("object_uri", ""),
+            content_hash_override=record.get("sha256", ""),
+            size_bytes_override=int(record.get("size_bytes", 0) or 0),
         )
         record["audit_repository_synced"] = True
     except Exception:  # noqa: BLE001 - bridge must never break the primary upload

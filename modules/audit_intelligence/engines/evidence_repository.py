@@ -195,6 +195,11 @@ def store_evidence(
     source_url: str = "",
     mime_type: str = "",
     metadata: dict[str, Any] | None = None,
+    custody_mode: str = "REFERENCE_ONLY",
+    source_modified_at: str = "",
+    object_uri: str = "",
+    content_hash_override: str = "",
+    size_bytes_override: int = 0,
 ) -> EvidenceArtifact:
     """Store a new evidence version. Returns the created :class:`EvidenceArtifact`.
 
@@ -203,7 +208,12 @@ def store_evidence(
     ``source_item_id`` is supplied, writes are idempotent for the same content hash.
     """
     key = evidence_key or make_evidence_key(asset_id, control_id)
-    content_hash, checksum, size = _hash_content(content)
+    if content_hash_override:
+        content_hash = content_hash_override
+        checksum = content_hash[:8]
+        size = int(size_bytes_override or len((content or "").encode("utf-8")))
+    else:
+        content_hash, checksum, size = _hash_content(content)
 
     duplicate = (
         _find_in_memory_duplicate(source_item_id, content_hash)
@@ -240,6 +250,9 @@ def store_evidence(
         source_url=source_url,
         mime_type=mime_type,
         metadata=_metadata_tuple(metadata),
+        custody_mode=custody_mode or "REFERENCE_ONLY",
+        source_modified_at=source_modified_at,
+        object_uri=object_uri,
     )
     versions = _STORE.setdefault(key, [])
     versions.append(artifact)

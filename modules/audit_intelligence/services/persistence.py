@@ -204,6 +204,9 @@ def artifact_from_dict(data: dict[str, Any]) -> EvidenceArtifact:
         source_url=data.get("source_url", ""),
         mime_type=data.get("mime_type", ""),
         metadata=_metadata_tuple(data.get("metadata")),
+        custody_mode=data.get("custody_mode", "REFERENCE_ONLY"),
+        source_modified_at=data.get("source_modified_at", ""),
+        object_uri=data.get("object_uri", ""),
     )
 
 

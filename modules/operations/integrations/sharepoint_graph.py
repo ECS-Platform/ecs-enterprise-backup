@@ -165,6 +165,40 @@ class SharePointGraphClient(GraphAdapter):
         """Explicit metadata-only accessor (contents are NEVER downloaded)."""
         return self.fetch_file_metadata(item_id, drive_id=drive_id)
 
+    def stream_file_content(self, item_id: str, drive_id: str = "") -> dict[str, Any]:
+        """Stream file bytes for explicit SNAPSHOT custody only (opt-in upstream).
+
+        Traversal paths remain metadata-only; this helper is called only when custody
+        SNAPSHOT mode is enabled. Never raises.
+        """
+        drive_id = drive_id or self.config.get("drive_id") or ""
+        if not drive_id or not item_id:
+            return _base.error_response(SOURCE, "http_error",
+                                        "drive_id and item_id are required")
+        if not self.is_configured():
+            return _base.not_configured_response(SOURCE)
+        try:
+            self.authenticate()
+            transport = self.transport or _base._default_transport(self.source)
+            url = f"{self.base_url()}/drives/{drive_id}/items/{item_id}/content"
+            result = transport("GET", url, self.headers(), {})
+            if isinstance(result, dict) and result.get("content_bytes") is not None:
+                body = result.get("content_bytes")
+                if isinstance(body, str):
+                    body = body.encode("utf-8")
+                return {
+                    "ok": True,
+                    "source": SOURCE,
+                    "status": "ok",
+                    "items": [],
+                    "errors": [],
+                    "content_bytes": body,
+                    "size_bytes": len(body or b""),
+                }
+            return _base.error_response(SOURCE, "empty", "file content unavailable")
+        except Exception as exc:  # noqa: BLE001
+            return _base.error_response(SOURCE, "transport_error", type(exc).__name__)
+
     def fetch_item_children(self, item_id: str, drive_id: str = "",
                             max_items: int = 1000) -> dict[str, Any]:
         """List child items of a drive folder by item id (metadata only)."""

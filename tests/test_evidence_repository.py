@@ -18,6 +18,13 @@ def _clean():
     repo.reset_repository()
     yield
     repo.reset_repository()
+    try:
+        from modules.audit_intelligence.services import persistence as P
+
+        P.reset_persistence()
+    except Exception:  # noqa: BLE001
+        pass
+    os.environ.pop("AUDIT_WORKFLOW_ENABLED", None)
 
 
 def test_store_creates_v1_with_hash():

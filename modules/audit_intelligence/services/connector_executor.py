@@ -90,6 +90,7 @@ def _ingest_items(
     control: str,
     collected_by: str,
     max_items: int,
+    transport: Optional[Callable[..., dict]] = None,
 ) -> list[dict[str, Any]]:
     """Bridge normalized connector objects into evidence via ``register_upload``.
 
@@ -103,19 +104,74 @@ def _ingest_items(
         if not isinstance(item, dict):
             item = {"value": item}
         try:
+            source_item_id = str(
+                item.get("item_id") or item.get("id") or item.get("source_object_id") or "",
+            )
+            source_url = str(item.get("web_url") or item.get("url") or "")
+            source_modified = str(
+                item.get("modified_datetime") or item.get("last_modified") or "",
+            )
+            mime_type = str(item.get("mime_type") or "")
+            environment = str(item.get("environment") or "")
+            item_control = str(
+                item.get("control_or_observation") or control or "",
+            )
+            item_framework = str(item.get("framework") or framework or "")
+            filename = str(
+                item.get("filename") or item.get("name") or _item_filename(connector, item, idx),
+            )
+            metadata = {
+                k: str(v)
+                for k, v in item.items()
+                if k not in {"content_bytes", "content"}
+            }
+            content = item.get("content_bytes")
+            if content is None and isinstance(item.get("content"), (bytes, bytearray)):
+                content = item.get("content")
+            if content is None:
+                from modules.audit_intelligence.services import evidence_custody as custody
+
+                if (
+                    custody.snapshot_enabled()
+                    and connector == "sharepoint_graph"
+                    and source_item_id
+                ):
+                    try:
+                        from modules.operations.integrations import sharepoint_graph as sp
+
+                        client = sp.SharePointGraphClient(transport=transport)
+                        fetched = client.stream_file_content(
+                            source_item_id,
+                            drive_id=str(item.get("drive_id") or ""),
+                        )
+                        if fetched.get("ok"):
+                            content = fetched.get("content_bytes")
+                    except Exception:  # noqa: BLE001
+                        content = None
+            if content is None:
+                content = _item_to_content(item)
             record = ops_repo.register_upload(
-                filename=_item_filename(connector, item, idx),
-                content=_item_to_content(item),
+                filename=filename,
+                content=content if isinstance(content, (bytes, bytearray)) else str(content).encode(),
                 uploaded_by=collected_by,
-                framework=framework,
+                framework=item_framework,
                 application=application or "Net Banking",
-                control=control,
+                control=item_control,
+                source_connector=connector,
+                source_item_id=source_item_id,
+                source_url=source_url,
+                environment=environment,
+                mime_type=mime_type,
+                metadata=metadata,
+                source_modified_at=source_modified,
             )
             receipts.append({
                 "evidence_id": record.get("evidence_id"),
                 "filename": record.get("filename"),
                 "audit_repository_synced": record.get("audit_repository_synced", False),
                 "sha256": record.get("sha256"),
+                "custody_mode": record.get("custody_mode"),
+                "object_uri": record.get("object_uri", ""),
             })
         except Exception as exc:  # noqa: BLE001 - one bad item must not abort the run
             receipts.append({"error": type(exc).__name__, "index": idx})
@@ -226,6 +282,7 @@ def collect_evidence(
         receipts = _ingest_items(
             connector, items, framework=framework, application=application,
             control=control, collected_by=collected_by, max_items=max_items,
+            transport=transport,
         )
     ingested = sum(1 for r in receipts if r.get("evidence_id"))
     return {

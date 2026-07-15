@@ -374,6 +374,9 @@ class EvidenceArtifact:
     source_url: str = ""
     mime_type: str = ""
     metadata: tuple[tuple[str, str], ...] = ()
+    custody_mode: str = "REFERENCE_ONLY"
+    source_modified_at: str = ""
+    object_uri: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)

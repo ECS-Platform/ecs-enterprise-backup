@@ -23,6 +23,13 @@ repository:
     secret_key_env: MINIO_SECRET_KEY
     secure: ${MINIO_SECURE:-false}
 
+  # Evidence content custody (metadata in SQL; bytes in object store only for SNAPSHOT).
+  custody:
+    mode: ${ECS_EVIDENCE_CUSTODY_MODE:-REFERENCE_ONLY}   # REFERENCE_ONLY | SNAPSHOT
+    snapshot_enabled: ${ECS_EVIDENCE_SNAPSHOT_ENABLED:-false}
+    max_bytes: ${ECS_EVIDENCE_MAX_BYTES:-52428800}       # 50 MiB
+    allowed_mime_types: ${ECS_EVIDENCE_ALLOWED_MIME_TYPES:-application/pdf,application/json,text/plain,text/csv,image/png,image/jpeg}
+
   audit:
     enabled: true
     log_evidence_access: true
