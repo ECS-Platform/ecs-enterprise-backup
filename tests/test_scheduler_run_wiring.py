@@ -37,12 +37,22 @@ def _plan(jobs):
     return p
 
 
-def _job(asset_id="sp-1", connector="sharepoint_graph", scope_value="Net Banking",
-         frameworks=("PCI DSS",)):
+def _job(asset_id="local-sharepoint-evidence", connector="sharepoint_graph",
+         application="Evidence Library (mock)", scope_value="sharepoint_graph",
+         frameworks=()):
     return sch.PlannedJob(
         asset_id=asset_id, technology="SharePoint", route=sch.ROUTE_CONNECTOR,
         connector=connector, scope_kind="connector", scope_value=scope_value,
-        control_ids=(), frameworks=tuple(frameworks),
+        application=application, control_ids=(), frameworks=tuple(frameworks),
+    )
+
+
+def _linux_job(frameworks=("PCI DSS", "ITPP")):
+    return sch.PlannedJob(
+        asset_id="local-linux-host", technology="Linux", route=sch.ROUTE_BASELINE,
+        connector="", scope_kind="technology", scope_value="Linux",
+        application="ECS Demo", control_ids=("OS-001",),
+        frameworks=tuple(frameworks),
     )
 
 
@@ -53,8 +63,12 @@ def _stub_planner(monkeypatch):
     monkeypatch.setattr(sch, "load_assets", lambda *a, **k: [])
     monkeypatch.setattr(
         sch, "plan_evidence",
-        lambda *a, **k: _plan([_job(), _job(asset_id="jira-1", connector="jira",
-                                          scope_value="Payments", frameworks=("ITPP",))]),
+        lambda *a, **k: _plan([
+            _job(),
+            _job(asset_id="local-jira-project", connector="jira",
+                 application="Change Management (mock)", scope_value="jira"),
+            _linux_job(),
+        ]),
     )
     # Default: execution flag OFF unless a test overrides it.
     monkeypatch.delenv("ECS_CONNECTOR_EXECUTION_ENABLED", raising=False)
@@ -131,13 +145,74 @@ def test_injected_transport_forces_live_without_flag(monkeypatch):
 
 def test_selection_filters_planned_jobs(monkeypatch):
     monkeypatch.setattr(sch, "execute_plan", lambda *a, **k: [])
-    # Only the Payments/ITPP job should survive the selection.
-    res = sm.run_scheduler_collection(user="t", applications=["Payments"], frameworks=["ITPP"])
+    # Net Banking maps to the SharePoint evidence-library asset only.
+    res = sm.run_scheduler_collection(user="t", applications=["Net Banking"])
     assert res["planned_jobs"] == 1
-    assert res["connectors"] == ["jira"]
+    assert res["connectors"] == ["sharepoint_graph"]
+    # Payments maps to the Jira change-management asset only.
+    res_pay = sm.run_scheduler_collection(user="t", applications=["Payments"])
+    assert res_pay["planned_jobs"] == 1
+    assert res_pay["connectors"] == ["jira"]
+    # Framework filter is exact on planned job frameworks.
+    res_fw = sm.run_scheduler_collection(user="t", frameworks=["ITPP"])
+    assert res_fw["planned_jobs"] == 1
+    assert res_fw["connectors"] == []
     # An empty selection means "all".
     res_all = sm.run_scheduler_collection(user="t")
-    assert res_all["planned_jobs"] == 2
+    assert res_all["planned_jobs"] == 3
+
+
+def test_selection_net_banking_mobile_banking_payments(monkeypatch):
+    monkeypatch.setattr(sch, "execute_plan", lambda *a, **k: [])
+    monkeypatch.setattr(
+        sch, "plan_evidence",
+        lambda *a, **k: _plan([
+            _job(),
+            _job(asset_id="local-sonarqube", connector="sonarqube",
+                 application="ECS AppSec Demo", scope_value="sonarqube",
+                 frameworks=("AppSec",)),
+            _job(asset_id="local-jira-project", connector="jira",
+                 application="Change Management (mock)", scope_value="jira"),
+        ]),
+    )
+    assert sm.run_scheduler_collection(applications=["Net Banking"])["planned_jobs"] == 1
+    assert sm.run_scheduler_collection(applications=["Mobile Banking"])["planned_jobs"] == 1
+    assert sm.run_scheduler_collection(applications=["Payments"])["planned_jobs"] == 1
+
+
+def test_selection_exact_framework_and_normalized_spelling(monkeypatch):
+    monkeypatch.setattr(sch, "execute_plan", lambda *a, **k: [])
+    monkeypatch.setattr(
+        sch, "plan_evidence",
+        lambda *a, **k: _plan([
+            _linux_job(frameworks=("PCI DSS",)),
+            _linux_job(frameworks=("CSITE",)),
+        ]),
+    )
+    assert sm.run_scheduler_collection(frameworks=["PCI DSS"])["planned_jobs"] == 1
+    assert sm.run_scheduler_collection(frameworks=["C-SITE"])["planned_jobs"] == 1
+
+
+def test_selection_unknown_application_yields_zero_jobs(monkeypatch):
+    monkeypatch.setattr(sch, "execute_plan", lambda *a, **k: [])
+    res = sm.run_scheduler_collection(user="t", applications=["Not A Real Application"])
+    assert res["planned_jobs"] == 0
+    assert res["connectors"] == []
+
+
+def test_selection_unknown_framework_yields_zero_jobs(monkeypatch):
+    monkeypatch.setattr(sch, "execute_plan", lambda *a, **k: [])
+    res = sm.run_scheduler_collection(user="t", frameworks=["Not A Real Framework"])
+    assert res["planned_jobs"] == 0
+
+
+def test_normalize_helpers_are_deterministic():
+    assert sm.normalize_scheduler_applications([]) is None
+    assert sm.normalize_scheduler_applications(["Net Banking"]) == frozenset({
+        "evidence library (mock)", "local-sharepoint-evidence",
+    })
+    assert sm.normalize_scheduler_applications(["Unknown App"]) == frozenset()
+    assert sm.normalize_scheduler_frameworks(["C-SITE"]) == frozenset({"csite"})
 
 
 # --------------------------------------------------------------------------- #

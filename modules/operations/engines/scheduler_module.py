@@ -233,23 +233,113 @@ def is_scheduler_paused() -> bool:
     return bool(_scheduler_status.get("paused"))
 
 
+def _norm_scheduler_key(value: str) -> str:
+    return " ".join(str(value or "").strip().lower().split())
+
+
+# UI / scheduler-intelligence application labels -> canonical asset keys
+# (``application`` field + ``asset_id`` from the asset config). Exact match only.
+SCHEDULER_APPLICATION_MAP: dict[str, frozenset[str]] = {
+    "net banking": frozenset({"evidence library (mock)", "local-sharepoint-evidence"}),
+    "mobile banking": frozenset({"ecs appsec demo", "local-sonarqube"}),
+    "payments": frozenset({"change management (mock)", "local-jira-project"}),
+    "loan origination": frozenset({"change management (mock)", "local-jira-project"}),
+    "internet banking": frozenset({"evidence library (mock)", "local-sharepoint-evidence"}),
+    # Pass-through for asset-config application labels (local/UAT YAML).
+    "ecs demo": frozenset({
+        "ecs demo",
+        "local-postgres",
+        "local-nginx",
+        "local-redis",
+        "local-linux-host",
+    }),
+    "ecs appsec demo": frozenset({"ecs appsec demo", "local-sonarqube"}),
+    "evidence library (mock)": frozenset({
+        "evidence library (mock)",
+        "local-sharepoint-evidence",
+    }),
+    "change management (mock)": frozenset({
+        "change management (mock)",
+        "local-jira-project",
+    }),
+    "cmdb (mock)": frozenset({"cmdb (mock)", "local-servicenow-cmdb"}),
+}
+
+# UI framework labels -> canonical framework names on planned jobs (exact, lowercased).
+SCHEDULER_FRAMEWORK_ALIASES: dict[str, frozenset[str]] = {
+    "pci dss": frozenset({"pci dss"}),
+    "pci-dss": frozenset({"pci dss"}),
+    "dpsc": frozenset({"dpsc"}),
+    "itpp": frozenset({"itpp"}),
+    "appsec": frozenset({"appsec"}),
+    "csite": frozenset({"csite"}),
+    "c-site": frozenset({"csite"}),
+    "c site": frozenset({"csite"}),
+    "vapt": frozenset({"vapt"}),
+    "os baselining": frozenset({"os baselining"}),
+    "db baselining": frozenset({"db baselining"}),
+}
+
+
+def _job_canonical_keys(job) -> frozenset[str]:
+    keys: set[str] = set()
+    for field in ("application", "asset_id"):
+        val = _norm_scheduler_key(getattr(job, field, "") or "")
+        if val:
+            keys.add(val)
+    return frozenset(keys)
+
+
+def normalize_scheduler_applications(applications) -> frozenset[str] | None:
+    """Map UI application labels to canonical asset keys.
+
+    Returns ``None`` when the selection is empty (= all jobs). Returns an empty
+    set when every selected label is unknown (= zero jobs).
+    """
+    selected = [_norm_scheduler_key(a) for a in (applications or []) if _norm_scheduler_key(a)]
+    if not selected:
+        return None
+    canonical: set[str] = set()
+    for label in selected:
+        mapped = SCHEDULER_APPLICATION_MAP.get(label)
+        if mapped is not None:
+            canonical.update(mapped)
+    return frozenset(canonical)
+
+
+def normalize_scheduler_frameworks(frameworks) -> frozenset[str] | None:
+    """Map UI framework labels to canonical framework names on planned jobs."""
+    selected = [_norm_scheduler_key(f) for f in (frameworks or []) if _norm_scheduler_key(f)]
+    if not selected:
+        return None
+    canonical: set[str] = set()
+    for label in selected:
+        mapped = SCHEDULER_FRAMEWORK_ALIASES.get(label)
+        if mapped is not None:
+            canonical.update(mapped)
+    return frozenset(canonical)
+
+
 def _job_matches_selection(job, applications, frameworks) -> bool:
     """True when a planned job is in scope of the selected apps/frameworks.
 
-    Empty selections mean "all" (no filtering). Matching is case-insensitive and
-    based on the job's ``scope_value`` (the application/asset scope) and its
-    ``frameworks``. Reuses the planner's own job shape — no new scoping model.
+    Empty selections mean "all" (no filtering). Unknown labels yield zero jobs.
+    Matching is exact on canonical application/asset keys and framework names.
     """
-    apps = {a.strip().lower() for a in (applications or []) if str(a).strip()}
-    fws = {f.strip().lower() for f in (frameworks or []) if str(f).strip()}
-    if apps:
-        scope = str(getattr(job, "scope_value", "") or "").lower()
-        asset = str(getattr(job, "asset_id", "") or "").lower()
-        if not (scope in apps or asset in apps or any(a in scope for a in apps)):
+    app_keys = normalize_scheduler_applications(applications)
+    if app_keys is not None:
+        if not app_keys or not (_job_canonical_keys(job) & app_keys):
             return False
-    if fws:
-        job_fws = {str(f).strip().lower() for f in (getattr(job, "frameworks", ()) or ())}
-        if not (job_fws & fws):
+    fw_keys = normalize_scheduler_frameworks(frameworks)
+    if fw_keys is not None:
+        if not fw_keys:
+            return False
+        job_fws = {
+            _norm_scheduler_key(f)
+            for f in (getattr(job, "frameworks", ()) or ())
+            if _norm_scheduler_key(f)
+        }
+        if not (job_fws & fw_keys):
             return False
     return True
 
