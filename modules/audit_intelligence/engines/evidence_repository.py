@@ -90,6 +90,16 @@ def _persist_artifact(artifact: EvidenceArtifact) -> None:
         pass
 
 
+def _index_artifact(artifact: EvidenceArtifact, *, normalized_text: str = "") -> None:
+    """Best-effort vector indexing after persistence; never raises."""
+    try:
+        from ecs_platform.evidence_indexing import index_after_persist
+
+        index_after_persist(artifact, normalized_text=normalized_text)
+    except Exception:  # noqa: BLE001 - indexing must never break a store
+        pass
+
+
 def _find_in_memory_duplicate(source_item_id: str, content_hash: str) -> EvidenceArtifact | None:
     if not source_item_id or not content_hash:
         return None
@@ -273,6 +283,7 @@ def store_evidence(
     if len(_TIMELINE) > MAX_TIMELINE_EVENTS:
         del _TIMELINE[: len(_TIMELINE) - MAX_TIMELINE_EVENTS]
     _persist_artifact(artifact)
+    _index_artifact(artifact, normalized_text=content or "")
     _invalidate_dashboard_cache()
     return artifact
 
