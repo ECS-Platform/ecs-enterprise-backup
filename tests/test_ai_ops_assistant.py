@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
+os.environ.setdefault("DEMO_MODE", "true")
+os.environ.setdefault("ECS_AUTH_ENABLED", "false")
+os.environ.setdefault("ECS_VALIDATE_CONFIG", "off")
+
 from fastapi.testclient import TestClient
 
 from modules.operations.engines.ai_ops_assistant_engine import SAMPLE_QUERY_GROUPS, SUMMARY_MODES, build_assistant_view
@@ -23,11 +29,12 @@ def test_ai_ops_assistant_page_loads():
     assert "References &amp; Drilldowns" in text or "References & Drilldowns" in text
 
 
-def test_nav_contains_ai_ops_assistant():
-    resp = client.get(f"/mvp/demo-overview{Q}")
-    assert resp.status_code == 200
-    assert "AI Ops Assistant" in resp.text
-    assert "/mvp/ai-ops-assistant" in resp.text
+def test_nav_ai_ops_assistant_route_without_sidebar_link():
+    """Page stays routable; the approved Phase-1 sidebar omits AI Ops Assistant."""
+    assert client.get(f"/mvp/ai-ops-assistant{Q}").status_code == 200
+    nav = client.get(f"/dashboard{Q}").text
+    assert "AI Ops Assistant" not in nav
+    assert "/mvp/ai-ops-assistant" not in nav
 
 
 def test_sample_queries_present_on_page():

@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import re
+from collections import Counter
+
+os.environ.setdefault("DEMO_MODE", "true")
+os.environ.setdefault("ECS_AUTH_ENABLED", "false")
+os.environ.setdefault("ECS_VALIDATE_CONFIG", "off")
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -12,6 +20,7 @@ Q = "?role=cio&user=CIO"
 NEW_NAV_ROUTES = [
     ("/mvp/ai-sdlc", "ai_sdlc_home", "AI SDLC Governance"),
     ("/mvp/ai-sdlc/control-tower", "ai_sdlc_control_tower", "AI SDLC Control Tower"),
+    ("/mvp/ai-sdlc/phases", "ai_sdlc_phases", "AI SDLC Phases"),
     ("/mvp/ai-sdlc/onboarding", "ai_sdlc_onboarding", "Application Onboarding"),
     ("/mvp/ai-sdlc/requirements", "ai_sdlc_requirements", "My Requirement Activities"),
     ("/mvp/ai-sdlc/design", "ai_sdlc_design", "My Design Activities"),
@@ -19,13 +28,15 @@ NEW_NAV_ROUTES = [
     ("/mvp/ai-sdlc/testing", "ai_sdlc_testing", "My Testing Activities"),
     ("/mvp/ai-sdlc/golive", "ai_sdlc_golive", "My Go-Live Activities"),
     ("/mvp/ai-sdlc/evidence", "ai_sdlc_evidence", "Evidence Collection"),
-    ("/mvp/ai-sdlc/findings", "ai_sdlc_findings", "Findings"),
+    ("/mvp/ai-sdlc/findings", "ai_sdlc_findings", "Findings & Remediation"),
     ("/mvp/ai-sdlc/reports", "ai_sdlc_reports", "Reports"),
 ]
 
-SIDEBAR_ITEMS = [
-    "Home", "AI SDLC Control Tower", "Application Onboarding", "Requirements", "Design", "Development",
-    "Testing", "Go-Live", "Evidence Collection", "Findings & Remediation", "Reports",
+APPROVED_SIDEBAR_ITEMS = ["Home", "Control Tower", "Phases", "Reports"]
+
+REMOVED_SIDEBAR_ITEMS = [
+    "Application Onboarding", "Requirements", "Design", "Development", "Testing", "Go-Live",
+    "Evidence Collection", "Findings & Remediation",
 ]
 
 
@@ -37,13 +48,47 @@ def test_nav_all_workflow_routes():
         assert f'data-nav-module="{nav_mod}"' in resp.text, route
 
 
-def test_sidebar_new_menu_only():
+def test_sidebar_approved_consolidated_menu():
     html = client.get(f"/mvp/ai-sdlc{Q}").text
-    for item in SIDEBAR_ITEMS:
-        assert item.replace("&", "&amp;") in html or item in html
-    assert "AI Governance Posture" not in html
-    assert "SDLC Compliance Gates" not in html
+    ai_sdlc = html.split('id="nav-ai-sdlc"', 1)[1].split("</div>", 1)[0]
+    for item in APPROVED_SIDEBAR_ITEMS:
+        assert item in ai_sdlc, item
+    for item in REMOVED_SIDEBAR_ITEMS:
+        assert item not in ai_sdlc, item
+    assert "AI Governance Posture" not in ai_sdlc
+    assert "SDLC Compliance Gates" not in ai_sdlc
     assert 'class="aisdlc-subnav"' not in html
+
+
+def test_sidebar_no_duplicate_ai_sdlc_links():
+    html = client.get(f"/mvp/ai-sdlc{Q}").text
+    ai_sdlc = html.split('id="nav-ai-sdlc"', 1)[1].split("</nav>", 1)[0]
+    links = [
+        re.sub(r"\s+", " ", m).strip()
+        for m in re.findall(r'ecs-sidebar-btn[^>]*>([^<{]+)', ai_sdlc)
+        if m.strip()
+    ]
+    dups = {k: v for k, v in Counter(links).items() if v > 1}
+    assert not dups, f"duplicate AI SDLC nav labels: {dups}"
+
+
+def test_llm_workbench_route_reachable():
+    resp = client.get(f"/mvp/audit/llm-workbench{Q}")
+    assert resp.status_code == 200
+    assert "LLM Prompt Workbench" in resp.text
+    assert "/mvp/audit/llm-workbench" in resp.text
+
+
+def test_onboarding_screen_and_api_reachable():
+    resp = client.get(f"/mvp/ai-sdlc/onboarding{Q}")
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Onboard Application" in html
+    assert "ecsRunOnboarderBtn" in html
+    assert "/api/ai-sdlc/onboarding/run" in html
+    api = client.get(f"/api/ai-sdlc/onboarding/run{Q}")
+    assert api.status_code == 200
+    assert api.json().get("ok") is True
 
 
 def test_legacy_sdlc_gates_redirects():
@@ -77,7 +122,7 @@ def test_evidence_primary_workspace():
 def test_onboarding_execution_workspace():
     html = client.get(f"/mvp/ai-sdlc/onboarding{Q}").text
     assert "Onboard Application" in html
-    assert "Discover applications" in html
+    assert "Applications Discovered" in html
     assert "Supported Frameworks" not in html
     assert "ITPP Domain Structure" not in html
 

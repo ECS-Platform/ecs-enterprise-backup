@@ -50,8 +50,8 @@ def test_page_renders(path, heading):
     r = client.get(f"{path}?{Q}")
     assert r.status_code == 200, f"{path} -> {r.status_code}"
     assert heading in r.text
-    # Shared nav group present (reused ECS sidebar).
-    assert "Audit Intelligence" in r.text
+    assert "ecs-nav-groups" in r.text
+    assert "Audit Intelligence" not in r.text
 
 
 def test_mapping_page_has_data():
@@ -103,7 +103,8 @@ def test_packs_page_builds_pack():
 
 
 def test_nav_group_registered_on_existing_page():
-    # The new nav group should appear on an existing ECS page too (shared partial).
     r = client.get(f"/mvp/ecs-benchmark?{Q}")
     assert r.status_code == 200
-    assert "Audit Intelligence" in r.text
+    assert "ecs-nav-groups" in r.text
+    assert "Operations" in r.text
+    assert "Audit Intelligence" not in r.text

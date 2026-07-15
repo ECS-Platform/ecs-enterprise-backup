@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import re
 from urllib.parse import urlparse
+
+os.environ.setdefault("DEMO_MODE", "true")
+os.environ.setdefault("ECS_AUTH_ENABLED", "false")
+os.environ.setdefault("ECS_VALIDATE_CONFIG", "off")
 
 from fastapi.testclient import TestClient
 
@@ -28,10 +33,7 @@ GOVERNANCE_ROUTES = [
     ("/mvp/governance-quality", "Governance Quality"),
 ]
 
-SIDEBAR_NAV_LABELS = [
-    "Home", "Application Onboarding", "Requirements", "Design",
-    "Development", "Testing", "Go-Live", "Evidence Collection", "Reports",
-]
+SIDEBAR_NAV_LABELS = ["Home", "Control Tower", "Phases", "Reports"]
 
 DRILL_ENDPOINTS = [
     "/api/ai-sdlc/posture/drill?metric=inventory",
@@ -192,8 +194,9 @@ def _assert_no_top_module_subnav(html: str) -> None:
 
 def _assert_sidebar_module_nav(html: str) -> None:
     assert 'id="nav-ai-sdlc"' in html, "Sidebar AI SDLC group must remain"
+    ai_sdlc = html.split('id="nav-ai-sdlc"', 1)[1].split("</div>", 1)[0]
     for label in SIDEBAR_NAV_LABELS:
-        assert label.replace("&", "&amp;") in html or label in html
+        assert label.replace("&", "&amp;") in ai_sdlc or label in ai_sdlc
 
 
 def test_p1_001_ai_governance_posture_sidebar_only():
