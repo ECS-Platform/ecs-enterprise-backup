@@ -55,6 +55,11 @@ class EvidenceObjectStore(ABC):
     def uri_for_key(self, key: str) -> str:
         ...
 
+    @abstractmethod
+    def get_bytes(self, key: str) -> bytes | None:
+        """Return object bytes when present; ``None`` when missing or unreadable."""
+        ...
+
 
 class LocalObjectStore(EvidenceObjectStore):
     """Filesystem-backed store for tests and offline/demo fallback."""
@@ -79,6 +84,15 @@ class LocalObjectStore(EvidenceObjectStore):
 
     def uri_for_key(self, key: str) -> str:
         return f"file://{self._path(key).resolve()}"
+
+    def get_bytes(self, key: str) -> bytes | None:
+        path = self._path(key)
+        if not path.is_file():
+            return None
+        try:
+            return path.read_bytes()
+        except Exception:  # noqa: BLE001
+            return None
 
 
 class S3ObjectStore(EvidenceObjectStore):
@@ -129,6 +143,14 @@ class S3ObjectStore(EvidenceObjectStore):
     def uri_for_key(self, key: str) -> str:
         scheme = "https" if self._secure else "http"
         return f"{scheme}://{self._endpoint}/{self._bucket}/{key}"
+
+    def get_bytes(self, key: str) -> bytes | None:
+        try:
+            response = self._client_or_create().get_object(Bucket=self._bucket, Key=key)
+            body = response.get("Body")
+            return body.read() if body is not None else None
+        except Exception:  # noqa: BLE001
+            return None
 
 
 def _default_local_root() -> Path:
