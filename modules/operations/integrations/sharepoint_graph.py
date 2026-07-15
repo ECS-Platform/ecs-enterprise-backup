@@ -28,6 +28,10 @@ from modules.operations.integrations.ms_graph_base import (
     GraphAdapter,
     identity_name,
 )
+from modules.operations.integrations.sharepoint_evidence_path import (
+    decode_path,
+    parse_evidence_folder_path,
+)
 
 SOURCE = "sharepoint_graph"
 #: Preserved for backward compatibility (older imports referenced this here).
@@ -161,6 +165,115 @@ class SharePointGraphClient(GraphAdapter):
         """Explicit metadata-only accessor (contents are NEVER downloaded)."""
         return self.fetch_file_metadata(item_id, drive_id=drive_id)
 
+    def fetch_item_children(self, item_id: str, drive_id: str = "",
+                            max_items: int = 1000) -> dict[str, Any]:
+        """List child items of a drive folder by item id (metadata only)."""
+        drive_id = drive_id or self.config.get("drive_id") or ""
+        if not drive_id or not item_id:
+            return _base.error_response(SOURCE, "http_error",
+                                        "drive_id and item_id are required")
+        path = f"drives/{drive_id}/items/{item_id}/children"
+        return self.graph_collect(path, normalize_item, max_items=max_items)
+
+    def traverse_evidence_metadata(
+        self,
+        evidence_root: str = "",
+        drive_id: str = "",
+        *,
+        max_items: int = 5000,
+        max_depth: int = 20,
+    ) -> dict[str, Any]:
+        """Recursively walk an evidence-root folder and return metadata-only records.
+
+        Files whose relative path matches the evidence-folder contract are returned
+        in ``items``. Invalid or shallow paths are collected in ``rejected`` without
+        aborting the walk. Duplicate ``item_id`` values are skipped. File contents
+        are never downloaded.
+        """
+        if not self.is_configured():
+            return _base.not_configured_response(SOURCE)
+        drive_id = drive_id or self.config.get("drive_id") or ""
+        if not drive_id:
+            return _base.error_response(SOURCE, "http_error", "drive_id is required")
+        evidence_root = decode_path(
+            evidence_root or self.config.get("folder_path") or "",
+        )
+        accepted: list[dict[str, Any]] = []
+        rejected: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        def _reject_file(item: dict[str, Any], rel_path: str, parsed: dict[str, Any]) -> None:
+            rejected.append({
+                "item_id": item.get("item_id", ""),
+                "filename": item.get("name", ""),
+                "web_url": item.get("web_url", ""),
+                "drive_id": drive_id,
+                "parent_path": _parent_path(item),
+                "modified_datetime": item.get("modified_datetime", ""),
+                "relative_path": rel_path,
+                "rejection_code": parsed.get("rejection_code", ""),
+                "rejection_reason": parsed.get("rejection_reason", ""),
+                "accepted": False,
+            })
+
+        def _walk(*, folder_item_id: str = "", rel_prefix: str = "", depth: int = 0) -> None:
+            if depth > max_depth or len(accepted) >= max_items:
+                return
+            if folder_item_id:
+                listing = self.fetch_item_children(folder_item_id, drive_id=drive_id,
+                                                   max_items=max_items)
+            elif evidence_root:
+                listing = self.fetch_folder_items(folder_path=evidence_root,
+                                                    drive_id=drive_id,
+                                                    max_items=max_items)
+            else:
+                listing = self.fetch_drive_items(drive_id=drive_id, max_items=max_items)
+            if not listing.get("ok"):
+                rejected.append({
+                    "rejection_code": "fetch_failed",
+                    "rejection_reason": f"children listing failed at depth {depth}",
+                    "relative_path": rel_prefix or evidence_root,
+                    "accepted": False,
+                })
+                return
+            for child in listing.get("items", []):
+                if len(accepted) >= max_items:
+                    break
+                item_id = child.get("item_id", "")
+                if not item_id:
+                    continue
+                if item_id in seen_ids:
+                    rejected.append({
+                        "item_id": item_id,
+                        "filename": child.get("name", ""),
+                        "web_url": child.get("web_url", ""),
+                        "drive_id": drive_id,
+                        "parent_path": _parent_path(child),
+                        "modified_datetime": child.get("modified_datetime", ""),
+                        "relative_path": _join_rel(rel_prefix, child.get("name", "")),
+                        "rejection_code": "duplicate_item_id",
+                        "rejection_reason": f"Duplicate item id '{item_id}' skipped",
+                        "accepted": False,
+                    })
+                    continue
+                seen_ids.add(item_id)
+                name = child.get("name", "")
+                rel_path = _join_rel(rel_prefix, name)
+                if child.get("is_folder"):
+                    _walk(folder_item_id=item_id, rel_prefix=rel_path, depth=depth + 1)
+                    continue
+                parsed = parse_evidence_folder_path(rel_path)
+                if not parsed.get("ok"):
+                    _reject_file(child, rel_path, parsed)
+                    continue
+                accepted.append(normalize_evidence_record(child, parsed, drive_id=drive_id))
+
+        _walk()
+        status = "ok" if accepted or not rejected else "empty"
+        result = _base.ok_response(SOURCE, accepted, status=status)
+        result["rejected"] = rejected
+        return result
+
     # ---- backward-compatible documents API -------------------------------- #
     def fetch_documents(self, page_size: int = _base.DEFAULT_PAGE_SIZE,
                         max_items: int = 1000) -> dict[str, Any]:
@@ -226,6 +339,46 @@ def normalize_item(record: dict[str, Any]) -> dict[str, Any]:
         "parent_reference": record.get("parentReference", {}) or {},
         "is_folder": "folder" in record,
         "evidence_type": "sharepoint_document",
+    }
+
+
+def _parent_path(item: dict[str, Any]) -> str:
+    parent_ref = item.get("parent_reference") or {}
+    if isinstance(parent_ref, dict):
+        return str(parent_ref.get("path") or "")
+    return ""
+
+
+def _join_rel(prefix: str, name: str) -> str:
+    if not prefix:
+        return name
+    if not name:
+        return prefix
+    return f"{prefix}/{name}"
+
+
+def normalize_evidence_record(
+    item: dict[str, Any],
+    parsed: dict[str, Any],
+    *,
+    drive_id: str,
+) -> dict[str, Any]:
+    """Evidence-folder contract record (metadata only; preserves Graph identifiers)."""
+    return {
+        "source": SOURCE,
+        "evidence_type": "sharepoint_evidence",
+        "accepted": True,
+        "item_id": item.get("item_id", ""),
+        "web_url": item.get("web_url", ""),
+        "drive_id": drive_id,
+        "parent_path": _parent_path(item),
+        "filename": parsed.get("filename") or item.get("name", ""),
+        "modified_datetime": item.get("modified_datetime", ""),
+        "application": parsed.get("application", ""),
+        "environment": parsed.get("environment", ""),
+        "framework": parsed.get("framework", ""),
+        "control_or_observation": parsed.get("control_or_observation", ""),
+        "relative_folder_path": parsed.get("relative_folder_path", ""),
     }
 
 
