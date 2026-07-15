@@ -522,6 +522,16 @@
         );
         return;
       }
+      var tab = e.target.closest('[data-ecs-framework-tab-drill]');
+      if (tab) {
+        e.preventDefault();
+        ecsOpenFrameworkTabDrill(
+          tab.getAttribute('data-ecs-framework-tab-framework'),
+          tab.getAttribute('data-ecs-framework-tab-id'),
+          tab.getAttribute('data-ecs-framework-tab-label')
+        );
+        return;
+      }
       var row = e.target.closest('[data-ecs-framework-row-drill]');
       if (row) {
         if (e.target.closest('a, button, .dropdown-menu, .ecs-sticky-actions, .btn')) return;
@@ -532,7 +542,7 @@
     });
     document.addEventListener('keydown', function(e){
       if (e.key !== 'Enter' && e.key !== ' ') return;
-      var el = e.target.closest('[data-ecs-framework-kpi],[data-ecs-framework-wf-drill],[data-ecs-framework-row-drill],[data-ecs-framework-control-drill]');
+      var el = e.target.closest('[data-ecs-framework-kpi],[data-ecs-framework-wf-drill],[data-ecs-framework-row-drill],[data-ecs-framework-control-drill],[data-ecs-framework-tab-drill]');
       if (!el) return;
       e.preventDefault();
       el.click();

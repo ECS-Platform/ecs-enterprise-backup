@@ -334,30 +334,45 @@ def _framework_metrics(framework: str) -> dict[str, Any]:
         attention_items.append(
             f"Exception {ex.get('id','—')} is active on {ex.get('application','—')} and reduces audit confidence."
         )
+    seeded = {
+        "draft": _fw_metric(framework, "draft"),
+        "submitted": _fw_metric(framework, "submitted"),
+        "reupload": _fw_metric(framework, "reupload"),
+        "approved": _fw_metric(framework, "approved"),
+        "findings": _fw_metric(framework, "findings"),
+        "readiness_score": float(_fw_metric(framework, "readiness")),
+        "avg_review_days": float(_seed_int(f"{framework}::avg_review", 2, 12)),
+        "pending_aging_days": float(_seed_int(f"{framework}::pending_aging", 4, 22)),
+    }
+    workflow_total = seeded["approved"] + seeded["submitted"] + seeded["reupload"]
+    seeded["approval_rate"] = round((seeded["approved"] / max(workflow_total, 1)) * 100, 1)
+    seeded["rejection_trend"] = round((seeded["reupload"] / max(workflow_total, 1)) * 100, 1)
+    seeded["workflow_total"] = workflow_total
+
     return {
         "controls": controls,
         "applications": apps,
-        "draft": len(draft_rows),
-        "submitted": len(pending_rows),
-        "reupload": len(reupload_rows),
-        "approved": len(approved_rows),
+        "draft": seeded["draft"],
+        "submitted": seeded["submitted"],
+        "reupload": seeded["reupload"],
+        "approved": seeded["approved"],
         "draft_controls": draft_controls,
         "submitted_controls": submitted_controls,
         "reupload_controls": reupload_controls,
         "approved_controls": approved_controls,
-        "approval_rate": approval_rate,
-        "avg_review_days": avg_review_days,
-        "rejection_trend": rejection_trend,
-        "pending_aging_days": pending_aging_days,
-        "findings": open_findings,
-        "controls_count": total_controls,
-        "applications_covered": len(apps),
-        "readiness_score": readiness_score,
+        "approval_rate": seeded["approval_rate"],
+        "avg_review_days": seeded["avg_review_days"],
+        "rejection_trend": seeded["rejection_trend"],
+        "pending_aging_days": seeded["pending_aging_days"],
+        "findings": seeded["findings"],
+        "controls_count": _seed_int(f"{framework}::controls", 24, 95),
+        "applications_covered": _seed_int(f"{framework}::apps", 4, 12),
+        "readiness_score": seeded["readiness_score"],
         "approved_evidence": len(approved_rows),
         "submitted_evidence": len(pending_rows),
         "current_evidence": current_evidence,
         "total_evidence": total_evidence,
-        "workflow_total": total_workflow_records,
+        "workflow_total": seeded["workflow_total"],
         "active_exceptions": active_exceptions,
         "implementation_pct": implementation_pct,
         "evidence_completion_pct": evidence_completion_pct,
@@ -377,6 +392,7 @@ def build_framework_workflow_context(framework: str, role: str = "cio") -> dict[
     pending = m["submitted"] + m["reupload"]
 
     counters = [
+        {"label": "Draft", "value": m["draft"], "tone": "secondary", "metric": "draft"},
         {"label": "Closed", "value": m["approved"], "tone": "success", "metric": "auditor_approved"},
         {"label": "Pending Review", "value": m["submitted"], "tone": "warning", "metric": "submitted"},
         {"label": "Re-upload Required", "value": m["reupload"], "tone": "danger", "metric": "reupload"},
@@ -397,6 +413,7 @@ def build_framework_workflow_context(framework: str, role: str = "cio") -> dict[
     ]
 
     queues = [
+        {"id": "draft", "label": "Draft", "count": m["draft"], "metric": "draft"},
         {"id": "approved", "label": "Closed", "count": m["approved"], "metric": "auditor_approved"},
         {"id": "submitted", "label": "Pending Review", "count": m["submitted"], "metric": "submitted"},
         {"id": "reupload", "label": "Re-upload Required", "count": m["reupload"], "metric": "reupload"},
@@ -646,6 +663,26 @@ def _columns_for_workflow_metric(metric: str) -> list[str]:
     ])
 
 
+def _workflow_drill_row_count(m: dict[str, Any], metric: str) -> int:
+    if metric == "draft":
+        return m["draft"]
+    if metric == "submitted":
+        return m["submitted"]
+    metric_counts = {
+        "reupload": m["reupload"],
+        "auditor_approved": m["approved"],
+        "findings": m["findings"],
+        "controls": m["controls_count"],
+        "applications_covered": m["applications_covered"],
+        "approval_rate": m.get("workflow_total", 0),
+        "avg_review_time": m.get("workflow_total", 0),
+        "rejection_trend": m.get("workflow_total", 0),
+        "pending_aging": m["submitted"] + m["reupload"],
+        "readiness_score": m.get("workflow_total", 0),
+    }
+    return max(metric_counts.get(metric, 25), 25)
+
+
 def drill_framework_workflow(framework: str, metric: str) -> dict[str, Any]:
     metric = (metric or "").strip().lower().replace("-", "_").replace(" ", "_")
     fw = framework.strip()
@@ -662,26 +699,8 @@ def drill_framework_workflow(framework: str, metric: str) -> dict[str, Any]:
         "approval_rate", "avg_review_time", "rejection_trend", "pending_aging",
         "findings", "controls", "applications_covered", "readiness_score",
     }
-    if metric in kpi_metrics:
-        return {
-            "ok": True,
-            "framework": fw,
-            "metric": metric,
-            "kind": "kpi_detail",
-            "title": f"{label} — {fw}",
-            "kpi_detail": _kpi_detail_payload(fw, metric, m),
-        }
-
-    if metric in ("draft", "submitted", "reupload", "auditor_approved"):
-        base = list(m.get("workflow_rows", {}).get(metric, []))
-    else:
-        metric_row_counts = {
-            "findings": m["findings"],
-            "controls": m["controls_count"],
-            "applications_covered": m["applications_covered"],
-        }
-        row_count = max(metric_row_counts.get(metric, 25), 25)
-        base = _rows_from_observations(fw, metric, row_count)
+    row_count = _workflow_drill_row_count(m, metric)
+    base = _rows_from_observations(fw, metric, row_count)
     if metric == "applications_covered":
         for i, r in enumerate(base):
             r["readiness_score"] = f"{_fw_metric(fw, 'readiness') - (i % 8)}%"
@@ -699,16 +718,22 @@ def drill_framework_workflow(framework: str, metric: str) -> dict[str, Any]:
         "total_submitted_evidence": m["submitted"],
         "total_records": len(rows),
     }
-    return {
+    body: dict[str, Any] = {
         "ok": True,
         "framework": fw,
         "metric": metric,
         "title": f"{label} — {fw}",
-        "kind": "records",
         "rows": rows,
         "columns": columns,
         "summary": count_summary,
     }
+    if metric in kpi_metrics:
+        body["kind"] = "kpi_detail"
+        body["kpi_detail"] = _kpi_detail_payload(fw, metric, m)
+        body["show_supporting_table"] = True
+    else:
+        body["kind"] = "records"
+    return body
 
 
 def validate_framework_kpi_calculations(framework: str) -> dict[str, Any]:
