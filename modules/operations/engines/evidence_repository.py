@@ -50,6 +50,13 @@ def register_upload(
     framework: str = "",
     application: str = "Net Banking",
     control: str = "",
+    *,
+    source_connector: str = "",
+    source_item_id: str = "",
+    source_url: str = "",
+    environment: str = "",
+    mime_type: str = "",
+    metadata: dict | None = None,
 ):
     std_name = enforce_naming(filename, framework or "GENERAL", application)
     file_hash = compute_hash(content or std_name.encode())
@@ -72,6 +79,12 @@ def register_upload(
         "summary": "",
         "size_bytes": len(content) if content else 0,
         "status": "Uploaded",
+        "source_connector": source_connector,
+        "source_item_id": source_item_id,
+        "source_url": source_url,
+        "environment": environment,
+        "mime_type": mime_type,
+        "metadata": dict(metadata or {}),
     }
     record["summary"] = generate_summary(record)
     record["version"] = 1
@@ -144,6 +157,13 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             filename=record.get("filename", ""),
             tags=(f"app:{application}", "source:upload",
                   f"mvp_evidence_id:{record.get('evidence_id', '')}"),
+            evidence_id=record.get("evidence_id", ""),
+            environment=record.get("environment", ""),
+            source_connector=record.get("source_connector", ""),
+            source_item_id=record.get("source_item_id", ""),
+            source_url=record.get("source_url", ""),
+            mime_type=record.get("mime_type", ""),
+            metadata=record.get("metadata") or {},
         )
         record["audit_repository_synced"] = True
     except Exception:  # noqa: BLE001 - bridge must never break the primary upload

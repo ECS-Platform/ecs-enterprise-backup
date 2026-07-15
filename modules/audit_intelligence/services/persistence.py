@@ -164,6 +164,20 @@ def artifact_to_dict(artifact: EvidenceArtifact) -> dict[str, Any]:
     return artifact.to_dict()
 
 
+def _metadata_tuple(value: Any) -> tuple[tuple[str, str], ...]:
+    if not value:
+        return ()
+    if isinstance(value, dict):
+        return tuple(sorted((str(k), str(v)) for k, v in value.items()))
+    if isinstance(value, (list, tuple)):
+        pairs: list[tuple[str, str]] = []
+        for item in value:
+            if isinstance(item, (list, tuple)) and len(item) == 2:
+                pairs.append((str(item[0]), str(item[1])))
+        return tuple(sorted(pairs))
+    return ()
+
+
 def artifact_from_dict(data: dict[str, Any]) -> EvidenceArtifact:
     return EvidenceArtifact(
         evidence_key=data.get("evidence_key", ""),
@@ -183,6 +197,13 @@ def artifact_from_dict(data: dict[str, Any]) -> EvidenceArtifact:
         filename=data.get("filename", ""),
         collected_at=data.get("collected_at", ""),
         tags=_tuple(data.get("tags")),
+        evidence_id=data.get("evidence_id", ""),
+        environment=data.get("environment", ""),
+        source_connector=data.get("source_connector", ""),
+        source_item_id=data.get("source_item_id", ""),
+        source_url=data.get("source_url", ""),
+        mime_type=data.get("mime_type", ""),
+        metadata=_metadata_tuple(data.get("metadata")),
     )
 
 
@@ -257,6 +278,16 @@ class AuditPersistence(ABC):
     @abstractmethod
     def list_evidence_latest(self) -> list[EvidenceArtifact]:
         """Latest version of every evidence key."""
+
+    @abstractmethod
+    def find_evidence_by_source_hash(
+        self, source_item_id: str, content_hash: str,
+    ) -> Optional[EvidenceArtifact]:
+        """Return an existing version for an idempotent (source_item_id, hash) pair."""
+
+    @abstractmethod
+    def list_all_evidence_versions(self) -> list[EvidenceArtifact]:
+        """Every persisted evidence version (ascending by key, then version)."""
 
     # ---- 6) evidence packs ------------------------------------------------ #
     @abstractmethod
@@ -393,6 +424,23 @@ class InMemoryAuditPersistence(AuditPersistence):
     def list_evidence_latest(self) -> list[EvidenceArtifact]:
         with self._lock:
             return [versions[-1] for versions in self._evidence.values() if versions]
+
+    def find_evidence_by_source_hash(
+        self, source_item_id: str, content_hash: str,
+    ) -> Optional[EvidenceArtifact]:
+        if not source_item_id or not content_hash:
+            return None
+        with self._lock:
+            for versions in self._evidence.values():
+                for art in versions:
+                    if art.source_item_id == source_item_id and art.content_hash == content_hash:
+                        return art
+        return None
+
+    def list_all_evidence_versions(self) -> list[EvidenceArtifact]:
+        with self._lock:
+            items = [a for versions in self._evidence.values() for a in versions]
+        return sorted(items, key=lambda a: (a.evidence_key, a.version))
 
     # ---- packs ------------------------------------------------------------ #
     def save_pack(self, pack_id: str, manifest: dict[str, Any]) -> None:

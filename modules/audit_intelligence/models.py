@@ -367,10 +367,21 @@ class EvidenceArtifact:
     filename: str = ""
     collected_at: str = ""
     tags: tuple[str, ...] = ()
+    evidence_id: str = ""
+    environment: str = ""
+    source_connector: str = ""
+    source_item_id: str = ""
+    source_url: str = ""
+    mime_type: str = ""
+    metadata: tuple[tuple[str, str], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["frameworks"] = list(self.frameworks)
         d["tags"] = list(self.tags)
         d["evidence_quality"] = round(self.evidence_quality, 3)
+        if self.metadata:
+            d["metadata"] = dict(self.metadata)
+        else:
+            d.pop("metadata", None)
         return d

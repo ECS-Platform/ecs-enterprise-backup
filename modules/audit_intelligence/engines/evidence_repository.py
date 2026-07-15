@@ -17,6 +17,7 @@ public API).
 from __future__ import annotations
 
 import hashlib
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -56,10 +57,111 @@ def reset_repository() -> None:
     _invalidate_dashboard_cache()
 
 
+def _evidence_persistence_enabled() -> bool:
+    """True when the SQL audit persistence backend is installed (startup flag)."""
+    return str(os.environ.get("AUDIT_WORKFLOW_ENABLED", "")).strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
 def _hash_content(content: str) -> tuple[str, str, int]:
     raw = (content or "").encode("utf-8")
     digest = hashlib.sha256(raw).hexdigest()
     return digest, digest[:8], len(raw)
+
+
+def _metadata_tuple(value: Any) -> tuple[tuple[str, str], ...]:
+    if not value:
+        return ()
+    if isinstance(value, dict):
+        return tuple(sorted((str(k), str(v)) for k, v in value.items()))
+    return ()
+
+
+def _persist_artifact(artifact: EvidenceArtifact) -> None:
+    """Best-effort durable write; never raises."""
+    if not _evidence_persistence_enabled():
+        return
+    try:
+        from modules.audit_intelligence.services.persistence import get_persistence
+
+        get_persistence().append_evidence_version(artifact)
+    except Exception:  # noqa: BLE001 - persistence must never break a store
+        pass
+
+
+def _find_in_memory_duplicate(source_item_id: str, content_hash: str) -> EvidenceArtifact | None:
+    if not source_item_id or not content_hash:
+        return None
+    for versions in _STORE.values():
+        for art in versions:
+            if art.source_item_id == source_item_id and art.content_hash == content_hash:
+                return art
+    return None
+
+
+def _next_version(key: str) -> int:
+    versions = list(_STORE.get(key, []))
+    if _evidence_persistence_enabled():
+        try:
+            from modules.audit_intelligence.services.persistence import get_persistence
+
+            seen = {(a.evidence_key, a.version) for a in versions}
+            for art in get_persistence().get_evidence_versions(key):
+                if (art.evidence_key, art.version) not in seen:
+                    versions.append(art)
+        except Exception:  # noqa: BLE001
+            pass
+    return (max(v.version for v in versions) + 1) if versions else 1
+
+
+def _find_persisted_duplicate(source_item_id: str, content_hash: str) -> EvidenceArtifact | None:
+    if not _evidence_persistence_enabled():
+        return None
+    if not source_item_id or not content_hash:
+        return None
+    try:
+        from modules.audit_intelligence.services.persistence import get_persistence
+
+        return get_persistence().find_evidence_by_source_hash(source_item_id, content_hash)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _merge_into_store(artifact: EvidenceArtifact) -> bool:
+    """Insert into the in-memory facade when (evidence_key, version) is absent."""
+    versions = _STORE.setdefault(artifact.evidence_key, [])
+    if any(v.version == artifact.version for v in versions):
+        return False
+    versions.append(artifact)
+    versions.sort(key=lambda a: a.version)
+    if len(versions) > MAX_VERSIONS_PER_KEY:
+        del versions[: len(versions) - MAX_VERSIONS_PER_KEY]
+    return True
+
+
+def hydrate_from_persistence() -> int:
+    """Reload persisted evidence versions into the in-memory facade.
+
+    Existing in-memory entries are never overwritten (memory wins for the current
+    process). Returns the number of versions hydrated. No-op when SQL persistence is
+    disabled. Never raises.
+    """
+    if not _evidence_persistence_enabled():
+        return 0
+    try:
+        from modules.audit_intelligence.services.persistence import get_persistence
+
+        artifacts = get_persistence().list_all_evidence_versions()
+    except Exception:  # noqa: BLE001 - hydration must never block startup
+        return 0
+    hydrated = 0
+    for artifact in artifacts:
+        if _merge_into_store(artifact):
+            hydrated += 1
+    if hydrated:
+        _invalidate_dashboard_cache()
+    return hydrated
 
 
 def make_evidence_key(asset_id: str, control_id: str) -> str:
@@ -86,16 +188,32 @@ def store_evidence(
     filename: str = "",
     tags: tuple[str, ...] = (),
     evidence_key: str = "",
+    evidence_id: str = "",
+    environment: str = "",
+    source_connector: str = "",
+    source_item_id: str = "",
+    source_url: str = "",
+    mime_type: str = "",
+    metadata: dict[str, Any] | None = None,
 ) -> EvidenceArtifact:
     """Store a new evidence version. Returns the created :class:`EvidenceArtifact`.
 
     Versioning is automatic: the first store for a key is v1; each subsequent store
-    increments. The content hash lets callers detect unchanged evidence.
+    increments. The content hash lets callers detect unchanged evidence. When
+    ``source_item_id`` is supplied, writes are idempotent for the same content hash.
     """
     key = evidence_key or make_evidence_key(asset_id, control_id)
     content_hash, checksum, size = _hash_content(content)
-    existing = _STORE.get(key, [])
-    version = (existing[-1].version + 1) if existing else 1
+
+    duplicate = (
+        _find_in_memory_duplicate(source_item_id, content_hash)
+        or _find_persisted_duplicate(source_item_id, content_hash)
+    )
+    if duplicate is not None:
+        _merge_into_store(duplicate)
+        return duplicate
+
+    version = _next_version(key)
 
     artifact = EvidenceArtifact(
         evidence_key=key,
@@ -115,6 +233,13 @@ def store_evidence(
         filename=filename,
         collected_at=_now(),
         tags=tuple(tags),
+        evidence_id=evidence_id,
+        environment=environment,
+        source_connector=source_connector,
+        source_item_id=source_item_id,
+        source_url=source_url,
+        mime_type=mime_type,
+        metadata=_metadata_tuple(metadata),
     )
     versions = _STORE.setdefault(key, [])
     versions.append(artifact)
@@ -134,6 +259,7 @@ def store_evidence(
     )
     if len(_TIMELINE) > MAX_TIMELINE_EVENTS:
         del _TIMELINE[: len(_TIMELINE) - MAX_TIMELINE_EVENTS]
+    _persist_artifact(artifact)
     _invalidate_dashboard_cache()
     return artifact
 

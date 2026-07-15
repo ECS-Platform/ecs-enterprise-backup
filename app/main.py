@@ -225,6 +225,14 @@ async def ecs_lifespan(application: FastAPI):
             set_persistence(backend)
             ecs_logging.info("ECSPlatform",
                              f"Durable audit persistence installed: {_where}")
+            try:
+                from modules.audit_intelligence.engines import evidence_repository as _ev_repo
+
+                n = _ev_repo.hydrate_from_persistence()
+                ecs_logging.info("ECSPlatform", f"Evidence repository hydrated: {n} version(s)")
+            except Exception as _hydrate_exc:  # noqa: BLE001
+                ecs_logging.info("ECSPlatform",
+                                 f"Evidence repository hydration skipped: {_hydrate_exc}")
     except Exception as exc:  # noqa: BLE001 - never block startup on persistence
         ecs_logging.info("ECSPlatform", f"Durable audit persistence skipped: {exc}")
 

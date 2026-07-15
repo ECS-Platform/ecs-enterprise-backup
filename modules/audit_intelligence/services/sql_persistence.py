@@ -97,6 +97,8 @@ _DDL = [
         control_id   TEXT,
         asset_id     TEXT,
         collected_at TEXT,
+        source_item_id TEXT,
+        content_hash TEXT,
         document     TEXT NOT NULL,
         PRIMARY KEY (evidence_key, version)
     )""",
@@ -113,6 +115,12 @@ _DDL = [
     "CREATE INDEX IF NOT EXISTS ix_runs_created ON audit_runs (created_at)",
     "CREATE INDEX IF NOT EXISTS ix_obs_created ON audit_observations (created_at)",
     "CREATE INDEX IF NOT EXISTS ix_ev_key ON audit_evidence_versions (evidence_key)",
+    "CREATE INDEX IF NOT EXISTS ix_ev_source_hash ON audit_evidence_versions (source_item_id, content_hash)",
+]
+
+_EVIDENCE_MIGRATIONS = [
+    "ALTER TABLE audit_evidence_versions ADD COLUMN source_item_id TEXT",
+    "ALTER TABLE audit_evidence_versions ADD COLUMN content_hash TEXT",
 ]
 
 
@@ -175,6 +183,11 @@ class SqlAuditPersistence(AuditPersistence):
             conn = self._conn()
             for ddl in _DDL:
                 conn.execute(ddl)
+            for migration in _EVIDENCE_MIGRATIONS:
+                try:
+                    conn.execute(migration)
+                except Exception:  # noqa: BLE001 - column may already exist
+                    pass
             conn.commit()
             self._initialized = True
 
@@ -267,19 +280,43 @@ class SqlAuditPersistence(AuditPersistence):
     # ---- evidence versions ------------------------------------------------ #
     def append_evidence_version(self, artifact: EvidenceArtifact) -> EvidenceArtifact:
         self.initialize()
+        if artifact.source_item_id and artifact.content_hash:
+            existing = self.find_evidence_by_source_hash(
+                artifact.source_item_id, artifact.content_hash,
+            )
+            if existing is not None:
+                return existing
         doc = json.dumps(artifact_to_dict(artifact), default=str)
         with self._lock:
             self._execute(
                 """INSERT INTO audit_evidence_versions
-                     (evidence_key, version, control_id, asset_id, collected_at, document)
-                   VALUES (?, ?, ?, ?, ?, ?)
+                     (evidence_key, version, control_id, asset_id, collected_at,
+                      source_item_id, content_hash, document)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(evidence_key, version) DO UPDATE SET
                      control_id=excluded.control_id, asset_id=excluded.asset_id,
-                     collected_at=excluded.collected_at, document=excluded.document""",
+                     collected_at=excluded.collected_at,
+                     source_item_id=excluded.source_item_id,
+                     content_hash=excluded.content_hash,
+                     document=excluded.document""",
                 (artifact.evidence_key, artifact.version, artifact.control_id,
-                 artifact.asset_id, artifact.collected_at, doc),
+                 artifact.asset_id, artifact.collected_at, artifact.source_item_id,
+                 artifact.content_hash, doc),
             )
         return artifact
+
+    def find_evidence_by_source_hash(
+        self, source_item_id: str, content_hash: str,
+    ) -> Optional[EvidenceArtifact]:
+        if not source_item_id or not content_hash:
+            return None
+        self.initialize()
+        rows = self._query(
+            "SELECT document FROM audit_evidence_versions "
+            "WHERE source_item_id = ? AND content_hash = ? LIMIT 1",
+            (source_item_id, content_hash),
+        )
+        return artifact_from_dict(self._doc(rows[0])) if rows else None
 
     def get_evidence_versions(self, evidence_key: str) -> list[EvidenceArtifact]:
         rows = self._query(
@@ -299,6 +336,13 @@ class SqlAuditPersistence(AuditPersistence):
             art = artifact_from_dict(self._doc(r))
             latest[art.evidence_key] = art  # last one wins (highest version)
         return list(latest.values())
+
+    def list_all_evidence_versions(self) -> list[EvidenceArtifact]:
+        rows = self._query(
+            "SELECT document FROM audit_evidence_versions "
+            "ORDER BY evidence_key, version"
+        )
+        return [artifact_from_dict(self._doc(r)) for r in rows]
 
     # ---- packs ------------------------------------------------------------ #
     def save_pack(self, pack_id: str, manifest: dict[str, Any]) -> None:
