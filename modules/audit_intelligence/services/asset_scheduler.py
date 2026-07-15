@@ -155,6 +155,7 @@ class PlannedJob:
     connector: str
     scope_kind: str
     scope_value: str
+    application: str = ""
     control_ids: tuple[str, ...] = ()
     frameworks: tuple[str, ...] = ()
 
@@ -166,6 +167,7 @@ class PlannedJob:
             "connector": self.connector,
             "scope_kind": self.scope_kind,
             "scope_value": self.scope_value,
+            "application": self.application,
             "control_ids": list(self.control_ids),
             "control_count": len(self.control_ids),
             "frameworks": list(self.frameworks),
@@ -381,8 +383,10 @@ def classify_assets(assets: Iterable[Asset]) -> list[AssetClassification]:
 # --------------------------------------------------------------------------- #
 def plan_evidence(assets: Iterable[Asset]) -> EvidencePlan:
     """Turn classified assets into a bounded, deterministic evidence plan."""
+    assets_list = list(assets)
+    app_by_id = {a.asset_id: a.application for a in assets_list}
     plan = EvidencePlan()
-    for classification in classify_assets(assets):
+    for classification in classify_assets(assets_list):
         if classification.route == ROUTE_UNSUPPORTED:
             plan.unsupported.append(classification)
             continue
@@ -394,6 +398,7 @@ def plan_evidence(assets: Iterable[Asset]) -> EvidencePlan:
                 connector=classification.connector,
                 scope_kind=classification.scope_kind,
                 scope_value=classification.scope_value,
+                application=app_by_id.get(classification.asset_id, "") or "",
                 control_ids=classification.control_ids,
                 frameworks=classification.frameworks,
             )
