@@ -231,3 +231,99 @@ def resume_scheduler(user: str = "") -> str:
 
 def is_scheduler_paused() -> bool:
     return bool(_scheduler_status.get("paused"))
+
+
+def _job_matches_selection(job, applications, frameworks) -> bool:
+    """True when a planned job is in scope of the selected apps/frameworks.
+
+    Empty selections mean "all" (no filtering). Matching is case-insensitive and
+    based on the job's ``scope_value`` (the application/asset scope) and its
+    ``frameworks``. Reuses the planner's own job shape — no new scoping model.
+    """
+    apps = {a.strip().lower() for a in (applications or []) if str(a).strip()}
+    fws = {f.strip().lower() for f in (frameworks or []) if str(f).strip()}
+    if apps:
+        scope = str(getattr(job, "scope_value", "") or "").lower()
+        asset = str(getattr(job, "asset_id", "") or "").lower()
+        if not (scope in apps or asset in apps or any(a in scope for a in apps)):
+            return False
+    if fws:
+        job_fws = {str(f).strip().lower() for f in (getattr(job, "frameworks", ()) or ())}
+        if not (job_fws & fws):
+            return False
+    return True
+
+
+def run_scheduler_collection(
+    *,
+    user: str = "System",
+    applications=None,
+    frameworks=None,
+    connector_transport=None,
+) -> dict:
+    """Run evidence collection via the REAL asset-scheduler / connector-executor.
+
+    Reuses the existing services (no new orchestration, connectors, or
+    persistence):
+      * ``asset_scheduler`` loads the existing asset config, classifies + plans
+        jobs, and (dry-run) reports what *would* run;
+      * ``connector_executor`` performs live evidence ingestion into the EXISTING
+        repository — but only when ``ECS_CONNECTOR_EXECUTION_ENABLED=true`` (or a
+        ``connector_transport`` is injected for tests).
+
+    Safe by default: with the flag off and no injected transport this is a
+    **dry-run** — the planner runs, but no connector call and no network happen.
+    Returns a JSON-safe result carrying the real plan/execution outcome (no
+    fabricated counters or log lines).
+    """
+    from modules.audit_intelligence.services import asset_scheduler
+    from modules.audit_intelligence.services import connector_executor
+
+    apps = [a for a in (applications or []) if str(a).strip()]
+    fws = [f for f in (frameworks or []) if str(f).strip()]
+
+    # Build the plan from the existing asset configuration (reuse; never invents).
+    assets = asset_scheduler.load_assets()
+    plan = asset_scheduler.plan_evidence(assets)
+    # Filter planned jobs to the operator's selection (empty selection = all).
+    plan.jobs = [j for j in plan.jobs if _job_matches_selection(j, apps, fws)]
+
+    live = connector_transport is not None or connector_executor.execution_enabled()
+    mode = "live" if live else "dry-run"
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    plan_summary = plan.to_dict()["summary"]
+
+    results: list[dict] = []
+    ingested = 0
+    if live:
+        # Execute only the connector jobs here (baseline jobs need an executor and
+        # live DB/driver targets; those are driven by the predefined-query flow).
+        results = asset_scheduler.execute_plan(
+            plan, run_connectors=True, connector_transport=connector_transport,
+            requested_by=user or "scheduler",
+        )
+        ingested = sum(int(r.get("ingested", 0) or 0) for r in results if isinstance(r, dict))
+
+    try:
+        from modules.shared.services.ecs_logging import log_scheduler
+        log_scheduler(
+            f"Evidence collection {mode}",
+            f"planned_jobs={plan_summary.get('planned_jobs', 0)}; ingested={ingested}",
+            user=user,
+        )
+    except Exception:  # noqa: BLE001 - logging must never break the run
+        pass
+
+    return {
+        "ok": True,
+        "mode": mode,
+        "timestamp": now,
+        "applications": apps,
+        "frameworks": fws,
+        "planned_jobs": plan_summary.get("planned_jobs", 0),
+        "by_route": plan_summary.get("by_route", {}),
+        "connectors": sorted({j.connector for j in plan.jobs if j.connector}),
+        "ingested": ingested,
+        "results": results,
+    }

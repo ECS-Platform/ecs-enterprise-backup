@@ -16,7 +16,7 @@
 <option selected>PCI DSS</option><option selected>DPSC</option><option selected>ITPP</option>
 <option>AppSec</option><option>CSITE</option><option>VAPT</option>
 </select></div></div>
-<p class="small text-muted mb-2">Estimated runtime: <strong id="schedRunEta">~18 minutes</strong> · Expected evidence: <strong>~386 files</strong></p>
+<p class="small text-muted mb-2">Runs the evidence-collection planner over the configured assets for the selected applications and frameworks. Dry run by default; set <code>ECS_CONNECTOR_EXECUTION_ENABLED=true</code> for live collection.</p>
 <div class="ecs-sched-log d-none" id="schedRunLog"></div>
 <div class="progress d-none mb-2" id="schedRunProgress" style="height:6px"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
 </div>
@@ -189,37 +189,31 @@
 
   var startBtn = document.getElementById('schedRunStart');
   if (startBtn) startBtn.addEventListener('click', function(){
+    var form = document.getElementById('schedRunForm');
     var log = document.getElementById('schedRunLog');
     var bar = document.getElementById('schedRunProgress');
-    var inner = bar ? bar.querySelector('.progress-bar') : null;
-    log.classList.remove('d-none'); bar.classList.remove('d-none');
-    startBtn.disabled = true;
-    var lines = [
-      ['[02:00:01] Initializing collection orchestrator…', ''],
-      ['[02:00:03] Connecting SharePoint evidence library…', 'log-ok'],
-      ['[02:00:06] Pulling ServiceNow GRC control mappings…', 'log-ok'],
-      ['[02:00:12] Scanning Net Banking — PCI DSS controls…', 'log-ok'],
-      ['[02:00:18] Mobile Banking AppSec gate — SonarQube linked', 'log-warn'],
-      ['[02:00:24] Auto-validating 317 controls…', 'log-ok'],
-      ['[02:00:30] Collection complete — 386 evidence files ingested', 'log-ok']
-    ];
-    log.innerHTML = '';
-    var step = 0;
-    function tick(){
-      if (step >= lines.length) {
-        setTimeout(function(){ document.getElementById('schedRunForm').submit(); }, 400);
-        return;
-      }
-      var p = document.createElement('div');
-      p.className = lines[step][1];
-      p.textContent = lines[step][0];
-      log.appendChild(p);
-      log.scrollTop = log.scrollHeight;
-      if (inner) inner.style.width = Math.round(((step + 1) / lines.length) * 100) + '%';
-      step++;
-      setTimeout(tick, 450);
+    if (!form) return;
+    // Copy the operator's selected applications/frameworks into the form so the
+    // backend receives the real selection (multi-value form fields).
+    form.querySelectorAll('input[name="applications"], input[name="frameworks"]').forEach(function(n){ n.remove(); });
+    function addSelected(selectId, fieldName){
+      var sel = document.getElementById(selectId);
+      if (!sel) return;
+      Array.prototype.forEach.call(sel.selectedOptions, function(opt){
+        var h = document.createElement('input');
+        h.type = 'hidden'; h.name = fieldName; h.value = opt.value || opt.text;
+        form.appendChild(h);
+      });
     }
-    tick();
+    addSelected('schedRunApps', 'applications');
+    addSelected('schedRunFw', 'frameworks');
+    // Real run: submit to the backend. Results are reported on the reloaded page
+    // (notice reflects the actual planner/execution outcome). Show a neutral
+    // "running" indicator only — no fabricated log lines or counts.
+    if (log) { log.classList.remove('d-none'); log.innerHTML = '<div>Running evidence collection…</div>'; }
+    if (bar) bar.classList.remove('d-none');
+    startBtn.disabled = true;
+    form.submit();
   });
 
   document.addEventListener('click', function(e){

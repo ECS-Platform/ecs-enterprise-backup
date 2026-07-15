@@ -24,7 +24,12 @@ from modules.operations.engines.evidence_repository import (
 )
 from modules.operations.engines.integrations_module import get_integration_dashboard, simulate_sync
 from modules.executive_overview.engines.reporting_module import generate_report_content, generate_report_export, list_reports
-from modules.operations.engines.scheduler_module import get_scheduler_dashboard, run_scheduled_pull, retry_failed_observation
+from modules.operations.engines.scheduler_module import (
+    get_scheduler_dashboard,
+    retry_failed_observation,
+    run_scheduled_pull,
+    run_scheduler_collection,
+)
 from modules.governance.engines.search_module import build_search_discovery, search_evidences
 from modules.shared.services.enterprise_context import enterprise_widgets_context
 from modules.executive_overview.engines.demo_metrics import REUSE_METRICS
@@ -461,17 +466,34 @@ def register_mvp_routes(app, templates):
         return JSONResponse(body)
 
     @app.post("/mvp/scheduler/run")
-    def mvp_scheduler_run(role: str = Form(...), user: str = Form(...)):
+    def mvp_scheduler_run(
+        role: str = Form(...),
+        user: str = Form(...),
+        applications: list[str] = Form(default=[]),
+        frameworks: list[str] = Form(default=[]),
+    ):
         try:
             from modules.shared.services.ecs_logging import log_scheduler
             log_scheduler("Manual evidence collection run triggered", user=user)
         except Exception:
             pass
-        result = run_scheduled_pull(user=user)
-        notice = (
-            f"Evidence collection completed — {result['observations_scanned']} observations scanned, "
-            f"{result['new_findings']} new findings detected."
+        # Real path: asset_scheduler plans + connector_executor ingests (into the
+        # existing repository). Dry-run by default; live only when
+        # ECS_CONNECTOR_EXECUTION_ENABLED=true. No fabricated counters.
+        result = run_scheduler_collection(
+            user=user, applications=applications, frameworks=frameworks,
         )
+        if result.get("mode") == "live":
+            notice = (
+                f"Evidence collection (live) — {result['planned_jobs']} job(s) planned, "
+                f"{result['ingested']} evidence object(s) ingested."
+            )
+        else:
+            notice = (
+                f"Evidence collection (dry run) — {result['planned_jobs']} job(s) planned "
+                f"across {len(result['connectors'])} connector(s). "
+                f"Set ECS_CONNECTOR_EXECUTION_ENABLED=true for live collection."
+            )
         return RedirectResponse(
             url=f"/mvp/scheduler?role={role}&user={user}&notice={quote(notice)}&toast=scheduler_ok",
             status_code=303,
