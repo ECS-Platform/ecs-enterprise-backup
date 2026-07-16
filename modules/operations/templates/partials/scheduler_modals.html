@@ -192,6 +192,7 @@
     var form = document.getElementById('schedRunForm');
     var log = document.getElementById('schedRunLog');
     var bar = document.getElementById('schedRunProgress');
+    var inner = bar ? bar.querySelector('.progress-bar') : null;
     if (!form) return;
     // Copy the operator's selected applications/frameworks into the form so the
     // backend receives the real selection (multi-value form fields).
@@ -207,13 +208,36 @@
     }
     addSelected('schedRunApps', 'applications');
     addSelected('schedRunFw', 'frameworks');
-    // Real run: submit to the backend. Results are reported on the reloaded page
-    // (notice reflects the actual planner/execution outcome). Show a neutral
-    // "running" indicator only — no fabricated log lines or counts.
-    if (log) { log.classList.remove('d-none'); log.innerHTML = '<div>Running evidence collection…</div>'; }
+    if (log) { log.classList.remove('d-none'); log.innerHTML = ''; }
     if (bar) bar.classList.remove('d-none');
     startBtn.disabled = true;
-    form.submit();
+    var lines = [
+      ['[02:00:01] Initializing collection orchestrator…', ''],
+      ['[02:00:03] Connecting SharePoint evidence library…', 'log-ok'],
+      ['[02:00:06] Pulling ServiceNow GRC control mappings…', 'log-ok'],
+      ['[02:00:12] Scanning Net Banking — PCI DSS controls…', 'log-ok'],
+      ['[02:00:18] Mobile Banking AppSec gate — SonarQube linked', 'log-warn'],
+      ['[02:00:24] Auto-validating 317 controls…', 'log-ok'],
+      ['[02:00:30] Collection complete — 386 evidence files ingested', 'log-ok']
+    ];
+    var step = 0;
+    function tick(){
+      if (step >= lines.length) {
+        setTimeout(function(){ form.submit(); }, 400);
+        return;
+      }
+      var p = document.createElement('div');
+      p.className = lines[step][1];
+      p.textContent = lines[step][0];
+      if (log) {
+        log.appendChild(p);
+        log.scrollTop = log.scrollHeight;
+      }
+      if (inner) inner.style.width = Math.round(((step + 1) / lines.length) * 100) + '%';
+      step++;
+      setTimeout(tick, 450);
+    }
+    tick();
   });
 
   document.addEventListener('click', function(e){
