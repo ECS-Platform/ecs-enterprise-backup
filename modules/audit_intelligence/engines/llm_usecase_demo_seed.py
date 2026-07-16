@@ -15,6 +15,7 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional
+from xml.etree import ElementTree as ET
 
 _LOCK = threading.RLock()
 _SEEDED = False
@@ -121,6 +122,31 @@ def _build_file_bytes(spec: dict[str, Any]) -> bytes:
     return (summary + "Collection outcome: PASS\n").encode("utf-8")
 
 
+def _extract_docx_text(content: bytes) -> str:
+    """Extract plain text from DOCX main document part."""
+    try:
+        with zipfile.ZipFile(BytesIO(content), "r") as zf:
+            xml_bytes = zf.read("word/document.xml")
+    except Exception:
+        return ""
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError:
+        return ""
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    paragraphs: list[str] = []
+    for para in root.findall(".//w:p", ns):
+        runs = para.findall(".//w:t", ns)
+        text = "".join((node.text or "") for node in runs)
+        if text:
+            paragraphs.append(text)
+    return "\n".join(paragraphs)
+
+
+def _sanitize_docx_text_for_sql(text: str) -> str:
+    return text.replace("\x00", "")
+
+
 def _build_demo_evidence_catalog() -> tuple[dict[str, Any], ...]:
     from modules.audit_intelligence.engines import technology_control_mapping as mapping
 
@@ -140,7 +166,8 @@ def _build_demo_evidence_catalog() -> tuple[dict[str, Any], ...]:
         ext, mime = formats[(idx - 1) % len(formats)]
         app = applications[(idx - 1) % len(applications)]
         connector = connectors[(idx - 1) % len(connectors)]
-        fw = str(control.frameworks[0])
+        frameworks = tuple(str(fw) for fw in control.frameworks if str(fw))
+        fw = frameworks[0] if frameworks else ""
         topic = _slug(control.technology or "general")
         evidence_id = "EV-LLM-ENC-001" if idx == 1 else f"EV-DEMO-{idx:03d}"
         filename = (
@@ -154,6 +181,7 @@ def _build_demo_evidence_catalog() -> tuple[dict[str, Any], ...]:
                 "filename": filename,
                 "application": app,
                 "framework": fw,
+                "frameworks": frameworks,
                 "control_id": control.control_id,
                 "mime_type": mime,
                 "topic": topic,
@@ -358,6 +386,43 @@ def _ensure_sql_persistence():
     return sql
 
 
+def _persist_postgres_evidence(spec: dict[str, Any], *, content: str, artifact: Any, source_url: str) -> None:
+    """Persist seeded evidence into the existing PostgreSQL evidence repository."""
+    from ecs_platform.repository.repository import EvidenceRepository
+
+    metadata = dict(getattr(artifact, "metadata", {}) or {})
+    metadata.update(
+        {
+            "evidence_id": str(getattr(artifact, "evidence_id", "") or spec.get("evidence_id", "")),
+            "filename": str(getattr(artifact, "filename", "") or spec.get("filename", "")),
+            "custody_mode": str(getattr(artifact, "custody_mode", "") or ""),
+            "object_uri": str(getattr(artifact, "object_uri", "") or ""),
+            "mime_type": str(getattr(artifact, "mime_type", "") or spec.get("mime_type", "")),
+            "source_url": source_url,
+            "source_connector": str(spec.get("source_connector") or "llm_usecase_demo"),
+            "content_hash": str(getattr(artifact, "content_hash", "") or ""),
+            "version": int(getattr(artifact, "version", 1) or 1),
+        },
+    )
+    item = {
+        "evidence_uid": str(getattr(artifact, "evidence_id", "") or spec.get("evidence_id", "")),
+        "source_system": str(spec.get("source_connector") or "llm_usecase_demo"),
+        "source_object_id": str(spec.get("evidence_id", "")),
+        "object_type": str(spec.get("mime_type", "") or "text/plain"),
+        "title": str(getattr(artifact, "filename", "") or spec.get("filename", "") or spec.get("evidence_id", "")),
+        "content": content,
+        "owner": "llm_usecase_demo_seed",
+        "url": str(getattr(artifact, "object_uri", "") or source_url),
+        "application": str(spec.get("application", "")),
+        "metadata": metadata,
+        "control_mapping": [str(spec.get("control_id", ""))] if spec.get("control_id") else [],
+        "framework_mapping": [str(fw) for fw in (spec.get("frameworks") or ()) if str(fw)]
+        or ([str(spec.get("framework", ""))] if spec.get("framework") else []),
+    }
+    repo = EvidenceRepository()
+    repo.upsert_evidence(item)
+
+
 def _ingest_one(
     spec: dict[str, Any],
     *,
@@ -370,11 +435,17 @@ def _ingest_one(
 
     path = _DEMO_DIR / spec["filename"]
     body = path.read_bytes()
-    text = body.decode("utf-8", errors="ignore")
+    ext = Path(spec["filename"]).suffix.lower()
+    if ext == ".docx":
+        text = _sanitize_docx_text_for_sql(_extract_docx_text(body))
+    else:
+        text = body.decode("utf-8", errors="ignore")
     key = repo.make_evidence_key(spec["application"], spec["control_id"])
     version = 1
     existing = repo.get_latest(key)
     if existing and existing.evidence_id == spec["evidence_id"] and existing.custody_mode == "SNAPSHOT":
+        source_url = f"file://{_DEMO_DIR.as_posix()}/{spec['filename']}"
+        _persist_postgres_evidence(spec, content=text, artifact=existing, source_url=source_url)
         if provider is not None or vector_store is not None:
             idx = index_evidence_version(
                 existing,
@@ -399,10 +470,11 @@ def _ingest_one(
         version = int(existing.version) + 1
 
     source_connector = str(spec.get("source_connector") or "llm_usecase_demo")
+    source_url = f"file://{_DEMO_DIR.as_posix()}/{spec['filename']}"
     cust = custody.resolve_custody(
         source_connector=source_connector,
         source_item_id=spec["evidence_id"],
-        source_url=f"file://{_DEMO_DIR.as_posix()}/{spec['filename']}",
+        source_url=source_url,
         source_modified_at="2026-06-12T00:00:00Z",
         filename=spec["filename"],
         mime_type=spec["mime_type"],
@@ -426,7 +498,7 @@ def _ingest_one(
         environment="Production",
         source_connector=source_connector,
         source_item_id=spec["evidence_id"],
-        source_url=f"file://{_DEMO_DIR.as_posix()}/{spec['filename']}",
+        source_url=source_url,
         mime_type=spec["mime_type"],
         metadata={"topic": spec.get("topic", ""), "demo": "llm_usecase"},
         custody_mode=cust.custody_mode,
@@ -435,6 +507,7 @@ def _ingest_one(
         content_hash_override=cust.content_hash,
         size_bytes_override=cust.size_bytes,
     )
+    _persist_postgres_evidence(spec, content=text, artifact=art, source_url=source_url)
     if provider is not None or vector_store is not None:
         idx = index_evidence_version(
             art,

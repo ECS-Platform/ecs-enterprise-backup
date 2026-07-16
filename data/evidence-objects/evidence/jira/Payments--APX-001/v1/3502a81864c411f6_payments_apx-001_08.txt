@@ -1,0 +1,7 @@
+Application: Payments
+Framework: Middleware Baselining
+Control: APX-001
+Connector: jira
+Evidence ID: EV-DEMO-008
+Topic: apache_httpd
+Collection outcome: PASS

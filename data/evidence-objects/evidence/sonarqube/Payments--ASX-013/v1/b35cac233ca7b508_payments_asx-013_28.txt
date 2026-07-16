@@ -1,0 +1,7 @@
+Application: Payments
+Framework: DB Baselining
+Control: ASX-013
+Connector: sonarqube
+Evidence ID: EV-DEMO-028
+Topic: aerospike
+Collection outcome: PASS

@@ -1,0 +1,14 @@
+{
+  "application": "Payments",
+  "checks": [
+    "evidence_integrity",
+    "control_mapping",
+    "custody_snapshot"
+  ],
+  "connector": "confluence",
+  "control_id": "ASX-008",
+  "evidence_id": "EV-DEMO-023",
+  "framework": "DB Baselining",
+  "notes": "Deterministic ECS demo evidence payload.",
+  "status": "Collected"
+}

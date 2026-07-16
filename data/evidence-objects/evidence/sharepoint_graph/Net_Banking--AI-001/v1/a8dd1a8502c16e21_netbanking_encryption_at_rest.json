@@ -1,0 +1,16 @@
+{
+  "application": "Net Banking",
+  "framework": "PCI DSS",
+  "control_id": "PCI-3.4",
+  "evidence_type": "encryption_at_rest",
+  "collected_at": "2026-06-12T09:30:00Z",
+  "summary": "Oracle TDE is enabled for Net Banking cardholder data tablespaces.",
+  "details": {
+    "database": "NB_CORE",
+    "tde_status": "ENABLED",
+    "tablespaces": ["CHD_DATA", "CHD_INDEX"],
+    "key_store": "software wallet under /u01/app/oracle/wallet",
+    "canary": "ECS-RAG-CANARY-7429"
+  },
+  "attestation": "Encryption at rest validated by DB platform team for Net Banking CHD stores."
+}

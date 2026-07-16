@@ -1,0 +1,14 @@
+{
+  "application": "Card Operations",
+  "checks": [
+    "evidence_integrity",
+    "control_mapping",
+    "custody_snapshot"
+  ],
+  "connector": "servicenow_cmdb",
+  "control_id": "APX-008",
+  "evidence_id": "EV-DEMO-015",
+  "framework": "Middleware Baselining",
+  "notes": "Deterministic ECS demo evidence payload.",
+  "status": "Collected"
+}
