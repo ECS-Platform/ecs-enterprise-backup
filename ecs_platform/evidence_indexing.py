@@ -9,9 +9,34 @@ from __future__ import annotations
 
 import hashlib
 import os
+import threading
 from typing import Any
 
 from ecs_platform.vectorstore.base import Chunk, VectorStore, chunk_text
+
+# Suppresses indexing for the duration of the one-time startup framework-catalog
+# seed only (``app.main`` wraps ``refresh_repository_from_frameworks(source=
+# "startup")`` with ``suppress_startup_indexing()``). That seed can register
+# hundreds of evidence rows synchronously, and each one would otherwise trigger
+# a live embedding call — this is what previously hung host startup. Explicit
+# runs (scheduler-triggered collection, LLM workbench, tests) never set this flag,
+# so their indexing is governed only by whether the provider is configured.
+_SUPPRESS = threading.local()
+
+
+class suppress_startup_indexing:
+    """Context manager: skip indexing for calls made inside the block."""
+
+    def __enter__(self) -> "suppress_startup_indexing":
+        _SUPPRESS.active = True
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        _SUPPRESS.active = False
+
+
+def _startup_indexing_suppressed() -> bool:
+    return bool(getattr(_SUPPRESS, "active", False))
 
 
 def _text_hash(text: str) -> str:
@@ -116,6 +141,7 @@ def build_chunk_metadata(artifact: Any, *, text_source: str, piece_hash: str, is
         "framework": frameworks[0] if frameworks else "",
         "frameworks": frameworks,
         "control": getattr(artifact, "control_id", ""),
+        "control_id": getattr(artifact, "control_id", ""),
         "connector": getattr(artifact, "source_connector", ""),
         "filename": getattr(artifact, "filename", ""),
         "content_hash": getattr(artifact, "content_hash", ""),
@@ -149,12 +175,18 @@ def _existing_chunk_hashes(store: VectorStore) -> dict[str, str]:
 
 
 def _indexing_allowed(provider: Any) -> tuple[bool, str]:
-    demo = str(os.environ.get("DEMO_MODE", "")).strip().lower() in {"1", "true", "yes", "on"}
+    if _startup_indexing_suppressed():
+        # Only the one-time startup framework-catalog seed sets this (see
+        # ``suppress_startup_indexing``). `configured()` only checks that a base
+        # URL is set (true by default for Ollama) — it cannot detect reachability,
+        # so it must not gate the hundreds of synchronous embed calls that seed
+        # would otherwise trigger on every host startup. Scheduler-triggered
+        # collection and explicit indexing calls never suppress and are governed
+        # only by whether the provider is configured, same as before.
+        return False, "startup_seed_no_indexing"
     configured = bool(getattr(provider, "configured", lambda: False)())
     if configured:
         return True, ""
-    if demo:
-        return False, "demo_mode_no_provider"
     return False, "provider_not_configured"
 
 

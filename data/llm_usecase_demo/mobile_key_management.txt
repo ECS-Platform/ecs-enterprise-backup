@@ -1,0 +1,12 @@
+Mobile Banking — Cryptographic Key Management Attestation
+Application: Mobile Banking
+Framework: PCI DSS
+Control: PCI-3.5
+Collected: 2026-06-11
+
+Key hierarchy:
+- HSM partition MB-PROD-KEYS holds AES-256 DEKs for mobile token vault
+- DEK rotation: quarterly (last rotation 2026-04-01)
+- Dual control for key export: enforced; no cleartext key export in last 12 months
+
+Conclusion: Key management for Mobile Banking token vault aligns with PCI DSS key custodianship requirements.

@@ -1,0 +1,14 @@
+{
+  "application": "Net Banking",
+  "checks": [
+    "evidence_integrity",
+    "control_mapping",
+    "custody_snapshot"
+  ],
+  "connector": "confluence",
+  "control_id": "APX-004",
+  "evidence_id": "EV-DEMO-011",
+  "framework": "Middleware Baselining",
+  "notes": "Deterministic ECS demo evidence payload.",
+  "status": "Collected"
+}

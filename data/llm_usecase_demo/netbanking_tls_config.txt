@@ -1,0 +1,13 @@
+Net Banking — TLS Configuration Evidence
+Application: Net Banking
+Framework: PCI DSS
+Control: PCI-4.1
+Collected: 2026-06-10
+
+Findings:
+- TLS 1.2 and TLS 1.3 enabled on netbank-api and edge gateways
+- Weak ciphers (RC4, 3DES) disabled in Nginx ssl_ciphers
+- HSTS max-age=31536000 set for online.bank.example
+- Certificate: DigiCert EV, expires 2027-01-15, SAN covers netbanking.bank.example
+
+Conclusion: Transport encryption for Net Banking customer sessions meets PCI DSS TLS requirements.

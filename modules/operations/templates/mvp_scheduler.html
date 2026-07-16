@@ -145,6 +145,31 @@
 </tbody></table></div>
 {{ workspace_pane_end() }}
 
+{{ workspace_pane('fetched_evidence', false) }}
+<div class="table-responsive ecs-paginated-wrap">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
+<th>Collected At</th><th>Source</th><th>Evidence Name</th><th>Application</th><th>Framework/Control</th><th>Custody Mode</th><th>Actions</th>
+</tr></thead><tbody>
+{% set fetched_rows = (scheduler.fetched_evidence if scheduler is defined and scheduler.fetched_evidence is defined else module_view.fetched_evidence|default([])) %}
+{% for e in fetched_rows %}
+<tr data-fetched-evidence-row>
+<td class="small">{{ e.collected_at or '—' }}</td>
+<td>{{ e.source or '—' }}</td>
+<td>{{ e.evidence_name or '—' }}</td>
+<td>{{ e.application or '—' }}</td>
+<td>{{ e.framework_control or '—' }}</td>
+<td><span class="badge {% if e.custody_mode=='SNAPSHOT' %}bg-success{% else %}bg-secondary{% endif %}">{{ e.custody_mode or '—' }}</span></td>
+<td class="text-nowrap">
+{% if e.evidence_id %}
+<button type="button" class="btn btn-link btn-sm p-0 me-2" data-fetched-evidence-view="{{ e.evidence_id|e }}">View</button>
+{% else %}
+<span class="text-muted small">N/A</span>
+{% endif %}
+</td></tr>
+{% endfor %}
+</tbody></table></div>
+{{ workspace_pane_end() }}
+
 {{ workspace_pane('failures', false) }}
 <div class="table-responsive ecs-paginated-wrap ecs-ops-table-wrap ecs-fit-view">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-fit-table mb-0" data-ecs-ops-table="sched-failures"><thead><tr>

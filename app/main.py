@@ -104,7 +104,10 @@ async def ecs_lifespan(application: FastAPI):
     _ecs_log.info("ECSStartup", f"ECS_AUTH_ENABLED={os.environ.get('ECS_AUTH_ENABLED', '')}")
     _ecs_log.info("ECSStartup",
                   f".env loaded={ENV_STATUS.get('loaded')} via {ENV_STATUS.get('parser')}")
-    refresh_repository_from_frameworks(source="startup")
+    from ecs_platform.evidence_indexing import suppress_startup_indexing
+
+    with suppress_startup_indexing():
+        refresh_repository_from_frameworks(source="startup")
     seed_demo_workflow_state()
     from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
     self_heal_governance()

@@ -1,5 +1,6 @@
 """Additive MVP routes — does not replace existing ECS routes."""
 
+from html import escape
 from urllib.parse import quote
 
 from fastapi import File, Form, Request, UploadFile
@@ -498,6 +499,124 @@ def register_mvp_routes(app, templates):
             url=f"/mvp/scheduler?role={role}&user={user}&notice={quote(notice)}&toast=scheduler_ok",
             status_code=303,
         )
+
+    @app.get("/mvp/scheduler/fetched-evidence/view", response_class=HTMLResponse)
+    def mvp_scheduler_fetched_evidence_view(
+        request: Request,
+        evidence_id: str = "",
+        role: str = "owner",
+        user: str = "User",
+        format: str = "",
+        raw: bool = False,
+    ):
+        if not evidence_id:
+            return HTMLResponse("<p>Missing evidence_id.</p>", status_code=400)
+
+        artifact = None
+        try:
+            from modules.audit_intelligence.services.persistence import get_persistence
+
+            for art in get_persistence().list_all_evidence_versions():
+                if getattr(art, "evidence_id", "") == evidence_id:
+                    artifact = art
+                    break
+        except Exception:
+            artifact = None
+        if artifact is None:
+            try:
+                from modules.audit_intelligence.engines import evidence_repository as ai_repo
+
+                for art in ai_repo.all_artifacts():
+                    if getattr(art, "evidence_id", "") == evidence_id:
+                        artifact = art
+                        break
+            except Exception:
+                artifact = None
+        if artifact is None:
+            return HTMLResponse("<p>Evidence not found.</p>", status_code=404)
+
+        metadata = dict(getattr(artifact, "metadata", ()) or ())
+        content_bytes: bytes | None = None
+        if str(getattr(artifact, "custody_mode", "")).upper() == "SNAPSHOT" and getattr(artifact, "object_uri", ""):
+            try:
+                from urllib.parse import urlparse
+                from ecs_platform.config import load_repository_config
+                from ecs_platform.storage import get_object_store
+
+                uri = str(getattr(artifact, "object_uri", ""))
+                parsed = urlparse(uri)
+                key = ""
+                if parsed.scheme == "file":
+                    from pathlib import Path
+
+                    try:
+                        content_bytes = Path(parsed.path).read_bytes()
+                    except Exception:
+                        content_bytes = None
+                elif parsed.scheme in ("http", "https"):
+                    bucket = str(((load_repository_config().get("repository", {}) or {}).get("object_store", {}) or {}).get("bucket", ""))
+                    path = parsed.path.lstrip("/")
+                    if bucket and path.startswith(bucket + "/"):
+                        key = path[len(bucket) + 1:]
+                if key:
+                    blob = get_object_store().get_bytes(key)
+                    if isinstance(blob, (bytes, bytearray)):
+                        content_bytes = bytes(blob)
+            except Exception:
+                content_bytes = None
+        if raw and content_bytes is not None:
+            return Response(content=content_bytes, media_type=str(getattr(artifact, "mime_type", "") or "application/octet-stream"))
+        content_text = ""
+        if content_bytes is not None:
+            content_text = content_bytes.decode("utf-8", errors="replace")
+        if not content_text:
+            try:
+                from modules.operations.engines import evidence_repository as ops_repo
+
+                rec = next(
+                    (r for r in ops_repo.evidence_repository if str(r.get("evidence_id", "")) == evidence_id),
+                    None,
+                )
+                if rec:
+                    content_text = str(rec.get("summary", "")) or str(rec.get("metadata", {}))
+            except Exception:
+                content_text = ""
+        if not content_text:
+            content_text = "No snapshot bytes available; showing persisted metadata only."
+
+        framework = ", ".join(getattr(artifact, "frameworks", ()) or ())
+        if str(format).strip().lower() == "json":
+            return JSONResponse({
+                "ok": True,
+                "evidence_id": evidence_id,
+                "evidence_name": str(getattr(artifact, "filename", "") or evidence_id),
+                "source": str(getattr(artifact, "source_connector", "") or str(metadata.get("source", ""))),
+                "application": str(getattr(artifact, "asset_id", "") or ""),
+                "framework": framework,
+                "control": str(getattr(artifact, "control_id", "") or ""),
+                "custody_mode": str(getattr(artifact, "custody_mode", "") or ""),
+                "mime_type": str(getattr(artifact, "mime_type", "") or ""),
+                "collected_at": str(getattr(artifact, "collected_at", "") or ""),
+                "object_uri": str(getattr(artifact, "object_uri", "") or ""),
+                "content_text": content_text,
+                "metadata": metadata,
+            })
+        page = f"""
+<!DOCTYPE html><html><head><title>Fetched Evidence {escape(evidence_id)}</title></head>
+<body class="bg-light"><div class="container py-3">
+<h4 class="mb-2">Fetched Evidence</h4>
+<div><strong>Evidence Name:</strong> {escape(str(getattr(artifact, "filename", "") or evidence_id))}</div>
+<div><strong>Source:</strong> {escape(str(getattr(artifact, "source_connector", "") or str(metadata.get("source", ""))))}</div>
+<div><strong>Application:</strong> {escape(str(getattr(artifact, "asset_id", "") or ""))}</div>
+<div><strong>Framework/Control:</strong> {escape(" / ".join([x for x in (framework, str(getattr(artifact, "control_id", "") or "")) if x]))}</div>
+<div><strong>Custody Mode:</strong> {escape(str(getattr(artifact, "custody_mode", "") or ""))}</div>
+<hr/>
+<h6>Available Content</h6>
+<pre style="white-space:pre-wrap">{escape(content_text)}</pre>
+<a href="/mvp/scheduler?role={quote(role)}&user={quote(user)}">Back to Scheduler</a>
+</div></body></html>
+"""
+        return HTMLResponse(page)
 
     @app.post("/mvp/scheduler/retry")
     def mvp_scheduler_retry(

@@ -1,0 +1,14 @@
+Net Banking — Backup Restoration Test Log
+Application: Net Banking
+Framework: ITPP
+Control: IT-C-08
+Test date: 2026-06-03
+Performed by: Platform Reliability
+
+Procedure:
+1. Restored NB_CORE RMAN backup from 2026-06-02 02:00 IST to isolated restore host
+2. Validated row counts for CHD_DATA sample tables
+3. Application smoke test against restore DB succeeded
+
+Result: PASS — RPO 15 minutes, RTO measured 47 minutes (target <= 60).
+Evidence supports continuity controls for Net Banking database recovery.

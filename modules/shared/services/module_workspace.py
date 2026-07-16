@@ -105,6 +105,7 @@ DEFAULT_TABS: dict[str, list[Tab]] = {
         {"id": "applications", "label": "App Scans"},
         {"id": "cron", "label": "Cron Timeline"},
         {"id": "history", "label": "Run History"},
+        {"id": "fetched_evidence", "label": "Fetched Evidence"},
         {"id": "failures", "label": "Failures"},
         {"id": "upcoming", "label": "Tomorrow Plan"},
         {"id": "integrations", "label": "Integrations"},

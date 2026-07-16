@@ -36,12 +36,19 @@ def _truthy(value: Any) -> bool:
 
 
 def default_custody_mode() -> str:
-    mode = str(os.environ.get("ECS_EVIDENCE_CUSTODY_MODE", CUSTODY_REFERENCE_ONLY)).strip().upper()
+    cfg = _custody_config()
+    mode = str(
+        os.environ.get(
+            "ECS_EVIDENCE_CUSTODY_MODE",
+            str(cfg.get("mode", CUSTODY_REFERENCE_ONLY)),
+        ),
+    ).strip().upper()
     return mode if mode in (CUSTODY_REFERENCE_ONLY, CUSTODY_SNAPSHOT) else CUSTODY_REFERENCE_ONLY
 
 
 def snapshot_enabled() -> bool:
-    return _truthy(os.environ.get("ECS_EVIDENCE_SNAPSHOT_ENABLED", ""))
+    cfg = _custody_config()
+    return _truthy(os.environ.get("ECS_EVIDENCE_SNAPSHOT_ENABLED", str(cfg.get("snapshot_enabled", False))))
 
 
 def _custody_config() -> dict[str, Any]:
@@ -69,7 +76,9 @@ def allowed_mime_types() -> set[str]:
         "ECS_EVIDENCE_ALLOWED_MIME_TYPES",
         str(cfg.get(
             "allowed_mime_types",
-            "application/pdf,application/json,text/plain,text/csv,image/png,image/jpeg",
+            "application/pdf,application/json,"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document,"
+            "text/plain,text/csv,image/png,image/jpeg",
         )),
     )
     return {m.strip().lower() for m in str(raw).split(",") if m.strip()}

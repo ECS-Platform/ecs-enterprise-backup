@@ -1,0 +1,14 @@
+{
+  "application": "Treasury",
+  "checks": [
+    "evidence_integrity",
+    "control_mapping",
+    "custody_snapshot"
+  ],
+  "connector": "sharepoint_graph",
+  "control_id": "ASX-004",
+  "evidence_id": "EV-DEMO-019",
+  "framework": "DB Baselining",
+  "notes": "Deterministic ECS demo evidence payload.",
+  "status": "Collected"
+}

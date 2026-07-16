@@ -230,6 +230,14 @@ def store_evidence(
         or _find_persisted_duplicate(source_item_id, content_hash)
     )
     if duplicate is not None:
+        # Allow an upgrade path from REFERENCE_ONLY -> SNAPSHOT for the same
+        # source object/hash when immutable bytes are now available. Without this,
+        # dedupe would keep returning the earlier reference-only version forever.
+        wants_snapshot = (custody_mode or "").strip().upper() == "SNAPSHOT" and bool(object_uri)
+        duplicate_is_reference = (duplicate.custody_mode or "").strip().upper() != "SNAPSHOT" or not duplicate.object_uri
+        if wants_snapshot and duplicate_is_reference:
+            duplicate = None
+    if duplicate is not None:
         _merge_into_store(duplicate)
         return duplicate
 

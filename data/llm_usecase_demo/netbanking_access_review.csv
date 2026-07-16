@@ -1,0 +1,5 @@
+review_id,application,framework,control_id,account,role,status,last_login,reviewer
+AR-2026-041,Net Banking,PCI DSS,PCI-7.2,nb_ops_admin,Privileged Ops,Approved,2026-06-01,R. Mehta
+AR-2026-042,Net Banking,PCI DSS,PCI-7.2,nb_auditor_ro,Auditor ReadOnly,Approved,2026-05-28,A. Sharma
+AR-2026-043,Net Banking,PCI DSS,PCI-7.2,nb_batch_svc,Batch Service,Approved,2026-06-08,K. Reddy
+AR-2026-044,Net Banking,PCI DSS,PCI-7.2,nb_legacy_ops,Legacy Ops,Revoked,2026-03-12,R. Mehta

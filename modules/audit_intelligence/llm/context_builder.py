@@ -26,41 +26,65 @@ def _retrieve_rag(question: str, *, top_k: int, scope_filters: dict[str, Any] | 
         return {"contexts": [], "used": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
+_OBS_DETAIL_KEYS = (
+    "observation_id", "title", "application", "framework", "control_id",
+    "observation_severity", "status", "owner", "due_date",
+    "finding_description", "description", "root_cause", "impact",
+    "recommendation", "remediation", "missing_evidence", "age_days",
+)
+
+
 def _format_deterministic(det: dict[str, Any]) -> str:
     """Render the deterministic result as a compact, LLM-readable block."""
     if not det:
         return "ECS deterministic result: (none available)"
     lines = [f"ECS deterministic result: {det.get('answer_text', '').strip()}"]
     for key in ("count", "by_framework", "by_severity", "by_status", "by_application",
-                "average_readiness_percent", "highest_gap_framework", "top_applications"):
+                "average_readiness_percent", "highest_gap_framework", "top_applications",
+                "auto_approve"):
         if key in det and det[key] not in (None, "", {}, []):
             lines.append(f"- {key}: {det[key]}")
     rows = det.get("rows") or []
     if rows:
-        lines.append(f"- sample_rows ({min(len(rows), 5)} of {det.get('row_total', len(rows))}):")
-        for r in rows[:5]:
+        lines.append(f"- sample_rows ({min(len(rows), 8)} of {det.get('row_total', len(rows))}):")
+        for r in rows[:8]:
             if isinstance(r, dict):
-                compact = {k: r.get(k) for k in ("observation_id", "application", "framework",
-                                                 "observation_severity", "status", "owner",
-                                                 "due_date", "control_id", "age_days")
-                           if r.get(k) not in (None, "")}
+                compact = {k: r.get(k) for k in _OBS_DETAIL_KEYS if r.get(k) not in (None, "")}
                 lines.append(f"    * {compact or r}")
             else:
                 lines.append(f"    * {r}")
     return "\n".join(lines)
 
 
+def _citation_meta(ctx: dict[str, Any]) -> dict[str, Any]:
+    meta = dict(ctx.get("metadata", {}) or {})
+    return {
+        "evidence_id": meta.get("evidence_id") or ctx.get("evidence_uid") or "",
+        "filename": meta.get("filename") or "",
+        "version": meta.get("version") or "",
+        "application": meta.get("application") or "",
+        "framework": meta.get("framework") or "",
+        "control_id": meta.get("control_id") or meta.get("control") or "",
+    }
+
+
 def _format_rag(contexts: list[dict[str, Any]]) -> str:
-    """Render RAG evidence as numbered, citable [E#] blocks (reuses ECS convention)."""
+    """Render RAG evidence as numbered blocks citing evidence_id + filename + version."""
     if not contexts:
         return ""
     blocks = []
     for idx, ctx in enumerate(contexts, start=1):
-        meta = ctx.get("metadata", {}) or {}
-        header = (f"[E{idx}] source={ctx.get('source_system', meta.get('source_system', '?'))} "
-                  f"app={meta.get('application', '?')} uid={ctx.get('evidence_uid', '?')}")
+        cite = _citation_meta(ctx)
+        header = (
+            f"[E{idx}] evidence_id={cite['evidence_id']} "
+            f"filename={cite['filename']} version={cite['version']} "
+            f"app={cite['application']} control_id={cite['control_id']}"
+        )
         blocks.append(f"{header}\n{ctx.get('text', '')}".strip())
-    return "Evidence context:\n" + "\n\n".join(blocks)
+    return (
+        "Evidence context (cite evidence_id + filename + version; do not invent files):\n"
+        + "\n\n".join(blocks)
+    )
 
 
 def build_context(
@@ -69,18 +93,20 @@ def build_context(
     user_query: str,
     entities: dict[str, Any],
     deterministic_result: dict[str, Any] | None,
-    top_k: int = 8,
+    top_k: int = 5,
     use_rag: bool = True,
+    include_deterministic: bool = True,
 ) -> dict[str, Any]:
     """Assemble the final user prompt from deterministic + (optional) RAG context.
 
     Returns ``{assembled_prompt, system_prompt, rag_used, rag_error,
-    source_references, deterministic_block, rag_block}``. Never raises.
+    source_references, deterministic_block, rag_block, citations,
+    insufficient_evidence}``. Never raises.
     """
     system_prompt = str(prompt.get("system_prompt") or "")
     template = str(prompt.get("user_prompt_template") or "{deterministic_result}")
 
-    det_block = _format_deterministic(deterministic_result or {})
+    det_block = _format_deterministic(deterministic_result or {}) if include_deterministic else ""
 
     rag = {"contexts": [], "used": False, "error": ""}
     required_ctx = set(prompt.get("required_context", []) or [])
@@ -89,15 +115,21 @@ def build_context(
         scope_filters = {}
         if entities.get("application"):
             scope_filters["application"] = entities["application"]
-        rag = _retrieve_rag(user_query, top_k=top_k, scope_filters=scope_filters or None)
+        # Bound retrieval for 16 GB / 4K local runs.
+        rag = _retrieve_rag(user_query, top_k=min(int(top_k or 5), 5), scope_filters=scope_filters or None)
 
     rag_block = _format_rag(rag["contexts"]) if rag["used"] else ""
+    citations = [_citation_meta(c) for c in rag["contexts"]]
+    insufficient_evidence = bool(use_rag and wants_evidence and not rag["contexts"])
 
-    # Compose the deterministic_result slot the templates reference.
-    combined_context = det_block + (("\n\n" + rag_block) if rag_block else "")
+    if include_deterministic and det_block:
+        combined_context = det_block + (("\n\n" + rag_block) if rag_block else "")
+    else:
+        combined_context = rag_block or (
+            "Insufficient evidence in the indexed physical evidence corpus."
+            if insufficient_evidence else "No context available."
+        )
 
-    # Safe template fill: templates use {deterministic_result}, {user_query},
-    # {application_or_all}. Missing keys must not crash.
     fill = {
         "deterministic_result": combined_context,
         "user_query": user_query,
@@ -108,12 +140,22 @@ def build_context(
     except Exception:  # noqa: BLE001
         assembled = f"{combined_context}\n\nQuestion: {user_query}"
 
-    # Source references: deterministic sources + RAG evidence uids.
-    source_references = list((deterministic_result or {}).get("source_references", []))
-    for ctx in rag["contexts"]:
-        uid = ctx.get("evidence_uid")
-        if uid:
-            source_references.append(str(uid))
+    if insufficient_evidence and use_rag and not include_deterministic:
+        assembled = (
+            f"{combined_context}\n\nQuestion: {user_query}\n"
+            "If evidence context is missing, reply exactly that evidence is insufficient "
+            "and do not invent files or findings."
+        )
+
+    source_references: list[str] = []
+    if include_deterministic:
+        source_references.extend(list((deterministic_result or {}).get("source_references", [])))
+    for cite in citations:
+        eid = cite.get("evidence_id") or ""
+        fn = cite.get("filename") or ""
+        ver = cite.get("version") or ""
+        if eid or fn:
+            source_references.append(f"{eid}|{fn}|v{ver}")
 
     return {
         "assembled_prompt": assembled,
@@ -124,6 +166,8 @@ def build_context(
         "source_references": source_references,
         "deterministic_block": det_block,
         "rag_block": rag_block,
+        "citations": citations,
+        "insufficient_evidence": insufficient_evidence,
     }
 
 

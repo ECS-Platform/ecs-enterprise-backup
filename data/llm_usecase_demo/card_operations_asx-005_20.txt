@@ -1,0 +1,7 @@
+Application: Card Operations
+Framework: DB Baselining
+Control: ASX-005
+Connector: jira
+Evidence ID: EV-DEMO-020
+Topic: aerospike
+Collection outcome: PASS

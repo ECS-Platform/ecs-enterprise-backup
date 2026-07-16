@@ -1,5 +1,6 @@
 """Automated scheduled evidence pull simulation."""
 
+import time
 from datetime import datetime, timezone
 
 from app import ecs_state
@@ -48,43 +49,60 @@ _scheduler_status = {
     ],
 }
 
-_execution_history = [
-    {
-        "timestamp": "2026-05-24 06:00:12 UTC",
-        "status": "Success",
-        "records": 412,
-        "duration_sec": 38,
-        "triggered_by": "Cron",
-    },
-    {
-        "timestamp": "2026-05-24 00:00:09 UTC",
-        "status": "Success",
-        "records": 405,
-        "duration_sec": 41,
-        "triggered_by": "Cron",
-    },
-    {
-        "timestamp": "2026-05-23 18:00:15 UTC",
-        "status": "Success",
-        "records": 398,
-        "duration_sec": 44,
-        "triggered_by": "Cron",
-    },
-    {
-        "timestamp": "2026-05-23 12:00:11 UTC",
-        "status": "Partial",
-        "records": 360,
-        "duration_sec": 52,
-        "triggered_by": "Cron",
-    },
-    {
-        "timestamp": "2026-05-23 06:00:08 UTC",
-        "status": "Success",
-        "records": 401,
-        "duration_sec": 39,
-        "triggered_by": "Manual (Compliance Officer)",
-    },
-]
+_execution_history: list[dict] = []
+_collection_seq = 0
+
+
+def _scheduler_fetched_evidence(limit: int = 200) -> list[dict]:
+    """Latest persisted evidence collected by scheduler connector runs only."""
+    artifacts = []
+    try:
+        from modules.audit_intelligence.services.persistence import get_persistence
+
+        artifacts = get_persistence().list_all_evidence_versions()
+    except Exception:  # noqa: BLE001
+        artifacts = []
+    if not artifacts:
+        try:
+            from modules.audit_intelligence.engines import evidence_repository as ai_repo
+
+            artifacts = ai_repo.all_artifacts()
+        except Exception:  # noqa: BLE001
+            artifacts = []
+
+    rows: list[dict] = []
+    for art in artifacts:
+        source = str(getattr(art, "source", "") or "")
+        source_connector = str(getattr(art, "source_connector", "") or "")
+        if source == "llm_usecase_demo":
+            continue
+        if str(getattr(art, "evidence_id", "")).startswith("EV-DEMO-") or str(getattr(art, "evidence_id", "")) == "EV-LLM-ENC-001":
+            continue
+        meta = dict(getattr(art, "metadata", ()) or ())
+        if str(meta.get("demo", "")).strip().lower() == "llm_usecase":
+            continue
+        # Scheduler connector ingestion persists artifacts as source=manual_upload
+        # and may carry connector identity in either source_connector or metadata.source.
+        if source not in ("manual_upload", "connector_executor", "asset_scheduler"):
+            continue
+        connector_name = source_connector or str(meta.get("source", "") or "")
+        if not connector_name:
+            continue
+        framework = ", ".join(getattr(art, "frameworks", ()) or ())
+        control = str(getattr(art, "control_id", "") or "")
+        rows.append({
+            "evidence_id": str(getattr(art, "evidence_id", "") or ""),
+            "collected_at": str(getattr(art, "collected_at", "") or ""),
+            "source": connector_name,
+            "evidence_name": str(getattr(art, "filename", "") or getattr(art, "evidence_id", "")),
+            "application": str(getattr(art, "asset_id", "") or ""),
+            "framework_control": " / ".join([x for x in (framework, control) if x]),
+            "custody_mode": str(getattr(art, "custody_mode", "") or ""),
+            "view_url": str(getattr(art, "object_uri", "") or getattr(art, "source_url", "")),
+            "download_url": str(getattr(art, "object_uri", "") or getattr(art, "source_url", "")),
+        })
+    rows.sort(key=lambda r: r.get("collected_at", ""), reverse=True)
+    return rows[: max(0, int(limit or 0))]
 
 
 def _repository_count():
@@ -111,6 +129,7 @@ def get_scheduler_dashboard():
         "scheduler_data": ecs_state.scheduler_data,
         "repository_count": max(_repository_count(), SCHEDULER_METRICS["records_last_pull"] // 3),
         "execution_history": _execution_history,
+        "fetched_evidence": _scheduler_fetched_evidence(),
     }
 
 
@@ -300,10 +319,17 @@ def normalize_scheduler_applications(applications) -> frozenset[str] | None:
     if not selected:
         return None
     canonical: set[str] = set()
+    unknown_count = 0
     for label in selected:
         mapped = SCHEDULER_APPLICATION_MAP.get(label)
         if mapped is not None:
             canonical.update(mapped)
+        else:
+            unknown_count += 1
+    # Mixed known+unknown UI labels (e.g. enterprise app scans + mapped demo apps)
+    # should not over-restrict planning to only the mapped subset.
+    if canonical and unknown_count:
+        return None
     return frozenset(canonical)
 
 
@@ -339,7 +365,10 @@ def _job_matches_selection(job, applications, frameworks) -> bool:
             for f in (getattr(job, "frameworks", ()) or ())
             if _norm_scheduler_key(f)
         }
-        if not (job_fws & fw_keys):
+        # Connector jobs (e.g. SharePoint/Jira/ServiceNow) carry no predefined
+        # framework tags — only baseline/technology jobs do. Don't let framework
+        # selection zero out an otherwise-matched connector job for that reason.
+        if job_fws and not (job_fws & fw_keys):
             return False
     return True
 
@@ -351,6 +380,8 @@ def run_scheduler_collection(
     frameworks=None,
     connector_transport=None,
 ) -> dict:
+    started_perf = time.perf_counter()
+    started_utc = datetime.now(timezone.utc)
     """Run evidence collection via the REAL asset-scheduler / connector-executor.
 
     Reuses the existing services (no new orchestration, connectors, or
@@ -383,23 +414,66 @@ def run_scheduler_collection(
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     plan_summary = plan.to_dict()["summary"]
+    connector_plan_summary = {
+        "planned_jobs": plan_summary.get("planned_jobs", 0),
+        "by_route": plan_summary.get("by_route", {}),
+    }
 
     results: list[dict] = []
     ingested = 0
     if live:
-        # Execute only the connector jobs here (baseline jobs need an executor and
-        # live DB/driver targets; those are driven by the predefined-query flow).
+        # Execute only connector jobs here; baseline jobs are planned/visible but
+        # collected by the predefined-query flow with its own executor path.
+        connector_plan = asset_scheduler.EvidencePlan(
+            jobs=[j for j in plan.jobs if getattr(j, "connector", "")],
+            unsupported=[],
+        )
+        connector_plan_summary = connector_plan.to_dict()["summary"]
         results = asset_scheduler.execute_plan(
-            plan, run_connectors=True, connector_transport=connector_transport,
+            connector_plan, run_connectors=True, connector_transport=connector_transport,
             requested_by=user or "scheduler",
         )
         ingested = sum(int(r.get("ingested", 0) or 0) for r in results if isinstance(r, dict))
+
+    duration_sec = max(0, int(round(time.perf_counter() - started_perf)))
+    completed_utc = datetime.now(timezone.utc)
+    job_results = [r for r in results if isinstance(r, dict)]
+    zero_or_failed = [
+        r for r in job_results
+        if (int(r.get("ingested", 0) or 0) == 0) or (r.get("ok") is False)
+    ]
+    status = "Success"
+    if job_results and zero_or_failed:
+        status = "Partial"
+    if live and connector_plan_summary.get("planned_jobs", 0) and not job_results:
+        status = "Failed"
+    global _collection_seq
+    _collection_seq += 1
+    run_id = f"COLL-{started_utc.strftime('%Y%m%d-%H%M%S')}-{_collection_seq:03d}"
+    log_preview = [
+        f"[{started_utc.strftime('%H:%M:%S')} UTC] Collection started",
+        f"planned_jobs={connector_plan_summary.get('planned_jobs', 0)} connectors={','.join(sorted({j.connector for j in plan.jobs if j.connector})) or '-'}",
+        f"[{completed_utc.strftime('%H:%M:%S')} UTC] completed status={status} ingested={ingested}",
+    ]
+    _execution_history.insert(0, {
+        "run_id": run_id,
+        "trigger_type": "Manual",
+        "started": started_utc.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "completed": completed_utc.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "duration_sec": duration_sec,
+        "apps_covered": len(apps),
+        "evidence_count": ingested,
+        "status": status,
+        "initiated_by": user or "System",
+        "log_preview": log_preview,
+        "job_results": job_results,
+    })
 
     try:
         from modules.shared.services.ecs_logging import log_scheduler
         log_scheduler(
             f"Evidence collection {mode}",
-            f"planned_jobs={plan_summary.get('planned_jobs', 0)}; ingested={ingested}",
+            f"planned_jobs={connector_plan_summary.get('planned_jobs', 0)}; ingested={ingested}",
             user=user,
         )
     except Exception:  # noqa: BLE001 - logging must never break the run
@@ -407,12 +481,15 @@ def run_scheduler_collection(
 
     return {
         "ok": True,
+        "run_id": run_id,
+        "status": status,
+        "duration_sec": duration_sec,
         "mode": mode,
         "timestamp": now,
         "applications": apps,
         "frameworks": fws,
-        "planned_jobs": plan_summary.get("planned_jobs", 0),
-        "by_route": plan_summary.get("by_route", {}),
+        "planned_jobs": connector_plan_summary.get("planned_jobs", 0),
+        "by_route": connector_plan_summary.get("by_route", {}),
         "connectors": sorted({j.connector for j in plan.jobs if j.connector}),
         "ingested": ingested,
         "results": results,

@@ -371,17 +371,56 @@ def evidence_pack_availability(pack_type: str = "framework", scope: str = "", **
                 count=int(stats.get("evidence_keys", 0) or 0), stats=stats,
                 data_used=["audit_repository_service.repository_stats"],
                 source_references=["ECS evidence repository"],
+                auto_approve=False,
             )
         pack = _repo_service().build_pack(pack_type, scope)
         item_count = int((pack or {}).get("item_count", 0) or 0)
         return _result(
-            f"{pack_type} pack for '{scope}' contains {item_count} item(s).",
+            f"{pack_type} pack for '{scope}' contains {item_count} item(s). "
+            f"Recommended controls are advisory only — do not auto-approve.",
             count=item_count, pack=pack,
             data_used=["audit_repository_service.build_pack"],
-            source_references=["ECS evidence packs"],
+            source_references=["ECS evidence repository"],
+            auto_approve=False,
         )
     except Exception:  # noqa: BLE001
-        return _result("Evidence pack availability is not available in this environment.")
+        return _result("Evidence pack availability is not available.", auto_approve=False)
+
+
+def evidence_to_control_mapping(application: str = "", framework: str = "", **_: Any) -> dict[str, Any]:
+    """Recommend likely controls from repository evidence metadata (no auto-approve)."""
+    try:
+        from modules.audit_intelligence.engines import evidence_repository as repo
+
+        arts = list(repo.all_latest() or [])
+        if application:
+            arts = [a for a in arts if (a.asset_id or "").lower() == application.lower()]
+        if framework:
+            arts = [
+                a for a in arts
+                if any(framework.lower() in str(f).lower() for f in (a.frameworks or ()))
+            ]
+        rows = []
+        for a in arts[:20]:
+            rows.append({
+                "evidence_id": a.evidence_id,
+                "filename": a.filename,
+                "version": a.version,
+                "application": a.asset_id,
+                "framework": (a.frameworks or ("",))[0] if a.frameworks else "",
+                "control_id": a.control_id,
+                "recommendation": f"Map {a.filename} to control {a.control_id} (advisory only).",
+            })
+        scope = application or "all applications"
+        return _result(
+            f"{len(rows)} evidence-to-control mapping hint(s) for {scope}. "
+            f"Do not auto-approve any control.",
+            count=len(rows), rows=rows, auto_approve=False,
+            data_used=["evidence_repository.all_latest"],
+            source_references=["ECS evidence repository (physical SNAPSHOT metadata)"],
+        )
+    except Exception:  # noqa: BLE001
+        return _result("Evidence-to-control mapping is not available.", auto_approve=False)
 
 
 def app_owner_pending_actions(owner: str = "", application: str = "", **_: Any) -> dict[str, Any]:
@@ -420,7 +459,8 @@ PROMPT_ROUTES: dict[str, Any] = {
     "application_comparison_summary": application_comparison,
     "stale_evidence_detection_summary": stale_evidence,
     "evidence_pack_summary": evidence_pack_availability,
-    "evidence_reuse_recommendation": evidence_pack_availability,
+    "evidence_reuse_recommendation": evidence_to_control_mapping,
+    "evidence_to_control_mapping": evidence_to_control_mapping,
     "app_owner_action_summary": app_owner_pending_actions,
     "closure_probability_by_owner": app_owner_pending_actions,
     "framework_readiness_score_explanation": audit_readiness_score,

@@ -56,6 +56,24 @@ def _truthy(value: Any) -> bool:
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _demo_mode_enabled() -> bool:
+    """True when global demo mode is explicitly enabled."""
+    return _truthy(os.environ.get("DEMO_MODE", ""))
+
+
+def _workbench_mock_transport(payload: Any) -> Callable[..., dict]:
+    """Deterministic mock transport used for demo fallback collection."""
+    def t(method, url, headers, params, timeout=None):
+        u = str(url)
+        if u.endswith("/oauth2/v2.0/token") or u.endswith("/oauth_token.do") \
+                or u.endswith("/protocol/openid-connect/token"):
+            return {"access_token": "WORKBENCH-MOCK"}
+        if u.endswith("/login"):
+            return {"token": "WORKBENCH-MOCK"}
+        return payload if isinstance(payload, dict) else {"value": list(payload or [])}
+    return t
+
+
 # --------------------------------------------------------------------------- #
 # Evidence bridge
 # --------------------------------------------------------------------------- #
@@ -265,9 +283,14 @@ def collect_evidence(
                     "ingested": 0, "receipts": []}
         try:
             if not _adapter_module(connector).is_configured():
-                return {"ok": False, "connector": connector, "status": "not_configured",
-                        "reason": "adapter is not configured", "mode": "live",
-                        "ingested": 0, "receipts": []}
+                if _demo_mode_enabled() and connector in _ADAPTER_TESTS:
+                    meta = _ADAPTER_TESTS.get(connector, {})
+                    transport = _workbench_mock_transport(meta.get("mock", {}))
+                    injected = True
+                else:
+                    return {"ok": False, "connector": connector, "status": "not_configured",
+                            "reason": "adapter is not configured", "mode": "live",
+                            "ingested": 0, "receipts": []}
         except Exception:  # noqa: BLE001
             return {"ok": False, "connector": connector, "status": "not_configured",
                     "mode": "live", "ingested": 0, "receipts": []}

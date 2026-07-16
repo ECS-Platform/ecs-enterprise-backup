@@ -70,6 +70,26 @@
 <div class="modal-body"><pre class="small mb-0 ecs-sched-log" id="schedRunLogBody"></pre></div>
 </div></div></div>
 
+<div class="modal fade ecs-fetched-modal" id="schedFetchedEvidenceModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+<div class="modal-header py-2">
+  <h6 class="modal-title" id="schedFetchedTitle">Fetched Evidence</h6>
+  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <span class="badge bg-primary" id="schedFetchedSourceBadge">—</span>
+    <span class="badge bg-secondary" id="schedFetchedCustodyBadge">—</span>
+  </div>
+  <div class="ecs-fetched-meta mb-2" id="schedFetchedMeta"></div>
+  <h6 class="small text-uppercase text-muted mb-1">Evidence Content</h6>
+  <div id="schedFetchedContentWrap"></div>
+</div>
+<div class="modal-footer py-2">
+  <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+
 <script type="application/json" id="schedAppScanData">{{ module_view.application_scans|tojson }}</script>
 <script type="application/json" id="schedRunHistoryData">{{ module_view.execution_history|tojson }}</script>
 <script type="application/json" id="schedCronData">{{ module_view.cron_timeline|tojson }}</script>
@@ -211,33 +231,47 @@
     if (log) { log.classList.remove('d-none'); log.innerHTML = ''; }
     if (bar) bar.classList.remove('d-none');
     startBtn.disabled = true;
-    var lines = [
-      ['[02:00:01] Initializing collection orchestrator…', ''],
-      ['[02:00:03] Connecting SharePoint evidence library…', 'log-ok'],
-      ['[02:00:06] Pulling ServiceNow GRC control mappings…', 'log-ok'],
-      ['[02:00:12] Scanning Net Banking — PCI DSS controls…', 'log-ok'],
-      ['[02:00:18] Mobile Banking AppSec gate — SonarQube linked', 'log-warn'],
-      ['[02:00:24] Auto-validating 317 controls…', 'log-ok'],
-      ['[02:00:30] Collection complete — 386 evidence files ingested', 'log-ok']
+    var stages = [
+      'Preparing collection plan...',
+      'Executing configured connectors...',
+      'Processing collected evidence...',
+      'Finalizing collection results...'
     ];
-    var step = 0;
-    function tick(){
-      if (step >= lines.length) {
-        setTimeout(function(){ form.submit(); }, 400);
-        return;
-      }
+    var stageIndex = 0;
+    var startedAt = Date.now();
+    var minVisibleMs = 3500;
+    var stageTimer = null;
+    function showStage(text) {
+      if (!log) return;
+      log.innerHTML = '';
       var p = document.createElement('div');
-      p.className = lines[step][1];
-      p.textContent = lines[step][0];
-      if (log) {
-        log.appendChild(p);
-        log.scrollTop = log.scrollHeight;
-      }
-      if (inner) inner.style.width = Math.round(((step + 1) / lines.length) * 100) + '%';
-      step++;
-      setTimeout(tick, 450);
+      p.textContent = text;
+      log.appendChild(p);
     }
-    tick();
+    showStage(stages[0]);
+    if (inner) inner.style.width = '12%';
+    stageTimer = setInterval(function(){
+      stageIndex = Math.min(stageIndex + 1, stages.length - 1);
+      showStage(stages[stageIndex]);
+      if (inner) {
+        inner.style.width = String(25 + (stageIndex * 23)) + '%';
+      }
+    }, 850);
+
+    var payload = new FormData(form);
+    fetch(form.action, { method: 'POST', body: payload, redirect: 'follow' })
+      .then(function(resp){
+        var waitMs = Math.max(0, minVisibleMs - (Date.now() - startedAt));
+        setTimeout(function(){
+          if (stageTimer) clearInterval(stageTimer);
+          if (inner) inner.style.width = '100%';
+          window.location.assign(resp.url || form.action);
+        }, waitMs);
+      })
+      .catch(function(){
+        if (stageTimer) clearInterval(stageTimer);
+        form.submit();
+      });
   });
 
   document.addEventListener('click', function(e){
@@ -263,6 +297,83 @@
       a.href = URL.createObjectURL(blob);
       a.download = runId + '_summary.txt';
       a.click();
+    });
+  });
+
+  var fetchedModalEl = document.getElementById('schedFetchedEvidenceModal');
+  var fetchedModal = fetchedModalEl ? new bootstrap.Modal(fetchedModalEl) : null;
+  function prettyJson(s) {
+    try { return JSON.stringify(JSON.parse(s), null, 2); } catch(e) { return s; }
+  }
+  function renderFetchedEvidence(data) {
+    var title = document.getElementById('schedFetchedTitle');
+    var srcB = document.getElementById('schedFetchedSourceBadge');
+    var custB = document.getElementById('schedFetchedCustodyBadge');
+    var meta = document.getElementById('schedFetchedMeta');
+    var wrap = document.getElementById('schedFetchedContentWrap');
+    if (!title || !srcB || !custB || !meta || !wrap) return;
+    title.textContent = data.evidence_name || data.evidence_id || 'Fetched Evidence';
+    srcB.textContent = data.source || 'unknown';
+    custB.textContent = data.custody_mode || 'UNKNOWN';
+    custB.className = 'badge ' + ((String(data.custody_mode || '').toUpperCase() === 'SNAPSHOT') ? 'bg-success' : 'bg-secondary');
+    meta.innerHTML =
+      '<div><div class=\"k\">Application</div><div class=\"v\">' + esc(data.application || '—') + '</div></div>' +
+      '<div><div class=\"k\">Collected At</div><div class=\"v\">' + esc(data.collected_at || '—') + '</div></div>' +
+      '<div><div class=\"k\">Framework</div><div class=\"v\">' + esc(data.framework || '—') + '</div></div>' +
+      '<div><div class=\"k\">Control</div><div class=\"v\">' + esc(data.control || '—') + '</div></div>';
+    var mime = String(data.mime_type || '').toLowerCase();
+    var txt = String(data.content_text || '');
+    if (mime.indexOf('json') >= 0) txt = prettyJson(txt);
+    if (mime.indexOf('pdf') >= 0 && data.object_uri) {
+      var src = '/mvp/scheduler/fetched-evidence/view?evidence_id=' + encodeURIComponent(data.evidence_id) + '&raw=true';
+      wrap.innerHTML = '<iframe class=\"ecs-fetched-iframe\" src=\"' + src + '\"></iframe>' +
+        '<div class=\"small text-muted mt-1\">If PDF preview is unavailable, readable extracted content is shown below.</div>' +
+        '<pre class=\"ecs-fetched-content mt-1\">' + esc(txt) + '</pre>';
+      return;
+    }
+    wrap.innerHTML = '<pre class=\"ecs-fetched-content\">' + esc(txt || JSON.stringify(data.metadata || {}, null, 2)) + '</pre>';
+  }
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-fetched-evidence-view]');
+    if (!btn || !fetchedModal) return;
+    e.preventDefault();
+    var eid = btn.getAttribute('data-fetched-evidence-view');
+    fetch('/mvp/scheduler/fetched-evidence/view?evidence_id=' + encodeURIComponent(eid) + '&format=json', { credentials: 'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        renderFetchedEvidence(data || {});
+        fetchedModal.show();
+      })
+      .catch(function(){
+        renderFetchedEvidence({ evidence_id: eid, evidence_name: eid, source: 'unknown', custody_mode: 'UNKNOWN', content_text: 'Unable to load evidence.' });
+        fetchedModal.show();
+      });
+  });
+
+  var runLogModal = document.getElementById('schedRunLogModal');
+  document.querySelectorAll('[data-sched-table="run_history"][data-sched-row-drill]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      var rid = btn.getAttribute('data-sched-row-id');
+      var row = findRow('run_history', rid);
+      if (!row || !runLogModal) return;
+      var title = document.getElementById('schedRunLogTitle');
+      var body = document.getElementById('schedRunLogBody');
+      if (title) title.textContent = 'Execution Logs — ' + (row.run_id || rid || 'Run');
+      var lines = [];
+      (row.log_preview || []).forEach(function(x){ lines.push(String(x)); });
+      (row.job_results || []).forEach(function(j){
+        lines.push(
+          '[' + String(j.kind || 'job') + '] ' +
+          'asset=' + String(j.asset_id || '-') +
+          ' connector=' + String(j.connector || '-') +
+          ' status=' + String(j.status || '-') +
+          ' fetched=' + String(j.objects_fetched == null ? '-' : j.objects_fetched) +
+          ' ingested=' + String(j.ingested == null ? '-' : j.ingested)
+        );
+      });
+      if (body) body.textContent = lines.join('\n') || 'No logs available.';
+      new bootstrap.Modal(runLogModal).show();
     });
   });
 })();

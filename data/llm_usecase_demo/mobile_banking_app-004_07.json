@@ -1,0 +1,14 @@
+{
+  "application": "Mobile Banking",
+  "checks": [
+    "evidence_integrity",
+    "control_mapping",
+    "custody_snapshot"
+  ],
+  "connector": "sharepoint_graph",
+  "control_id": "APP-004",
+  "evidence_id": "EV-DEMO-007",
+  "framework": "AppSec",
+  "notes": "Deterministic ECS demo evidence payload.",
+  "status": "Collected"
+}

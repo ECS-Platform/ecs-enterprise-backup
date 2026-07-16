@@ -1,0 +1,15 @@
+Net Banking — External Vulnerability Scan Summary
+Application: Net Banking
+Framework: VAPT
+Control: VAPT-9
+Scan window: 2026-06-05 to 2026-06-07
+Scanner: Qualys WAS
+
+Results:
+- Critical: 0
+- High: 1 (outdated jQuery on marketing microsite — remediating, not on CHD path)
+- Medium: 4
+- Low: 9
+
+Retest of prior OBS-linked XSS on login help page: CLOSED (fixed in release NB-2026.18).
+No unauthenticated RCE or SQLi on Net Banking production hosts.

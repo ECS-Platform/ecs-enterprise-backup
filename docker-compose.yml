@@ -6,6 +6,7 @@ services:
     environment:
       DEMO_MODE: "true"
       ECS_AUTH_ENABLED: "false"
+      ECS_CONNECTOR_EXECUTION_ENABLED: "true"
       ECS_PG_HOST: postgres-demo
       ECS_PG_PORT: 5432
       ECS_PG_DATABASE: ecs_demo

@@ -26,6 +26,18 @@ _DETERMINISTIC_SIGNALS = (
     "which framework has the highest", "highest number", "least audit-ready",
     "which applications have", "status of",
 )
+_DETAIL_SIGNALS = (
+    "detail", "details", "describe", "description", "root cause", "impact",
+    "recommendation", "finding",
+)
+_EVIDENCE_RAG_SIGNALS = (
+    "what evidence", "which evidence", "evidence supports", "supports encryption",
+    "evidence for", "physical evidence", "from the evidence", "evidence file",
+    "summarize evidence", "evidence summary", "evidence gap", "gap identification",
+    "map to control", "map evidence", "evidence to control", "evidence-to-control",
+    "recommend control from evidence", "control mapping from evidence",
+    "cite the evidence",
+)
 _LLM_SIGNALS = (
     "chance", "chances", "likelihood", "likely", "predict", "prediction",
     "forecast", "probability", "root cause", "root causes", "why", "explain",
@@ -108,10 +120,32 @@ def extract_entities(query: str) -> dict[str, Any]:
     }
 
 
+def resolve_answer_mode(query: str, query_type: str = "") -> str:
+    """Map a query to deterministic | rag | hybrid answer mode for the workbench."""
+    low = (query or "").strip().lower()
+    det = [s for s in _DETERMINISTIC_SIGNALS if s in low]
+    details = [s for s in _DETAIL_SIGNALS if s in low]
+    evidence = [s for s in _EVIDENCE_RAG_SIGNALS if s in low]
+    if evidence and not det:
+        return "rag"
+    if det and (details or evidence):
+        return "hybrid"
+    if det and not details and not evidence:
+        return "deterministic"
+    if query_type == "deterministic":
+        return "deterministic"
+    if evidence:
+        return "rag"
+    if query_type in ("hybrid", "llm_assisted"):
+        return "hybrid"
+    return "hybrid" if (details or evidence) else (query_type or "hybrid")
+
+
 def classify(query: str) -> dict[str, Any]:
     """Classify a query as deterministic / llm_assisted / hybrid / unsupported.
 
-    Returns ``{"query_type", "confidence", "signals", "entities", "reason"}``.
+    Returns ``{"query_type", "confidence", "signals", "entities", "reason",
+    "answer_mode"}``.
     """
     q = (query or "").strip()
     low = q.lower()
@@ -119,26 +153,29 @@ def classify(query: str) -> dict[str, Any]:
         return {
             "query_type": "unsupported", "confidence": "low",
             "signals": {}, "entities": extract_entities(q),
-            "reason": "empty query",
+            "reason": "empty query", "answer_mode": "unsupported",
         }
 
     det = [s for s in _DETERMINISTIC_SIGNALS if s in low]
     llm = [s for s in _LLM_SIGNALS if s in low]
     summ = [s for s in _SUMMARY_SIGNALS if s in low]
+    details = [s for s in _DETAIL_SIGNALS if s in low]
+    evidence = [s for s in _EVIDENCE_RAG_SIGNALS if s in low]
 
     entities = extract_entities(q)
 
     # Decision logic (deterministic policy):
-    if det and not llm and not summ:
+    if evidence and not det:
+        query_type, reason = "hybrid", "physical evidence / RAG question"
+    elif det and details and not llm:
+        query_type, reason = "hybrid", "deterministic count plus observation details"
+    elif det and not llm and not summ and not details and not evidence:
         query_type, reason = "deterministic", "count/list/aging signals, no predictive/summary verbs"
     elif det and summ and not llm:
-        # e.g. "how many ... and summarize ..." -> deterministic count + LLM summary.
         query_type, reason = "hybrid", "deterministic count + summarization request"
     elif det and not llm:
         query_type, reason = "deterministic", "count/list/aging signals, no predictive verbs"
     elif llm and not det:
-        # Pure analytical/predictive OR summarization-only both need the LLM, but
-        # summarization of deterministic data is hybrid.
         if summ and not any(w in low for w in ("chance", "likelihood", "predict", "forecast",
                                                "probability", "root cause")):
             query_type, reason = "hybrid", "summarization of ECS data"
@@ -149,8 +186,6 @@ def classify(query: str) -> dict[str, Any]:
     elif summ:
         query_type, reason = "hybrid", "summarization/report request over ECS data"
     else:
-        # No strong signal: if it references known entities, treat as hybrid QA;
-        # otherwise unsupported.
         has_entity = any(entities[k] for k in ("application", "framework", "severity",
                                                "status", "technology", "control"))
         if has_entity:
@@ -158,13 +193,21 @@ def classify(query: str) -> dict[str, Any]:
         else:
             query_type, reason = "unsupported", "no recognizable audit intent or entity"
 
-    strength = len(det) + len(llm) + len(summ)
+    strength = len(det) + len(llm) + len(summ) + len(evidence) + len(details)
     confidence = "high" if strength >= 2 else ("medium" if strength == 1 else "low")
+    answer_mode = resolve_answer_mode(q, query_type)
 
     return {
         "query_type": query_type,
         "confidence": confidence,
-        "signals": {"deterministic": det, "llm_assisted": llm, "summary": summ},
+        "signals": {
+            "deterministic": det,
+            "llm_assisted": llm,
+            "summary": summ,
+            "details": details,
+            "evidence_rag": evidence,
+        },
         "entities": entities,
         "reason": reason,
+        "answer_mode": answer_mode,
     }
