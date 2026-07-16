@@ -116,6 +116,33 @@ _report_port_conflict() {
   return 0
 }
 
+# Send SIGTERM, wait for exit, SIGKILL only if still alive.
+_graceful_stop_pid() {
+  local pid="$1"
+  [ -n "$pid" ] || return 0
+  kill -TERM "$pid" 2>/dev/null || return 0
+  local i=0
+  while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 15 ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    echo "PID ${pid} did not exit; sending SIGKILL…"
+    kill -KILL "$pid" 2>/dev/null
+    sleep 1
+  fi
+}
+
+# Wait until nothing listens on the ECS port (up to 15s).
+_wait_port_free() {
+  local i=0
+  while [ -n "$(_port_owner_pid)" ] && [ "$i" -lt 15 ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  [ -z "$(_port_owner_pid)" ]
+}
+
 # Stop only confirmed ECS host Uvicorn PIDs (targeted TERM). Never broad kill.
 # Optional arg: a PID to KEEP (used to preserve one healthy instance).
 _stop_ecs_uvicorn() {
@@ -177,33 +204,41 @@ run_normal() {
     exit 1
   fi
 
-  # 3-5. Reconcile host ECS Uvicorn processes.
+  # 3-5. If ECS already owns :8000, stop it gracefully and restart fresh.
   local pids port_pid
   pids="$(_ecs_uvicorn_pids)"
   port_pid="$(_port_owner_pid)"
-  if [ -n "$port_pid" ] && _pid_is_ecs_uvicorn "$port_pid" && [ "$(_healthz)" = "ok" ]; then
-    # 4. Exactly one healthy ECS process already serves :8000 → keep it; stop any
-    #    OTHER stray ECS uvicorn duplicates only.
-    _stop_ecs_uvicorn "$port_pid"
-    echo "ECS already serving :${ECS_PORT} (PID ${port_pid}, /healthz ok) — not starting another."
-    return 0
-  fi
-  if [ -n "$pids" ]; then
-    # 5. Multiple/stray confirmed ECS uvicorn processes but none healthy on the
-    #    port → terminate the duplicates safely before a clean start.
-    _stop_ecs_uvicorn
+  if [ -n "$port_pid" ] && _pid_is_ecs_uvicorn "$port_pid"; then
+    echo "ECS on :${ECS_PORT} (PID ${port_pid}) — stopping for restart…"
+    _graceful_stop_pid "$port_pid"
+    if ! _wait_port_free; then
+      port_pid="$(_port_owner_pid)"
+      if [ -n "$port_pid" ] && _pid_is_ecs_uvicorn "$port_pid"; then
+        _graceful_stop_pid "$port_pid"
+      fi
+      _wait_port_free || { echo "ERROR: port ${ECS_PORT} still in use." >&2; exit 1; }
+    fi
+    echo "Port ${ECS_PORT} is free."
+  elif [ -n "$pids" ]; then
+    echo "Stopping stray ECS uvicorn process(es)…"
+    for p in $pids; do
+      _graceful_stop_pid "$p"
+    done
+    _wait_port_free || true
   fi
 
   # 7. Prefer the venv interpreter's `-m uvicorn`; else the existing fallback.
   # 8. Install deps only if genuinely missing (prefer a clear error over
   #    reinstalling on every startup).
+  echo "Starting ECS on :${ECS_PORT} (logs below)…"
+  (sleep 3 && open "http://127.0.0.1:${ECS_PORT}" 2>/dev/null) &
   if [ -x ".venv/bin/python" ]; then
     if ! _deps_present ".venv/bin/python"; then
       echo "ECS dependencies missing in .venv — installing once…"
       .venv/bin/python -m pip install fastapi uvicorn jinja2 python-multipart || {
         echo "ERROR: failed to install ECS dependencies in .venv." >&2; exit 1; }
     fi
-    .venv/bin/python -m uvicorn app.main:app --reload &
+    exec .venv/bin/python -m uvicorn app.main:app --reload
   else
     # Existing valid fallback (no venv): use uvicorn on PATH.
     if ! command -v uvicorn >/dev/null 2>&1; then
@@ -211,10 +246,8 @@ run_normal() {
       pip install fastapi uvicorn jinja2 python-multipart || {
         echo "ERROR: failed to install ECS dependencies." >&2; exit 1; }
     fi
-    uvicorn app.main:app --reload &
+    exec uvicorn app.main:app --reload
   fi
-  sleep 5
-  open "http://127.0.0.1:${ECS_PORT}" 2>/dev/null || true
 }
 
 # --------------------------------------------------------------------------- #
