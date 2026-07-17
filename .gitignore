@@ -65,3 +65,6 @@ reports/audit_llm_benchmarks/*.json
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Runtime generated evidence
+data/evidence-objects/evidence/unknown/
