@@ -1,0 +1,137 @@
+<!DOCTYPE html><html><head><title>Evidence Dashboard</title>{% include "partials/mvp_styles.html" %}{% include "partials/executive_charts_system.html" %}
+<style>
+.ecs-edash-section-title{font-size:.68rem;font-weight:700;text-transform:uppercase;color:#64748b;margin:.5rem 0 .25rem}
+</style></head>
+<body class="bg-light ecs-cap-evidence-dashboard"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+<h1 class="ecs-workspace-title h5 mb-0">Evidence Dashboard</h1>
+{% from "partials/ecs_data_source_indicator.html" import ecs_data_source_indicator %}
+{{ ecs_data_source_indicator(module_view.data_source|default(none)) }}
+</div>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
+{% set coll = module_view.collection|default({}) %}
+{% set health = module_view.health|default({}) %}
+{% set ov = module_view.overview|default({}) %}
+{{ workspace_exec_strip(module_view) }}
+{{ workspace_filters(workspace, role, user) }}
+<p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">{{ module_view.purpose|default('Evidence operations — repository, collection, and health signals.') }}</p>
+{{ workspace_tab_nav(workspace) }}
+
+{{ workspace_pane('overview', true) }}
+<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
+{% for k in module_view.kpis|default([]) %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}">
+<span class="ecs-exec-kpi-val">{{ k.value }}</span><span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
+</div>
+{% endfor %}
+</div></div>
+<div class="row g-2 mb-2">
+<div class="col-md-6">
+<h6 class="ecs-edash-section-title">Framework Health (top issues)</h6>
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Framework</th><th>Issues</th><th>Score</th></tr></thead><tbody>
+{% for f in ov.framework_breakdown|default([]) %}
+<tr><td>{{ f.framework }}</td><td>{{ (f.stale|default(0)) + (f.expired|default(0)) + (f.rejected|default(0)) }}</td><td>{{ f.health_score|default('—') }}%</td></tr>
+{% endfor %}
+</tbody></table>
+</div>
+<div class="col-md-6">
+<h6 class="ecs-edash-section-title">Integrity &amp; Repository</h6>
+<table class="table table-sm table-bordered bg-white mb-0"><tbody>
+<tr><td>Repository keys</td><td><strong>{{ ov.repo_stats.evidence_keys|default(0) }}</strong></td></tr>
+<tr><td>Integrity valid</td><td><strong>{{ ov.integrity.valid_count|default(0) }}</strong> / {{ ov.integrity.total|default(0) }}</td></tr>
+<tr><td>Tamper alerts</td><td><strong>{{ ov.integrity.tamper_count|default(0) }}</strong></td></tr>
+<tr><td>Controls approved</td><td><strong>{{ ov.analytics.totals.approved|default(0) }}</strong></td></tr>
+</tbody></table>
+<p class="small text-muted mb-0 mt-1">Drill: <a href="/mvp/audit/repository?role={{ role|urlencode }}&user={{ user|urlencode }}">Evidence Repository</a> ·
+<a href="/mvp/evidence-dashboard?role={{ role|urlencode }}&user={{ user|urlencode }}&tab=health">Health tab</a></p>
+</div>
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('collection', false) }}
+<h6 class="ecs-edash-section-title">Collection Status</h6>
+<div class="ecs-sched-summary mb-2">
+{% set ys = coll.yesterday_summary|default({}) %}
+<div class="ecs-sched-card"><strong>{{ ys.applications_scanned|default(0) }}</strong><span>Apps Scanned</span></div>
+<div class="ecs-sched-card"><strong>{{ ys.evidence_collected|default(0) }}</strong><span>Evidence Ingested</span></div>
+<div class="ecs-sched-card"><strong>{{ ys.controls_auto_validated|default(0) }}</strong><span>Auto-Validated</span></div>
+<div class="ecs-sched-card"><strong>{{ ys.failed_collections|default(0) }}</strong><span>Failures</span></div>
+</div>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
+<th>Run / Job</th><th>Application</th><th>Framework</th><th>Status</th><th>Evidence</th><th>When</th>
+</tr></thead><tbody>
+{% set history = coll.execution_history|default([]) %}
+{% set jobs = coll.rows|default([]) %}
+{% for h in history %}
+{% if loop.index <= 12 %}
+<tr><td><code class="small">{{ h.run_id|default(h.job_id|default('—')) }}</code></td><td>{{ h.application|default('—') }}</td>
+<td>{{ h.framework|default('—') }}</td><td>{{ h.status|default(h.health|default('—')) }}</td>
+<td>{{ h.evidence_collected|default(h.evidence_count|default('—')) }}</td><td class="small">{{ h.completed_at|default(h.last_run|default('—')) }}</td></tr>
+{% endif %}
+{% else %}
+{% for j in jobs %}
+{% if loop.index <= 12 %}
+<tr><td><code class="small">{{ j.job_id|default('—') }}</code></td><td>{{ j.application|default('—') }}</td>
+<td>{{ j.framework|default('—') }}</td><td>{{ j.status|default(j.health|default('—')) }}</td>
+<td>{{ j.records|default(j.evidence_collected|default('—')) }}</td><td class="small">{{ j.last_run|default('—') }}</td></tr>
+{% endif %}
+{% endfor %}
+{% endfor %}
+</tbody></table></div>
+<p class="small text-muted mb-0">Full scheduler: <a href="/mvp/scheduler?role={{ role|urlencode }}&user={{ user|urlencode }}">Evidence Collection Engine</a></p>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('health', false) }}
+<div class="ecs-ws-metric-row mb-1">{% for rd in health.risk_distribution|default([]) %}
+<span class="risk-pill {{ rd.class }}">{{ rd.label }}: {{ rd.count }}</span>{% endfor %}</div>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
+<th>Evidence ID</th><th>Framework</th><th>Issue</th><th>Risk</th><th>Score</th><th>Expiry</th>
+</tr></thead><tbody>
+{% for r in health.rows|default([]) %}
+{% if loop.index <= 20 %}
+<tr data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-risk="{{ r.risk }}" data-filter-status="{{ r.issue }}">
+<td><code class="small">{{ r.evidence_id }}</code></td><td>{{ r.framework }}</td><td>{{ r.issue }}</td>
+<td>{{ r.risk }}</td><td>{{ r.health_score }}%</td><td>{{ r.expiry_status|default(r.expiry_date|default('—')) }}</td></tr>
+{% endif %}
+{% endfor %}
+</tbody></table></div>
+<p class="small text-muted mb-0">Full health workbench: <a href="/mvp/evidence-health?role={{ role|urlencode }}&user={{ user|urlencode }}">Evidence Health</a></p>
+{{ workspace_pane_end() }}
+
+{% if workspace.tabs|selectattr('id','equalto','approval')|list %}
+{{ workspace_pane('approval', false) }}
+{% set appr = module_view.approval|default({}) %}
+<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll">
+{% for k in appr.kpis|default([]) %}
+{% if loop.index <= 6 %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}">
+<span class="ecs-exec-kpi-val">{{ k.value }}</span><span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
+</div>
+{% endif %}
+{% endfor %}
+</div></div>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
+<th>Framework</th><th>Application</th><th>Evidence</th><th>Status</th><th>Quality</th>
+</tr></thead><tbody>
+{% set appr_rows = appr.pending_rows|default(appr.approved_rows|default([])) %}
+{% for r in appr_rows %}
+{% if loop.index <= 15 %}
+<tr><td>{{ r.framework|default('—') }}</td><td>{{ r.application|default('—') }}</td>
+<td class="small">{{ r.evidence_name|default(r.evidence_id|default('—')) }}</td>
+<td>{{ r.status|default('—') }}</td><td>{{ r.quality_score|default(r.quality|default('—')) }}</td></tr>
+{% endif %}
+{% endfor %}
+</tbody></table></div>
+<p class="small text-muted mb-0">Full approval analytics: <a href="/mvp/evidence-approval?role={{ role|urlencode }}&user={{ user|urlencode }}">Evidence Approval Analytics</a></p>
+{{ workspace_pane_end() }}
+{% endif %}
+
+</div></div></div>
+{% include "partials/standard_filter_include.html" %}
+{% include "partials/chatbot_global.html" %}</body></html>

@@ -13,10 +13,10 @@
 {% set show_phase2_nav = show_phase2_nav|default(false) %}
 
 {# Group open-state (max depth: Group -> Page -> Tab) #}
-{% set ops_open = nav_module in ['predefined_queries','audit_repository','audit_packs','evidence_explorer','integrations','evidence_story','ecs_benchmark','onboarding'] %}
+{% set ops_open = nav_module in ['predefined_queries','evidence_dashboard','audit_repository','evidence_story','reports'] %}
 {# Governance and Administration stay expanded by default so relocated links remain visible. #}
 {% set gov_open = true %}
-{% set admin_open = true %}
+{% set admin_open = nav_module in ['integrations','evidence_explorer','onboarding','scheduler','connector_test_workbench','audit_llm_workbench','ecs_benchmark'] or true %}
 
 <nav class="ecs-nav-groups" aria-label="ECS command center">
 
@@ -48,12 +48,10 @@
 <div id="nav-ops" class="collapse{% if ops_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
 <a href="/mvp/predefined-queries{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'predefined_queries' %} is-active{% endif %}">Predefined Queries {{ nav_badge(nav_counters.modules.predefined_queries if nav_counters is defined else 0, nav_counters.module_tooltips.predefined_queries if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/evidence-dashboard{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_dashboard' %} is-active{% endif %}">Evidence Dashboard</a>
 <a href="/mvp/audit/repository{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_repository' %} is-active{% endif %}">Evidence Repository</a>
-<a href="/mvp/audit/packs{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_packs' %} is-active{% endif %}">Evidence Packs</a>
-<a href="/mvp/evidence-story{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_story' %} is-active{% endif %}">Evidence Reuse Story</a>
-<a href="/mvp/integrations{{ q }}" class="ecs-sidebar-btn{% if nav_module in ['integrations','evidence_explorer'] %} is-active{% endif %}">Integrations {{ nav_badge(nav_counters.modules.integrations if nav_counters is defined else 0, nav_counters.module_tooltips.integrations if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/onboarding{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'onboarding' %} is-active{% endif %}">Application Onboarding {{ nav_badge(nav_counters.modules.onboarding if nav_counters is defined else 0, nav_counters.module_tooltips.onboarding if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/ecs-benchmark{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ecs_benchmark' %} is-active{% endif %}">ECS Benchmark</a>
+<a href="/mvp/evidence-story{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_story' %} is-active{% endif %}">Evidence Reuse</a>
+<a href="/mvp/reports{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'reports' %} is-active{% endif %}">Reports</a>
 </div>
 </div>
 </div>
@@ -68,8 +66,6 @@
 <div class="ecs-nav-group-items">
 <a href="/mvp/platform/audit-readiness{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'gov_audit_readiness' %} is-active{% endif %}">Audit Readiness</a>
 <a href="/mvp/audit-prep{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_prep' %} is-active{% endif %}">Audit Prep {{ nav_badge(nav_counters.modules.audit_prep if nav_counters is defined else 0, nav_counters.module_tooltips.audit_prep if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/evidence-health{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_health' %} is-active{% endif %}">Evidence Health {{ nav_badge(nav_counters.modules.evidence_health if nav_counters is defined else 0, nav_counters.module_tooltips.evidence_health if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
-<a href="/mvp/evidence-approval{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_approval' %} is-active{% endif %}">Evidence Approval Analytics {{ nav_badge(nav_counters.modules.evidence_approval if nav_counters is defined else 0, nav_counters.module_tooltips.evidence_approval if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 </div>
 </div>
 </div>
@@ -82,10 +78,13 @@
 </button>
 <div id="nav-admin" class="collapse{% if admin_open %} show{% endif %}">
 <div class="ecs-nav-group-items">
-<a href="/mvp/audit/llm-workbench{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_llm_workbench' %} is-active{% endif %}">LLM Prompt Workbench</a>
-<a href="/mvp/connectors/test-workbench{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'connector_test_workbench' %} is-active{% endif %}">Connector Test Workbench</a>
+<a href="/mvp/integrations{{ q }}" class="ecs-sidebar-btn{% if nav_module in ['integrations','evidence_explorer'] %} is-active{% endif %}">Integrations {{ nav_badge(nav_counters.modules.integrations if nav_counters is defined else 0, nav_counters.module_tooltips.integrations if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
+<a href="/mvp/onboarding{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'onboarding' %} is-active{% endif %}">Application Onboarding {{ nav_badge(nav_counters.modules.onboarding if nav_counters is defined else 0, nav_counters.module_tooltips.onboarding if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 <a href="/mvp/scheduler{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'scheduler' %} is-active{% endif %}">Scheduler {{ nav_badge(nav_counters.modules.scheduler if nav_counters is defined else 0, nav_counters.module_tooltips.scheduler if nav_counters is defined and nav_counters.module_tooltips is defined else '') }}</a>
 <a href="/mvp/upload{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'upload' %} is-active{% endif %}">Bulk Evidence Upload</a>
+<a href="/mvp/connectors/test-workbench{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'connector_test_workbench' %} is-active{% endif %}">Connector Test Workbench</a>
+<a href="/mvp/audit/llm-workbench{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_llm_workbench' %} is-active{% endif %}">LLM Prompt Workbench</a>
+<a href="/mvp/ecs-benchmark{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ecs_benchmark' %} is-active{% endif %}">Benchmark</a>
 </div>
 </div>
 </div>
@@ -121,7 +120,6 @@
 <a href="/mvp/demo-overview{{ q }}" class="ecs-sidebar-btn ecs-sidebar-btn-accent{% if nav_module == 'demo_overview' %} is-active{% endif %}">Demo Overview ●</a>
 <a href="/mvp/enterprise{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'enterprise' %} is-active{% endif %}">Enterprise</a>
 <a href="/mvp/pan-india{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'pan_india' %} is-active{% endif %}">Pan India</a>
-<a href="/mvp/reports{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'reports' %} is-active{% endif %}">Reports</a>
 <a href="/mvp/trends{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'trends' %} is-active{% endif %}">Trends</a>
 </div>
 </div>

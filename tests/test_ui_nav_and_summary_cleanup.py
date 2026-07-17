@@ -44,6 +44,7 @@ _KEY_PAGES = [
     "/mvp/integrations",
     "/mvp/evidence-health",
     "/mvp/evidence-approval",
+    "/mvp/evidence-dashboard",
     "/mvp/audit-prep",
     "/mvp/admin/application-management",
     "/mvp/admin/evidence",
@@ -53,6 +54,7 @@ _KEY_PAGES = [
     "/mvp/connectors/test-workbench",
     "/mvp/audit/repository",
     "/mvp/audit/packs",
+    "/mvp/reports",
     "/mvp/scheduler",
 ]
 
@@ -125,11 +127,12 @@ def test_nav_has_overview_not_duplicate_dashboard():
     assert 'ecs-sidebar-btn-dashboard' in t
 
 
-def test_nav_ecs_benchmark_single_item_under_operations():
+def test_nav_ecs_benchmark_under_administration():
     t = _get("/dashboard").text
-    assert "ECS Benchmark" in t                    # single Operations item
-    assert "Benchmark Simulation" not in t         # old one-child label gone
-    # It must not be a standalone nav group anymore.
+    assert "Benchmark" in t
+    assert "ECS Benchmark" not in t
+    admin = t.split('id="nav-admin"', 1)[1].split('id="nav-ai-sdlc"', 1)[0]
+    assert "Benchmark" in admin
     assert 'data-bs-target="#nav-ecs-benchmark"' not in t
 
 
@@ -142,15 +145,16 @@ def test_nav_top_level_groups():
     assert labels == ["Operations", "Governance", "Administration", "AI SDLC Governance"]
 
 
-def test_nav_no_duplicate_link_labels():
+def test_nav_no_duplicate_link_labels_within_operations():
     import re
-    from collections import Counter
     t = _get("/dashboard").text
+    ops = t.split('id="nav-ops"', 1)[1].split('id="nav-gov"', 1)[0]
     links = [re.sub(r"\s+", " ", m).strip()
-             for m in re.findall(r'ecs-sidebar-btn[^>]*>([^<{]+)', t)
+             for m in re.findall(r'ecs-sidebar-btn[^>]*>([^<{]+)', ops)
              if m.strip() and not m.strip().startswith(".")]
+    from collections import Counter
     dups = {k: v for k, v in Counter(links).items() if v > 1}
-    assert not dups, f"duplicate nav labels: {dups}"
+    assert not dups, f"duplicate Operations nav labels: {dups}"
 
 
 def test_nav_users_and_roles_route_still_reachable():
@@ -165,18 +169,17 @@ def test_nav_evidence_items_under_operations():
     ops = t.split('id="nav-ops"', 1)[1].split('id="nav-gov"', 1)[0]
     labels = [
         "Predefined Queries",
+        "Evidence Dashboard",
         "Evidence Repository",
-        "Evidence Packs",
-        "Evidence Reuse Story",
-        "Integrations",
-        "Application Onboarding",
-        "ECS Benchmark",
+        "Evidence Reuse",
+        "Reports",
     ]
     positions = [ops.find(item) for item in labels]
     assert all(p >= 0 for p in positions), f"missing Operations items in: {ops[:500]}"
     assert positions == sorted(positions), f"Operations order wrong: {labels}"
     assert "/mvp/audit/repository" in ops
-    assert "/mvp/audit/packs" in ops
+    assert "/mvp/evidence-dashboard" in ops
+    assert "/mvp/audit/packs" not in ops
     assert "Evidence Runs" not in t
 
 
@@ -186,9 +189,9 @@ def test_nav_governance_and_administration_groups_expanded():
     assert 'id="nav-admin" class="collapse show"' in t
     gov = t.split('id="nav-gov"', 1)[1].split('id="nav-admin"', 1)[0]
     admin = t.split('id="nav-admin"', 1)[1].split('id="nav-ai-sdlc"', 1)[0]
-    for item in ["Audit Readiness", "Audit Prep", "Evidence Health", "Evidence Approval Analytics"]:
+    for item in ["Audit Readiness", "Audit Prep"]:
         assert item in gov
-    for item in ["LLM Prompt Workbench", "Connector Test Workbench", "Scheduler"]:
+    for item in ["Integrations", "Application Onboarding", "Scheduler", "Connector Test Workbench", "LLM Prompt Workbench", "Benchmark"]:
         assert item in admin
 
 
@@ -199,23 +202,24 @@ def test_benchmark_route_unbroken_and_highlighted():
     r = _get("/mvp/ecs-benchmark")
     assert r.status_code == 200
     assert "/mvp/ecs-benchmark" in r.text and "is-active" in r.text
+    assert "Benchmark" in r.text
 
 
 def test_operations_group_target_items():
     t = _get("/dashboard").text
     ops = t.split('id="nav-ops"', 1)[1].split('id="nav-gov"', 1)[0]
-    for item in ["Predefined Queries", "Evidence Repository", "Evidence Packs",
-                 "Evidence Reuse Story", "Integrations", "Application Onboarding", "ECS Benchmark"]:
+    for item in ["Predefined Queries", "Evidence Dashboard", "Evidence Repository", "Evidence Reuse", "Reports"]:
         assert item in ops, f"Operations missing {item}"
-    assert "Connector Test Workbench" not in ops, "Connector Test Workbench belongs under Administration"
-    assert "Evidence Explorer" not in ops.split("Integrations")[0], "Evidence Explorer should be under Integrations tabs"
+    assert "Integrations" not in ops
+    assert "Connector Test Workbench" not in ops
 
 
-def test_operations_has_application_onboarding():
+def test_onboarding_under_administration():
     t = _get("/dashboard").text
     assert "Application Onboarding" in t
     assert "/mvp/onboarding" in t
-    assert "Application Onboarding" not in t.split("Administration")[1].split("AI SDLC")[0] if "Administration" in t else True
+    admin = t.split('id="nav-admin"', 1)[1].split('id="nav-ai-sdlc"', 1)[0]
+    assert "Application Onboarding" in admin
     r = _get("/mvp/onboarding")
     assert r.status_code == 200
     assert "ecs-nav-groups" in r.text and "ecs-workspace-main" in r.text

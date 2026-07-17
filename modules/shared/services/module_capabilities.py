@@ -35,6 +35,7 @@ MODULE_PURPOSES = {
     "scheduler": "Evidence Collection Engine — collects and refreshes evidence from integrated enterprise platforms (ServiceNow, GitHub, Jenkins, SonarQube, and more).",
     "upload": "Mass onboarding and batch import of evidence artefacts with validation, deduplication, and framework auto-mapping.",
     "evidence_health": "Risk and quality scoring — stale, expired, incomplete, and low-confidence evidence governance.",
+    "evidence_dashboard": "Evidence operations dashboard — repository KPIs, collection runs, health signals, and optional approval analytics.",
     "search": "Enterprise evidence discovery with semantic filters, reuse mapping, and cross-framework search.",
     "completeness": "Coverage gap analysis — controls without evidence, partial compliance, and audit readiness.",
     "reuse": "Cross-framework evidence reuse engine — map once, satisfy multiple controls, reduce duplicate uploads.",
@@ -101,6 +102,7 @@ def _build_module_capability(module: str, role: str, analytics_filters: dict | N
         "scheduler": _scheduler_view,
         "upload": _upload_view,
         "evidence_health": _health_view,
+        "evidence_dashboard": _evidence_dashboard_view,
         "search": _search_view,
         "completeness": _completeness_view,
         "reuse": _reuse_view,
@@ -224,6 +226,72 @@ def _health_view(role: str) -> dict:
     view["actions"] = _actions_for(role, health=True)
     view["integrity"] = get_health_dashboard()
     return view
+
+
+def _evidence_dashboard_view(role: str) -> dict:
+    from modules.governance.engines.evidence_health_engine import build_evidence_health_view
+    from modules.governance.engines.evidence_approval_engine import build_evidence_approval_view
+    from modules.shared.utils.standard_filter_engine import build_standard_dataset
+
+    analytics = ecs_state.build_evidence_analytics()
+    totals = analytics.get("totals", {})
+    health = build_evidence_health_view(role)
+    collection = _scheduler_view(role)
+    integrity = get_health_dashboard()
+    repo_stats: dict = {}
+    try:
+        from modules.audit_intelligence.services import audit_repository_service as repo_svc
+
+        repo_stats = repo_svc.repository_stats()
+    except Exception:  # noqa: BLE001
+        repo_stats = {}
+
+    valid = integrity.get("valid_count", 0)
+    total_integrity = max(integrity.get("total", 0), 1)
+    integrity_pct = round(valid / total_integrity * 100, 1)
+
+    overview_kpis = [
+        {"label": "Evidence Artifacts", "value": totals.get("evidence_artifacts", 0), "tone": "primary",
+         "tooltip": "Catalog evidence artefacts from framework control library."},
+        {"label": "Controls Tracked", "value": totals.get("control_count", 0), "tone": "info",
+         "tooltip": "Controls with workflow status in ECS state."},
+        {"label": "Repository Keys", "value": repo_stats.get("evidence_keys", 0), "tone": "success",
+         "tooltip": "Distinct evidence keys in audit repository persistence."},
+        {"label": "Integrity Valid", "value": f"{integrity_pct}%", "tone": "success",
+         "tooltip": "Share of repository artefacts passing hash integrity checks."},
+        {"label": "Health Issues", "value": len(health.get("rows", [])), "tone": "warning",
+         "tooltip": "Scoped evidence health records with open issues."},
+        {"label": "Failed Collections", "value": collection.get("yesterday_summary", {}).get("failed_collections", 0), "tone": "danger",
+         "tooltip": "Scheduler jobs in failed/partial state from operations dataset."},
+    ]
+
+    approval = None
+    if role not in ("cio",):
+        approval = build_evidence_approval_view(role)
+
+    data_source = "PARTIAL"
+    if repo_stats.get("evidence_keys"):
+        data_source = "PARTIAL"
+    if not repo_stats:
+        data_source = "DEMO"
+
+    return {
+        "kpis": overview_kpis,
+        "overview": {
+            "analytics": analytics,
+            "repo_stats": repo_stats,
+            "integrity": integrity,
+            "risk_distribution": health.get("risk_distribution", []),
+            "framework_breakdown": (health.get("framework_breakdown") or [])[:5],
+        },
+        "collection": collection,
+        "health": health,
+        "approval": approval,
+        "integrity": integrity,
+        "standard_dataset": build_standard_dataset("evidence_health", role),
+        "actions": _actions_for(role, health=True),
+        "data_source": data_source,
+    }
 
 
 def _search_view(role: str) -> dict:
@@ -500,9 +568,39 @@ def _reports_view(role: str) -> dict:
             "risk": r.get("risk", "Low"),
             "status": r.get("status", "Generated"),
         })
+
+    def _evidence_reports():
+        keys = ("evidence", "stale", "reuse", "approval", "rejection")
+        return [r for r in rows if any(k in r["title"].lower() for k in keys)]
+
+    def _framework_reports():
+        return [r for r in rows if r.get("framework") not in ("Enterprise-wide", "", None)]
+
+    def _application_reports():
+        return [r for r in rows if r.get("application") not in ("All Applications", "", None)]
+
+    def _audit_reports():
+        return [r for r in rows if (r.get("category") or "").lower() == "audit"]
+
+    tab_rows = {
+        "evidence": _evidence_reports() or rows[:8],
+        "framework": _framework_reports() or rows[:10],
+        "application": _application_reports() or rows[:10],
+        "audit": _audit_reports() or [r for r in rows if "audit" in r["title"].lower()],
+        "observation": overview["observation_rows"],
+    }
+    pack_stats: dict = {}
+    try:
+        from modules.audit_intelligence.services import audit_repository_service as repo_svc
+
+        pack_stats = repo_svc.repository_stats()
+    except Exception:  # noqa: BLE001
+        pack_stats = {}
+
     return {
         "kpis": overview["kpis"],
         "rows": rows,
+        "tab_rows": tab_rows,
         "history_rows": overview["history_rows"],
         "observation_rows": overview["observation_rows"],
         "generated_records": overview["generated_records"],
@@ -510,6 +608,7 @@ def _reports_view(role: str) -> dict:
         "pending_records": overview["pending_records"],
         "failed_records": overview["failed_records"],
         "reports_overview": overview,
+        "pack_stats": pack_stats,
         "standard_dataset": std,
         "actions": _actions_for(role, reports=True),
         "data_source": overview.get("data_source"),

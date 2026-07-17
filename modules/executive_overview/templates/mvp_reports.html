@@ -18,162 +18,106 @@
 <p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">Reporting health and export governance — {{ module_view.reports_overview.counts.available|default(module_view.rows|length) }} catalog reports in scope.</p>
 {{ workspace_tab_nav(workspace) }}
 {% set ov = module_view.reports_overview|default({}) %}
-
-{{ workspace_pane('overview', true) }}
-<h6 class="ecs-reports-section-title">Reporting Health</h6>
-<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll" id="ecsReportsKpiRow">
-{% for k in module_view.kpis %}
-<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }} ecs-kpi-clickable" role="button" tabindex="0"
-  data-ecs-universal-kpi data-ecs-universal-page="reports"
-  data-ecs-universal-metric="{{ k.drill|default(k.label|lower|replace(' ','_')|replace('/','_')) }}"
-  data-ecs-universal-label="{{ k.label }}"
-  data-ecs-universal-count="{{ k.value|string|replace('%','')|replace(',','') }}"
-  title="{{ k.tooltip|default('Click for report detail') }}">
-<span class="ecs-exec-kpi-val">{{ k.value }}</span>
-<span class="ecs-exec-kpi-lbl">{{ k.label }}</span>
-</div>
-{% endfor %}
-</div></div>
-
-<div class="ecs-reports-overview-grid mb-2">
-<div class="chart-card">
-<div class="chart-card-title">Export Distribution</div>
-<div id="ecsReportsExportDist">
-{% for fmt, cnt in (ov.export_distribution|default({})).items() %}
-<div class="ecs-insight-bar mb-1 ecs-kpi-clickable" role="button" tabindex="0"
-  data-ecs-universal-chart data-ecs-universal-page="reports" data-ecs-universal-chart-id="export_distribution"
-  data-ecs-universal-element="{{ fmt }}" data-ecs-universal-count="{{ cnt }}">
-<div class="ecs-insight-bar-label"><span>{{ fmt }}</span><span>{{ cnt }}</span></div>
-<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-blue" style="width:{{ ((cnt * 100) // (ov.counts.available|default(30)|int)) }}%"></div></div>
-</div>
-{% endfor %}
-</div>
-</div>
-<div class="chart-card">
-<div class="chart-card-title">Report Generation Trend</div>
-<div class="ecs-reports-trend-tabs btn-group btn-group-sm mb-1" role="group">
-<button type="button" class="btn btn-outline-secondary active" data-rpt-trend="daily">Daily</button>
-<button type="button" class="btn btn-outline-secondary" data-rpt-trend="weekly">Weekly</button>
-<button type="button" class="btn btn-outline-secondary" data-rpt-trend="monthly">Monthly</button>
-</div>
-<div class="chart-container-compact"><div class="ecs-bar-chart" id="ecsReportsTrendDaily"></div></div>
-<div class="chart-container-compact d-none" id="ecsReportsTrendWeeklyWrap"><div class="ecs-bar-chart" id="ecsReportsTrendWeekly"></div></div>
-<div class="chart-container-compact d-none" id="ecsReportsTrendMonthlyWrap"><div class="ecs-bar-chart" id="ecsReportsTrendMonthly"></div></div>
-</div>
-</div>
-
-<div class="row g-2 mb-2">
-<div class="col-lg-6">
-<div class="chart-card"><div class="chart-card-title">Top Downloaded Reports</div><div id="ecsReportsTopDownloaded">
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-compact-table mb-0"><thead><tr><th>Report</th><th>Downloads</th><th>Format</th><th>Framework</th></tr></thead><tbody>
-{% for t in ov.top_downloaded|default([]) %}
-<tr class="ecs-kpi-clickable" data-ecs-universal-row data-ecs-universal-page="reports" data-ecs-universal-type="report" data-ecs-universal-id="{{ t.report_name }}">
-<td>{{ t.report_name }}</td><td>{{ t.downloads }}</td><td>{{ t.format }}</td><td>{{ t.framework }}</td></tr>
-{% endfor %}
-</tbody></table></div>
-</div></div>
-</div>
-<div class="col-lg-6">
-<div class="chart-card"><div class="chart-card-title">Recent Export Activity</div><div id="ecsReportsRecentActivity">
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-compact-table mb-0"><thead><tr><th>Report</th><th>Action</th><th>Actor</th><th>When</th></tr></thead><tbody>
-{% for a in ov.recent_activity|default([]) %}{% if loop.index <= 8 %}
-<tr class="ecs-kpi-clickable" data-ecs-universal-row data-ecs-universal-page="reports" data-ecs-universal-type="export" data-ecs-universal-id="{{ a.report_name }}">
-<td>{{ a.report_name }}</td><td>{{ a.action }}</td><td class="small">{{ a.actor }}</td><td class="small">{{ a.timestamp }}</td></tr>
-{% endif %}{% endfor %}
-</tbody></table></div>
-</div></div>
-</div>
-</div>
-
-<div class="chart-card mb-2"><div class="chart-card-title">Upcoming Scheduled Exports</div><div id="ecsReportsUpcomingScheduled">
-<div class="table-responsive ecs-paginated-wrap ecs-fit-view"><table class="table table-sm ecs-compact-table mb-0"><thead><tr><th>Report</th><th>Next Run</th><th>Frequency</th><th>Owner</th><th>Status</th></tr></thead><tbody>
-{% for s in ov.upcoming_scheduled|default([]) %}
-<tr class="ecs-kpi-clickable" data-ecs-universal-row data-ecs-universal-page="reports" data-ecs-universal-type="scheduled" data-ecs-universal-id="{{ s.report_name }}">
-<td>{{ s.report_name }}</td><td class="small">{{ s.next_run }}</td><td>{{ s.schedule_frequency }}</td><td class="small">{{ s.owner }}</td><td><span class="badge bg-success">{{ s.status }}</span></td></tr>
-{% endfor %}
-</tbody></table></div>
-</div></div>
-{{ workspace_pane_end() }}
-
-{{ workspace_pane('catalog', false) }}
+{% set tabs = module_view.tab_rows|default({}) %}
+{% set pack_sel = pack_sel|default({'pack_type':'','scope':''}) %}
+{% set pack_stats = pack_stats|default(module_view.pack_stats|default({})) %}
+{% macro report_catalog_table(rows) %}
 <div class="table-responsive ecs-paginated-wrap ecs-fit-view">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-std-table="reports-catalog"><thead><tr><th>Report</th><th>Format</th><th>Framework</th><th>Application</th><th>Schedule</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-{% for r in module_view.rows %}
+{% for r in rows %}
 <tr data-ecs-filter-row data-filter-framework="{{ r.framework|default('Enterprise-wide') }}" data-filter-application="{{ r.application|default('All Applications') }}" data-filter-risk="{{ r.risk|default('Low') }}" data-filter-status="{{ r.status }}">
 <td><strong>{{ r.title|default(r.id) }}</strong><br><span class="small text-muted">{{ r.description|default('Enterprise compliance export')|truncate(60) }}</span></td>
 <td>{{ r.format }}</td><td>{{ r.framework|default('Enterprise-wide') }}</td><td>{{ r.application|default('All Applications') }}</td><td>{{ r.schedule }}</td><td><span class="badge bg-secondary">{{ r.status }}</span></td>
-<td class="text-nowrap">{% if r.id %}<a href="/mvp/reports/view/{{ r.view_type }}?role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-primary">Generate Report</a>{% endif %}
-<a href="/mvp/reports/download/{{ r.id }}?format=pdf&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-primary">PDF</a>
-<a href="/mvp/reports/download/{{ r.id }}?format=excel&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-success">Excel</a>
-<a href="/mvp/reports/download/{{ r.id }}?format=csv&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-secondary">CSV</a>
-{{ module_action('reports','schedule',role,user,'Schedule','btn-sm btn-outline-secondary',r.id|default('')) }}</td></tr>
+<td class="text-nowrap">{% if r.id %}<a href="/mvp/reports/view/{{ r.view_type }}?role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-primary">Generate</a>{% endif %}
+<a href="/mvp/reports/download/{{ r.id }}?format=pdf&role={{ role|urlencode }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-primary">PDF</a></td></tr>
 {% endfor %}
 </tbody></table></div>
+{% endmacro %}
+
+{{ workspace_pane('evidence', true) }}
+<h6 class="ecs-reports-section-title">Evidence Reports</h6>
+<div class="ecs-exec-strip mb-2"><div class="ecs-exec-strip-scroll" id="ecsReportsKpiRow">
+{% for k in module_view.kpis %}
+<div class="ecs-exec-kpi ecs-exec-kpi-{{ k.tone|default('primary') }}"><span class="ecs-exec-kpi-val">{{ k.value }}</span><span class="ecs-exec-kpi-lbl">{{ k.label }}</span></div>
+{% endfor %}
+</div></div>
+{{ report_catalog_table(tabs.evidence|default([])) }}
 {{ workspace_pane_end() }}
 
-{{ workspace_pane('observations', false) }}
-<p class="ecs-ws-summary small">Observation-linked report rows — preview before PDF / Excel / CSV export.</p>
+{{ workspace_pane('framework', false) }}
+<h6 class="ecs-reports-section-title">Framework Reports</h6>
+{{ report_catalog_table(tabs.framework|default([])) }}
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('application', false) }}
+<h6 class="ecs-reports-section-title">Application Reports</h6>
+{{ report_catalog_table(tabs.application|default([])) }}
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('audit', false) }}
+<h6 class="ecs-reports-section-title">Audit Reports</h6>
+{{ report_catalog_table(tabs.audit|default([])) }}
+<div class="chart-card mb-2 mt-2"><div class="chart-card-title">Scheduled Audit Exports</div>
+<div class="table-responsive ecs-paginated-wrap"><table class="table table-sm ecs-compact-table mb-0"><thead><tr><th>Report</th><th>Next Run</th><th>Frequency</th><th>Owner</th></tr></thead><tbody>
+{% for r in module_view.scheduled_records|default([]) %}{% if loop.index <= 10 %}
+<tr><td>{{ r.report_name }}</td><td class="small">{{ r.next_run }}</td><td>{{ r.schedule_frequency }}</td><td class="small">{{ r.owner }}</td></tr>
+{% endif %}{% endfor %}
+</tbody></table></div></div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('observation', false) }}
+<p class="ecs-ws-summary small">Observation-linked report rows — preview before export.</p>
 <div class="table-responsive ecs-paginated-wrap ecs-fit-view">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table ecs-compact-table ecs-fit-table mb-0" data-ecs-std-table="reports-observations"><thead><tr>
-<th>Obs ID</th><th>Observation Title</th><th>Framework</th><th>Application</th><th>Evidence ID</th><th>Evidence Type</th><th>Status</th><th>Owner</th><th>Generated</th>
+<th>Obs ID</th><th>Observation Title</th><th>Framework</th><th>Application</th><th>Evidence ID</th><th>Status</th><th>Owner</th>
 </tr></thead><tbody>
 {% for o in module_view.observation_rows|default([]) %}{% if loop.index <= 30 %}
 <tr data-ecs-filter-row data-filter-framework="{{ o.framework }}" data-filter-application="{{ o.application }}" data-filter-owner="{{ o.owner }}" data-filter-status="{{ o.evidence_status }}">
 <td><code class="small">{{ o.observation_id }}</code></td><td class="small">{{ o.observation_title|truncate(45) }}</td><td>{{ o.framework }}</td><td>{{ o.application }}</td>
-<td>{{ o.evidence_id }}</td><td class="small">{{ o.evidence_type }}</td><td><span class="badge bg-secondary">{{ o.evidence_status }}</span></td>
-<td class="small">{{ o.owner }}</td><td class="small">{{ o.generated_date }}</td></tr>
+<td>{{ o.evidence_id }}</td><td><span class="badge bg-secondary">{{ o.evidence_status }}</span></td><td class="small">{{ o.owner }}</td></tr>
 {% endif %}{% endfor %}
 </tbody></table></div>
 {{ workspace_pane_end() }}
 
-{{ workspace_pane('scheduled', false) }}
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="reports-scheduled"><thead><tr><th>Report</th><th>Next Run</th><th>Frequency</th><th>Framework</th><th>Owner</th><th>Status</th></tr></thead><tbody>
-{% for r in module_view.scheduled_records|default([]) %}
-<tr data-ecs-universal-row data-ecs-universal-page="reports" data-ecs-universal-type="scheduled" data-ecs-universal-id="{{ r.report_name }}">
-<td>{{ r.report_name }}</td><td class="small">{{ r.next_run }}</td><td>{{ r.schedule_frequency }}</td><td>{{ r.framework }}</td><td class="small">{{ r.owner }}</td><td><span class="badge bg-success">{{ r.status }}</span></td></tr>
+{{ workspace_pane('evidence_packs', false) }}
+<h6 class="ecs-reports-section-title">Evidence Packs</h6>
+<div class="card mb-3"><div class="card-body">
+<form method="get" action="/mvp/reports" class="row g-2 align-items-end">
+<input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}"><input type="hidden" name="tab" value="evidence_packs">
+<div class="col-auto"><label class="form-label mb-0 small">Pack Type</label>
+<select name="pack_type" class="form-select form-select-sm">
+{% for t in ["framework","asset","technology","evidence"] %}<option value="{{ t }}"{% if pack_sel.pack_type == t %} selected{% endif %}>{{ t }}</option>{% endfor %}
+</select></div>
+<div class="col-auto"><label class="form-label mb-0 small">Scope</label>
+<input name="scope" value="{{ pack_sel.scope|default('') }}" class="form-control form-control-sm" placeholder="e.g. PCI DSS"></div>
+<div class="col-auto"><button class="btn btn-sm btn-primary">Build Pack</button></div>
+</form>
+</div></div>
+{% if pack %}
+<div class="card"><div class="card-body">
+<div class="d-flex justify-content-between align-items-center mb-2">
+<h2 class="h6 mb-0">{{ pack.pack_type | capitalize }} pack — {{ pack.pack_scope }}</h2>
+<span class="small text-muted">items: {{ pack.item_count }} · checksum <code>{{ pack.pack_checksum }}</code></span>
+</div>
+<table class="table table-sm table-bordered mb-0"><thead><tr><th>Control</th><th>Asset</th><th>Verdict</th><th>Content Hash</th></tr></thead><tbody>
+{% for i in pack["items"] %}
+<tr><td>{{ i.control_id }}</td><td>{{ i.asset_id }}</td>
+<td>{% if i.verdict %}<span class="badge bg-secondary">{{ i.verdict }}</span>{% else %}—{% endif %}</td>
+<td><code class="small">{{ i.content_hash[:16] }}…</code></td></tr>
 {% endfor %}
-</tbody></table></div>
-{{ workspace_pane_end() }}
-
-{{ workspace_pane('history', false) }}
-<p class="ecs-ws-summary small">Generated report history — download audit-ready exports.</p>
-<div class="table-responsive ecs-paginated-wrap">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="reports-history"><thead><tr>
-<th>Report</th><th>Generated</th><th>Generated By</th><th>Size</th><th>Format</th><th>Framework</th><th>Status</th><th></th>
-</tr></thead><tbody>
-{% for r in module_view.generated_records|default([]) %}{% if loop.index <= 25 %}
-<tr data-ecs-universal-row data-ecs-universal-page="reports" data-ecs-universal-type="generated" data-ecs-universal-id="{{ r.report_name }}">
-<td><strong>{{ r.report_name }}</strong></td><td class="small">{{ r.generated_date }}</td><td class="small">{{ r.generated_by }}</td>
-<td>{{ r.file_size }}</td><td>{{ r.format }}</td><td>{{ r.framework }}</td><td><span class="badge bg-success">{{ r.status }}</span></td>
-<td>{% if r.download_path %}<a href="{{ r.download_path }}" class="btn btn-sm btn-primary py-0">Download</a>{% elif r.report_id %}<a href="/mvp/reports/download/{{ r.report_id }}" class="btn btn-sm btn-outline-primary py-0">Download</a>{% endif %}</td></tr>
-{% endif %}{% endfor %}
-</tbody></table></div>
+</tbody></table>
+</div></div>
+{% else %}
+<div class="card"><div class="card-body small text-muted">
+Choose a pack type and scope above. Packs are built from stored evidence
+({{ pack_stats.evidence_keys|default(module_view.pack_stats.evidence_keys|default(0)) }} evidence key(s) available).
+Legacy route: <a href="/mvp/audit/packs?role={{ role|urlencode }}&user={{ user|urlencode }}">/mvp/audit/packs</a>
+</div></div>
+{% endif %}
 {{ workspace_pane_end() }}
 
 </div></div></div>
 <script type="application/json" id="ecsReportsOverviewDataset">{{ {'reports_overview': module_view.reports_overview, 'kpis': module_view.kpis}|tojson }}</script>
 {% include "partials/reports_analytics_client.html" %}
-<script>
-(function(){
-  var trendData = {{ module_view.reports_overview.generation_trend|default({})|tojson }};
-  function showTrend(key) {
-    document.querySelectorAll('[data-rpt-trend]').forEach(function(btn){
-      btn.classList.toggle('active', btn.getAttribute('data-rpt-trend') === key);
-    });
-    document.getElementById('ecsReportsTrendDaily').parentElement.classList.toggle('d-none', key !== 'daily');
-    document.getElementById('ecsReportsTrendWeeklyWrap').classList.toggle('d-none', key !== 'weekly');
-    document.getElementById('ecsReportsTrendMonthlyWrap').classList.toggle('d-none', key !== 'monthly');
-    if (window.ecsRenderCompactBarChart && trendData[key]) {
-      var cid = key === 'daily' ? 'ecsReportsTrendDaily' : (key === 'weekly' ? 'ecsReportsTrendWeekly' : 'ecsReportsTrendMonthly');
-      ecsRenderCompactBarChart(cid, trendData[key].map(function(s){ return {label:s.label,value:s.value,tone:'teal'}; }), {maxHeight:56});
-    }
-  }
-  document.querySelectorAll('[data-rpt-trend]').forEach(function(btn){
-    btn.addEventListener('click', function(){ showTrend(btn.getAttribute('data-rpt-trend')); });
-  });
-  showTrend('daily');
-})();
-</script>
 {% include "partials/standard_filter_include.html" %}
 {% include "partials/chatbot_global.html" %}</body></html>

@@ -22,11 +22,12 @@ DEFAULT_TABS: dict[str, list[Tab]] = {
         {"id": "analytics", "label": "Analytics"},
     ],
     "reports": [
-        {"id": "overview", "label": "Overview"},
-        {"id": "catalog", "label": "Reports"},
-        {"id": "observations", "label": "Observation Detail"},
-        {"id": "scheduled", "label": "Scheduled"},
-        {"id": "history", "label": "History"},
+        {"id": "evidence", "label": "Evidence"},
+        {"id": "framework", "label": "Framework"},
+        {"id": "application", "label": "Application"},
+        {"id": "audit", "label": "Audit"},
+        {"id": "observation", "label": "Observation"},
+        {"id": "evidence_packs", "label": "Evidence Packs"},
     ],
     "trends": [
         {"id": "overview", "label": "Overview"},
@@ -122,6 +123,11 @@ DEFAULT_TABS: dict[str, list[Tab]] = {
         {"id": "expired", "label": "Expired"},
         {"id": "frameworks", "label": "By Framework"},
         {"id": "analytics", "label": "Analytics"},
+    ],
+    "evidence_dashboard": [
+        {"id": "overview", "label": "Overview"},
+        {"id": "collection", "label": "Collection"},
+        {"id": "health", "label": "Health"},
     ],
     "comparison": [
         {"id": "overview", "label": "Overview"},
@@ -283,6 +289,29 @@ ROLE_TABS: dict[tuple[str, str], list[Tab]] = {
         {"id": "queue", "label": "Compliance Queue"},
         {"id": "frameworks", "label": "By Framework"},
         {"id": "analytics", "label": "Analytics"},
+    ],
+    ("evidence_dashboard", "owner"): [
+        {"id": "overview", "label": "Overview"},
+        {"id": "collection", "label": "Collection"},
+        {"id": "health", "label": "Health"},
+        {"id": "approval", "label": "Approval"},
+    ],
+    ("evidence_dashboard", "auditor"): [
+        {"id": "overview", "label": "Overview"},
+        {"id": "collection", "label": "Collection"},
+        {"id": "health", "label": "Health"},
+        {"id": "approval", "label": "Approval"},
+    ],
+    ("evidence_dashboard", "compliance_head"): [
+        {"id": "overview", "label": "Overview"},
+        {"id": "collection", "label": "Collection"},
+        {"id": "health", "label": "Health"},
+        {"id": "approval", "label": "Approval"},
+    ],
+    ("evidence_dashboard", "cio"): [
+        {"id": "overview", "label": "Overview"},
+        {"id": "collection", "label": "Collection"},
+        {"id": "health", "label": "Health"},
     ],
 }
 

@@ -81,6 +81,7 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "scheduler": "/mvp/scheduler",
         "upload": "/mvp/upload",
         "evidence_health": "/mvp/evidence-health",
+        "evidence_dashboard": "/mvp/evidence-dashboard",
         "search": "/mvp/search",
         "completeness": "/mvp/completeness",
         "reuse": "/mvp/reuse",
@@ -685,6 +686,20 @@ def register_mvp_routes(app, templates):
             count += 1
         notice = quote(f"Bulk upload complete: {count} file(s) with metadata tags applied.")
         return RedirectResponse(url=f"/mvp/upload?role={role}&user={user}&notice={notice}", status_code=303)
+
+    @app.get("/mvp/evidence-dashboard", response_class=HTMLResponse)
+    def mvp_evidence_dashboard(
+        request: Request,
+        role: str = "owner",
+        user: str = "User",
+        response: str = "",
+        notice: str = "",
+        tab: str = "",
+    ):
+        ctx = _base_ctx(role, user, response, notice, page_module="evidence_dashboard")
+        if tab and ctx.get("workspace"):
+            ctx["workspace"]["default_tab"] = tab
+        return templates.TemplateResponse(request, "mvp_evidence_dashboard.html", ctx)
 
     @app.get("/mvp/evidence-health", response_class=HTMLResponse)
     def mvp_evidence_health(
@@ -1357,9 +1372,32 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "mvp_pan_india.html", ctx)
 
     @app.get("/mvp/reports", response_class=HTMLResponse)
-    def mvp_reports(request: Request, role: str = "compliance_head", user: str = "ComplianceHead", response: str = ""):
+    def mvp_reports(
+        request: Request,
+        role: str = "compliance_head",
+        user: str = "ComplianceHead",
+        response: str = "",
+        tab: str = "",
+        pack_type: str = "",
+        scope: str = "",
+    ):
         ctx = _base_ctx(role, user, response, page_module="reports")
+        if tab and ctx.get("workspace"):
+            ctx["workspace"]["default_tab"] = tab
         ctx["reports"] = list_reports()
+        try:
+            from modules.audit_intelligence.services import audit_repository_service as repo_svc
+            from modules.audit_intelligence.services import mapping_service
+
+            ctx["pack_stats"] = repo_svc.repository_stats()
+            ctx["pack"] = repo_svc.build_pack(pack_type, scope) if pack_type and scope else None
+            ctx["pack_sel"] = {"pack_type": pack_type, "scope": scope}
+            ctx["pack_frameworks"] = mapping_service.frameworks()
+        except Exception:  # noqa: BLE001
+            ctx["pack_stats"] = ctx.get("module_view", {}).get("pack_stats", {})
+            ctx["pack"] = None
+            ctx["pack_sel"] = {"pack_type": pack_type, "scope": scope}
+            ctx["pack_frameworks"] = []
         return templates.TemplateResponse(request, "mvp_reports.html", ctx)
 
     @app.get("/mvp/reports/download/{report_id}")
