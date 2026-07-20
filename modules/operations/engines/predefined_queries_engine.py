@@ -174,19 +174,18 @@ ALLOWED_MONGODB_COMMANDS: frozenset[str] = frozenset(
     (e["query"] or "").strip() for e in _MONGODB_QUERIES
 )
 
-# Curated set of controls wired for live execution. Extended with every
-# supplementary DB query (PGX-*, YBX-*, MYX-*) so the new connectors are runnable.
-LIVE_CONTROL_IDS: frozenset[str] = frozenset({
-    "DB-001",
-    "DB-002",
-    "DB-003",
-    "OS-001",
-    "OS-002",
-    "APP-001",
-    "APP-002",
-    "APPSEC-001",
-    "APPSEC-002",
-} | set(_SUPPLEMENTARY_QUERY_BY_ID.keys()))
+# Phase-1 selected controls only — full 208-control catalogue remains loaded but
+# non-selected / deferred controls are not live-executable.
+def _phase1_live_ids() -> frozenset[str]:
+    try:
+        from modules.operations.engines.predefined_query_phase1_registry import phase1_selected_ids
+
+        return phase1_selected_ids()
+    except Exception:  # noqa: BLE001
+        return frozenset({"DB-001", "DB-002", "DB-003", "OS-001", "OS-002", "APP-001", "APP-002"})
+
+
+LIVE_CONTROL_IDS: frozenset[str] = _phase1_live_ids()
 
 SONAR_CONTROL_MODES: dict[str, str] = {
     "APP-001": "projects",
@@ -315,18 +314,53 @@ def _dependency_available(technology: str) -> bool:
     return True
 
 
+def _apply_phase1_metadata(control: dict[str, Any]) -> None:
+    """Attach Phase-1 registry fields without duplicating query definitions."""
+    try:
+        from modules.operations.engines.predefined_query_phase1_registry import resolve_registry_entry
+
+        entry = resolve_registry_entry(control)
+        control["phase"] = entry.get("phase") or ""
+        control["phase1_selected"] = bool(entry.get("phase1_selected"))
+        control["defer_reason"] = entry.get("defer_reason") or ""
+        control["execution_mode"] = entry.get("execution_mode") or ""
+        control["connector"] = entry.get("connector") or ""
+        control["target_required"] = bool(entry.get("target_required"))
+        control["target_configured"] = bool(entry.get("target_configured"))
+    except Exception:  # noqa: BLE001 - metadata enrichment must never break load
+        pass
+
+
 def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
     """Single source of truth for a control's *truthful* execution status.
 
     Returns ``{"executable": bool, "status": str, "reason": str}`` where status
-    is one of: Manual, Unsupported Technology, Connector Missing, Configuration
-    Required, Dependency Missing, Ready. "Ready" is returned ONLY when the
-    control is genuinely executable (implemented connector + dependency present +
-    wired for live execution) — never as a cosmetic label.
+    is one of: Manual, Deferred, Unsupported Technology, Connector Missing,
+    Configuration Required, Dependency Missing, Ready. "Ready" is returned ONLY
+    when the control is genuinely executable (Phase-1 selected + implemented
+    connector + dependency present + configured target + allow-list wired).
     """
     if not control.get("predefined"):
         return {"executable": False, "status": "Manual",
                 "reason": "No predefined query — manual evidence collection required."}
+
+    try:
+        from modules.operations.engines.predefined_query_phase1_registry import (
+            defer_reason as phase1_defer_reason,
+            has_configured_target,
+            is_phase1_deferred,
+        )
+    except Exception:  # noqa: BLE001
+        is_phase1_deferred = lambda c: False  # type: ignore[assignment,misc]
+        phase1_defer_reason = lambda c: ""  # type: ignore[assignment,misc]
+        has_configured_target = lambda t: True  # type: ignore[assignment,misc]
+
+    if is_phase1_deferred(control):
+        return {
+            "executable": False,
+            "status": "Deferred",
+            "reason": phase1_defer_reason(control) or "Deferred from Phase-1 MVP subset",
+        }
 
     technology = control.get("technology") or ""
     if not technology or technology == "Unknown":
@@ -339,8 +373,7 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
 
     if control.get("control_id") not in LIVE_CONTROL_IDS:
         return {"executable": False, "status": "Configuration Required",
-                "reason": f"The {technology} connector exists but this control is not yet wired for live "
-                          f"execution (target / query allow-list not configured)."}
+                "reason": f"The {technology} connector exists but this control is not in the Phase-1 selected set."}
 
     if not _dependency_available(technology):
         _driver_map = {
@@ -355,8 +388,15 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
         return {"executable": False, "status": "Dependency Missing",
                 "reason": f"The {technology} driver ({dep}) is not installed in this environment."}
 
+    if not has_configured_target(technology):
+        return {
+            "executable": False,
+            "status": "Configuration Required",
+            "reason": f"No configured target path for {technology} in the active environment.",
+        }
+
     return {"executable": True, "status": "Ready",
-            "reason": f"{technology} connector is available and this control is enabled for live execution."}
+            "reason": f"{technology} connector is available and this Phase-1 control is enabled for live execution."}
 
 
 def _derive_status(control: dict[str, Any]) -> str:
@@ -481,6 +521,7 @@ def _load_from_excel() -> tuple[list[dict[str, Any]], list[str]]:
         record["status"] = capability["status"]
         record["executable"] = capability["executable"]
         record["capability_reason"] = capability["reason"]
+        _apply_phase1_metadata(record)
         controls.append(record)
 
     workbook.close()
@@ -530,8 +571,8 @@ def _merge_supplementary_controls(controls: list[dict[str, Any]]) -> list[dict[s
         record["status"] = capability["status"]
         record["executable"] = capability["executable"]
         record["capability_reason"] = capability["reason"]
+        _apply_phase1_metadata(record)
         controls.append(record)
-        existing_ids.add(cid)
     return controls
 
 
@@ -1465,11 +1506,30 @@ def run_aerospike_query(control_id: str, user: str) -> dict[str, Any]:
     return {"ok": False, "error": err, "error_type": "connection_error"}
 
 
+def get_phase1_controls(*, executable_only: bool = False) -> list[dict[str, Any]]:
+    """Return Phase-1 selected controls from the loaded catalogue."""
+    rows = [c for c in get_all_controls() if c.get("phase1_selected")]
+    if executable_only:
+        rows = [c for c in rows if c.get("executable")]
+    return rows
+
+
 def run_predefined_query(control_id: str, user: str) -> dict[str, Any]:
     """Dispatch live execution by control ID and technology."""
     control = get_control_by_id(control_id)
     if not control:
         return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+    try:
+        from modules.operations.engines.predefined_query_phase1_registry import is_phase1_deferred
+
+        if is_phase1_deferred(control):
+            return {
+                "ok": False,
+                "error": control.get("defer_reason") or "Control deferred from Phase-1 MVP execution",
+                "error_type": "deferred_control",
+            }
+    except Exception:  # noqa: BLE001
+        pass
     if not is_live_execution_enabled(control):
         return {
             "ok": False,

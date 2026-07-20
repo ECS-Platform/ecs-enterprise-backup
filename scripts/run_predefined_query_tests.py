@@ -78,6 +78,17 @@ def cmd_summary(_args) -> int:
     print("=" * 32)
     print(f"  Total controls:  {len(controls)}")
     print(f"  Executable:      {sum(1 for c in controls if c.get('executable'))}")
+    try:
+        from modules.operations.engines import predefined_query_phase1_registry as p1
+
+        p1.load_phase1_registry.cache_clear()
+        selected = p1.phase1_selected_ids()
+        phase1_rows = [c for c in controls if c.get("phase1_selected")]
+        print(f"  Phase-1 selected: {len(selected)}")
+        print(f"  Phase-1 executable: {sum(1 for c in phase1_rows if c.get('executable'))}")
+        print(f"  Deferred:        {sum(1 for c in controls if c.get('status') == 'Deferred')}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  (phase-1 summary skipped: {type(exc).__name__})")
     print(f"  Technologies:    {len(techs)}")
     print(f"  Frameworks:      {len(frameworks)}")
     print("  Controls by technology:")

@@ -1,0 +1,201 @@
+# Phase-1 predefined query registry — configuration-first MVP subset.
+# Query text remains in the Excel workbook + supplementary_query_catalog.py.
+# This file selects which controls are enabled for Phase-1 delivery only.
+
+phase_label: Phase1
+
+technologies:
+  - PostgreSQL
+  - YugabyteDB
+  - Aurora MySQL
+  - Oracle
+  - Linux
+  - Red Hat Enterprise Linux 8.x
+  - Red Hat Enterprise Linux 9.x
+  - NGINX
+  - Apache HTTPD
+  - Tomcat
+  - SonarQube
+  - Trivy
+  - GitLeaks
+  - Kubernetes
+  - OpenShift
+
+deferred_technologies:
+  - Windows
+  - SQL Server
+  - MongoDB
+  - Redis
+  - Aerospike
+  - Unknown
+
+technology_connectors:
+  PostgreSQL:
+    connector: postgresql_connector
+    execution_mode: sql
+    target_key: postgresql
+    target_required: true
+  YugabyteDB:
+    connector: yugabyte_connector
+    execution_mode: sql
+    target_key: yugabyte
+    target_required: true
+  Aurora MySQL:
+    connector: mysql_connector
+    execution_mode: sql
+    target_key: aurora_mysql
+    target_required: true
+  Oracle:
+    connector: oracle_connector
+    execution_mode: sql
+    target_key: oracle
+    target_required: true
+  Linux:
+    connector: linux_connector
+    execution_mode: shell
+    target_key: linux
+    target_required: true
+  Red Hat Enterprise Linux 8.x:
+    connector: linux_connector
+    execution_mode: shell
+    target_key: rhel8
+    target_required: true
+  Red Hat Enterprise Linux 9.x:
+    connector: linux_connector
+    execution_mode: shell
+    target_key: rhel9
+    target_required: true
+  NGINX:
+    connector: linux_connector
+    execution_mode: shell
+    target_key: nginx
+    target_required: true
+  Apache HTTPD:
+    connector: linux_connector
+    execution_mode: shell
+    target_key: apache
+    target_required: true
+  Tomcat:
+    connector: linux_connector
+    execution_mode: shell
+    target_key: tomcat
+    target_required: true
+  SonarQube:
+    connector: sonarqube_connector
+    execution_mode: rest_api
+    target_key: sonarqube
+    target_required: true
+  Trivy:
+    connector: trivy_connector
+    execution_mode: scanner
+    target_key: trivy
+    target_required: true
+  GitLeaks:
+    connector: gitleaks_connector
+    execution_mode: scanner
+    target_key: gitleaks
+    target_required: true
+  Kubernetes:
+    connector: kubernetes_connector
+    execution_mode: cli
+    target_key: kubernetes
+    target_required: true
+  OpenShift:
+    connector: openshift_connector
+    execution_mode: cli
+    target_key: openshift
+    target_required: true
+
+selected_control_ids:
+  - APP-001
+  - APP-002
+  - APP-004
+  - APX-004
+  - APX-005
+  - APX-006
+  - APX-007
+  - APX-008
+  - DB-001
+  - DB-002
+  - DB-003
+  - DB-004
+  - DB-006
+  - DB-007
+  - K8X-004
+  - K8X-005
+  - K8X-006
+  - K8X-007
+  - K8X-008
+  - K8X-009
+  - K8X-010
+  - LNX-004
+  - LNX-005
+  - LNX-006
+  - LNX-007
+  - LNX-008
+  - MW-001
+  - MW-003
+  - MYX-001
+  - MYX-002
+  - MYX-003
+  - MYX-004
+  - MYX-005
+  - MYX-009
+  - MYX-010
+  - MYX-014
+  - NGX-001
+  - NGX-002
+  - NGX-003
+  - NGX-004
+  - NGX-005
+  - NGX-006
+  - NGX-007
+  - NGX-008
+  - OCX-005
+  - OCX-006
+  - OCX-007
+  - OCX-008
+  - OCX-009
+  - OCX-010
+  - ORX-003
+  - ORX-004
+  - ORX-005
+  - ORX-006
+  - ORX-009
+  - ORX-012
+  - OS-001
+  - OS-002
+  - OS-003
+  - OS-004
+  - OS-005
+  - PCI-003
+  - PGX-001
+  - PGX-002
+  - PGX-003
+  - PGX-004
+  - PGX-008
+  - PGX-011
+  - PGX-013
+  - RH8-002
+  - RH8-003
+  - RH8-004
+  - RH8-005
+  - RH8-006
+  - RH8-007
+  - RH8-008
+  - RH9-002
+  - RH9-003
+  - RH9-004
+  - RH9-005
+  - RH9-006
+  - RH9-007
+  - RH9-008
+  - TCX-003
+  - TCX-004
+  - TCX-005
+  - TCX-006
+  - TCX-007
+  - TCX-008
+  - YBX-004
+  - YBX-008
+  - YBX-011
