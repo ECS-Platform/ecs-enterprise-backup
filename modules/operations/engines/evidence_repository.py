@@ -43,6 +43,41 @@ def integrity_check(stored_hash: str, content: bytes) -> dict:
     }
 
 
+def find_upload_by_sha256(sha256: str) -> dict | None:
+    """Return an existing ops-repository upload with the same content hash."""
+    if not sha256:
+        return None
+    for rec in evidence_repository:
+        if rec.get("sha256") == sha256:
+            return rec
+    indexed = ecs_state.predefined_query_content_index.get(sha256)
+    if indexed:
+        evidence_id = indexed.get("evidence_id")
+        if evidence_id:
+            for rec in evidence_repository:
+                if rec.get("evidence_id") == evidence_id:
+                    return rec
+    return None
+
+
+def find_upload_by_canonical_fingerprint(canonical_hash: str) -> dict | None:
+    """Return an existing predefined-query upload for a canonical fingerprint."""
+    if not canonical_hash:
+        return None
+    indexed = ecs_state.predefined_query_fingerprint_index.get(canonical_hash)
+    if indexed:
+        evidence_id = indexed.get("evidence_id")
+        if evidence_id:
+            for rec in evidence_repository:
+                if rec.get("evidence_id") == evidence_id:
+                    return rec
+    for rec in evidence_repository:
+        meta = rec.get("metadata") or {}
+        if meta.get("canonical_fingerprint") == canonical_hash:
+            return rec
+    return None
+
+
 def register_upload(
     filename: str,
     content: bytes,
@@ -105,6 +140,7 @@ def register_upload(
     # integrity — instead of living only in this MVP in-memory list. Best-effort:
     # a bridge failure must never break the primary upload path.
     _mirror_to_audit_repository(record, content or b"", framework, application, control)
+    record["search_index"] = _register_search_index(record, content or b"")
     from modules.shared.services.audit_trail import log_event, record_version
 
     record_version(record["evidence_id"], std_name, 1, uploaded_by)
@@ -168,6 +204,41 @@ def _apply_custody(record, content: bytes, application: str, control: str):
             stored=False,
             reason="custody_fallback",
         )
+
+
+def _register_search_index(record: dict, content: bytes) -> dict:
+    """Register persisted upload for semantic search; skip duplicate content."""
+    sha = record.get("sha256") or ""
+    if not sha:
+        return {"indexed": False, "reason": "missing_hash"}
+    dup_peers = [
+        r for r in evidence_repository[:-1]
+        if r.get("sha256") == sha and r.get("evidence_id") != record.get("evidence_id")
+    ]
+    if dup_peers:
+        return {
+            "indexed": False,
+            "reason": "duplicate_content",
+            "existing_evidence_id": dup_peers[0].get("evidence_id"),
+        }
+    if not record.get("audit_repository_synced"):
+        return {"indexed": False, "reason": "mirror_failed"}
+    try:
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+        from ecs_platform.evidence_indexing import index_after_persist
+
+        control = record.get("control") or record.get("filename", "UPLOAD")
+        app = (record.get("application_tags") or ["Net Banking"])[0]
+        key = ai_repo.make_evidence_key(app, control)
+        versions = ai_repo.get_versions(key)
+        if not versions:
+            return {"indexed": False, "reason": "artifact_missing"}
+        artifact = versions[-1]
+        text = content.decode("utf-8", errors="ignore") if content else ""
+        report = index_after_persist(artifact, normalized_text=text)
+        return {"indexed": bool(report.get("ok")), **report}
+    except Exception as exc:  # noqa: BLE001
+        return {"indexed": False, "reason": str(exc)}
 
 
 def _mirror_to_audit_repository(record, content, framework, application, control):

@@ -141,7 +141,10 @@ def complete_connector_execution(
             execution_id=audit.execution_id,
             framework=primary_fw,
         )
-        evidence_id = str(upload.get("evidence_id") or "")
+        if upload.get("status") == "DUPLICATE":
+            evidence_id = str(upload.get("evidence_id") or upload.get("original_evidence_id") or "")
+        else:
+            evidence_id = str(upload.get("evidence_id") or "")
 
     from modules.shared.services.audit_trail import log_event
     from modules.shared.services.ecs_logging import info
@@ -169,9 +172,14 @@ def complete_connector_execution(
         result=result,
         evidence_id=evidence_id,
     )
+    persisted = bool(should_persist and evidence_id and upload.get("status") != "DUPLICATE")
+    duplicate = upload.get("status") == "DUPLICATE"
+    message = f"Query executed successfully — {rows_returned} row(s) returned in {result.duration_ms}ms"
+    if duplicate:
+        message = f"{message} — {upload.get('duplicate_reason', 'Duplicate evidence detected.')}"
     return {
         "ok": True,
-        "message": f"Query executed successfully — {rows_returned} row(s) returned in {result.duration_ms}ms",
+        "message": message,
         "control_id": control_id,
         "query": query,
         "status": "Success",
@@ -179,9 +187,12 @@ def complete_connector_execution(
         "output": result.output,
         "duration_ms": result.duration_ms,
         "evidence_id": evidence_id,
-        "evidence_persisted": bool(should_persist and evidence_id),
-        "evidence_filename": upload.get("filename", "") if should_persist else "",
-        "evidence_object_key": upload.get("object_key", "") if should_persist else "",
-        "evidence_sha256": upload.get("sha256", "") if should_persist else "",
+        "evidence_persisted": persisted,
+        "duplicate": duplicate,
+        "duplicate_reason": upload.get("duplicate_reason", "") if duplicate else "",
+        "original_evidence_id": upload.get("original_evidence_id", "") if duplicate else "",
+        "evidence_filename": upload.get("filename", "") if persisted else "",
+        "evidence_object_key": upload.get("object_key", "") if (persisted or duplicate) else "",
+        "evidence_sha256": upload.get("sha256", "") if (persisted or duplicate) else "",
         "execution": structured,
     }

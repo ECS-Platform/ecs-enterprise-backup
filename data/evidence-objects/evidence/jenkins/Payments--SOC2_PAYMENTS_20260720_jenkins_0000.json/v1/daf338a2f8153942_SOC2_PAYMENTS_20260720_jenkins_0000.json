@@ -1,0 +1,1 @@
+{"application": "j1", "control_mapping": ["ci-cd", "change-management"], "evidence_type": "ci_job", "framework_mapping": ["SOC2-CC8"], "metadata": {}, "object_type": "ci_job", "source": "jenkins", "source_object_id": "j1", "title": "CI job j1", "url": "u"}

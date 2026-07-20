@@ -11,6 +11,7 @@ os.environ.setdefault("ECS_VALIDATE_CONFIG", "off")
 
 import pytest
 
+from app import ecs_state
 from modules.operations.engines import connector_common as cc
 from modules.operations.engines import predefined_queries_engine as engine
 from modules.operations.engines import predefined_query_publisher as publisher
@@ -20,10 +21,16 @@ from modules.operations.engines.query_connectors import ConnectorResult
 
 @pytest.fixture(autouse=True)
 def _clean_stores():
+    ecs_state.uploaded_evidence_enrollments.clear()
+    ecs_state.predefined_query_fingerprint_index.clear()
+    ecs_state.predefined_query_content_index.clear()
     ops_repo.evidence_repository.clear()
     ops_repo.upload_tracker.clear()
     engine.set_execution_persist(False)
     yield
+    ecs_state.uploaded_evidence_enrollments.clear()
+    ecs_state.predefined_query_fingerprint_index.clear()
+    ecs_state.predefined_query_content_index.clear()
     ops_repo.evidence_repository.clear()
     ops_repo.upload_tracker.clear()
     engine.set_execution_persist(False)
@@ -81,7 +88,7 @@ def test_persist_true_creates_one_evidence_artifact(monkeypatch):
     assert payload["ok"] is True
     assert payload["evidence_persisted"] is True
     assert payload["evidence_id"] == "EV-PQ-001"
-    assert captured["source_connector"] == "predefined_query"
+    assert captured["source_connector"] == "PREDEFINED_QUERY"
     assert captured["mime_type"] == "application/json"
     assert captured["control"] == "PGX-001"
     artifact = json.loads(captured["content"].decode())

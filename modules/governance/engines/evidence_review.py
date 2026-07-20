@@ -138,6 +138,57 @@ def _find_evidence(framework: str, control: str, evidence_id: str) -> tuple[dict
     control = (control or "").strip()
 
     if evidence_id:
+        try:
+            from modules.operations.engines import evidence_repository as ops_repo
+            from modules.shared.services.evidence_workflow_engine import get_enrollment
+
+            enrollment = get_enrollment(evidence_id=evidence_id)
+            for rec in ops_repo.evidence_repository:
+                if rec.get("evidence_id") != evidence_id:
+                    continue
+                target = enrollment or {}
+                control_name = target.get("control_name") or rec.get("control") or control
+                control_id = target.get("control_id") or target.get("query_id") or rec.get("control") or ""
+                ctrl = {
+                    "control": control_name,
+                    "control_id": control_id,
+                    "control_description": f"Predefined query evidence for {control_id or control_name}",
+                }
+                meta = dict(rec.get("metadata") or {})
+                artifact_preview = meta.get("artifact_preview") or enrollment.get("artifact_preview") if enrollment else []
+                catalog_ev = {
+                    "evidence_id": evidence_id,
+                    "evidence_name": rec.get("original_filename") or rec.get("filename") or evidence_id,
+                    "mock_file": rec.get("original_filename") or f"{evidence_id}.json",
+                    "application_name": (rec.get("application_tags") or ["Net Banking"])[0],
+                    "application": (rec.get("application_tags") or ["Net Banking"])[0],
+                    "uploaded_by": rec.get("uploaded_by", "App Owner"),
+                    "upload_timestamp": rec.get("uploaded_at") or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    "uploaded_at": rec.get("uploaded_at") or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                    "evidence_status": "Current",
+                    "audit_status": rec.get("status", "Uploaded"),
+                    "reviewer": rec.get("reviewer", ""),
+                    "comments": f"Predefined query JSON artifact — {meta.get('query_id', control_id)}",
+                    "expiry_date": "2026-09-30",
+                    "evidence_source": rec.get("source_connector") or "PREDEFINED_QUERY",
+                    "server_name": (rec.get("application_tags") or ["Net Banking"])[0],
+                    "environment": rec.get("environment") or meta.get("environment") or "",
+                    "region": "Central",
+                    "evidence_version": f"v{rec.get('version') or rec.get('evidence_version') or 1}",
+                    "evidence_type": "Predefined Query JSON",
+                    "mime_type": rec.get("mime_type") or "application/json",
+                    "object_key": meta.get("object_key") or rec.get("object_uri") or "",
+                    "sha256": rec.get("sha256") or meta.get("content_sha256") or "",
+                    "custody_mode": rec.get("custody_mode") or "",
+                    "source_connector": rec.get("source_connector") or "PREDEFINED_QUERY",
+                    "query_id": meta.get("query_id") or control_id,
+                    "artifact_preview": artifact_preview,
+                    "workflow_status": rec.get("workflow_status") or rec.get("status") or "Pending App Owner Review",
+                }
+                return ctrl, catalog_ev
+        except Exception:  # noqa: BLE001 - repository lookup must never break review
+            pass
+
         for rec in get_all_evidence_records():
             if rec.get("evidence_id") == evidence_id:
                 use_fw = resolve_framework_name(rec.get("framework", fw))
@@ -313,6 +364,29 @@ def _preview_type(filename: str) -> str:
 
 
 def _build_preview(ev: dict, ctrl: dict, framework: str) -> dict:
+    if (ev.get("mime_type") or "").lower() == "application/json" or str(ev.get("mock_file", "")).lower().endswith(".json"):
+        import json as _json
+
+        preview_body = _json.dumps(
+            {
+                "source_connector": ev.get("source_connector", "PREDEFINED_QUERY"),
+                "query_id": ev.get("query_id") or ctrl.get("control_id", ""),
+                "control": ctrl.get("control", ""),
+                "framework": framework,
+                "environment": ev.get("environment", ""),
+                "object_key": ev.get("object_key", ""),
+                "sha256": ev.get("sha256", ""),
+                "custody_mode": ev.get("custody_mode", ""),
+                "result": ev.get("artifact_preview") or "See stored JSON artifact",
+            },
+            indent=2,
+            default=str,
+        )
+        return {
+            "type": "json",
+            "label": "Predefined Query JSON Preview",
+            "content": preview_body,
+        }
     ptype = _preview_type(ev.get("mock_file", ""))
     template = PREVIEW_TEMPLATES[ptype]
     content = template.format(

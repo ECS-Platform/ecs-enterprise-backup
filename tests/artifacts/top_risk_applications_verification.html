@@ -24,10 +24,16 @@ body.ecs-enterprise-body { background: #f4f6f9; }
 .ecs-sidebar-inner {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* Viewport-locked: never exceed screen height, regardless of nav expansion.
+     position:sticky keeps the column pinned while the page body scrolls. */
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  position: sticky;
+  top: 0;
   padding: 1rem 0.75rem;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden; /* the inner NAV region scrolls, not the whole column */
 }
 .ecs-sidebar-brand {
   font-size: 1.05rem;
@@ -63,6 +69,11 @@ body.ecs-enterprise-body { background: #f4f6f9; }
   justify-content: flex-start;
   width: 100%;
   min-height: 36px;
+  /* WebKit/Safari hardening: flex items default to flex-shrink:1, and inside a
+     height-constrained flex column Safari will compress them below min-height
+     (vertical-compression / overlapping-border symptom). Pin shrink to 0 and
+     declare an explicit flex-basis so Chrome and Safari size items identically. */
+  flex: 0 0 auto;
   padding: 0.45rem 0.7rem;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -124,10 +135,16 @@ body.ecs-enterprise-body { background: #f4f6f9; }
   flex-shrink: 0;
 }
 .ecs-sidebar-footer {
-  margin-top: auto;
+  margin-top: 0; /* nav region (flex:1) now provides the spacer */
   padding-top: 0.75rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0; /* Logout must always stay pinned and visible */
 }
+/* Fixed (non-scrolling) header elements above the scrollable nav */
+.ecs-sidebar-brand,
+.ecs-sidebar-tagline,
+.ecs-sidebar-profile,
+.ecs-sidebar-back { flex-shrink: 0; }
 .ecs-sidebar-tagline {
   font-size: 0.68rem;
   color: rgba(255, 255, 255, 0.45);
@@ -148,7 +165,23 @@ body.ecs-enterprise-body { background: #f4f6f9; }
   border-color: rgba(255, 255, 255, 0.1);
 }
 /* Grouped navigation */
-.ecs-nav-groups { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.5rem; flex: 1; }
+.ecs-nav-groups {
+  display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.5rem;
+  /* Scrollable navigation region: grows to fill, scrolls independently.
+     min-height:0 is required so a flex child can shrink below content size. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* thin, theme-matched scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.25) transparent;
+}
+.ecs-nav-groups::-webkit-scrollbar { width: 7px; }
+.ecs-nav-groups::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 4px; }
+.ecs-nav-groups::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.38); }
+.ecs-nav-groups::-webkit-scrollbar-track { background: transparent; }
 .ecs-nav-group { border-radius: 8px; overflow: hidden; }
 .ecs-nav-group-toggle {
   display: flex; align-items: center; justify-content: space-between; width: 100%;
@@ -161,11 +194,21 @@ body.ecs-enterprise-body { background: #f4f6f9; }
 .ecs-nav-group-toggle.is-open { color: #93c5fd; background: rgba(37, 99, 235, 0.12); border-color: rgba(37, 99, 235, 0.25); }
 .ecs-nav-group-chevron { font-size: 0.55rem; transition: transform 0.2s ease; opacity: 0.7; }
 .ecs-nav-group-toggle.is-open .ecs-nav-group-chevron { transform: rotate(180deg); }
-.ecs-nav-group-items { display: flex; flex-direction: column; gap: 5px; padding: 0.45rem 0 0.35rem; }
+.ecs-nav-group-items { display: flex; flex-direction: column; gap: 5px; padding: 0.45rem 0 0.35rem; flex: 0 0 auto; }
+/* WebKit: prevent flex children from being squeezed; nav groups size to content */
+.ecs-nav-group, .ecs-nav-group-items > .ecs-sidebar-btn { flex-shrink: 0; }
 .ecs-nav-group-items-nested { padding-left: 0.15rem; }
 @media (max-width: 767.98px) {
+  /* On mobile the sidebar stacks above the content; let it use natural height
+     and the normal page scroll instead of the viewport-locked layout. */
   .ecs-sidebar { min-height: auto; }
-  .ecs-sidebar-inner { min-height: auto; max-height: none; }
+  .ecs-sidebar-inner {
+    height: auto;
+    max-height: none;
+    position: static;
+    overflow: visible;
+  }
+  .ecs-nav-groups { overflow-y: visible; min-height: 0; flex: 0 0 auto; }
 }
 .btn-ecs, .btn-primary, .btn-dark, .btn-outline-primary { border-radius: 6px; font-weight: 500; }
 .btn-ecs-primary { background: var(--ecs-accent); border-color: var(--ecs-accent); color: #fff; }
@@ -399,7 +442,8 @@ tr.row-approved { background-color: #d1e7dd !important; }
 .ecs-ops-detail { font-size: 0.8rem; margin-top: 0.5rem; }
 .ecs-ops-detail ul { margin-bottom: 0.5rem; padding-left: 1.1rem; }
 
-.chart-container-compact { max-height: 180px; overflow: hidden; }
+/* Chart heights/overflow are owned by the chart system so bars are not clipped or
+   crushed. (Was: max-height:180px; overflow:hidden — clipped axis labels & values.) */
 .ecs-bar-chart { max-width: 100%; }
 .ecs-horizontal-bars { max-width: 420px; }
 .compact-chart-grid { max-width: 100%; }
@@ -474,7 +518,22 @@ tr.row-approved { background-color: #d1e7dd !important; }
 .ecs-exec-kpi[data-ecs-framework-kpi]::after { content: '↗'; position: absolute; top: 3px; right: 6px; font-size: 0.58rem; opacity: 0.45; }
 .ecs-exec-kpi[data-ecs-framework-kpi] { position: relative; }
 .ecs-kpi-drill-search { max-width: 320px; }
+
+/* Embedded mode (?embed=1): used when a page is rendered inside an aggregator
+   tab iframe (navigation regrouping). Hides the left sidebar and expands the
+   main content so the sub-page fills the tab panel. Purely presentational and
+   additive — the page and its routes are unchanged when not embedded. */
+body.ecs-embed .ecs-sidebar,
+body.ecs-embed .sidebar { display: none !important; }
+body.ecs-embed .ecs-workspace-main,
+body.ecs-embed .col-md-10.ecs-workspace-main { flex: 0 0 100% !important; max-width: 100% !important; }
+body.ecs-embed { background: #fff !important; }
 </style>
+<script>
+/* Toggle embedded mode as early as possible so the sidebar never flashes in a
+   tab iframe. Additive: no effect unless the URL carries ?embed=1. */
+(function(){try{var p=new URLSearchParams(window.location.search);if(p.get('embed')==='1'){var apply=function(){document.body&&document.body.classList.add('ecs-embed');};if(document.body){apply();}else{document.addEventListener('DOMContentLoaded',apply);}}}catch(e){}})();
+</script>
 
 <style>
 /* ── Contain page width — prevent table bleed ── */
@@ -623,11 +682,13 @@ tr.row-approved { background-color: #d1e7dd !important; }
   border: 1px solid #cbd5e1;
 }
 
-/* Chart + table balance */
-.chart-container-compact,
-.ecs-bar-chart {
-  max-height: 72px !important;
-}
+/* Chart + table balance.
+   NOTE: the previous `max-height: 72px !important` here crushed every compact bar
+   chart to 72px while the JS renderer sizes bars to ~150px, causing bars to overflow
+   upward out of the container (the "upside-down / top-anchored" defect) and clipping
+   axis labels/values. Executive-readable chart heights are owned by the chart system
+   (executive_charts_system.html / ecs_chart_standard.html). This block no longer
+   constrains chart heights. */
 .compact-chart-grid {
   max-width: 100%;
 }
@@ -778,7 +839,7 @@ tr.row-approved { background-color: #d1e7dd !important; }
 <p class="ecs-wf-toast-body" id="ecsWorkflowToastBody"></p>
 </div>
 
-<script type="application/json" id="ecsWorkflowSummaryData">{"approved": 83, "counters": [{"label": "Draft", "metric": "draft", "tone": "secondary", "value": 78}, {"label": "Submitted", "metric": "submitted", "tone": "warning", "value": 79}, {"label": "Re-upload Req", "metric": "reupload", "tone": "danger", "value": 0}], "draft": 78, "reupload_requested": 0, "role": "cio", "submitted": 79}</script>
+<script type="application/json" id="ecsWorkflowSummaryData">{"approved": 83, "counters": [{"label": "Draft", "metric": "draft", "tone": "secondary", "value": 84}, {"label": "Submitted", "metric": "submitted", "tone": "warning", "value": 77}, {"label": "Re-upload Req", "metric": "reupload", "tone": "danger", "value": 0}], "draft": 84, "reupload_requested": 0, "role": "cio", "submitted": 77}</script>
 
 <script>
 (function(){
@@ -824,7 +885,7 @@ tr.row-approved { background-color: #d1e7dd !important; }
       showWorkflowToast({ type: 'success', title: '✓ Evidence Uploaded Successfully', body: notice || 'Dashboard metrics updated.' });
       setTimeout(refreshCounters, 400);
     } else if (toast === 'scheduler_ok') {
-      showWorkflowToast({ type: 'success', title: '✓ Scheduler Run Completed', body: notice || 'Observations scanned and dashboard refreshed.' });
+      showWorkflowToast({ type: 'success', title: '✓ Evidence Collection Completed', body: notice || 'Evidence refreshed and dashboard updated.' });
       setTimeout(refreshCounters, 400);
     } else if (toast === 'scheduler_retry_ok') {
       showWorkflowToast({ type: 'success', title: '✓ Observation Reprocessed Successfully', body: notice || 'Removed from failed queue.' });
@@ -838,37 +899,48 @@ tr.row-approved { background-color: #d1e7dd !important; }
     }
   }
 
+  function applyCounterData(data) {
+    if (!data) return;
+    if (data.counters) {
+      data.counters.forEach(function(c) {
+        var key = c.label.toLowerCase().replace(/\s+/g, '_');
+        document.querySelectorAll('[data-ecs-wf-count="' + key + '"]').forEach(function(el){ el.textContent = c.value; });
+      });
+    }
+    document.dispatchEvent(new CustomEvent('ecsWorkflowCountsUpdated', { detail: data }));
+    if (data.pending_review != null) {
+      document.querySelectorAll('[data-queue-id="pending"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.pending_review; });
+    }
+    if (data.approved != null) {
+      document.querySelectorAll('[data-queue-id="approved"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.approved; });
+    }
+    if (data.rejected != null) {
+      document.querySelectorAll('[data-queue-id="rejected"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.rejected; });
+    }
+    if (data.submitted != null) {
+      document.querySelectorAll('[data-queue-id="submitted"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.submitted; });
+    }
+    if (data.draft != null) {
+      document.querySelectorAll('[data-queue-id="draft"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.draft; });
+    }
+    if (data.reupload_requested != null) {
+      document.querySelectorAll('[data-queue-id="reupload"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.reupload_requested; });
+    }
+  }
+
+  function applyEmbeddedCounters() {
+    var el = document.getElementById('ecsWorkflowSummaryData');
+    if (!el || !el.textContent) return;
+    try { applyCounterData(JSON.parse(el.textContent)); } catch (e) {}
+  }
+
   function refreshCounters() {
     var role = new URLSearchParams(window.location.search).get('role') || 'owner';
     var user = new URLSearchParams(window.location.search).get('user') || 'User';
     fetch('/api/evidence-workflow/summary?role=' + encodeURIComponent(role) + '&user=' + encodeURIComponent(user))
       .then(function(r){ return r.json(); })
-      .then(function(data) {
-        if (!data || !data.counters) return;
-        data.counters.forEach(function(c) {
-          var key = c.label.toLowerCase().replace(/\s+/g, '_');
-          document.querySelectorAll('[data-ecs-wf-count="' + key + '"]').forEach(function(el){ el.textContent = c.value; });
-        });
-        document.dispatchEvent(new CustomEvent('ecsWorkflowCountsUpdated', { detail: data }));
-        if (data.pending_review != null) {
-          document.querySelectorAll('[data-queue-id="pending"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.pending_review; });
-        }
-        if (data.approved != null) {
-          document.querySelectorAll('[data-queue-id="approved"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.approved; });
-        }
-        if (data.rejected != null) {
-          document.querySelectorAll('[data-queue-id="rejected"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.rejected; });
-        }
-        if (data.submitted != null) {
-          document.querySelectorAll('[data-queue-id="submitted"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.submitted; });
-        }
-        if (data.draft != null) {
-          document.querySelectorAll('[data-queue-id="draft"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.draft; });
-        }
-        if (data.reupload_requested != null) {
-          document.querySelectorAll('[data-queue-id="reupload"]').forEach(function(el){ var s = el.querySelector('strong'); if (s) s.textContent = data.reupload_requested; });
-        }
-      }).catch(function(){});
+      .then(applyCounterData)
+      .catch(function(){});
   }
 
   function applyRowStates() {
@@ -896,9 +968,9 @@ tr.row-approved { background-color: #d1e7dd !important; }
   });
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ parseNoticeToast(); applyRowStates(); refreshCounters(); });
+    document.addEventListener('DOMContentLoaded', function(){ parseNoticeToast(); applyRowStates(); applyEmbeddedCounters(); });
   } else {
-    parseNoticeToast(); applyRowStates(); refreshCounters();
+    parseNoticeToast(); applyRowStates(); applyEmbeddedCounters();
   }
   window.ecsRefreshWorkflowCounters = refreshCounters;
 })();
@@ -1810,13 +1882,32 @@ body.bg-light {
     modal.show();
     var url = '/api/module-kpi/drill?module=' + encodeURIComponent(module || '') +
       '&metric=' + encodeURIComponent(metric || '') + '&role=' + encodeURIComponent(role);
-    if (count) url += '&count=' + encodeURIComponent(count);
-    fetch(url).then(function(r){ return r.json(); }).then(function(j){
-      if (!j.ok) { bodyEl.innerHTML = '<p class="text-danger">' + esc(j.error || 'Failed') + '</p>'; return; }
-      titleEl.textContent = j.title || label;
-      bodyEl.innerHTML = tableHtml(j.rows, j.columns || ['application','framework','control','evidence','owner','status']);
-      if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
-    }).catch(function(){ bodyEl.innerHTML = '<p class="text-danger">Request failed.</p>'; });
+    var safeCnt = (function(v){ var m=String(v==null?'':v).replace(/,/g,'').match(/(\d+(?:\.\d+)?)/); return m?Math.round(parseFloat(m[1])):0; })(count);
+    if (safeCnt) url += '&count=' + safeCnt;
+    var emptyState = '<div class="text-center py-4"><div class="mb-2" style="font-size:1.6rem;opacity:.5;">&#128202;</div>' +
+      '<p class="mb-0 text-muted">No records found for this selection.</p></div>';
+    var errorState = '<div class="text-center py-4"><div class="mb-2" style="font-size:1.6rem;opacity:.6;">&#9888;&#65039;</div>' +
+      '<p class="mb-0 text-danger">Unable to load records. Please try again.</p></div>';
+    // Failsafe: spinner must always terminate.
+    var settled = false;
+    var timer = setTimeout(function(){ if (settled) return; settled = true; bodyEl.innerHTML = errorState; }, 12000);
+    fetch(url).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function(j){
+      if (settled) return; settled = true; clearTimeout(timer);
+      if (!j || (!j.ok && !(j.rows && j.rows.length))) { bodyEl.innerHTML = emptyState; return; }
+      try {
+        titleEl.textContent = j.title || label;
+        var note = j.note ? '<div class="alert alert-secondary py-1 px-2 small mb-2">' + esc(j.note) + '</div>' : '';
+        bodyEl.innerHTML = note + tableHtml(j.rows, j.columns || ['application','framework','control','evidence','owner','status']);
+        if (window.ecsRefreshPagination) window.ecsRefreshPagination(bodyEl);
+      } catch(renderErr) {
+        if (window.console && console.error) console.error('[ecs-module-kpi] render failed', renderErr, j);
+        bodyEl.innerHTML = errorState;
+      }
+    }).catch(function(e){
+      if (settled) return; settled = true; clearTimeout(timer);
+      if (window.console && console.error) console.error('[ecs-module-kpi] fetch failed', url, e);
+      bodyEl.innerHTML = errorState;
+    });
   };
 
   document.addEventListener('click', function(e){
@@ -3984,7 +4075,9 @@ body.bg-light {
 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
 </div>
 </div></div></div>
-<script src="/static/ecs/js/drilldown_engine.js"></script>
+<script>window.__ecsRole = window.__ecsRole || "cio";</script>
+<script src="/static/ecs/js/drilldown_engine.js?v=1782073052"></script>
+<script>/* ecsOpenEnterpriseWorkflowDrill — enterprise workflow drill launcher */</script>
 
 <script>
 (function(){
@@ -4108,6 +4201,508 @@ body.bg-light {
 })();
 </script>
 <style>
+/* EP-UI-001 — platform-wide layout, tables, tabs, copilot dock */
+.ecs-sidebar-role-line {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  margin-top: -0.5rem;
+}
+.ecs-sidebar-profile {
+  padding: 0.55rem 0.5rem 0.65rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+.ecs-sidebar-profile-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  line-height: 1.3;
+}
+.ecs-sidebar-profile-title {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 0.15rem;
+  line-height: 1.35;
+}
+
+.ecs-persona-tabs {
+  border-bottom: 2px solid #e2e8f0;
+  gap: 0.15rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.ecs-persona-tabs .nav-link {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #64748b;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  padding: 0.55rem 0.85rem;
+  white-space: nowrap;
+  border-radius: 0;
+  background: transparent;
+}
+.ecs-persona-tabs .nav-link:hover { color: #1e293b; }
+.ecs-persona-tabs .nav-link.active {
+  color: var(--ecs-accent, #2563eb);
+  border-bottom-color: var(--ecs-accent, #2563eb);
+  background: transparent;
+}
+.ecs-persona-tab-pane { padding-top: 1rem; }
+
+.ecs-escalation-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+.ecs-escalation-kpi {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ecs-escalation-kpi-val { font-size: 1.35rem; font-weight: 700; line-height: 1.1; color: #1e293b; }
+.ecs-escalation-kpi-lbl { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin-top: 0.2rem; }
+.ecs-escalation-kpi.danger { border-left: 4px solid #dc3545; }
+.ecs-escalation-kpi.warning { border-left: 4px solid #ffc107; }
+.ecs-escalation-kpi.primary { border-left: 4px solid #2563eb; }
+
+.ecs-risk-table-wrap {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+.ecs-risk-table {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.78rem;
+  margin-bottom: 0;
+}
+.ecs-risk-table th,
+.ecs-risk-table td {
+  padding: 0.45rem 0.55rem;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ecs-risk-table th { background: #f1f5f9; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.ecs-risk-table .col-control { width: 28%; }
+.ecs-risk-table .col-app { width: 18%; }
+.ecs-risk-table .col-fw { width: 14%; }
+.ecs-risk-table .col-risk { width: 12%; }
+.ecs-risk-table .col-age { width: 10%; }
+.ecs-risk-table .col-status { width: 12%; }
+.ecs-risk-table .col-expand { width: 6%; text-align: center; }
+.ecs-cell-tip { cursor: help; border-bottom: 1px dotted #94a3b8; }
+.ecs-risk-table tr.ecs-risk-detail-row td {
+  white-space: normal;
+  background: #f8fafc;
+  font-size: 0.72rem;
+  padding: 0.65rem 0.75rem;
+  border-top: none;
+}
+.ecs-risk-expand-btn {
+  border: none;
+  background: #e2e8f0;
+  color: #475569;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.ecs-risk-expand-btn[aria-expanded="true"] { background: #2563eb; color: #fff; }
+
+.ecs-framework-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.65rem;
+}
+.ecs-framework-tile {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+}
+
+.ecs-main-content { overflow-x: hidden; }
+.ecs-page-content { max-width: 100%; overflow-x: hidden; }
+.ecs-kpi-modern .ecs-kpi-value { word-break: break-word; overflow-wrap: anywhere; }
+
+/* Copilot dock modes */
+.ecs-chat-copilot[data-dock="bottom"] {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto !important;
+  max-width: none;
+}
+.ecs-chat-copilot[data-dock="bottom"] .ecs-chat-panel {
+  width: min(960px, calc(100vw - 32px));
+  margin: 0 auto 12px;
+  max-height: min(55vh, 520px);
+}
+.ecs-chat-copilot[data-dock="bottom"][data-state="minimized"] .ecs-chat-collapsed-bar {
+  margin: 0 auto 12px;
+  max-width: min(960px, calc(100vw - 32px));
+}
+.ecs-chat-copilot[data-dock="right"] {
+  right: 20px;
+  left: auto;
+  bottom: 20px;
+}
+.ecs-chat-dock-group .btn { font-size: 0.62rem; padding: 0.1rem 0.35rem; min-width: 28px; }
+.ecs-chat-dock-group .btn.active { background: var(--ecs-accent, #2563eb); color: #fff; border-color: var(--ecs-accent, #2563eb); }
+
+@media (max-width: 991.98px) {
+  .ecs-risk-table .col-control { width: 24%; }
+  .ecs-risk-table .col-app { width: 20%; }
+}
+@media (max-width: 767.98px) {
+  .ecs-escalation-strip { grid-template-columns: repeat(2, 1fr); }
+  .ecs-risk-table th:nth-child(n+4):not(.col-expand),
+  .ecs-risk-table td:nth-child(n+4):not(.col-expand) { display: none; }
+  .ecs-risk-table .col-control { width: 42%; }
+  .ecs-risk-table .col-app { width: 38%; }
+}
+</style>
+<script>
+(function(){
+  function bindRiskTables(root) {
+    (root || document).querySelectorAll('.ecs-risk-table').forEach(function(table) {
+      if (table._ecsRiskBound) return;
+      table._ecsRiskBound = true;
+      table.querySelectorAll('.ecs-risk-expand-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var tr = btn.closest('tr');
+          var detail = tr && tr.nextElementSibling;
+          if (!detail || !detail.classList.contains('ecs-risk-detail-row')) return;
+          var open = detail.hidden;
+          detail.hidden = !open;
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          btn.textContent = open ? '−' : '+';
+        });
+      });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ bindRiskTables(document); });
+  } else {
+    bindRiskTables(document);
+  }
+  window.ecsBindRiskTables = bindRiskTables;
+})();
+</script>
+
+<!--
+  ECS Chart Accessibility & Readability Standard (ecs-chart-accessibility-remediation-v1)
+  =====================================================================================
+  Single source of truth for platform-wide chart contrast, tabs, badges, legends,
+  supporting text, and self-describing chart chrome (titles, subtitles, axis labels,
+  axis scales, units, data labels, tooltips, responsive behavior).
+
+  This partial is loaded AFTER executive_charts_system.html so its token overrides win.
+  It is intentionally additive: it standardizes the EXISTING CSS bar/legend classes
+  (.ecs-bar-*, .ecs-chart-legend, .trend-bar-*, .ecs-insight-bar-*) used across every
+  ECS dashboard rather than introducing a parallel system.
+
+  WCAG: all foreground/background pairs below meet WCAG AA (>= 4.5:1); most meet AAA (7:1).
+-->
+<style>
+:root {
+  /* ── Accessible chart series palette (AA on white plot backgrounds) ── */
+  --ecs-chart-navy:   #1e3a5f; /* 9.8:1 on #fff */
+  --ecs-chart-slate:  #334155; /* 9.4:1  — darkened from #475569 for legend/label text */
+  --ecs-chart-blue:   #2563EB; /* brand blue, 4.6:1 fill */
+  --ecs-chart-teal:   #0F766E; /* darkened teal, 4.7:1 */
+  --ecs-chart-green:  #15803D; /* darkened green, 4.7:1 (was #4a7c59) */
+  --ecs-chart-orange: #C2410C; /* darkened orange, 4.8:1 (was #c27803) */
+  --ecs-chart-red:    #B91C1C; /* 5.9:1 */
+  /* --ecs-chart-muted was #94a3b8 (FAILS contrast on white ~2.5:1). Darkened. */
+  --ecs-chart-muted:  #475569; /* 7.0:1 — used for helper/secondary chart text */
+  --ecs-chart-track:  #e2e8f0;
+  --ecs-chart-benchmark: #4338CA; /* darkened indigo, 7.6:1 */
+  --ecs-chart-up:     #15803D;
+  --ecs-chart-down:   #B91C1C;
+
+  /* ── Standardized supporting text (WCAG AA/AAA on white) ── */
+  --ecs-axis-label:   #0F172A; /* axis labels — 16.7:1 */
+  --ecs-legend-text:  #0F172A; /* legend text — 16.7:1 */
+  --ecs-subtitle:     #334155; /* chart subtitles — 9.4:1 */
+  --ecs-helper-text:  #475569; /* helper text — 7.0:1 */
+
+  /* ── Standardized tabs ── */
+  --ecs-tab-bg:        #1E293B;
+  --ecs-tab-text:      #E2E8F0;
+  --ecs-tab-bg-active: #2563EB;
+  --ecs-tab-text-active:#FFFFFF;
+  --ecs-tab-bg-hover:  #1D4ED8;
+
+  /* ── Standardized KPI badges ──
+     NOTE: The brief's white-on-#16A34A (3.3:1) and white-on-#F97316 (2.8:1)
+     fall BELOW WCAG AA for normal text, which the same brief forbids
+     ("Never allow any color combination below WCAG AA"). To honour the
+     non-negotiable AA rule while preserving the requested hues we:
+       - darken green to #15803D (white -> 5.0:1, AA),
+       - use dark ink #111827 on the requested orange #F97316 (-> 7.9:1, AAA),
+       - keep the requested yellow with dark ink (as the brief specifies).
+     Blue and red meet AA with white as requested and are unchanged. */
+  --ecs-badge-blue-bg:   #2563EB; --ecs-badge-blue-fg:   #FFFFFF; /* 5.2:1 */
+  --ecs-badge-green-bg:  #15803D; --ecs-badge-green-fg:  #FFFFFF; /* 5.0:1 */
+  --ecs-badge-red-bg:    #DC2626; --ecs-badge-red-fg:    #FFFFFF; /* 4.5:1 */
+  --ecs-badge-orange-bg: #F97316; --ecs-badge-orange-fg: #111827; /* 7.9:1 */
+  --ecs-badge-yellow-bg: #EAB308; --ecs-badge-yellow-fg: #111827; /* 9.3:1 */
+
+  --ecs-chart-min-font: 12px;
+}
+
+/* ───────────────────────────── Supporting text ───────────────────────────── */
+/* Standardize the existing chart text classes to the accessible palette + min size.
+   These selectors target the real classes used across the platform today. */
+.chart-card-subtitle,
+.chart-def,
+.ecs-chart-subtitle {
+  color: var(--ecs-subtitle) !important;
+  font-size: 0.75rem !important;   /* >= 12px */
+  font-weight: 500;
+  line-height: 1.35;
+}
+.chart-kpi-inline,
+.chart-legend-inline,
+.ecs-chart-helper {
+  color: var(--ecs-helper-text) !important;
+  font-size: 0.75rem !important;   /* >= 12px */
+}
+/* Data value labels on bars: dark, bold, readable. */
+.ecs-bar-val,
+.trend-bar-val,
+.ecs-trend-bar-val,
+.roi-bar-val {
+  color: var(--ecs-axis-label) !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;   /* >= 12px (was 0.48–0.72rem) */
+}
+/* Category (x) labels under bars. */
+.ecs-bar-lbl,
+.trend-bar-label,
+.ecs-trend-bar-lbl,
+.roi-bar-x {
+  color: var(--ecs-axis-label) !important;
+  font-weight: 600 !important;
+  font-size: 0.72rem !important;   /* ~11.5px, bold for legibility */
+}
+
+/* ───────────────────────────── Legends ───────────────────────────── */
+.ecs-chart-legend,
+.ecs-obs-legend,
+.chart-legend-inline,
+.ecs-legend {
+  color: var(--ecs-legend-text) !important;
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;   /* >= 12px */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  align-items: center;
+}
+.ecs-chart-legend .lg,
+.ecs-obs-legend-item,
+.ecs-legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.ecs-chart-legend .sw,
+.ecs-obs-swatch,
+.ecs-legend-swatch {
+  width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex: 0 0 auto;
+  border: 1px solid rgba(15,23,42,0.18);
+}
+.ecs-obs-swatch.tone-blue   { background: var(--ecs-chart-blue); }
+.ecs-obs-swatch.tone-green  { background: var(--ecs-chart-green); }
+.ecs-obs-swatch.tone-red    { background: var(--ecs-chart-red); }
+.ecs-obs-swatch.tone-orange { background: var(--ecs-chart-orange); }
+.ecs-obs-swatch.tone-teal   { background: var(--ecs-chart-teal); }
+.ecs-obs-swatch.tone-navy   { background: var(--ecs-chart-navy); }
+
+/* ───────────────────────────── Tabs ───────────────────────────── */
+/* Standardized, high-contrast sub-navigation tabs. Two visual families share the
+   same WCAG palette:
+     (a) .ecs-tab  — explicit standard pill (light slate inactive / blue active)
+     (b) Bootstrap .nav-pills/.nav-tabs .nav-link used by AI-SDLC, framework drills
+         and other drilldown pages — globally hardened so no light-blue-on-white
+         or light-blue-on-light-blue active state survives anywhere in ECS.
+   (.ecs-workspace-tab is styled in mvp_workspace_styles.html with the same palette.) */
+.ecs-tab {
+  background: #E2E8F0;
+  color: #0F172A !important;
+  font-weight: 600;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+.ecs-tab:hover, .ecs-tab:focus-visible {
+  background: var(--ecs-tab-bg-hover);
+  color: var(--ecs-tab-text-active) !important;
+  border-color: var(--ecs-tab-bg-hover);
+  outline: none;
+}
+.ecs-tab.active, .ecs-tab.is-active, .ecs-tab[aria-selected="true"] {
+  background: var(--ecs-tab-bg-active);
+  color: var(--ecs-tab-text-active) !important;
+  border-color: var(--ecs-tab-bg-active);
+  font-weight: 700;
+}
+.ecs-tab:disabled, .ecs-tab[disabled], .ecs-tab.is-disabled {
+  background: #F1F5F9; color: #475569 !important; border-color: #E2E8F0; cursor: not-allowed;
+}
+
+/* Global Bootstrap pill/tab hardening (covers AI-SDLC kb/doc tabs, framework
+   drill tabs, and any future Bootstrap nav). Scoped to nav-pills/nav-tabs so it
+   does not affect sidebars or other .nav usages. */
+.nav-pills .nav-link,
+.nav-tabs .nav-link {
+  background: #E2E8F0;
+  color: #0F172A !important;
+  font-weight: 600;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  margin: 0 0.15rem 0.15rem 0;
+}
+.nav-pills .nav-link:hover,
+.nav-tabs .nav-link:hover,
+.nav-pills .nav-link:focus-visible,
+.nav-tabs .nav-link:focus-visible {
+  background: #1D4ED8;
+  color: #FFFFFF !important;
+  border-color: #1D4ED8;
+  outline: none;
+}
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link,
+.nav-tabs .nav-link.active {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  border-color: #2563EB !important;
+  font-weight: 700;
+}
+.nav-pills .nav-link.disabled,
+.nav-tabs .nav-link.disabled,
+.nav-pills .nav-link:disabled,
+.nav-tabs .nav-link:disabled {
+  background: #F1F5F9; color: #475569 !important; border-color: #E2E8F0;
+}
+
+/* ───────────────────────────── KPI badges ───────────────────────────── */
+.ecs-badge { font-weight: 700; border-radius: 999px; padding: 0.1rem 0.55rem; font-size: 0.72rem; display: inline-flex; align-items: center; }
+.ecs-badge-blue   { background: var(--ecs-badge-blue-bg);   color: var(--ecs-badge-blue-fg) !important; }
+.ecs-badge-green  { background: var(--ecs-badge-green-bg);  color: var(--ecs-badge-green-fg) !important; }
+.ecs-badge-red    { background: var(--ecs-badge-red-bg);    color: var(--ecs-badge-red-fg) !important; }
+.ecs-badge-orange { background: var(--ecs-badge-orange-bg); color: var(--ecs-badge-orange-fg) !important; }
+.ecs-badge-yellow { background: var(--ecs-badge-yellow-bg); color: var(--ecs-badge-yellow-fg) !important; }
+
+/* ───────────────────── Self-describing chart chrome ───────────────────── */
+/* A standardized framed plot: optional Y-axis label (rotated), Y-scale ticks,
+   gridlines, plot area, and X-axis label. Injected by ecsRenderCompactBarChart
+   when opts.yLabel / opts.xLabel are supplied, and rendered by the
+   .ecs-chart-frame wrapper markup. */
+.ecs-chart-frame { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; gap: 2px 6px; width: 100%; }
+.ecs-chart-yaxis-label {
+  grid-row: 1; grid-column: 1;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  color: var(--ecs-axis-label); font-weight: 700; font-size: 0.72rem;
+  align-self: center; justify-self: center; white-space: nowrap;
+}
+.ecs-chart-plot { grid-row: 1; grid-column: 2; position: relative; min-width: 0; }
+.ecs-chart-xaxis-label {
+  grid-row: 2; grid-column: 2;
+  color: var(--ecs-axis-label); font-weight: 700; font-size: 0.72rem;
+  text-align: center; padding-top: 0.2rem;
+}
+/* Y-axis scale ticks overlaid on the plot's left edge. */
+.ecs-chart-yscale {
+  position: absolute; top: 0; bottom: 1.1rem; left: 0; width: 100%;
+  pointer-events: none; z-index: 1;
+}
+.ecs-chart-yscale .ecs-ytick {
+  position: absolute; left: 0; right: 0;
+  border-top: 1px dashed rgba(15,23,42,0.10);
+}
+.ecs-chart-yscale .ecs-ytick > span {
+  position: absolute; left: 0; transform: translateY(-50%);
+  background: rgba(255,255,255,0.85); padding: 0 3px;
+  font-size: 0.66rem; font-weight: 600; color: var(--ecs-axis-label);
+}
+.ecs-chart-units { color: var(--ecs-helper-text); font-weight: 600; font-size: 0.7rem; }
+
+/* ─────────────── Executive chart sizing (authoritative) ───────────────
+   Loaded last in the chart include chain, so these win over any legacy
+   `max-height` constraints (e.g. the old 72px/180px crushers) that made bars
+   overflow upward and appear top-anchored. Vertical bar charts must grow upward
+   from a bottom baseline inside a tall-enough plot, with room for value labels,
+   axis labels and the X-axis tick row. Minimum executive chart height = 240px. */
+.chart-container-compact {
+  min-height: 240px !important;
+  max-height: none !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;   /* anchor plot to the baseline */
+}
+.chart-container-compact > .ecs-bar-chart,
+.chart-container-compact .ecs-chart-frame .ecs-bar-chart {
+  height: 200px !important;
+  max-height: 200px !important;
+  min-height: 200px !important;
+  align-items: flex-end;       /* bars sit on the baseline and grow up */
+}
+.chart-container-compact .ecs-chart-plot { min-height: 200px; }
+/* Aging tab keeps its own taller flex sizing; do not force a fixed height there. */
+.chart-container-aging > .ecs-bar-chart,
+.ecs-evidence-aging-grid .ecs-aging-bar-chart {
+  max-height: none !important;
+}
+
+/* ───────────────────────────── Responsive ───────────────────────────── */
+/* Prevent axis clipping, hidden labels, truncated values, legend/tooltip overflow. */
+.chart-container-compact,
+.chart-container-aging { overflow: visible !important; }
+.ecs-bar-chart, .mini-bar-chart, .trend-chart {
+  overflow-x: auto; overflow-y: visible;
+}
+.ecs-chart-legend, .ecs-obs-legend { overflow: visible; }
+@media (max-width: 991px) {
+  .ecs-chart-yaxis-label { font-size: 0.66rem; }
+  .ecs-bar-lbl, .trend-bar-label { font-size: 0.66rem !important; }
+}
+
+/* ───── Demo dark-theme parity: keep axis/legend readable on dark panels ───── */
+.ecs-demo-dark .ecs-chart-legend,
+.ecs-demo-dark .ecs-obs-legend,
+.ecs-demo-dark .ecs-bar-val,
+.ecs-demo-dark .ecs-bar-lbl,
+.ecs-demo-dark .ecs-chart-yaxis-label,
+.ecs-demo-dark .ecs-chart-xaxis-label,
+.ecs-demo-dark .ecs-chart-yscale .ecs-ytick > span {
+  color: #F1F5F9 !important;
+}
+.ecs-demo-dark .ecs-chart-yscale .ecs-ytick > span { background: rgba(15,23,42,0.65); }
+</style>
+<script src="/static/ecs/js/ecs_chart_standards.js?v=1782073052"></script>
+<style>
 /* ── Executive Compact Charts (platform-wide) ── */
 :root {
   --ecs-chart-navy: #1e3a5f;
@@ -4119,8 +4714,11 @@ body.bg-light {
   --ecs-chart-red: #b4534a;
   --ecs-chart-muted: #94a3b8;
   --ecs-chart-track: #eef2f6;
-  --ecs-chart-max-h: 180px;
-  --ecs-chart-bar-w: 14px;
+  --ecs-chart-benchmark: #6366f1;
+  --ecs-chart-up: #16a34a;
+  --ecs-chart-down: #dc2626;
+  --ecs-chart-max-h: 280px;
+  --ecs-chart-bar-w: 26px;
 }
 
 .chart-card,
@@ -4143,28 +4741,28 @@ body.bg-light {
 
 .chart-card-title,
 .ecs-hub-chart-title {
-  font-size: 0.62rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ecs-chart-slate);
+  letter-spacing: 0.04em;
+  color: var(--ecs-chart-navy);
   line-height: 1.3;
 }
 
 .chart-card-subtitle {
-  font-size: 0.58rem;
+  font-size: 0.66rem;
   color: var(--ecs-chart-muted);
-  margin-top: 0.1rem;
+  margin-top: 0.15rem;
   line-height: 1.35;
 }
 
 .chart-container-compact {
   max-height: var(--ecs-chart-max-h);
   width: 100%;
-  max-width: 65%;
-  min-width: 180px;
-  overflow: hidden;
-  padding: 0.15rem 0 0.25rem;
+  max-width: 100%;
+  min-width: 220px;
+  overflow: visible;
+  padding: 1.4rem 0.25rem 0.35rem;
 }
 
 .compact-chart-grid {
@@ -4179,45 +4777,48 @@ body.bg-light {
   .chart-container-compact { max-width: 100%; }
 }
 
-/* Vertical mini bar charts */
+/* Vertical bar charts — executive footprint */
 .mini-bar-chart,
 .ecs-bar-chart {
   display: flex;
   align-items: flex-end;
-  justify-content: flex-start;
-  gap: 5px;
-  height: 72px;
-  max-height: 72px;
+  justify-content: space-around;
+  gap: 10px;
+  height: 200px;
+  max-height: 200px;
   flex-wrap: nowrap;
   overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.1rem 0 0.15rem;
+  overflow-y: visible;
+  padding: 1.3rem 0.25rem 0.2rem;
   scrollbar-width: thin;
+  position: relative;
 }
 
 .ecs-bar-col {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 22px;
-  max-width: 36px;
+  justify-content: flex-end;
+  min-width: 32px;
+  max-width: 72px;
   width: var(--ecs-chart-bar-w);
 }
 
 .ecs-bar-fill {
   width: var(--ecs-chart-bar-w);
   max-width: var(--ecs-chart-bar-w);
-  min-width: 8px;
-  border-radius: 3px 3px 0 0;
-  min-height: 3px;
+  min-width: 14px;
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
   background: var(--ecs-chart-blue);
-  opacity: 0.88;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  cursor: default;
+  opacity: 0.92;
+  transition: opacity 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+  box-shadow: inset 0 -2px 0 rgba(255,255,255,0.12);
 }
 
-.ecs-bar-fill:hover { opacity: 1; transform: translateY(-1px); }
+.ecs-bar-fill:hover { opacity: 1; transform: translateY(-2px); filter: brightness(1.08); }
 
 .ecs-bar-fill[data-tone="success"],
 .ecs-bar-fill.tone-success { background: var(--ecs-chart-green); }
@@ -4233,22 +4834,61 @@ body.bg-light {
 .ecs-bar-fill.tone-slate { background: var(--ecs-chart-slate); }
 
 .ecs-bar-val {
-  font-size: 0.55rem;
-  font-weight: 600;
-  color: var(--ecs-chart-slate);
-  margin-bottom: 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ecs-chart-navy);
+  margin-bottom: 4px;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .ecs-bar-lbl {
-  font-size: 0.5rem;
-  color: var(--ecs-chart-muted);
-  margin-top: 2px;
+  font-size: 0.64rem;
+  font-weight: 500;
+  color: var(--ecs-chart-slate);
+  margin-top: 5px;
   text-align: center;
-  line-height: 1.05;
+  line-height: 1.1;
   word-break: break-word;
-  max-width: 36px;
+  max-width: 72px;
 }
+
+/* Executive chart chrome: benchmark/average reference line + legend + trend */
+.ecs-chart-benchmark-line {
+  position: absolute;
+  left: 0; right: 0;
+  border-top: 2px dashed var(--ecs-chart-benchmark);
+  pointer-events: none;
+  z-index: 2;
+}
+.ecs-chart-benchmark-tag {
+  position: absolute;
+  right: 4px;
+  transform: translateY(-50%);
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: var(--ecs-chart-benchmark);
+  background: rgba(255,255,255,0.85);
+  padding: 0 4px;
+  border-radius: 3px;
+  z-index: 3;
+}
+.ecs-chart-legend {
+  display: flex; flex-wrap: wrap; gap: 0.4rem 1rem;
+  font-size: 0.62rem; color: var(--ecs-chart-slate);
+  margin: 0.15rem 0 0.4rem;
+  align-items: center;
+}
+.ecs-chart-legend .lg { display: inline-flex; align-items: center; gap: 0.3rem; }
+.ecs-chart-legend .sw { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+.ecs-chart-legend .sw.bm { width:14px; height:0; border-top:2px dashed var(--ecs-chart-benchmark); border-radius:0; }
+.ecs-trend-pill {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font-size: 0.6rem; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+}
+.ecs-trend-pill.up { color: var(--ecs-chart-up); background: rgba(22,163,74,0.10); }
+.ecs-trend-pill.down { color: var(--ecs-chart-down); background: rgba(220,38,38,0.10); }
+.ecs-trend-pill.flat { color: var(--ecs-chart-slate); background: rgba(71,85,105,0.10); }
 
 /* Trends page — compact executive bars (replaces giant % height blocks) */
 .trend-chart {
@@ -4421,6 +5061,91 @@ body.bg-light {
   color: var(--ecs-chart-slate);
   margin-top: 0.2rem;
 }
+
+/* Evidence Aging tab — expanded executive trend bars */
+.ecs-evidence-aging-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.ecs-aging-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+}
+
+.ecs-aging-chart-card .chart-card-title {
+  flex: 0 0 auto;
+}
+
+.chart-container-aging {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100% !important;
+  min-height: 168px;
+  max-height: none !important;
+  overflow: visible;
+  padding: 1.15rem 0.35rem 0.55rem;
+}
+
+.ecs-evidence-aging-grid .ecs-bar-chart.ecs-aging-bar-chart {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 120px;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 0.15rem 0.1rem 0;
+  scrollbar-width: thin;
+}
+
+.ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-col {
+  min-width: 26px;
+  max-width: 52px;
+  width: auto;
+  flex: 1 1 26px;
+}
+
+.ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-val {
+  font-size: 0.62rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+.ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-lbl {
+  font-size: 0.58rem;
+  max-width: 56px;
+  line-height: 1.15;
+  margin-top: 4px;
+}
+
+.ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-lbl.is-skipped {
+  visibility: hidden;
+  height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1440px) {
+  .ecs-evidence-aging-grid .ecs-aging-bar-chart .ecs-bar-lbl:not(.is-skipped) {
+    font-size: 0.54rem;
+    transform: rotate(-42deg);
+    transform-origin: top center;
+    margin-top: 8px;
+    max-width: 48px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 991px) {
+  .ecs-evidence-aging-grid { grid-template-columns: 1fr; }
+  .ecs-aging-chart-card { min-height: 200px; }
+}
 </style>
 <script>
 (function(){
@@ -4437,58 +5162,275 @@ body.bg-light {
     return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   }
 
+  /** Executive trend bar presets — Evidence Aging tab and similar panels. */
+  window.ecsExecutiveTrendBarOpts = function(chartId, page, overrides) {
+    var base = {
+      maxHeight: 96,
+      barWidth: 16,
+      extraClass: 'ecs-aging-bar-chart',
+      labelEvery: 'auto',
+      axes: false,
+      drill: { page: page || 'trends', chartId: chartId || 'trend' }
+    };
+    if (!overrides) return base;
+    var out = {};
+    Object.keys(base).forEach(function(k) { out[k] = base[k]; });
+    Object.keys(overrides).forEach(function(k) { out[k] = overrides[k]; });
+    return out;
+  };
+
+  /** "Nice" axis ceiling + tick step for a given max (e.g. 83 -> 100 by 20). */
+  function niceScale(maxVal, desiredTicks) {
+    var ticks = desiredTicks || 5;
+    if (!(maxVal > 0)) return { max: 1, step: 1, ticks: [0, 1] };
+    var rawStep = maxVal / ticks;
+    var mag = Math.pow(10, Math.floor(Math.log(rawStep) / Math.LN10));
+    var norm = rawStep / mag;
+    var niceNorm = norm <= 1 ? 1 : (norm <= 2 ? 2 : (norm <= 5 ? 5 : 10));
+    var step = niceNorm * mag;
+    var niceMax = Math.ceil(maxVal / step) * step;
+    var out = [];
+    for (var t = 0; t <= niceMax + 1e-9; t += step) out.push(Math.round(t * 100) / 100);
+    return { max: niceMax, step: step, ticks: out };
+  }
+
+  /** Build a rich, self-describing tooltip string. */
+  function richTip(item, opts, avg, suffix) {
+    if (item.tooltip) return item.tooltip;
+    var name = opts.metricName || opts.seriesLabel || 'Value';
+    var parts = [name];
+    parts.push((item.label != null ? item.label + ': ' : '') + item.value + suffix);
+    if (item.period) parts.push('Period: ' + item.period);
+    if (item.previous != null) {
+      parts.push('Previous: ' + item.previous + suffix);
+      var prev = Number(item.previous), cur = Number(item.value);
+      if (prev) {
+        var ch = Math.round((cur - prev) / Math.abs(prev) * 1000) / 10;
+        parts.push('Change: ' + (ch > 0 ? '+' : '') + ch + '%');
+      }
+    }
+    if (avg) parts.push('Avg: ' + (Math.round(avg * 10) / 10) + suffix);
+    if (item.context || opts.context) parts.push(item.context || opts.context);
+    return parts.join(' | ');
+  }
+
   /**
    * Compact vertical bar chart — platform standard.
-   * items: [{ label, value, tone?, tooltip? }]
+   * items: [{ label, value, tone?, tooltip?, previous?, period?, context? }]
+   * Accessibility opts (self-describing charts):
+   *   yLabel, xLabel, units, subtitle, metricName, context
+   * When yLabel/xLabel are provided the chart is framed with a rotated Y-axis
+   * label, an auto-scaled Y-axis (niceScale ticks), and an X-axis label.
    */
   window.ecsRenderCompactBarChart = function(target, items, opts) {
     opts = opts || {};
     var el = typeof target === 'string' ? document.getElementById(target) : target;
     if (!el) return;
     items = items || [];
-    var maxH = opts.maxHeight || 64;
-    var barW = opts.barWidth || 14;
-    var suffix = opts.suffix || '';
+    // Executive footprint defaults (larger, readable). Callers can still override.
+    var maxH = opts.maxHeight || 150;
+    var barW = opts.barWidth || 26;
+    var suffix = opts.suffix || opts.units || '';
     var labelKey = opts.labelKey || 'label';
     var valKey = opts.valKey || 'value';
     var toneKey = opts.toneKey || 'tone';
     var emptyMsg = opts.emptyMessage || 'No data for selected scope.';
+    var drill = opts.drill;
+    // Accessibility / self-describing chrome.
+    // Every executive chart is self-describing by default: it shows a Y-axis label,
+    // an auto-scaled Y-axis with units, and an X-axis label. Callers may override any
+    // label, or opt out entirely with `axes: false` for sparkline-style micro charts.
+    var axesEnabled = opts.axes !== false;
+    var unitWord = opts.units || (suffix === '%' ? '%' : (suffix ? suffix : ''));
+    var yLabel = opts.yLabel || (axesEnabled
+      ? (opts.metricName || opts.seriesLabel || (suffix === '%' ? 'Value (%)' : 'Value'))
+      : '');
+    var xLabel = opts.xLabel || (axesEnabled ? (opts.categoryLabel || 'Category') : '');
+    var showAxes = axesEnabled && !!(yLabel || xLabel || opts.yScale);
+    // Executive chrome toggles (default ON unless explicitly disabled).
+    var showBenchmark = opts.benchmark !== false;
+    var showLegend = opts.legend !== false;
+    var showTrend = opts.trend !== false;
+    var labelEvery = opts.labelEvery;
+    if (labelEvery === 'auto') {
+      labelEvery = items.length > 12 ? 3 : (items.length > 8 ? 2 : 1);
+    } else {
+      labelEvery = labelEvery || 1;
+    }
 
     if (!items.length) {
-      el.innerHTML = '<span class="small text-muted" style="font-size:0.62rem">' + esc(emptyMsg) + '</span>';
+      el.innerHTML = '<span class="small text-muted" style="font-size:0.66rem">' + esc(emptyMsg) + '</span>';
       el.classList.add('mini-bar-chart');
       return;
     }
 
     var vals = items.map(function(i) { return Number(i[valKey]) || 0; });
-    var max = Math.max.apply(null, vals.concat([1]));
+    var dataMax = Math.max.apply(null, vals.concat([1]));
+    var avg = vals.reduce(function(a, b){ return a + b; }, 0) / vals.length;
+    // Auto-scaled axis ceiling so bar heights map to a readable Y-axis scale.
+    var scale = niceScale(dataMax, opts.yTicks || 5);
+    // When axes are shown bars scale to the nice max; otherwise to the data max
+    // (preserves legacy proportions for charts that opt out of axes).
+    var max = showAxes ? scale.max : dataMax;
+    // Trend = last vs first (month-over-month / period-over-period direction).
+    var first = vals[0], last = vals[vals.length - 1];
+    var deltaPct = first ? Math.round((last - first) / Math.abs(first) * 100) : 0;
+    var trendDir = deltaPct > 1 ? 'up' : (deltaPct < -1 ? 'down' : 'flat');
+    var trendArrow = trendDir === 'up' ? '\u25B2' : (trendDir === 'down' ? '\u25BC' : '\u25AC');
 
-    el.className = (opts.className || 'mini-bar-chart ecs-bar-chart') + (opts.extraClass ? ' ' + opts.extraClass : '');
-    el.innerHTML = items.map(function(i) {
+    var barsHtml = items.map(function(i, idx) {
       var v = Number(i[valKey]) || 0;
-      var h = Math.max(3, Math.round((v / max) * maxH));
+      var h = Math.max(4, Math.round((v / max) * maxH));
       var tone = i[toneKey] || opts.defaultTone || 'blue';
-      var tip = i.tooltip || (i[labelKey] + ': ' + v + suffix);
-      return '<div class="ecs-bar-col" style="width:' + barW + 'px;max-width:' + barW + 'px" title="' + esc(tip) + '">' +
+      var tipItem = { label: i[labelKey], value: v, previous: i.previous, period: i.period, context: i.context, tooltip: i.tooltip };
+      var tip = richTip(tipItem, opts, avg, suffix);
+      var showLabel = (idx % labelEvery === 0 || idx === items.length - 1);
+      var lblClass = showLabel ? '' : ' is-skipped';
+      var drillAttrs = drill ? (
+        ' data-ecs-universal-chart data-ecs-universal-page="' + esc(drill.page || 'trends') + '"' +
+        ' data-ecs-universal-chart-id="' + esc(drill.chartId || 'trend') + '"' +
+        ' data-ecs-universal-element="' + esc(i[labelKey]) + '"' +
+        ' data-ecs-universal-count="' + esc(String(v)) + '" role="button" tabindex="0"'
+      ) : '';
+      var colClass = 'ecs-bar-col' + (drill ? ' ecs-kpi-clickable' : '');
+      return '<div class="' + colClass + '"' + drillAttrs + ' style="width:' + barW + 'px;max-width:' + barW + 'px" title="' + esc(tip) + '">' +
         '<span class="ecs-bar-val">' + esc(String(v) + suffix) + '</span>' +
         '<div class="ecs-bar-fill tone-' + esc(tone) + '" data-tone="' + esc(tone) + '" style="height:' + h + 'px;width:' + barW + 'px;max-width:' + barW + 'px"></div>' +
-        '<span class="ecs-bar-lbl">' + esc(i[labelKey]) + '</span></div>';
+        '<span class="ecs-bar-lbl' + lblClass + '">' + esc(showLabel ? i[labelKey] : '') + '</span></div>';
     }).join('');
+
+    // Benchmark/average reference line positioned within the plot area.
+    var benchHtml = '';
+    if (showBenchmark && avg > 0) {
+      var pad = 1.3 * 16; // matches container top padding (rem -> px approx)
+      var benchBottomPx = Math.round((avg / max) * maxH);
+      benchHtml = '<div class="ecs-chart-benchmark-line" style="bottom:' + (benchBottomPx + 24) + 'px"></div>' +
+        '<div class="ecs-chart-benchmark-tag" style="bottom:' + (benchBottomPx + 24) + 'px">avg ' + (Math.round(avg * 10) / 10) + suffix + '</div>';
+    }
+
+    // Y-axis scale ticks (only when axes requested) — gives every chart a visible scale.
+    var yscaleHtml = '';
+    if (showAxes && scale.ticks.length) {
+      var ti = scale.ticks.map(function(t) {
+        var pctFromBottom = max ? (t / max) * 100 : 0;
+        return '<div class="ecs-ytick" style="bottom:' + Math.min(100, pctFromBottom) + '%"><span>' +
+          esc(String(t) + suffix) + '</span></div>';
+      }).join('');
+      yscaleHtml = '<div class="ecs-chart-yscale" aria-hidden="true">' + ti + '</div>';
+    }
+
+    el.className = (opts.className || 'mini-bar-chart ecs-bar-chart') + (opts.extraClass ? ' ' + opts.extraClass : '');
+    el.innerHTML = yscaleHtml + benchHtml + barsHtml;
+
+    // Wrap the plot in a self-describing axis frame (rotated Y label + X label)
+    // when axis metadata is supplied. Idempotent: re-render replaces prior frame.
+    if (showAxes && el.parentNode) {
+      var frameId = el.id + '__frame';
+      var prevFrame = document.getElementById(frameId);
+      var frame = document.createElement('div');
+      frame.id = frameId;
+      frame.className = 'ecs-chart-frame';
+      var plot = document.createElement('div');
+      plot.className = 'ecs-chart-plot';
+      var refNode = prevFrame || el;
+      refNode.parentNode.insertBefore(frame, refNode);
+      if (yLabel) {
+        var yl = document.createElement('div');
+        yl.className = 'ecs-chart-yaxis-label';
+        var yUnit = (opts.units && yLabel.indexOf(opts.units) < 0) ? ' (' + opts.units + ')'
+          : ((unitWord === '%' && yLabel.indexOf('%') < 0) ? ' (%)' : '');
+        yl.textContent = yLabel + yUnit;
+        frame.appendChild(yl);
+      } else {
+        frame.appendChild(document.createElement('div'));
+      }
+      frame.appendChild(plot);
+      // spacer under Y-axis label column
+      frame.appendChild(document.createElement('div'));
+      if (xLabel) {
+        var xl = document.createElement('div');
+        xl.className = 'ecs-chart-xaxis-label';
+        xl.textContent = xLabel;
+        frame.appendChild(xl);
+      } else {
+        frame.appendChild(document.createElement('div'));
+      }
+      plot.appendChild(el);
+      if (prevFrame && prevFrame !== frame) prevFrame.remove();
+    }
+
+    // Legend + trend strip rendered just above the chart (sibling node).
+    // When framed, anchor the legend above the entire frame; else above the chart.
+    var legendAnchor = (showAxes ? document.getElementById(el.id + '__frame') : null) || el;
+
+    // Title fallback: ensure every chart has a visible title. If the enclosing card
+    // already provides one (.chart-card-title / .ecs-hub-chart-title) we leave it; only
+    // when none exists do we inject a title (from opts.title or the metric name).
+    var titleText = opts.title || opts.chartTitle ||
+      (opts.metricName ? opts.metricName + ' by ' + (opts.categoryLabel || 'category') : '');
+    var card = el.closest ? el.closest('.chart-card, .executive-analytics-card, .ecs-analytics-chart-card, .ecs-hub-chart') : null;
+    var existingTitleEl = card && card.querySelector ? card.querySelector('.chart-card-title, .ecs-hub-chart-title, .ecs-chart-title') : null;
+    var hasCardTitle = !!(existingTitleEl && existingTitleEl.textContent && existingTitleEl.textContent.trim());
+    if (titleText && !hasCardTitle && legendAnchor.parentNode) {
+      var titleId = el.id + '__title';
+      var oldTitle = document.getElementById(titleId);
+      if (oldTitle) oldTitle.remove();
+      var t = document.createElement('div');
+      t.id = titleId;
+      t.className = 'chart-card-title ecs-chart-title';
+      t.textContent = titleText;
+      legendAnchor.parentNode.insertBefore(t, legendAnchor);
+    }
+
+    if ((showLegend || showTrend) && legendAnchor.parentNode) {
+      var stripId = el.id + '__legend';
+      var old = document.getElementById(stripId);
+      if (old) old.remove();
+      var strip = document.createElement('div');
+      strip.id = stripId;
+      strip.className = 'ecs-chart-legend';
+      var html = '';
+      if (showLegend) {
+        html += '<span class="lg"><span class="sw" style="background:var(--ecs-chart-' +
+          esc(opts.defaultTone || (items[0] && items[0][toneKey]) || 'blue') + ')"></span>' +
+          esc(opts.seriesLabel || 'Value') + '</span>';
+        if (showBenchmark && avg > 0) html += '<span class="lg"><span class="sw bm"></span>Average</span>';
+      }
+      if (showTrend && items.length >= 2) {
+        html += '<span class="ecs-trend-pill ' + trendDir + '">' + trendArrow + ' ' +
+          (deltaPct > 0 ? '+' : '') + deltaPct + '% vs start</span>';
+      }
+      // Surface the chart subtitle/units inline with the legend when supplied.
+      if (opts.subtitle) {
+        html = '<span class="ecs-chart-helper" style="flex-basis:100%;color:var(--ecs-subtitle)">' +
+          esc(opts.subtitle) + (opts.units ? ' \u00b7 ' + esc(opts.units) : '') + '</span>' + html;
+      }
+      strip.innerHTML = html;
+      legendAnchor.parentNode.insertBefore(strip, legendAnchor);
+    }
   };
 
-  /** Slim horizontal bar rows */
+  /** Slim horizontal bar rows. opts: { units, metricName, subtitle, xLabel } */
   window.ecsRenderHorizontalBars = function(target, items, opts) {
     opts = opts || {};
     var el = typeof target === 'string' ? document.getElementById(target) : target;
     if (!el || !items || !items.length) return;
+    var suffix = opts.units || opts.suffix || '';
     var max = Math.max.apply(null, items.map(function(i){ return Number(i.value)||0; }).concat([1]));
-    el.innerHTML = items.map(function(i) {
+    var rows = items.map(function(i) {
       var pct = Math.round((Number(i.value)||0) / max * 100);
       var tone = i.tone || 'blue';
-      return '<div class="ecs-insight-bar mb-1" title="' + esc(i.label + ': ' + i.value) + '">' +
-        '<div class="ecs-insight-bar-label"><span>' + esc(i.label) + '</span><span>' + esc(i.value) + '</span></div>' +
+      var tip = richTip({ label: i.label, value: i.value, previous: i.previous, period: i.period, context: i.context, tooltip: i.tooltip }, opts, 0, suffix);
+      return '<div class="ecs-insight-bar mb-1" title="' + esc(tip) + '">' +
+        '<div class="ecs-insight-bar-label"><span>' + esc(i.label) + '</span><span>' + esc(String(i.value) + suffix) + '</span></div>' +
         '<div class="ecs-insight-bar-track"><div class="ecs-insight-bar-fill tone-' + tone + '" style="width:' + pct + '%"></div></div></div>';
     }).join('');
+    var head = '';
+    if (opts.subtitle || opts.xLabel) {
+      head = '<div class="ecs-chart-helper" style="color:var(--ecs-subtitle);margin-bottom:0.25rem">' +
+        esc(opts.subtitle || '') + (opts.xLabel ? (opts.subtitle ? ' \u00b7 ' : '') + esc(opts.xLabel) + (suffix ? ' (' + esc(suffix) + ')' : '') : '') + '</div>';
+    }
+    el.innerHTML = head + rows;
   };
 
   /** SVG sparkline */
@@ -4520,6 +5462,297 @@ body.bg-light {
   window.ecsChartPalette = PALETTE;
 })();
 </script>
+
+<!--
+  ECS Chart Accessibility & Readability Standard (ecs-chart-accessibility-remediation-v1)
+  =====================================================================================
+  Single source of truth for platform-wide chart contrast, tabs, badges, legends,
+  supporting text, and self-describing chart chrome (titles, subtitles, axis labels,
+  axis scales, units, data labels, tooltips, responsive behavior).
+
+  This partial is loaded AFTER executive_charts_system.html so its token overrides win.
+  It is intentionally additive: it standardizes the EXISTING CSS bar/legend classes
+  (.ecs-bar-*, .ecs-chart-legend, .trend-bar-*, .ecs-insight-bar-*) used across every
+  ECS dashboard rather than introducing a parallel system.
+
+  WCAG: all foreground/background pairs below meet WCAG AA (>= 4.5:1); most meet AAA (7:1).
+-->
+<style>
+:root {
+  /* ── Accessible chart series palette (AA on white plot backgrounds) ── */
+  --ecs-chart-navy:   #1e3a5f; /* 9.8:1 on #fff */
+  --ecs-chart-slate:  #334155; /* 9.4:1  — darkened from #475569 for legend/label text */
+  --ecs-chart-blue:   #2563EB; /* brand blue, 4.6:1 fill */
+  --ecs-chart-teal:   #0F766E; /* darkened teal, 4.7:1 */
+  --ecs-chart-green:  #15803D; /* darkened green, 4.7:1 (was #4a7c59) */
+  --ecs-chart-orange: #C2410C; /* darkened orange, 4.8:1 (was #c27803) */
+  --ecs-chart-red:    #B91C1C; /* 5.9:1 */
+  /* --ecs-chart-muted was #94a3b8 (FAILS contrast on white ~2.5:1). Darkened. */
+  --ecs-chart-muted:  #475569; /* 7.0:1 — used for helper/secondary chart text */
+  --ecs-chart-track:  #e2e8f0;
+  --ecs-chart-benchmark: #4338CA; /* darkened indigo, 7.6:1 */
+  --ecs-chart-up:     #15803D;
+  --ecs-chart-down:   #B91C1C;
+
+  /* ── Standardized supporting text (WCAG AA/AAA on white) ── */
+  --ecs-axis-label:   #0F172A; /* axis labels — 16.7:1 */
+  --ecs-legend-text:  #0F172A; /* legend text — 16.7:1 */
+  --ecs-subtitle:     #334155; /* chart subtitles — 9.4:1 */
+  --ecs-helper-text:  #475569; /* helper text — 7.0:1 */
+
+  /* ── Standardized tabs ── */
+  --ecs-tab-bg:        #1E293B;
+  --ecs-tab-text:      #E2E8F0;
+  --ecs-tab-bg-active: #2563EB;
+  --ecs-tab-text-active:#FFFFFF;
+  --ecs-tab-bg-hover:  #1D4ED8;
+
+  /* ── Standardized KPI badges ──
+     NOTE: The brief's white-on-#16A34A (3.3:1) and white-on-#F97316 (2.8:1)
+     fall BELOW WCAG AA for normal text, which the same brief forbids
+     ("Never allow any color combination below WCAG AA"). To honour the
+     non-negotiable AA rule while preserving the requested hues we:
+       - darken green to #15803D (white -> 5.0:1, AA),
+       - use dark ink #111827 on the requested orange #F97316 (-> 7.9:1, AAA),
+       - keep the requested yellow with dark ink (as the brief specifies).
+     Blue and red meet AA with white as requested and are unchanged. */
+  --ecs-badge-blue-bg:   #2563EB; --ecs-badge-blue-fg:   #FFFFFF; /* 5.2:1 */
+  --ecs-badge-green-bg:  #15803D; --ecs-badge-green-fg:  #FFFFFF; /* 5.0:1 */
+  --ecs-badge-red-bg:    #DC2626; --ecs-badge-red-fg:    #FFFFFF; /* 4.5:1 */
+  --ecs-badge-orange-bg: #F97316; --ecs-badge-orange-fg: #111827; /* 7.9:1 */
+  --ecs-badge-yellow-bg: #EAB308; --ecs-badge-yellow-fg: #111827; /* 9.3:1 */
+
+  --ecs-chart-min-font: 12px;
+}
+
+/* ───────────────────────────── Supporting text ───────────────────────────── */
+/* Standardize the existing chart text classes to the accessible palette + min size.
+   These selectors target the real classes used across the platform today. */
+.chart-card-subtitle,
+.chart-def,
+.ecs-chart-subtitle {
+  color: var(--ecs-subtitle) !important;
+  font-size: 0.75rem !important;   /* >= 12px */
+  font-weight: 500;
+  line-height: 1.35;
+}
+.chart-kpi-inline,
+.chart-legend-inline,
+.ecs-chart-helper {
+  color: var(--ecs-helper-text) !important;
+  font-size: 0.75rem !important;   /* >= 12px */
+}
+/* Data value labels on bars: dark, bold, readable. */
+.ecs-bar-val,
+.trend-bar-val,
+.ecs-trend-bar-val,
+.roi-bar-val {
+  color: var(--ecs-axis-label) !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;   /* >= 12px (was 0.48–0.72rem) */
+}
+/* Category (x) labels under bars. */
+.ecs-bar-lbl,
+.trend-bar-label,
+.ecs-trend-bar-lbl,
+.roi-bar-x {
+  color: var(--ecs-axis-label) !important;
+  font-weight: 600 !important;
+  font-size: 0.72rem !important;   /* ~11.5px, bold for legibility */
+}
+
+/* ───────────────────────────── Legends ───────────────────────────── */
+.ecs-chart-legend,
+.ecs-obs-legend,
+.chart-legend-inline,
+.ecs-legend {
+  color: var(--ecs-legend-text) !important;
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;   /* >= 12px */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  align-items: center;
+}
+.ecs-chart-legend .lg,
+.ecs-obs-legend-item,
+.ecs-legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.ecs-chart-legend .sw,
+.ecs-obs-swatch,
+.ecs-legend-swatch {
+  width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex: 0 0 auto;
+  border: 1px solid rgba(15,23,42,0.18);
+}
+.ecs-obs-swatch.tone-blue   { background: var(--ecs-chart-blue); }
+.ecs-obs-swatch.tone-green  { background: var(--ecs-chart-green); }
+.ecs-obs-swatch.tone-red    { background: var(--ecs-chart-red); }
+.ecs-obs-swatch.tone-orange { background: var(--ecs-chart-orange); }
+.ecs-obs-swatch.tone-teal   { background: var(--ecs-chart-teal); }
+.ecs-obs-swatch.tone-navy   { background: var(--ecs-chart-navy); }
+
+/* ───────────────────────────── Tabs ───────────────────────────── */
+/* Standardized, high-contrast sub-navigation tabs. Two visual families share the
+   same WCAG palette:
+     (a) .ecs-tab  — explicit standard pill (light slate inactive / blue active)
+     (b) Bootstrap .nav-pills/.nav-tabs .nav-link used by AI-SDLC, framework drills
+         and other drilldown pages — globally hardened so no light-blue-on-white
+         or light-blue-on-light-blue active state survives anywhere in ECS.
+   (.ecs-workspace-tab is styled in mvp_workspace_styles.html with the same palette.) */
+.ecs-tab {
+  background: #E2E8F0;
+  color: #0F172A !important;
+  font-weight: 600;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+.ecs-tab:hover, .ecs-tab:focus-visible {
+  background: var(--ecs-tab-bg-hover);
+  color: var(--ecs-tab-text-active) !important;
+  border-color: var(--ecs-tab-bg-hover);
+  outline: none;
+}
+.ecs-tab.active, .ecs-tab.is-active, .ecs-tab[aria-selected="true"] {
+  background: var(--ecs-tab-bg-active);
+  color: var(--ecs-tab-text-active) !important;
+  border-color: var(--ecs-tab-bg-active);
+  font-weight: 700;
+}
+.ecs-tab:disabled, .ecs-tab[disabled], .ecs-tab.is-disabled {
+  background: #F1F5F9; color: #475569 !important; border-color: #E2E8F0; cursor: not-allowed;
+}
+
+/* Global Bootstrap pill/tab hardening (covers AI-SDLC kb/doc tabs, framework
+   drill tabs, and any future Bootstrap nav). Scoped to nav-pills/nav-tabs so it
+   does not affect sidebars or other .nav usages. */
+.nav-pills .nav-link,
+.nav-tabs .nav-link {
+  background: #E2E8F0;
+  color: #0F172A !important;
+  font-weight: 600;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  margin: 0 0.15rem 0.15rem 0;
+}
+.nav-pills .nav-link:hover,
+.nav-tabs .nav-link:hover,
+.nav-pills .nav-link:focus-visible,
+.nav-tabs .nav-link:focus-visible {
+  background: #1D4ED8;
+  color: #FFFFFF !important;
+  border-color: #1D4ED8;
+  outline: none;
+}
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link,
+.nav-tabs .nav-link.active {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  border-color: #2563EB !important;
+  font-weight: 700;
+}
+.nav-pills .nav-link.disabled,
+.nav-tabs .nav-link.disabled,
+.nav-pills .nav-link:disabled,
+.nav-tabs .nav-link:disabled {
+  background: #F1F5F9; color: #475569 !important; border-color: #E2E8F0;
+}
+
+/* ───────────────────────────── KPI badges ───────────────────────────── */
+.ecs-badge { font-weight: 700; border-radius: 999px; padding: 0.1rem 0.55rem; font-size: 0.72rem; display: inline-flex; align-items: center; }
+.ecs-badge-blue   { background: var(--ecs-badge-blue-bg);   color: var(--ecs-badge-blue-fg) !important; }
+.ecs-badge-green  { background: var(--ecs-badge-green-bg);  color: var(--ecs-badge-green-fg) !important; }
+.ecs-badge-red    { background: var(--ecs-badge-red-bg);    color: var(--ecs-badge-red-fg) !important; }
+.ecs-badge-orange { background: var(--ecs-badge-orange-bg); color: var(--ecs-badge-orange-fg) !important; }
+.ecs-badge-yellow { background: var(--ecs-badge-yellow-bg); color: var(--ecs-badge-yellow-fg) !important; }
+
+/* ───────────────────── Self-describing chart chrome ───────────────────── */
+/* A standardized framed plot: optional Y-axis label (rotated), Y-scale ticks,
+   gridlines, plot area, and X-axis label. Injected by ecsRenderCompactBarChart
+   when opts.yLabel / opts.xLabel are supplied, and rendered by the
+   .ecs-chart-frame wrapper markup. */
+.ecs-chart-frame { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; gap: 2px 6px; width: 100%; }
+.ecs-chart-yaxis-label {
+  grid-row: 1; grid-column: 1;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  color: var(--ecs-axis-label); font-weight: 700; font-size: 0.72rem;
+  align-self: center; justify-self: center; white-space: nowrap;
+}
+.ecs-chart-plot { grid-row: 1; grid-column: 2; position: relative; min-width: 0; }
+.ecs-chart-xaxis-label {
+  grid-row: 2; grid-column: 2;
+  color: var(--ecs-axis-label); font-weight: 700; font-size: 0.72rem;
+  text-align: center; padding-top: 0.2rem;
+}
+/* Y-axis scale ticks overlaid on the plot's left edge. */
+.ecs-chart-yscale {
+  position: absolute; top: 0; bottom: 1.1rem; left: 0; width: 100%;
+  pointer-events: none; z-index: 1;
+}
+.ecs-chart-yscale .ecs-ytick {
+  position: absolute; left: 0; right: 0;
+  border-top: 1px dashed rgba(15,23,42,0.10);
+}
+.ecs-chart-yscale .ecs-ytick > span {
+  position: absolute; left: 0; transform: translateY(-50%);
+  background: rgba(255,255,255,0.85); padding: 0 3px;
+  font-size: 0.66rem; font-weight: 600; color: var(--ecs-axis-label);
+}
+.ecs-chart-units { color: var(--ecs-helper-text); font-weight: 600; font-size: 0.7rem; }
+
+/* ─────────────── Executive chart sizing (authoritative) ───────────────
+   Loaded last in the chart include chain, so these win over any legacy
+   `max-height` constraints (e.g. the old 72px/180px crushers) that made bars
+   overflow upward and appear top-anchored. Vertical bar charts must grow upward
+   from a bottom baseline inside a tall-enough plot, with room for value labels,
+   axis labels and the X-axis tick row. Minimum executive chart height = 240px. */
+.chart-container-compact {
+  min-height: 240px !important;
+  max-height: none !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;   /* anchor plot to the baseline */
+}
+.chart-container-compact > .ecs-bar-chart,
+.chart-container-compact .ecs-chart-frame .ecs-bar-chart {
+  height: 200px !important;
+  max-height: 200px !important;
+  min-height: 200px !important;
+  align-items: flex-end;       /* bars sit on the baseline and grow up */
+}
+.chart-container-compact .ecs-chart-plot { min-height: 200px; }
+/* Aging tab keeps its own taller flex sizing; do not force a fixed height there. */
+.chart-container-aging > .ecs-bar-chart,
+.ecs-evidence-aging-grid .ecs-aging-bar-chart {
+  max-height: none !important;
+}
+
+/* ───────────────────────────── Responsive ───────────────────────────── */
+/* Prevent axis clipping, hidden labels, truncated values, legend/tooltip overflow. */
+.chart-container-compact,
+.chart-container-aging { overflow: visible !important; }
+.ecs-bar-chart, .mini-bar-chart, .trend-chart {
+  overflow-x: auto; overflow-y: visible;
+}
+.ecs-chart-legend, .ecs-obs-legend { overflow: visible; }
+@media (max-width: 991px) {
+  .ecs-chart-yaxis-label { font-size: 0.66rem; }
+  .ecs-bar-lbl, .trend-bar-label { font-size: 0.66rem !important; }
+}
+
+/* ───── Demo dark-theme parity: keep axis/legend readable on dark panels ───── */
+.ecs-demo-dark .ecs-chart-legend,
+.ecs-demo-dark .ecs-obs-legend,
+.ecs-demo-dark .ecs-bar-val,
+.ecs-demo-dark .ecs-bar-lbl,
+.ecs-demo-dark .ecs-chart-yaxis-label,
+.ecs-demo-dark .ecs-chart-xaxis-label,
+.ecs-demo-dark .ecs-chart-yscale .ecs-ytick > span {
+  color: #F1F5F9 !important;
+}
+.ecs-demo-dark .ecs-chart-yscale .ecs-ytick > span { background: rgba(15,23,42,0.65); }
+</style>
 
 <style>
 .ecs-exec-bu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
@@ -4682,16 +5915,29 @@ body.bg-light {
     var map = chartIds || {
       observations: 'ecsGranObsChart',
       compliance: 'ecsGranCompChart',
-      failed_evidence: 'ecsGranFailChart',
+      evidence_rejections: 'ecsGranRejChart',
       risk_escalation: 'ecsGranEscChart',
       evidence_aging: 'ecsGranAgeChart',
       remediation: 'ecsGranRemChart'
+    };
+    var agingDrill = {
+      evidence_aging: 'evidence_aging',
+      remediation: 'remediation_velocity'
     };
     Object.keys(map).forEach(function(key) {
       var cid = map[key];
       var series = g[key] || [];
       if (window.ecsRenderCompactBarChart && document.getElementById(cid)) {
-        ecsRenderCompactBarChart(cid, series, { suffix: series[0] && series[0].suffix ? series[0].suffix : (key === 'compliance' ? '%' : ''), defaultTone: key === 'compliance' ? 'green' : (key.indexOf('fail') >= 0 ? 'red' : 'blue') });
+        var el = document.getElementById(cid);
+        var isAging = el && (el.classList.contains('ecs-aging-bar-chart') || el.closest('.ecs-evidence-aging-grid'));
+        var opts = {
+          suffix: series[0] && series[0].suffix ? series[0].suffix : (key === 'compliance' ? '%' : ''),
+          defaultTone: key === 'compliance' ? 'green' : (key.indexOf('fail') >= 0 ? 'red' : 'blue')
+        };
+        if (isAging && window.ecsExecutiveTrendBarOpts) {
+          opts = window.ecsExecutiveTrendBarOpts(agingDrill[key] || key, 'trends', opts);
+        }
+        ecsRenderCompactBarChart(cid, series, opts);
       }
     });
   };
@@ -4817,15 +6063,30 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
   scrollbar-width: thin;
 }
 .ecs-workspace-tabs-governance { margin-bottom: 0.35rem; }
+/* ── WCAG AA standardized sub-navigation tabs (ecs-chart-accessibility v1.1) ──
+   Inactive: dark ink on light slate (14.5:1). Active: white on brand blue (5.2:1).
+   Hover: white on deep blue (6.7:1). Disabled: muted ink on near-white (7.0:1).
+   Eliminates the prior light-blue-on-light-blue active state (4.24:1, failed AA). */
 .ecs-workspace-tab {
-  border: 1px solid var(--ecs-border-soft, #e2e8f0); background: #fff; color: var(--ecs-slate, #475569);
-  font-size: 0.68rem; font-weight: 600; padding: 0.28rem 0.55rem; border-radius: 6px; cursor: pointer;
+  border: 1px solid #CBD5E1; background: #E2E8F0; color: #0F172A;
+  font-size: 0.72rem; font-weight: 600; padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer;
   line-height: 1.2; white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
-.ecs-workspace-tab:hover { border-color: var(--ecs-accent, #2563eb); color: var(--ecs-accent, #2563eb); }
-.ecs-workspace-tab.is-active {
-  background: var(--ecs-accent-soft, #dbeafe); border-color: var(--ecs-accent, #2563eb);
-  color: var(--ecs-accent, #2563eb); box-shadow: 0 0 0 1px rgba(37,99,235,.1);
+.ecs-workspace-tab:hover,
+.ecs-workspace-tab:focus-visible {
+  background: #1D4ED8; border-color: #1D4ED8; color: #FFFFFF; outline: none;
+}
+.ecs-workspace-tab.is-active,
+.ecs-workspace-tab[aria-selected="true"] {
+  background: #2563EB; border-color: #2563EB; color: #FFFFFF; font-weight: 700;
+  box-shadow: 0 1px 2px rgba(37,99,235,0.25);
+}
+.ecs-workspace-tab.is-active:hover { background: #1D4ED8; border-color: #1D4ED8; }
+.ecs-workspace-tab:disabled,
+.ecs-workspace-tab[disabled],
+.ecs-workspace-tab.is-disabled {
+  background: #F1F5F9; color: #475569; border-color: #E2E8F0; cursor: not-allowed; opacity: 1;
 }
 .ecs-workspace-pane { display: none; }
 .ecs-workspace-pane.is-active {
@@ -4872,14 +6133,16 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 .ecs-ws-metric-row strong { color: var(--ecs-navy, #1e293b); }
 .ecs-lifecycle-timeline { border-left: 2px solid #e2e8f0; padding-left: 0.65rem; }
 .ecs-timeline-step { font-size: 0.75rem; padding: 0.25rem 0; border-bottom: 1px solid #f1f5f9; }
-.ecs-timeline-badge { display: inline-block; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; background: #dbeafe; color: #2563eb; padding: 0.1rem 0.35rem; border-radius: 4px; margin-right: 0.35rem; }
+.ecs-timeline-badge { display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; background: #dbeafe; color: #1E3A8A; padding: 0.1rem 0.35rem; border-radius: 4px; margin-right: 0.35rem; }
 </style>
 <script>
 (function(){
   function activateTab(tabId) {
     if (!tabId) return;
     document.querySelectorAll('.ecs-workspace-tab').forEach(function(btn){
-      btn.classList.toggle('is-active', btn.getAttribute('data-workspace-tab') === tabId);
+      var on = btn.getAttribute('data-workspace-tab') === tabId;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     document.querySelectorAll('.ecs-workspace-pane').forEach(function(pane){
       pane.classList.toggle('is-active', pane.getAttribute('data-workspace-pane') === tabId);
@@ -4991,6 +6254,302 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
   }
 })();
 </script>
+<style>
+/* =========================================================================
+   EXECUTIVE DEMO DARK THEME (DEMO_MODE only)
+   One unified executive command center. Applies to the CONTENT area; the
+   existing dark left navigation is preserved. Production (DEMO_MODE off)
+   never loads this file.
+   Palette: bg #0B1220 · cards #111827 · panels #1E293B · text #F8FAFC /
+   #CBD5E1 · accent #38BDF8 · positive #22C55E · ROI #F59E0B
+   ========================================================================= */
+:root{
+  --demo-bg:#0B1220; --demo-card:#111827; --demo-panel:#1E293B;
+  --demo-text:#F8FAFC; --demo-text2:#CBD5E1; --demo-accent:#38BDF8;
+  --demo-pos:#22C55E; --demo-roi:#F59E0B; --demo-border:#243044;
+}
+/* page + workspace surfaces */
+body.bg-light, body.ecs-cap-roi, body{ background:var(--demo-bg)!important; color:var(--demo-text); }
+.ecs-workspace-main, .roi-main, .container-fluid, main, .ecs-content,
+.ecs-workspace, .content, .page-content{ background:var(--demo-bg)!important; color:var(--demo-text); }
+/* kill washed-out light surfaces */
+.bg-light, .bg-white, .card.bg-white, .bg-body, .bg-body-tertiary{
+  background:var(--demo-card)!important; color:var(--demo-text)!important; }
+/* cards / panels */
+.card, .panel, .ecs-card, .widget, .kpi-card, .dashboard-card, .tile,
+.box, .surface{ background:var(--demo-card)!important; color:var(--demo-text)!important;
+  border-color:var(--demo-border)!important; box-shadow:0 8px 26px rgba(0,0,0,.35); }
+.card-header, .panel-header, .modal-content, .list-group-item, .accordion-item,
+.accordion-button{ background:var(--demo-panel)!important; color:var(--demo-text)!important;
+  border-color:var(--demo-border)!important; }
+/* text */
+h1,h2,h3,h4,h5,h6, .h1,.h2,.h3,.h4,.h5,.h6{ color:var(--demo-text)!important; }
+p, span, li, dd, dt, label, small, .text-muted, .text-secondary, .lead{
+  color:var(--demo-text2)!important; }
+.text-dark, .text-body, .text-black{ color:var(--demo-text)!important; }
+a{ color:var(--demo-accent); }
+a:hover{ color:#7dd3fc; }
+/* tables */
+.table, table{ color:var(--demo-text)!important; border-color:var(--demo-border)!important; }
+.table thead th, thead th{ background:var(--demo-panel)!important; color:var(--demo-text)!important;
+  border-color:var(--demo-border)!important; }
+.table td, .table th, td, th{ border-color:var(--demo-border)!important; }
+.table-striped>tbody>tr:nth-of-type(odd)>*{ background:rgba(255,255,255,.03)!important; color:var(--demo-text2)!important; }
+.table-hover>tbody>tr:hover>*{ background:rgba(56,189,248,.08)!important; }
+/* inputs */
+.form-control, .form-select, input, select, textarea{
+  background:var(--demo-panel)!important; color:var(--demo-text)!important; border-color:var(--demo-border)!important; }
+.form-control::placeholder{ color:#7c8aa3!important; }
+/* accent / value colors */
+.text-primary, .accent, .ecs-accent{ color:var(--demo-accent)!important; }
+.text-success, .positive, .value-positive{ color:var(--demo-pos)!important; }
+.text-warning, .roi-value, .value-roi{ color:var(--demo-roi)!important; }
+.badge.bg-light, .badge.bg-secondary{ background:var(--demo-panel)!important; color:var(--demo-text)!important; }
+/* buttons keep contrast */
+.btn-light, .btn-outline-secondary{ background:var(--demo-panel)!important; color:var(--demo-text)!important; border-color:var(--demo-border)!important; }
+/* borders / dividers */
+hr, .border, .border-top, .border-bottom{ border-color:var(--demo-border)!important; }
+/* ROI deck carries its own dark executive palette; keep its shadow on dark page */
+.roi-deck-stage{ box-shadow:0 18px 50px rgba(0,0,0,.5); }
+
+/* =========================================================================
+   EXECUTIVE READABILITY PASS — exact palette (projector-grade contrast).
+   bg #0B1220 · panels #111827 · cards #1E293B · text #F8FAFC / #CBD5E1
+   muted #94A3B8 · accent #38BDF8 · positive #22C55E · warning #F59E0B
+   critical #EF4444. Overrides hardcoded light styles on the demo dashboards
+   (the .demo-* classes ship their own #fff backgrounds).
+   ========================================================================= */
+:root{ --demo-muted:#94A3B8; --demo-warn:#F59E0B; --demo-crit:#EF4444; }
+
+/* ---- KPI cards (top strip + module KPIs) ---- */
+.demo-kpi,
+.ecs-kpi-modern,
+.ecs-kpi-clickable,
+.demo-card,
+.demo-app-card,
+.lineage-card{
+  background:var(--demo-card)!important; border-color:var(--demo-border)!important;
+  color:var(--demo-text)!important; }
+.demo-kpi .v, .ecs-kpi-value, .demo-app-card .name, .lineage-card .ev-name{
+  color:var(--demo-text)!important; font-weight:700!important; }
+.demo-kpi .l, .ecs-kpi-label{
+  color:var(--demo-text2)!important; font-weight:500!important; }
+.demo-section-title{ color:var(--demo-text)!important; font-weight:700!important; }
+.demo-section-title .meta, .demo-app-card .meta, .lineage-card .text-muted{
+  color:var(--demo-muted)!important; }
+
+/* ---- CIO Executive Snapshot KPI cells ---- */
+.ecs-kpi-clickable .text-muted{ color:var(--demo-text2)!important; }
+.demo-card .border.rounded{ background:var(--demo-panel)!important;
+  border-color:var(--demo-border)!important; }
+/* keep tone-coloured metric values, just guarantee the neutral default is light */
+.demo-card .fw-bold{ color:var(--demo-text)!important; }
+.demo-card .text-danger, .fw-bold.text-danger{ color:var(--demo-crit)!important; }
+.demo-card .text-warning, .fw-bold.text-warning{ color:var(--demo-warn)!important; }
+.demo-card .text-success, .fw-bold.text-success{ color:var(--demo-pos)!important; }
+
+/* ---- Top Risk Applications + all demo tables ---- */
+.demo-table{ color:var(--demo-text2)!important; }
+.demo-table thead th{
+  background:var(--demo-panel)!important; color:var(--demo-text)!important;
+  border-bottom-color:rgba(255,255,255,.15)!important; }
+.demo-table td, .demo-table th{ border-bottom-color:rgba(255,255,255,.15)!important; }
+.demo-table td{ color:var(--demo-text2)!important; }
+.demo-table td strong, .demo-table .col-app strong, .demo-table .col-app{
+  color:var(--demo-text)!important; font-weight:700!important; }
+.demo-table tbody tr:hover{ background:rgba(56,189,248,.10)!important; }
+
+/* ---- Heatmap labels (light gray label column) ---- */
+.demo-heat-label{ background:var(--demo-panel)!important; color:var(--demo-text)!important; }
+.demo-heat-grid{ background:var(--demo-border)!important; }
+.demo-heat-header .demo-heat-cell{ background:var(--demo-card)!important; color:var(--demo-text)!important; }
+
+/* ---- App-card stat chips ---- */
+.demo-app-card .stats span{ background:var(--demo-panel)!important; color:var(--demo-text2)!important; }
+
+/* ---- Navigation tabs (Overview / Risk / Evidence / Compliance / Analytics) ---- */
+.ecs-persona-tabs, .nav-tabs{ border-bottom-color:rgba(255,255,255,.15)!important; }
+.ecs-persona-tabs .nav-link, .nav-tabs .nav-link{
+  color:var(--demo-text2)!important; background:transparent!important;
+  border-color:transparent!important; font-weight:600!important; }
+.ecs-persona-tabs .nav-link:hover, .nav-tabs .nav-link:hover{ color:var(--demo-text)!important; }
+.ecs-persona-tabs .nav-link.active, .nav-tabs .nav-link.active{
+  color:var(--demo-accent)!important; background:transparent!important;
+  border-color:transparent!important; border-bottom:2px solid var(--demo-accent)!important; }
+
+/* ---- Role badges (display name + role title chips) ---- */
+.ecs-user-chip, .ecs-role-chip{
+  background:var(--demo-card)!important; color:var(--demo-text)!important;
+  border:1px solid rgba(255,255,255,.15)!important; }
+
+/* ---- DEMO MODE pill stays high-contrast (already coloured) ---- */
+.ecs-exec-desc, .ecs-workspace-title{ color:var(--demo-text)!important; }
+.ecs-exec-desc.text-muted{ color:var(--demo-text2)!important; }
+
+/* ---- Generic guard: any leftover dark-on-light utility text on cards ---- */
+.demo-card .text-muted, .demo-card small.text-muted{ color:var(--demo-muted)!important; }
+</style>
+<style>
+/* =========================================================================
+   ECS UNIVERSAL CONTRAST ENGINE  (DEMO_MODE only — loaded after the dark theme)
+   One shared helper that guarantees readable contrast everywhere.
+
+   Phase 2 contrast law:
+     dark surface (luminance < 50%)  -> text #F8FAFC / #CBD5E1
+     light surface (luminance > 50%) -> text #0F172A / #1E293B
+   Never light-on-light or dark-on-dark.
+
+   Palette:
+     bg #0B1220 · panel #111827 · card #1E293B · text #F8FAFC / #CBD5E1
+     muted #94A3B8 · accent #38BDF8 · positive #22C55E · warning #F59E0B
+     critical #EF4444
+   ========================================================================= */
+:root{
+  --ax-bg:#0B1220; --ax-panel:#111827; --ax-card:#1E293B;
+  --ax-text:#F8FAFC; --ax-text2:#CBD5E1; --ax-muted:#94A3B8;
+  --ax-accent:#38BDF8; --ax-pos:#22C55E; --ax-warn:#F59E0B; --ax-crit:#EF4444;
+  --ax-ink:#0F172A; --ax-ink2:#1E293B; --ax-ink-muted:#475569;
+  --ax-row:#FFFFFF; --ax-row-alt:#F8FAFC; --ax-grid:rgba(15,23,42,.15);
+  --ax-hover:#E2E8F0;
+}
+
+/* ---------------------------------------------------------------------------
+   PHASE 2 — universal contrast law on dark surfaces.
+   Bootstrap muted/secondary become readable light-gray on the dark page.
+--------------------------------------------------------------------------- */
+.text-muted, .text-secondary{ color:var(--ax-text2)!important; }
+small.text-muted, .small.text-muted{ color:var(--ax-muted)!important; }
+.text-light{ color:var(--ax-text)!important; }
+
+/* ---------------------------------------------------------------------------
+   PHASE 3 — TABLE STANDARDIZATION (applies to every Bootstrap/custom table).
+   Dark header · white rows · dark row text · striped alt · subtle grid · hover.
+   White "report" tables sit on the dark page intentionally for max legibility.
+--------------------------------------------------------------------------- */
+table.table, table.demo-table, table.ecs-table-modern, table.ecs-risk-table,
+table.ecs-paginated-table, table.roi-deck-table{
+  background:var(--ax-row)!important; color:var(--ax-ink)!important;
+  border-color:var(--ax-grid)!important;
+}
+.table > thead, .table thead tr{ background:var(--ax-card)!important; }
+.table thead th, table.demo-table thead th, .ecs-table-modern thead th,
+.ecs-risk-table thead th, table.table-light thead th, .table-light th,
+.roi-deck-table thead th{
+  background:var(--ax-card)!important; color:var(--ax-text)!important;
+  border-color:var(--ax-grid)!important; font-weight:700!important;
+  border-bottom:2px solid rgba(255,255,255,.12)!important;
+}
+.table tbody td, .table tbody th, table.demo-table tbody td,
+.ecs-table-modern tbody td, .ecs-risk-table tbody td, .roi-deck-table tbody td{
+  background:var(--ax-row)!important; color:var(--ax-ink)!important;
+  border-color:var(--ax-grid)!important;
+}
+.table tbody td strong, .table tbody td b, .table .col-app, .table .col-app strong,
+table.demo-table tbody td strong, table.demo-table tbody td b,
+table.demo-table .col-app, table.demo-table .col-app strong,
+table.ecs-paginated-table tbody td strong, table.ecs-paginated-table tbody td b,
+.ecs-top-risk-applications .col-app, .ecs-top-risk-applications .col-app strong,
+table.ecs-table-modern tbody td strong, table.ecs-risk-table tbody td strong{
+  color:var(--ax-ink)!important; font-weight:700!important;
+}
+/* striped alternate rows */
+.table-striped > tbody > tr:nth-of-type(odd) > *,
+.table tbody tr:nth-of-type(even) > *{ background:var(--ax-row-alt)!important; color:var(--ax-ink)!important; }
+/* hover */
+.table-hover > tbody > tr:hover > *, .table tbody tr:hover > *,
+table.demo-table tbody tr:hover > *{ background:var(--ax-hover)!important; color:var(--ax-ink)!important; }
+/* total / emphasis rows keep dark-on-light readable */
+.roi-deck-tr-total td{ background:var(--ax-row-alt)!important; }
+.roi-deck-tr-total .roi-deck-net{ color:#9A6700!important; }
+.roi-deck-net{ color:#166534!important; font-weight:800!important; }
+/* muted text inside white tables must go dark, not light */
+.table .text-muted, .table small.text-muted, table.demo-table .text-muted{
+  color:var(--ax-ink-muted)!important;
+}
+/* links inside white tables */
+.table a{ color:#1D4ED8!important; }
+/* code chips inside white tables */
+.table code{ color:#0F172A!important; background:#EEF2F7!important; }
+
+/* badges always retain their semantic colors (do not let table rules flatten them) */
+.badge.bg-success, .sev-Low, .badge-Low{ background:#16a34a!important; color:#fff!important; }
+.badge.bg-danger, .sev-Critical, .badge-Critical{ background:#dc2626!important; color:#fff!important; }
+.badge.bg-warning, .sev-High, .badge-High{ background:#f59e0b!important; color:#1f2937!important; }
+.badge.bg-primary, .sev-Medium, .badge-Medium{ background:#2563eb!important; color:#fff!important; }
+.badge.bg-secondary{ background:#475569!important; color:#fff!important; }
+.badge.bg-info{ background:#0891b2!important; color:#fff!important; }
+
+/* ---------------------------------------------------------------------------
+   PHASE 4 — CHART STANDARDIZATION (axis, legend, value labels).
+   Charts live on dark cards -> labels light & >=14px & opaque.
+--------------------------------------------------------------------------- */
+.chart-axis, .axis-label, .chart-legend, .legend-item, .chart-value,
+.bar-label, .pie-label, .trend-label, .ecs-chart-label, .ecs-axis,
+.recharts-text, .apexcharts-text, svg text.tick, .c-axis-x, .c-axis-y{
+  fill:var(--ax-text)!important; color:var(--ax-text)!important;
+  font-size:14px!important; opacity:1!important;
+}
+.chart-legend, .legend-item, .ecs-chart-legend{ color:var(--ax-text2)!important; font-size:14px!important; }
+/* ROI bar chart value labels (already gold) + axis */
+.roi-bar-val{ color:var(--ax-warn)!important; }
+.roi-bar-x{ color:var(--ax-text2)!important; font-size:clamp(14px,1.6vw,1.25rem)!important; }
+/* heatmap: labels readable; data cells keep tone colors with white text */
+.demo-heat-label{ background:var(--ax-card)!important; color:var(--ax-text)!important; }
+.demo-heat-cell{ color:#fff!important; }
+.demo-heat-cell.tone-empty{ background:#334155!important; color:var(--ax-text2)!important; }
+/* generic mini-bars stay visible */
+.demo-mini-bar{ background:#33415588!important; }
+
+/* ---------------------------------------------------------------------------
+   PHASE 5 — KPI STANDARDIZATION.
+   Dark KPI cards -> value #F8FAFC / label #CBD5E1.
+   Explicitly-white KPI cards -> value #0F172A / label #475569.
+--------------------------------------------------------------------------- */
+.demo-kpi, .ecs-kpi-modern, .kpi-card, .ecs-kpi, .roi-kpi1, .roi-execsum-cell,
+.ecs-kpi-clickable{
+  background:var(--ax-card)!important; border-color:rgba(255,255,255,.12)!important;
+}
+.demo-kpi .v, .ecs-kpi-value, .kpi-value, .roi-kpi1-val, .roi-execsum-val{
+  color:var(--ax-text)!important; font-weight:700!important;
+}
+.demo-kpi .l, .ecs-kpi-label, .kpi-label, .roi-kpi1-lbl, .roi-execsum-lbl{
+  color:var(--ax-text2)!important; font-weight:500!important;
+}
+/* white-card override: any KPI explicitly on a white/light bg flips to dark text */
+.kpi-card.bg-white .kpi-value, .ecs-kpi-modern.bg-white .ecs-kpi-value,
+.bg-white .kpi-value, .bg-white .ecs-kpi-value{ color:var(--ax-ink)!important; }
+.kpi-card.bg-white .kpi-label, .bg-white .ecs-kpi-label{ color:var(--ax-ink-muted)!important; }
+
+/* ---------------------------------------------------------------------------
+   PHASE 6/7/8/9 — page-specific guarantees (Enterprise, Analytics,
+   Governance Analytics, Integrations). These pages render tables/labels via
+   the classes already covered above; the rules below close remaining gaps.
+--------------------------------------------------------------------------- */
+/* Enterprise Open Gaps: ensure thead labels are visible even if styled inline */
+.ecs-enterprise-table thead th, #tab-gaps thead th, .open-gaps-table thead th{
+  background:var(--ax-card)!important; color:var(--ax-text)!important;
+}
+/* Enterprise Analytics small framework labels (PCI DSS / DPSC / DB/OS Baselining) */
+.analytics-label, .ecs-analytics-label, .framework-chip, .ecs-fw-chip{
+  color:var(--ax-ink2)!important; font-weight:600!important;
+}
+.bg-white .analytics-label, .bg-white .ecs-analytics-label{ color:#334155!important; }
+/* Governance Analytics timeline/event cells: white cell + dark text */
+.timeline-cell, .event-cell, .ecs-timeline td, .ecs-event-table td,
+.governance-analytics-table td{
+  background:var(--ax-row)!important; color:var(--ax-ink)!important;
+}
+/* Integrations: connector chart labels + dependency matrix */
+.connector-label, .dependency-label, .matrix-label, .integration-chart text,
+.dependency-matrix td, .dependency-matrix th{ color:var(--ax-ink)!important; }
+.dependency-matrix th{ background:var(--ax-card)!important; color:var(--ax-text)!important; }
+
+/* ---------------------------------------------------------------------------
+   Safety net: no dark text on the dark page background outside cards/tables.
+--------------------------------------------------------------------------- */
+.ecs-workspace-main .text-dark:not(.table .text-dark):not(td):not(th){ color:var(--ax-text)!important; }
+.ecs-workspace-main .text-black:not(.table *){ color:var(--ax-text)!important; }
+</style>
 <style>
 .demo-mode-pill {
   background: linear-gradient(90deg, #16a34a, #2563eb); color: #fff;
@@ -5129,8 +6688,17 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div class="col-md-2 col-lg-2 ecs-sidebar text-white">
 <div class="ecs-sidebar-inner">
 
-<div class="ecs-sidebar-brand">ECS</div>
-<p class="ecs-sidebar-tagline">ECS</p>
+
+<div class="ecs-sidebar-brand">ECS Platform</div>
+<p class="ecs-sidebar-tagline ecs-sidebar-role-line">Role: CIO</p>
+
+
+<div class="ecs-sidebar-profile mb-2">
+<div class="ecs-sidebar-profile-name">R. Khanna</div>
+<div class="ecs-sidebar-profile-title">Chief Information Officer</div>
+</div>
+
+
 
 
 
@@ -5146,101 +6714,17 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 
 <nav class="ecs-nav-groups" aria-label="ECS command center">
 
-<div class="ecs-nav-group">
-<button class="ecs-nav-group-toggle is-open" type="button" data-bs-toggle="collapse" data-bs-target="#nav-exec" aria-expanded="true">
-<span class="ecs-nav-group-label">Executive Overview</span>
-<span class="ecs-nav-group-chevron">▾</span>
-</button>
-<div id="nav-exec" class="collapse show">
+
+<div class="ecs-nav-group ecs-nav-group-flat">
 <div class="ecs-nav-group-items">
 
-<a href="/dashboard/cio?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard">Evidence Analytics 
-<span class="ecs-nav-badge" title="10 pending workflow actions — executive / leadership queue">10</span>
+<a href="/dashboard/cio?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-dashboard">Overview 
+<span class="ecs-nav-badge" title="87 pending workflow actions — executive / leadership queue">87</span>
 </a>
 
-<a href="/mvp/demo-overview?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent is-active">Demo Overview ●</a>
-<a href="/mvp/enterprise?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Enterprise 
-<span class="ecs-nav-badge" title="15 pending workflow actions — escalated or high-risk items">15</span>
-</a>
-<a href="/mvp/pan-india?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Pan India 
-<span class="ecs-nav-badge" title="5 pending workflow actions — regional open observations">5</span>
-</a>
-<a href="/mvp/reports?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Reports 
-<span class="ecs-nav-badge" title="30 pending workflow actions — reports pending generation">30</span>
-</a>
-<a href="/mvp/trends?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Trends 
-<span class="ecs-nav-badge" title="5 pending workflow actions — open trend-tracked observations">5</span>
-</a>
-</div>
 </div>
 </div>
 
-<div class="ecs-nav-group">
-<button class="ecs-nav-group-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#nav-fw" aria-expanded="false">
-<span class="ecs-nav-group-label">Frameworks</span>
-<span class="ecs-nav-group-chevron">▾</span>
-</button>
-<div id="nav-fw" class="collapse">
-<div class="ecs-nav-group-items ecs-nav-group-items-nested">
-
-<a href="/framework/PCI DSS?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in PCI DSS">PCI DSS </a>
-
-<a href="/framework/DPSC?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in DPSC">DPSC 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in DPSC">1</span>
-</a>
-
-<a href="/framework/OS Baselining?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in OS Baselining">OS Baselining </a>
-
-<a href="/framework/DB Baselining?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in DB Baselining">DB Baselining 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in DB Baselining">1</span>
-</a>
-
-<a href="/framework/Nginx Baselining?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in Nginx Baselining">Nginx Baselining 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in Nginx Baselining">1</span>
-</a>
-
-<a href="/framework/AppSec?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in AppSec">AppSec 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in AppSec">1</span>
-</a>
-
-<a href="/framework/VAPT?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in VAPT">VAPT 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in VAPT">1</span>
-</a>
-
-<a href="/framework/CSITE?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in CSITE">CSITE 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in CSITE">1</span>
-</a>
-
-<a href="/framework/ITPP?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in ITPP">ITPP 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in ITPP">1</span>
-</a>
-
-<a href="/framework/ITDRM?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ITDRM">ITDRM </a>
-
-<a href="/framework/SOC2?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in SOC2">SOC2 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in SOC2">1</span>
-</a>
-
-<a href="/framework/ISO27001?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in ISO27001">ISO27001 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in ISO27001">1</span>
-</a>
-
-<a href="/framework/RBI Cyber Security?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="1 pending workflow action — executive items in RBI Cyber Security">RBI Cyber Security 
-<span class="ecs-nav-badge" title="1 pending workflow action — executive items in RBI Cyber Security">1</span>
-</a>
-
-<a href="/framework/ISG?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ISG">ISG </a>
-
-<a href="/framework/ASST?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested" title="No pending workflow actions — executive items in ASST">ASST </a>
-
-<a href="/mvp/framework-loader?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent">Framework Loader</a>
-
-<a href="/mvp/framework-admin?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-admin">Framework Administration</a>
-<a href="/mvp/framework-admin?role=cio&user=cio@bank.com&wizard=1" class="ecs-sidebar-btn ecs-sidebar-btn-nested ecs-sidebar-btn-accent">+ Add New Framework</a>
-
-</div>
-</div>
-</div>
 
 <div class="ecs-nav-group">
 <button class="ecs-nav-group-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#nav-ops" aria-expanded="false">
@@ -5249,91 +6733,60 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </button>
 <div id="nav-ops" class="collapse">
 <div class="ecs-nav-group-items">
-<a href="/mvp/scheduler?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Scheduler 
-<span class="ecs-nav-badge" title="20 pending workflow actions — scheduler / aging evidence pulls">20</span>
+<a href="/mvp/predefined-queries?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Predefined Queries 
+<span class="ecs-nav-badge" title="208 pending workflow actions — predefined query controls in catalog">208</span>
 </a>
-<a href="/mvp/ai-ops-assistant?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent">AI Ops Assistant 
-<span class="ecs-nav-badge" title="25 pending workflow actions — active incident scenarios for copilot">25</span>
-</a>
+<a href="/mvp/evidence-dashboard?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Dashboard</a>
+<a href="/mvp/audit/repository?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Repository</a>
+<a href="/mvp/evidence-story?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Reuse</a>
+<a href="/mvp/reports?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Reports</a>
+</div>
+</div>
+</div>
 
-<a href="/mvp/integrations?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Integrations 
-<span class="ecs-nav-badge" title="12 pending workflow actions — integration sync gaps">12</span>
-</a>
-<a href="/mvp/onboarding?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Onboarding 
-<span class="ecs-nav-badge" title="80 pending workflow actions — applications onboarding in progress">80</span>
-</a>
-</div>
-</div>
-</div>
 
 <div class="ecs-nav-group">
-<button class="ecs-nav-group-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#nav-gov" aria-expanded="false">
+<button class="ecs-nav-group-toggle is-open" type="button" data-bs-toggle="collapse" data-bs-target="#nav-gov" aria-expanded="true">
 <span class="ecs-nav-group-label">Governance</span>
 <span class="ecs-nav-group-chevron">▾</span>
 </button>
-<div id="nav-gov" class="collapse">
+<div id="nav-gov" class="collapse show">
 <div class="ecs-nav-group-items">
+<a href="/mvp/platform/audit-readiness?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Audit Readiness</a>
 <a href="/mvp/audit-prep?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Audit Prep 
 <span class="ecs-nav-badge" title="20 pending workflow actions — audit preparation gaps">20</span>
-</a>
-<a href="/mvp/evidence-health?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Health 
-<span class="ecs-nav-badge" title="140 pending workflow actions — expired or due-for-refresh evidences">140</span>
-</a>
-<a href="/mvp/reuse?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Reuse 
-<span class="ecs-nav-badge" title="120 pending workflow actions — reuse-mapped open controls">120</span>
-</a>
-<a href="/mvp/lifecycle?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Lifecycle 
-<span class="ecs-nav-badge" title="135 pending workflow actions — open lifecycle transitions">135</span>
-</a>
-<a href="/mvp/completeness?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Completeness 
-<span class="ecs-nav-badge" title="406 pending workflow actions — incomplete or missing controls">406</span>
-</a>
-<a href="/mvp/comparison?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">App Comparison 
-<span class="ecs-nav-badge" title="595 pending workflow actions — elevated-risk applications">595</span>
-</a>
-<a href="/mvp/search?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Search 
-<span class="ecs-nav-badge" title="706 pending workflow actions — evidences pending audit review">706</span>
-</a>
-<a href="/mvp/evidence-approval?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Approval Analytics 
-<span class="ecs-nav-badge" title="54 pending workflow actions — evidence pending validation or stale">54</span>
 </a>
 </div>
 </div>
 </div>
 
+
 <div class="ecs-nav-group">
-<button class="ecs-nav-group-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#nav-grc" aria-expanded="false">
-<span class="ecs-nav-group-label">Enterprise GRC</span>
+<button class="ecs-nav-group-toggle is-open" type="button" data-bs-toggle="collapse" data-bs-target="#nav-admin" aria-expanded="true">
+<span class="ecs-nav-group-label">Administration</span>
 <span class="ecs-nav-group-chevron">▾</span>
 </button>
-<div id="nav-grc" class="collapse">
+<div id="nav-admin" class="collapse show">
 <div class="ecs-nav-group-items">
-<a href="/mvp/risk-register?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Risk Register 
-<span class="ecs-nav-badge" title="28 pending workflow actions — open high/critical enterprise risks">28</span>
+<a href="/mvp/integrations?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Integrations 
+<span class="ecs-nav-badge" title="12 pending workflow actions — integration sync gaps">12</span>
 </a>
-<a href="/mvp/exceptions?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Exceptions / TD 
-<span class="ecs-nav-badge" title="7 pending workflow actions — TD expired or high-risk exceptions">7</span>
+<a href="/mvp/onboarding?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Application Onboarding 
+<span class="ecs-nav-badge" title="80 pending workflow actions — applications onboarding in progress">80</span>
 </a>
-<a href="/mvp/exception-governance?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Exception Governance 
-<span class="ecs-nav-badge" title="7 pending workflow actions — exceptions pending CAB or expiring TD">7</span>
+<a href="/mvp/scheduler?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Scheduler 
+<span class="ecs-nav-badge" title="20 pending workflow actions — scheduler / aging evidence pulls">20</span>
 </a>
-<a href="/mvp/cmdb?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">CMDB / Assets 
-<span class="ecs-nav-badge" title="9 pending workflow actions — non-compliant or unmonitored assets">9</span>
-</a>
-<a href="/mvp/regulatory?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Regulatory Mapping 
-<span class="ecs-nav-badge" title="8 pending workflow actions — regulatory coverage gaps">8</span>
-</a>
-<a href="/mvp/heatmaps?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Executive Heatmaps </a>
-<a href="/mvp/integrations-hub?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Integrations Hub 
-<span class="ecs-nav-badge" title="12 pending workflow actions — integration sync failures">12</span>
-</a>
-<a href="/mvp/correlation?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Cross-Tool Correlation 
-<span class="ecs-nav-badge" title="4 pending workflow actions — open cross-tool correlation chains">4</span>
-</a>
-<a href="/mvp/governance-analytics?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Governance Analytics </a>
+<a href="/mvp/upload?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Bulk Evidence Upload</a>
+<a href="/mvp/connectors/test-workbench?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Connector Test Workbench</a>
+<a href="/mvp/audit/llm-workbench?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">LLM Prompt Workbench</a>
+<a href="/mvp/ecs-benchmark?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Benchmark</a>
 </div>
 </div>
 </div>
+
+
+
 
 
 
@@ -5346,19 +6799,17 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div id="nav-ai-sdlc" class="collapse">
 <div class="ecs-nav-group-items">
 <a href="/mvp/ai-sdlc?role=cio&user=cio@bank.com" class="ecs-sidebar-btn ecs-sidebar-btn-accent">Home</a>
-<a href="/mvp/ai-sdlc/control-tower?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">AI SDLC Control Tower</a>
-<a href="/mvp/ai-sdlc/onboarding?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Application Onboarding</a>
-<a href="/mvp/ai-sdlc/requirements?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Requirements</a>
-<a href="/mvp/ai-sdlc/design?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Design</a>
-<a href="/mvp/ai-sdlc/development?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Development</a>
-<a href="/mvp/ai-sdlc/testing?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Testing</a>
-<a href="/mvp/ai-sdlc/golive?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Go-Live</a>
-<a href="/mvp/ai-sdlc/evidence?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Evidence Collection</a>
-<a href="/mvp/ai-sdlc/findings?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Findings &amp; Remediation</a>
+<a href="/mvp/ai-sdlc/control-tower?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Control Tower</a>
+<a href="/mvp/ai-sdlc/phases?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Phases</a>
 <a href="/mvp/ai-sdlc/reports?role=cio&user=cio@bank.com" class="ecs-sidebar-btn">Reports</a>
 </div>
 </div>
 </div>
+
+
+
+
+
 
 </nav>
 
@@ -5370,11 +6821,54 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </div>
 <div class="col-md-10 ecs-workspace-main">
 
-<div class="d-flex justify-content-between align-items-baseline mb-2">
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+<div>
 <h1 class="ecs-workspace-title h5 mb-0">ECS Enterprise Demo Overview</h1>
+<p class="ecs-exec-desc mb-0 small text-muted">Single-page showcase of every dataset auto-generated by the ECS mock engine — banking applications, framework catalog, ServiceNow tickets, AI governance, audit history, risk heatmap, baselining drift, evidence lineage, VAPT findings and the CIO executive snapshot. Click any KPI / row to drill into the underlying dataset.</p>
+</div>
 <span class="demo-mode-pill" title="Auto-generated mock dataset — anchor 2026-05-28">DEMO MODE ENABLED</span>
 </div>
-<p class="ecs-exec-desc mb-2">Single-page showcase of every dataset auto-generated by the ECS mock engine — banking applications, framework catalog, ServiceNow tickets, AI governance, audit history, risk heatmap, baselining drift, evidence lineage, VAPT findings and the CIO executive snapshot. Click any KPI / row to drill into the underlying dataset.</p>
+
+
+
+<div class="ecs-page-header-meta">
+<span class="ecs-user-chip">R. Khanna</span>
+<span class="ecs-role-chip">Chief Information Officer</span>
+</div>
+
+
+
+
+
+<ul class="nav nav-tabs ecs-persona-tabs mb-3" role="tablist">
+
+<li class="nav-item" role="presentation">
+<button class="nav-link active" id="tab-overview-btn" data-bs-toggle="tab" data-bs-target="#tab-overview" type="button" role="tab" aria-controls="tab-overview" aria-selected="true">Overview</button>
+</li>
+
+<li class="nav-item" role="presentation">
+<button class="nav-link" id="tab-risk-btn" data-bs-toggle="tab" data-bs-target="#tab-risk" type="button" role="tab" aria-controls="tab-risk" aria-selected="false">Risk</button>
+</li>
+
+<li class="nav-item" role="presentation">
+<button class="nav-link" id="tab-evidence-btn" data-bs-toggle="tab" data-bs-target="#tab-evidence" type="button" role="tab" aria-controls="tab-evidence" aria-selected="false">Evidence</button>
+</li>
+
+<li class="nav-item" role="presentation">
+<button class="nav-link" id="tab-compliance-btn" data-bs-toggle="tab" data-bs-target="#tab-compliance" type="button" role="tab" aria-controls="tab-compliance" aria-selected="false">Compliance</button>
+</li>
+
+<li class="nav-item" role="presentation">
+<button class="nav-link" id="tab-analytics-btn" data-bs-toggle="tab" data-bs-target="#tab-analytics" type="button" role="tab" aria-controls="tab-analytics" aria-selected="false">Analytics</button>
+</li>
+
+</ul>
+
+
+
+<div class="tab-content ecs-persona-tab-content">
+
+<div class="tab-pane fade show active ecs-persona-tab-pane" id="tab-overview" role="tabpanel">
 
 
 
@@ -5392,12 +6886,12 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </div>
 
 <div class="demo-kpi tone-primary" data-ecs-demo-kpi="controls" title="Click to drill into Controls">
-<div class="v">307</div>
+<div class="v">305</div>
 <div class="l">Controls</div>
 </div>
 
 <div class="demo-kpi tone-success" data-ecs-demo-kpi="evidence" title="Click to drill into Evidence Records">
-<div class="v">706</div>
+<div class="v">702</div>
 <div class="l">Evidence Records</div>
 </div>
 
@@ -5658,6 +7152,10 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </div>
 </div>
 </div>
+
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-risk" role="tabpanel">
 
 
 <div class="demo-section-title">Banking Applications Registry <span class="meta">— 20 apps with owner · risk · readiness · maturity</span></div>
@@ -6597,438 +8095,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </div>
 
 
-<div class="demo-section-title">Evidence Aging Distribution</div>
-<div class="demo-pie">
-
-<span class="seg sev-Low">0-30 days · 128</span>
-
-<span class="seg sev-Medium">31-60 days · 104</span>
-
-<span class="seg sev-Medium">61-90 days · 114</span>
-
-<span class="seg sev-Critical">90+ days · 360</span>
-
-</div>
-
-
 <div class="row g-2 mt-2">
-<div class="col-md-7">
-<div class="demo-section-title">ServiceNow Tickets <span class="meta">— last 60 CHG / INC / PRB / RITM</span></div>
-<div class="demo-card" style="max-height: 280px; overflow-y: auto;">
-<table class="demo-table">
-<thead><tr><th>Ticket</th><th>Type</th><th>Title</th><th>App</th><th>Framework</th><th>State</th><th>Priority</th><th>Owner</th></tr></thead>
-<tbody>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC208375">
-<td><code>INC208375</code></td>
-<td>INC</td>
-<td>DLP incident — outbound email</td>
-<td>UPI</td>
-<td>DPSC</td>
-<td>Closed</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>P. Nair</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG1039793">
-<td><code>CHG1039793</code></td>
-<td>CHG</td>
-<td>Nginx WAF ruleset upgrade</td>
-<td>Customer Onboarding</td>
-<td>ITDRM</td>
-<td>Review</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>M. D'Souza</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG940804">
-<td><code>CHG940804</code></td>
-<td>CHG</td>
-<td>TLS cipher hardening — Internet Banking edge</td>
-<td>Customer Onboarding</td>
-<td>ITDRM</td>
-<td>Scheduled</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>M. D'Souza</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC560483">
-<td><code>INC560483</code></td>
-<td>INC</td>
-<td>SIEM correlation alert — UPI switch latency</td>
-<td>Net Banking</td>
-<td>PCI DSS</td>
-<td>Resolved</td>
-<td><span class="badge badge-High">P2</span></td>
-<td>R. Mehta</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC1091675">
-<td><code>INC1091675</code></td>
-<td>INC</td>
-<td>Privileged session breach detected — Treasury</td>
-<td>API Gateway</td>
-<td>ISG</td>
-<td>In Progress</td>
-<td><span class="badge badge-Critical">P1</span></td>
-<td>P. Nair</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC475563">
-<td><code>INC475563</code></td>
-<td>INC</td>
-<td>SIEM correlation alert — UPI switch latency</td>
-<td>Payments</td>
-<td>OS Baselining</td>
-<td>New</td>
-<td><span class="badge badge-Medium">P3</span></td>
-<td>A. Sharma</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM414566">
-<td><code>RITM414566</code></td>
-<td>RITM</td>
-<td>Encryption key escrow attestation</td>
-<td>Treasury</td>
-<td>CSITE</td>
-<td>Closed Complete</td>
-<td><span class="badge badge-Critical">P1</span></td>
-<td>S. Banerjee</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC131253">
-<td><code>INC131253</code></td>
-<td>INC</td>
-<td>Stale evidence escalation — PCI DSS Req 3.4</td>
-<td>Retail Banking</td>
-<td>VAPT</td>
-<td>New</td>
-<td><span class="badge badge-Medium">P3</span></td>
-<td>K. Reddy</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM217671">
-<td><code>RITM217671</code></td>
-<td>RITM</td>
-<td>Encryption key escrow attestation</td>
-<td>Customer Onboarding</td>
-<td>Nginx Baselining</td>
-<td>Closed Complete</td>
-<td><span class="badge badge-High">P2</span></td>
-<td>M. D'Souza</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG872374">
-<td><code>CHG872374</code></td>
-<td>CHG</td>
-<td>Firewall rule update — CDE perimeter</td>
-<td>Net Banking</td>
-<td>SOC2</td>
-<td>Review</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>R. Mehta</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM916296">
-<td><code>RITM916296</code></td>
-<td>RITM</td>
-<td>Encryption key escrow attestation</td>
-<td>Core Banking</td>
-<td>VAPT</td>
-<td>Closed Complete</td>
-<td><span class="badge badge-Medium">P3</span></td>
-<td>S. Banerjee</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM123279">
-<td><code>RITM123279</code></td>
-<td>RITM</td>
-<td>VA scan request — Wealth Portal quarterly</td>
-<td>Digital Lending</td>
-<td>ASST</td>
-<td>Closed Complete</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>M. D'Souza</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="PRB520453">
-<td><code>PRB520453</code></td>
-<td>PRB</td>
-<td>Recurring DB privileged commands during off-hours</td>
-<td>Loan Origination</td>
-<td>ITPP</td>
-<td>Resolved</td>
-<td><span class="badge badge-Critical">P1</span></td>
-<td>V. Rao</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC1034345">
-<td><code>INC1034345</code></td>
-<td>INC</td>
-<td>DAST critical finding — Mobile Banking API</td>
-<td>Core Banking</td>
-<td>DPSC</td>
-<td>In Progress</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>S. Banerjee</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM329105">
-<td><code>RITM329105</code></td>
-<td>RITM</td>
-<td>Auditor access provisioning — Deloitte Q2 cycle</td>
-<td>Customer Onboarding</td>
-<td>ASST</td>
-<td>Open</td>
-<td><span class="badge badge-High">P2</span></td>
-<td>M. D'Souza</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC857272">
-<td><code>INC857272</code></td>
-<td>INC</td>
-<td>Privileged session breach detected — Treasury</td>
-<td>AML Engine</td>
-<td>ASST</td>
-<td>In Progress</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>P. Nair</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG893674">
-<td><code>CHG893674</code></td>
-<td>CHG</td>
-<td>TLS cipher hardening — Internet Banking edge</td>
-<td>API Gateway</td>
-<td>DB Baselining</td>
-<td>Review</td>
-<td><span class="badge badge-High">P2</span></td>
-<td>P. Nair</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC184658">
-<td><code>INC184658</code></td>
-<td>INC</td>
-<td>DAST critical finding — Mobile Banking API</td>
-<td>Retail Banking</td>
-<td>ISO27001</td>
-<td>New</td>
-<td><span class="badge badge-High">P2</span></td>
-<td>K. Reddy</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="PRB558928">
-<td><code>PRB558928</code></td>
-<td>PRB</td>
-<td>Recurring SoD violation — Payments admin role</td>
-<td>Retail Banking</td>
-<td>ISO27001</td>
-<td>Investigation</td>
-<td><span class="badge badge-Critical">P1</span></td>
-<td>K. Reddy</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM708888">
-<td><code>RITM708888</code></td>
-<td>RITM</td>
-<td>Evidence re-upload — MFA enforcement screenshot</td>
-<td>Mobile Banking Edge</td>
-<td>AppSec</td>
-<td>Closed Complete</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>A. Sharma</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="PRB301569">
-<td><code>PRB301569</code></td>
-<td>PRB</td>
-<td>Recurring DB privileged commands during off-hours</td>
-<td>Customer Onboarding</td>
-<td>ITDRM</td>
-<td>Resolved</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>M. D'Souza</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC781297">
-<td><code>INC781297</code></td>
-<td>INC</td>
-<td>Stale evidence escalation — PCI DSS Req 3.4</td>
-<td>Internet Banking</td>
-<td>AppSec</td>
-<td>Resolved</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>R. Mehta</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC673690">
-<td><code>INC673690</code></td>
-<td>INC</td>
-<td>Privileged session breach detected — Treasury</td>
-<td>Internet Banking</td>
-<td>AppSec</td>
-<td>Resolved</td>
-<td><span class="badge badge-High">P2</span></td>
-<td>R. Mehta</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC434832">
-<td><code>INC434832</code></td>
-<td>INC</td>
-<td>Stale evidence escalation — PCI DSS Req 3.4</td>
-<td>AML Engine</td>
-<td>ITDRM</td>
-<td>Closed</td>
-<td><span class="badge badge-Medium">P3</span></td>
-<td>P. Nair</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC1091489">
-<td><code>INC1091489</code></td>
-<td>INC</td>
-<td>Privileged session breach detected — Treasury</td>
-<td>Loan System</td>
-<td>ISG</td>
-<td>Closed</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>V. Rao</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC852980">
-<td><code>INC852980</code></td>
-<td>INC</td>
-<td>Stale evidence escalation — PCI DSS Req 3.4</td>
-<td>Loan System</td>
-<td>ISG</td>
-<td>In Progress</td>
-<td><span class="badge badge-Critical">P1</span></td>
-<td>V. Rao</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC258303">
-<td><code>INC258303</code></td>
-<td>INC</td>
-<td>SIEM correlation alert — UPI switch latency</td>
-<td>Retail Banking</td>
-<td>VAPT</td>
-<td>Closed</td>
-<td><span class="badge badge-High">P2</span></td>
-<td>K. Reddy</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC513721">
-<td><code>INC513721</code></td>
-<td>INC</td>
-<td>DAST critical finding — Mobile Banking API</td>
-<td>UPI</td>
-<td>ISO27001</td>
-<td>Closed</td>
-<td><span class="badge badge-Low">P4</span></td>
-<td>P. Nair</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC374956">
-<td><code>INC374956</code></td>
-<td>INC</td>
-<td>Stale evidence escalation — PCI DSS Req 3.4</td>
-<td>Mobile Banking Edge</td>
-<td>PCI DSS</td>
-<td>Closed</td>
-<td><span class="badge badge-High">P2</span></td>
-<td>A. Sharma</td>
-</tr>
-
-<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC675953">
-<td><code>INC675953</code></td>
-<td>INC</td>
-<td>DAST critical finding — Mobile Banking API</td>
-<td>AML Engine</td>
-<td>Nginx Baselining</td>
-<td>New</td>
-<td><span class="badge badge-Medium">P3</span></td>
-<td>P. Nair</td>
-</tr>
-
-</tbody>
-</table>
-</div>
-</div>
-
-<div class="col-md-5">
-<div class="demo-section-title">AI Governance Posture <span class="meta">— prompt audit · hallucinations · token usage</span></div>
-
-<div class="demo-card">
-<div class="row g-1 mb-2">
-<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Prompts</div><div class="fw-bold">80</div></div>
-<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Hallucinations</div><div class="fw-bold text-warning">10</div></div>
-<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Unsafe</div><div class="fw-bold text-danger">0</div></div>
-<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Avg Risk</div><div class="fw-bold">0.24</div></div>
-<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Models</div><div class="fw-bold">5</div></div>
-<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Tokens</div><div class="fw-bold">356420</div></div>
-</div>
-<div class="small text-muted mb-1">Token Usage by Team (top 5)</div>
-<table class="demo-table">
-<thead><tr><th>Team</th><th>Prompts</th><th>Tokens</th><th>Cost (USD)</th></tr></thead>
-<tbody>
-
-<tr><td>Risk</td><td>28</td><td>87601</td><td>$1.05</td></tr>
-
-<tr><td>Compliance</td><td>28</td><td>82159</td><td>$0.99</td></tr>
-
-<tr><td>Audit</td><td>22</td><td>67451</td><td>$0.81</td></tr>
-
-<tr><td>CIO</td><td>11</td><td>39778</td><td>$0.48</td></tr>
-
-<tr><td>App Owners</td><td>9</td><td>27826</td><td>$0.33</td></tr>
-
-</tbody>
-</table>
-<div class="small text-muted mt-2 mb-1">Recent Hallucination Alerts (10)</div>
-<ul class="small mb-0" style="font-size:0.7rem;">
-
-<li><code>HALU-63644</code> · risk.user@bank.com · Referenced a non-existent ServiceNow ticket pattern.</li>
-
-<li><code>HALU-01674</code> · risk.user@bank.com · Predicted SLA breach with abnormal confidence < 50%.</li>
-
-<li><code>HALU-72605</code> · risk.user@bank.com · Predicted SLA breach with abnormal confidence < 50%.</li>
-
-<li><code>HALU-77761</code> · risk.user@bank.com · Cited PCI requirement number that does not exist (</li>
-
-<li><code>HALU-27883</code> · risk.user@bank.com · Referenced a non-existent ServiceNow ticket pattern.</li>
-
-</ul>
-</div>
-</div>
-</div>
-
-
-<div class="demo-section-title">Multi-Year Audit History <span class="meta">— 5-year findings, closure %, recurring findings, avg readiness</span></div>
-<div class="demo-card">
-<table class="demo-table">
-<thead><tr><th>Year</th><th>Findings Raised</th><th>Findings Closed</th><th>Closure %</th><th>Recurring</th><th>Avg Readiness %</th></tr></thead>
-<tbody>
-
-<tr><td><strong>2022</strong></td><td>163</td><td>135</td>
-<td>82.8%</td><td>17</td><td>87.1%</td></tr>
-
-<tr><td><strong>2023</strong></td><td>222</td><td>199</td>
-<td>89.6%</td><td>25</td><td>81.8%</td></tr>
-
-<tr><td><strong>2024</strong></td><td>213</td><td>193</td>
-<td>90.6%</td><td>23</td><td>82.3%</td></tr>
-
-<tr><td><strong>2025</strong></td><td>257</td><td>224</td>
-<td>87.2%</td><td>22</td><td>79.4%</td></tr>
-
-<tr><td><strong>2026</strong></td><td>195</td><td>168</td>
-<td>86.2%</td><td>23</td><td>76.3%</td></tr>
-
-</tbody>
-</table>
-</div>
-
-
-<div class="row g-2">
 <div class="col-md-6">
 <div class="demo-section-title">VAPT Findings Dashboard <span class="meta">— 48 findings · avg CVSS 6.78</span></div>
 <div class="demo-card">
@@ -7038,7 +8105,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div class="col-3"><div class="text-muted small" style="font-size:0.6rem;text-transform:uppercase;">Medium</div><div class="fw-bold text-primary">14</div></div>
 <div class="col-3"><div class="text-muted small" style="font-size:0.6rem;text-transform:uppercase;">Low</div><div class="fw-bold text-secondary">7</div></div>
 </div>
-<table class="demo-table">
+<table class="demo-table ecs-risk-table-wrap">
 <thead><tr><th>Finding</th><th>App</th><th>Severity</th><th>CVSS</th><th>Status</th></tr></thead>
 <tbody>
 
@@ -7111,6 +8178,24 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 
 </div>
 </div>
+</div>
+
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-evidence" role="tabpanel">
+
+
+<div class="demo-section-title">Evidence Aging Distribution</div>
+<div class="demo-pie">
+
+<span class="seg sev-Low">0-30 days · 128</span>
+
+<span class="seg sev-Medium">31-60 days · 102</span>
+
+<span class="seg sev-Medium">61-90 days · 114</span>
+
+<span class="seg sev-Critical">90+ days · 358</span>
+
 </div>
 
 
@@ -7219,8 +8304,48 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 
 </div>
 
+</div>
 
-<div class="demo-section-title">Framework Catalogue <span class="meta">— 15 frameworks · 307 controls · 706 evidence</span></div>
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-compliance" role="tabpanel">
+
+
+<div class="demo-section-title">Multi-Year Audit History <span class="meta">— 5-year findings, closure %, recurring findings, avg readiness</span></div>
+<div class="demo-card">
+<table class="demo-table">
+<thead><tr><th>Year</th><th>Findings Raised</th><th>Findings Closed</th><th>Closure %</th><th>Recurring</th><th>Avg Readiness %</th></tr></thead>
+<tbody>
+
+<tr><td><strong>2022</strong></td><td>163</td><td>135</td>
+<td>82.8%</td><td>17</td><td>87.1%</td></tr>
+
+<tr><td><strong>2023</strong></td><td>222</td><td>199</td>
+<td>89.6%</td><td>25</td><td>81.8%</td></tr>
+
+<tr><td><strong>2024</strong></td><td>213</td><td>193</td>
+<td>90.6%</td><td>23</td><td>82.3%</td></tr>
+
+<tr><td><strong>2025</strong></td><td>257</td><td>224</td>
+<td>87.2%</td><td>22</td><td>79.4%</td></tr>
+
+<tr><td><strong>2026</strong></td><td>195</td><td>168</td>
+<td>86.2%</td><td>23</td><td>76.3%</td></tr>
+
+</tbody>
+</table>
+</div>
+
+<div class="demo-section-title mt-3">AI Governance Posture <span class="meta">— prompt audit · hallucinations · token usage</span></div>
+
+<div class="demo-card">
+<div class="row g-1 mb-2">
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Prompts</div><div class="fw-bold">80</div></div>
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Hallucinations</div><div class="fw-bold text-warning">10</div></div>
+<div class="col-4 text-center"><div class="text-muted" style="font-size:0.6rem;text-transform:uppercase;">Unsafe</div><div class="fw-bold text-danger">0</div></div>
+</div>
+</div>
+
+
+<div class="demo-section-title">Framework Catalogue <span class="meta">— 15 frameworks · 305 controls · 702 evidence</span></div>
 <div class="demo-card">
 <table class="demo-table">
 <thead><tr><th>Framework</th><th>Category</th><th>Cycle</th><th>Controls</th><th>Evidence</th><th>Applications</th><th>Readiness</th></tr></thead>
@@ -7230,8 +8355,8 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td><strong>ITPP</strong></td>
 <td>Audit</td>
 <td>Annual</td>
-<td>26</td>
-<td>60</td>
+<td>25</td>
+<td>58</td>
 <td class="small">Loan System, Mobile Banking, Net Banking, Pay</td>
 <td>
 <span class="demo-mini-bar d-inline-block" style="width: 80px;"><span class="fill risk" style="width: 51.3%; display:block;"></span></span>
@@ -7243,8 +8368,8 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <td><strong>SOC2</strong></td>
 <td>Audit</td>
 <td>Quarterly</td>
-<td>26</td>
-<td>60</td>
+<td>25</td>
+<td>58</td>
 <td class="small">Loan System, Mobile Banking, Net Banking, Pay</td>
 <td>
 <span class="demo-mini-bar d-inline-block" style="width: 80px;"><span class="fill risk" style="width: 51.3%; display:block;"></span></span>
@@ -7425,6 +8550,322 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 </table>
 </div>
 
+</div>
+
+<div class="tab-pane fade ecs-persona-tab-pane" id="tab-analytics" role="tabpanel">
+<div class="demo-section-title">ServiceNow Tickets <span class="meta">— last 60 CHG / INC / PRB / RITM</span></div>
+<div class="demo-card ecs-risk-table-wrap" style="max-height: 420px; overflow-y: auto;">
+<table class="demo-table ecs-risk-table">
+<thead><tr><th>Ticket</th><th>Type</th><th>Title</th><th>App</th><th>Framework</th><th>State</th><th>Priority</th></tr></thead>
+<tbody>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC208375">
+<td><code>INC208375</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="DLP incident — outbound email">DLP incident — outbound email</span></td>
+<td>UPI</td>
+<td>DPSC</td>
+<td>Closed</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG1039793">
+<td><code>CHG1039793</code></td>
+<td>CHG</td>
+<td><span class="ecs-cell-tip" title="Nginx WAF ruleset upgrade">Nginx WAF ruleset upgrade</span></td>
+<td>Customer Onboarding</td>
+<td>ITDRM</td>
+<td>Review</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG940804">
+<td><code>CHG940804</code></td>
+<td>CHG</td>
+<td><span class="ecs-cell-tip" title="TLS cipher hardening — Internet Banking edge">TLS cipher hardening — Internet Banking edge</span></td>
+<td>Customer Onboarding</td>
+<td>ITDRM</td>
+<td>Scheduled</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC560483">
+<td><code>INC560483</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="SIEM correlation alert — UPI switch latency">SIEM correlation alert — UPI switch latency</span></td>
+<td>Net Banking</td>
+<td>PCI DSS</td>
+<td>Resolved</td>
+<td><span class="badge badge-High">P2</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC1091675">
+<td><code>INC1091675</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Privileged session breach detected — Treasury">Privileged session breach detected — Treasury</span></td>
+<td>API Gateway</td>
+<td>ISG</td>
+<td>In Progress</td>
+<td><span class="badge badge-Critical">P1</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC475563">
+<td><code>INC475563</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="SIEM correlation alert — UPI switch latency">SIEM correlation alert — UPI switch latency</span></td>
+<td>Payments</td>
+<td>OS Baselining</td>
+<td>New</td>
+<td><span class="badge badge-Medium">P3</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM414566">
+<td><code>RITM414566</code></td>
+<td>RITM</td>
+<td><span class="ecs-cell-tip" title="Encryption key escrow attestation">Encryption key escrow attestation</span></td>
+<td>Treasury</td>
+<td>CSITE</td>
+<td>Closed Complete</td>
+<td><span class="badge badge-Critical">P1</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC131253">
+<td><code>INC131253</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Stale evidence escalation — PCI DSS Req 3.4">Stale evidence escalation — PCI DSS Req 3.4</span></td>
+<td>Retail Banking</td>
+<td>VAPT</td>
+<td>New</td>
+<td><span class="badge badge-Medium">P3</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM217671">
+<td><code>RITM217671</code></td>
+<td>RITM</td>
+<td><span class="ecs-cell-tip" title="Encryption key escrow attestation">Encryption key escrow attestation</span></td>
+<td>Customer Onboarding</td>
+<td>Nginx Baselining</td>
+<td>Closed Complete</td>
+<td><span class="badge badge-High">P2</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG872374">
+<td><code>CHG872374</code></td>
+<td>CHG</td>
+<td><span class="ecs-cell-tip" title="Firewall rule update — CDE perimeter">Firewall rule update — CDE perimeter</span></td>
+<td>Net Banking</td>
+<td>SOC2</td>
+<td>Review</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM916296">
+<td><code>RITM916296</code></td>
+<td>RITM</td>
+<td><span class="ecs-cell-tip" title="Encryption key escrow attestation">Encryption key escrow attestation</span></td>
+<td>Core Banking</td>
+<td>VAPT</td>
+<td>Closed Complete</td>
+<td><span class="badge badge-Medium">P3</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM123279">
+<td><code>RITM123279</code></td>
+<td>RITM</td>
+<td><span class="ecs-cell-tip" title="VA scan request — Wealth Portal quarterly">VA scan request — Wealth Portal quarterly</span></td>
+<td>Digital Lending</td>
+<td>ASST</td>
+<td>Closed Complete</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="PRB520453">
+<td><code>PRB520453</code></td>
+<td>PRB</td>
+<td><span class="ecs-cell-tip" title="Recurring DB privileged commands during off-hours">Recurring DB privileged commands during off-hours</span></td>
+<td>Loan Origination</td>
+<td>ITPP</td>
+<td>Resolved</td>
+<td><span class="badge badge-Critical">P1</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC1034345">
+<td><code>INC1034345</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="DAST critical finding — Mobile Banking API">DAST critical finding — Mobile Banking API</span></td>
+<td>Core Banking</td>
+<td>DPSC</td>
+<td>In Progress</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM329105">
+<td><code>RITM329105</code></td>
+<td>RITM</td>
+<td><span class="ecs-cell-tip" title="Auditor access provisioning — Deloitte Q2 cycle">Auditor access provisioning — Deloitte Q2 cycle</span></td>
+<td>Customer Onboarding</td>
+<td>ASST</td>
+<td>Open</td>
+<td><span class="badge badge-High">P2</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC857272">
+<td><code>INC857272</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Privileged session breach detected — Treasury">Privileged session breach detected — Treasury</span></td>
+<td>AML Engine</td>
+<td>ASST</td>
+<td>In Progress</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="CHG893674">
+<td><code>CHG893674</code></td>
+<td>CHG</td>
+<td><span class="ecs-cell-tip" title="TLS cipher hardening — Internet Banking edge">TLS cipher hardening — Internet Banking edge</span></td>
+<td>API Gateway</td>
+<td>DB Baselining</td>
+<td>Review</td>
+<td><span class="badge badge-High">P2</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC184658">
+<td><code>INC184658</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="DAST critical finding — Mobile Banking API">DAST critical finding — Mobile Banking API</span></td>
+<td>Retail Banking</td>
+<td>ISO27001</td>
+<td>New</td>
+<td><span class="badge badge-High">P2</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="PRB558928">
+<td><code>PRB558928</code></td>
+<td>PRB</td>
+<td><span class="ecs-cell-tip" title="Recurring SoD violation — Payments admin role">Recurring SoD violation — Payments admin role</span></td>
+<td>Retail Banking</td>
+<td>ISO27001</td>
+<td>Investigation</td>
+<td><span class="badge badge-Critical">P1</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="RITM708888">
+<td><code>RITM708888</code></td>
+<td>RITM</td>
+<td><span class="ecs-cell-tip" title="Evidence re-upload — MFA enforcement screenshot">Evidence re-upload — MFA enforcement screenshot</span></td>
+<td>Mobile Banking Edge</td>
+<td>AppSec</td>
+<td>Closed Complete</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="PRB301569">
+<td><code>PRB301569</code></td>
+<td>PRB</td>
+<td><span class="ecs-cell-tip" title="Recurring DB privileged commands during off-hours">Recurring DB privileged commands during off-hours</span></td>
+<td>Customer Onboarding</td>
+<td>ITDRM</td>
+<td>Resolved</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC781297">
+<td><code>INC781297</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Stale evidence escalation — PCI DSS Req 3.4">Stale evidence escalation — PCI DSS Req 3.4</span></td>
+<td>Internet Banking</td>
+<td>AppSec</td>
+<td>Resolved</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC673690">
+<td><code>INC673690</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Privileged session breach detected — Treasury">Privileged session breach detected — Treasury</span></td>
+<td>Internet Banking</td>
+<td>AppSec</td>
+<td>Resolved</td>
+<td><span class="badge badge-High">P2</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC434832">
+<td><code>INC434832</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Stale evidence escalation — PCI DSS Req 3.4">Stale evidence escalation — PCI DSS Req 3.4</span></td>
+<td>AML Engine</td>
+<td>ITDRM</td>
+<td>Closed</td>
+<td><span class="badge badge-Medium">P3</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC1091489">
+<td><code>INC1091489</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Privileged session breach detected — Treasury">Privileged session breach detected — Treasury</span></td>
+<td>Loan System</td>
+<td>ISG</td>
+<td>Closed</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC852980">
+<td><code>INC852980</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Stale evidence escalation — PCI DSS Req 3.4">Stale evidence escalation — PCI DSS Req 3.4</span></td>
+<td>Loan System</td>
+<td>ISG</td>
+<td>In Progress</td>
+<td><span class="badge badge-Critical">P1</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC258303">
+<td><code>INC258303</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="SIEM correlation alert — UPI switch latency">SIEM correlation alert — UPI switch latency</span></td>
+<td>Retail Banking</td>
+<td>VAPT</td>
+<td>Closed</td>
+<td><span class="badge badge-High">P2</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC513721">
+<td><code>INC513721</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="DAST critical finding — Mobile Banking API">DAST critical finding — Mobile Banking API</span></td>
+<td>UPI</td>
+<td>ISO27001</td>
+<td>Closed</td>
+<td><span class="badge badge-Low">P4</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC374956">
+<td><code>INC374956</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="Stale evidence escalation — PCI DSS Req 3.4">Stale evidence escalation — PCI DSS Req 3.4</span></td>
+<td>Mobile Banking Edge</td>
+<td>PCI DSS</td>
+<td>Closed</td>
+<td><span class="badge badge-High">P2</span></td>
+</tr>
+
+<tr class="ecs-demo-drill" data-ecs-demo-ticket="INC675953">
+<td><code>INC675953</code></td>
+<td>INC</td>
+<td><span class="ecs-cell-tip" title="DAST critical finding — Mobile Banking API">DAST critical finding — Mobile Banking API</span></td>
+<td>AML Engine</td>
+<td>Nginx Baselining</td>
+<td>New</td>
+<td><span class="badge badge-Medium">P3</span></td>
+</tr>
+
+</tbody>
+</table>
+</div>
+</div>
+
+</div>
+
 </div></div></div>
 
 
@@ -7437,7 +8878,7 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div class="modal-footer py-1"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button></div>
 </div></div></div>
 
-<div class="chat-popup ecs-chat-copilot ecs-chat-size-md" id="ecsChatCopilot" data-state="expanded">
+<div class="chat-popup ecs-chat-copilot ecs-chat-size-md" id="ecsChatCopilot" data-state="minimized" data-dock="right">
 <button type="button" class="ecs-chat-fab" id="ecsChatFab" title="Open ECS AI Copilot" aria-label="Open copilot">
 <span class="ecs-chat-fab-icon">✦</span>
 <span class="badge bg-danger ecs-chat-fab-badge" id="ecsChatFabBadge" style="display:none">0</span>
@@ -7462,6 +8903,10 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <span class="badge bg-primary ecs-chat-role-badge ms-1">Cio</span>
 </div>
 <div class="ecs-chat-header-controls" role="toolbar" aria-label="Copilot controls">
+<div class="btn-group btn-group-sm ecs-chat-dock-group me-1" role="group" aria-label="Dock position">
+<button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-dock-btn" data-dock="right" title="Dock right">R</button>
+<button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-dock-btn" data-dock="bottom" title="Dock bottom">B</button>
+</div>
 <div class="btn-group btn-group-sm ecs-chat-size-group" role="group" aria-label="Window size">
 <button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-size-btn" data-size="sm" title="Small">S</button>
 <button type="button" class="btn btn-outline-secondary ecs-chat-ctrl-btn ecs-chat-size-btn active" data-size="md" title="Medium">M</button>
@@ -7481,59 +8926,28 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
 <div class="ecs-chat-history" id="ecsChatHistory">
 
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:executive</div></div>
-<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Executive View] — Net Banking
-See detailed response in copilot panel.</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">09:39 UTC · You</small><div>What is PCI DSS?</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>ECS Audit Copilot · 2026-07-20 09:39:10 UTC · Role: CIO
+[PCI DSS]
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:audit</div></div>
-<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Audit View] — Net Banking
-See detailed response in copilot panel.</div></div>
+PCI DSS — Enterprise Framework
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:compliance</div></div>
-<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Compliance View] — Net Banking
-See detailed response in copilot panel.</div></div>
+PCI DSS is the enterprise compliance framework governing payment card industry data security standard — cardholder data protection, encryption, access control, logging, and vulnerab…</div></div>
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:evidence</div></div>
-<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Evidence View] — Net Banking
-See detailed response in copilot panel.</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">09:39 UTC · You</small><div>Show high-risk controls</div></div>
+<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>ECS Audit Copilot · 2026-07-20 09:39:10 UTC · Role: CIO
+[PCI DSS]
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:incident</div></div>
-<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Incident View] — Net Banking
-See detailed response in copilot panel.</div></div>
+High-Risk Observations
 
-<div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">10:12 UTC · You</small><div>@outage-mode:net_banking:root_cause</div></div>
-<div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>[Root_Cause View] — Net Banking
-See detailed response in copilot panel.</div></div>
+5 high/critical risk observations identified.
+  • [High] Req 11.5 — Internal Vulnerability Scan (PCI DSS)
+  • [High] Req 4.1 — Encryption in Transit (PCI DSS)
+  • [High] Req 10.2 — Audit Tr…</div></div>
 
 
 </div>
 <div class="ecs-chat-answer-main" id="ecsChatAnswerMain">
-
-<div class="ecs-chat-response ecs-chat-response-html" id="ecsChatLatest">
-<div class="ecs-ops-intel-card border rounded p-2 mb-1">
-<div class="d-flex justify-content-between align-items-start mb-2">
-<div><span class="badge bg-warning ecs-ops-severity">HIGH</span>
-<span class="badge bg-secondary ms-1">DEGRADED</span></div>
-<small class="text-muted">Operations Intelligence</small></div>
-<h6 class="mb-1">Net Banking</h6>
-<p class="small mb-2"><strong>Customer Impact:</strong> Login failures and transaction delays observed across retail internet banking channels.</p>
-<div class="small mb-2"><strong>Data compromise:</strong> <span class="text-success">NOT DETECTED</span>
-· <strong>ETA:</strong> <span class="badge bg-info text-dark">45–60 minutes</span></div>
-<div class="mb-2"><small class="text-muted d-block">Correlated governance signals:</small><ul class="mb-0 ps-3 ecs-paginated-list"><li class="small">ServiceNow P1 INC0041287 — login degradation</li><li class="small">DB cluster failover instability — CBS_ORACLE_CLUSTER</li><li class="small">Tripwire sudo policy drift — NETBANKING_PROD</li><li class="small">Prisma IAM finding — exposed Redis cache tier</li></ul></div>
-<div class="ecs-ops-mode-select mb-2 p-2 bg-light rounded"><small class="text-muted d-block mb-1">Select response mode (expand for detail):</small><button type="button" class="btn btn-sm btn-outline-primary ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:business">Business Summary</button><button type="button" class="btn btn-sm btn-outline-dark ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:technical">Technical Summary</button><button type="button" class="btn btn-sm btn-outline-info ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:executive">Executive Summary</button><button type="button" class="btn btn-sm btn-outline-warning ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:audit">Audit Summary</button><button type="button" class="btn btn-sm btn-outline-danger ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:compliance">Compliance Summary</button><button type="button" class="btn btn-sm btn-outline-success ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:evidence">Evidence Summary</button><button type="button" class="btn btn-sm btn-outline-secondary ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:incident">Incident Summary</button><button type="button" class="btn btn-sm btn-outline-dark ecs-outage-mode-btn me-1 mb-1" data-q="@outage-mode:net_banking:root_cause">Root Cause Analysis</button></div>
-<details class="ecs-ops-timeline small mb-2"><summary>Operations timeline</summary><div class="ecs-ops-timeline-item"><small class="text-muted">2026-05-24 08:12 UTC</small><br>SOC alert — elevated login failure rate</div><div class="ecs-ops-timeline-item"><small class="text-muted">2026-05-24 08:18 UTC</small><br>ServiceNow P1 INC0041287 opened</div><div class="ecs-ops-timeline-item"><small class="text-muted">2026-05-24 08:25 UTC</small><br>DB failover initiated — partial instability</div><div class="ecs-ops-timeline-item"><small class="text-muted">2026-05-24 08:40 UTC</small><br>Governance correlation — Tripwire drift linked</div></details>
-<div class="ecs-ops-followups"><small class="text-muted d-block">Suggested follow-ups:</small><button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" data-action="show_impacted_applications" data-scenario="net_banking">Show impacted applications</button><button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" data-action="show_related_incidents" data-scenario="net_banking">Show related incidents</button><button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" data-action="show_open_high_risk_observations" data-scenario="net_banking">Show open high-risk observations</button><button type="button" class="btn btn-outline-primary btn-sm ecs-chat-quick-action me-1 mb-1" data-action="show_active_td_exceptions" data-scenario="net_banking">Show active TD exceptions</button></div>
-</div>
-<details open class="ecs-ops-detail-wrap mb-2"><summary class="fw-semibold text-dark">Root Cause Analysis</summary>
-<div class="ecs-ops-detail border-start border-4 border-dark ps-2 mt-2">
-<p>5-Whys style RCA for <strong>Net Banking</strong>:</p>
-<ol class="ecs-paginated-list"><li><strong>Level 1:</strong> DB cluster failover instability during peak login window</li><li><strong>Level 2:</strong> Unresolved Tripwire baseline drift on authentication middleware</li><li><strong>Level 3:</strong> Delayed backup synchronization affecting recovery validation</li><li><strong>Level 4:</strong> Elevated Prisma cloud IAM vulnerabilities on cache tier</li></ol>
-<p><strong>Contributing governance gaps:</strong></p>
-<ul class="ecs-paginated-list"><li>DB Baselining — Transparent Data Encryption review pending</li><li>ITPP — DR Drill Conducted overdue</li><li>ServiceNow P1 incident unresolved (42m)</li></ul>
-<p><strong>Corrective actions:</strong></p>
-<ul class="ecs-paginated-list"><li>Validate DB replication and failover consistency</li><li>Review open P1 ServiceNow incidents</li><li>Trigger ITPP DR readiness verification</li><li>Review unresolved Prisma IAM findings</li></ul>
-<p class="mb-0"><em>Permanent fix requires DB failover hardening + Tripwire drift closure + ITPP DR validation.</em></p>
-</div></details><div class="ecs-ops-drilldowns mt-2 pt-2 border-top"><small class="text-muted d-block mb-1">Drilldowns:</small><a href="/mvp/correlation?role=cio&user=cio%40bank.com&application=Net%20Banking" class="btn btn-outline-dark btn-sm me-1 mb-1">Correlation Chain</a> <a href="/mvp/correlation?role=cio&user=cio%40bank.com&application=Net%20Banking" class="btn btn-outline-primary btn-sm me-1 mb-1">Cross-Tool Correlation</a> <a href="/mvp/audit-prep?role=cio&user=cio%40bank.com&application=Net%20Banking&tab=gaps" class="btn btn-outline-warning btn-sm me-1 mb-1">Audit Prep Gaps</a> <a href="/mvp/evidence-health?role=cio&user=cio%40bank.com&application=Net%20Banking" class="btn btn-outline-success btn-sm me-1 mb-1">Evidence Health</a> <a href="/mvp/risk-register?role=cio&user=cio%40bank.com" class="btn btn-outline-danger btn-sm me-1 mb-1">Risk Register</a></div><div class="mt-2"><button type="button" class="btn btn-sm btn-link ecs-outage-mode-btn p-0" data-q="Why is Net Banking down?">← Back to incident overview</button></div></div>
 
 </div>
 </div>
@@ -7579,8 +8993,32 @@ See detailed response in copilot panel.</div></div>
   var user = "cio@bank.com";
   var role = "cio";
   var storageKey = 'ecs_copilot_ui_' + String(user).replace(/\s/g,'_') + '_' + role;
-  var hasNewResponse = true;
-  var hasOutageAlert = true;
+  var persistKey = 'ecs_copilot_persist_' + role;
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(persistKey) || sessionStorage.getItem(storageKey) || '{}';
+      return JSON.parse(raw);
+    } catch(e) { return {}; }
+  }
+  function saveState(partial) {
+    var s = loadState();
+    Object.assign(s, partial);
+    sessionStorage.setItem(storageKey, JSON.stringify(s));
+    try { localStorage.setItem(persistKey, JSON.stringify(s)); } catch(e) {}
+  }
+
+  function setDock(dock) {
+    dock = dock === 'bottom' ? 'bottom' : 'right';
+    copilot.setAttribute('data-dock', dock);
+    document.querySelectorAll('.ecs-chat-dock-btn').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-dock') === dock);
+    });
+    saveState({ dock: dock });
+  }
+
+  var hasNewResponse = false;
+  var hasOutageAlert = false;
 
   var copilot = document.getElementById('ecsChatCopilot');
   var panel = document.getElementById('ecsChatPanel');
@@ -7592,15 +9030,6 @@ See detailed response in copilot panel.</div></div>
   var unreadBadge = document.getElementById('ecsChatUnreadBadge');
   var fabBadge = document.getElementById('ecsChatFabBadge');
   var alertBadge = document.getElementById('ecsChatAlertBadge');
-
-  function loadState() {
-    try { return JSON.parse(sessionStorage.getItem(storageKey) || '{}'); } catch(e) { return {}; }
-  }
-  function saveState(partial) {
-    var s = loadState();
-    Object.assign(s, partial);
-    sessionStorage.setItem(storageKey, JSON.stringify(s));
-  }
 
   function setState(state) {
     copilot.setAttribute('data-state', state);
@@ -7739,13 +9168,19 @@ See detailed response in copilot panel.</div></div>
 
   function initFromStorage() {
     var s = loadState();
+    setDock(s.dock || 'right');
     var size = s.size || (window.innerWidth < 768 ? 'sm' : 'md');
     setSize(size);
     var state = s.state;
-    if (window.innerWidth < 768 && !s.state) state = 'minimized';
+    // Default to a non-overlapping state on first load so dashboards/charts stay
+    // fully visible at executive-demo viewports. Expand only when the user has a
+    // saved preference, on small screens we always minimise, and we surface new
+    // responses via the unread badge below rather than auto-expanding.
+    if (!state) state = 'minimized';
     if (state === 'minimized') setState('minimized');
     else if (state === 'closed') setState('closed');
-    else setState('expanded');
+    else if (state === 'expanded') setState('expanded');
+    else setState('minimized');
     if (hasNewResponse && copilot.getAttribute('data-state') !== 'expanded') {
       var unread = (s.unread || 0) + 1;
       saveState({ unread: unread });
@@ -7810,6 +9245,13 @@ See detailed response in copilot panel.</div></div>
       copilot.classList.remove('ecs-chat-maximized');
       document.getElementById('ecsChatMaximizeBtn').textContent = '□';
       setSize(btn.getAttribute('data-size'));
+    });
+  });
+
+  document.querySelectorAll('.ecs-chat-dock-btn').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      setDock(btn.getAttribute('data-dock'));
     });
   });
 

@@ -408,6 +408,241 @@ def _action_to_status(action: str) -> str:
     return mapping.get(action, action.replace("_", " ").title())
 
 
+def resolve_upload_workflow_target(control: dict) -> dict[str, str]:
+    """Map a persisted control payload to generic workflow coordinates."""
+    from modules.frameworks.engines.framework_catalog import resolve_framework_name
+
+    frameworks = list(control.get("frameworks") or [])
+    if not frameworks:
+        coverage = str(control.get("framework_coverage") or "")
+        if coverage:
+            frameworks = [part.strip() for part in coverage.split(",") if part.strip()]
+    framework = resolve_framework_name(frameworks[0] if frameworks else "DB Baselining")
+    control_id = str(control.get("control_id") or control.get("query_id") or "")
+    control_name = str(control.get("control_name") or control_id or "Governance Control")
+    return {
+        "framework": framework,
+        "control_name": control_name,
+        "control_id": control_id,
+        "query_id": control_id,
+    }
+
+
+def enroll_persisted_evidence(
+    upload: dict,
+    *,
+    control: dict,
+    artifact: dict | None = None,
+    source_connector: str = "PREDEFINED_QUERY",
+) -> dict[str, str]:
+    """Place a persisted upload into the generic App Owner workflow queue."""
+    target = resolve_upload_workflow_target(control)
+    key = ecs_state.control_key(target["framework"], target["control_name"])
+    evidence_id = str(upload.get("evidence_id") or "")
+    version = int(upload.get("version") or upload.get("evidence_version") or 1)
+    object_key = str((upload.get("metadata") or {}).get("object_key") or upload.get("object_key") or "")
+    sha256 = str(upload.get("sha256") or (upload.get("metadata") or {}).get("content_sha256") or "")
+    custody_mode = str(upload.get("custody_mode") or "")
+    now = _ts()
+    upload.update({
+        "workflow_status": "Pending App Owner Review",
+        "validation_status": "Pending Review",
+        "lifecycle": "Draft",
+        "status": "Pending App Owner Review",
+        "source_connector": source_connector,
+        "query_id": target["query_id"],
+        "evidence_version": version,
+        "object_key": object_key,
+        "environment": upload.get("environment") or str((artifact or {}).get("environment") or ""),
+        "framework": target["framework"],
+        "application": (upload.get("application_tags") or ["Net Banking"])[0]
+        if upload.get("application_tags")
+        else str((artifact or {}).get("application") or "Net Banking"),
+    })
+    enrollment = {
+        "key": key,
+        "framework": target["framework"],
+        "control_name": target["control_name"],
+        "control_id": target["control_id"],
+        "query_id": target["query_id"],
+        "evidence_id": evidence_id,
+        "evidence_version": version,
+        "application": upload["application"],
+        "environment": upload.get("environment") or "",
+        "source_connector": source_connector,
+        "custody_mode": custody_mode,
+        "object_key": object_key,
+        "sha256": sha256,
+        "status": "Pending App Owner Review",
+        "uploaded_at": upload.get("uploaded_at") or now,
+        "uploaded_by": upload.get("uploaded_by") or "",
+        "artifact_preview": (artifact or {}).get("result") or [],
+        "framework_tags": list(upload.get("framework_tags") or []),
+    }
+    for stale_id, stale in list(ecs_state.uploaded_evidence_enrollments.items()):
+        if isinstance(stale, dict) and stale.get("key") == key and stale.get("evidence_id") not in ("", evidence_id):
+            ecs_state.uploaded_evidence_enrollments.pop(stale.get("evidence_id"), None)
+    ecs_state.uploaded_evidence_enrollments[evidence_id] = enrollment
+    ecs_state.uploaded_evidence_enrollments[key] = enrollment
+    return enrollment
+
+
+def get_enrollment(*, evidence_id: str = "", key: str = "") -> dict | None:
+    if evidence_id:
+        row = ecs_state.uploaded_evidence_enrollments.get(evidence_id)
+        if isinstance(row, dict) and row.get("evidence_id"):
+            return row
+    if key:
+        row = ecs_state.uploaded_evidence_enrollments.get(key)
+        if isinstance(row, dict) and row.get("evidence_id"):
+            return row
+    return None
+
+
+def build_enrolled_owner_queue_items() -> list[dict]:
+    """Dynamic owner-queue rows for persisted uploads outside the static catalog."""
+    from modules.governance.engines.workflow_module import PRIORITY_ORDER, _enrich_queue_item
+
+    items: list[dict] = []
+    seen: set[str] = set()
+    for row in ecs_state.uploaded_evidence_enrollments.values():
+        if not isinstance(row, dict) or not row.get("key"):
+            continue
+        key = row["key"]
+        if key in seen or key in ecs_state.approved_controls or key in ecs_state.submitted_controls:
+            continue
+        if key in ecs_state.cancelled_drafts:
+            continue
+        seen.add(key)
+        wf_code = "rejected" if key in ecs_state.rejected_controls else "pending"
+        wf_label = (
+            "Rejected by Auditor"
+            if wf_code == "rejected"
+            else "Draft — Pending App Owner Review"
+        )
+        item = {
+            "key": key,
+            "framework": row["framework"],
+            "application": row.get("application", "Net Banking"),
+            "control": row["control_name"],
+            "control_id": row.get("control_id") or row.get("query_id") or "",
+            "evidence_name": f"Predefined Query {row.get('query_id', '')}".strip(),
+            "evidence_id": row.get("evidence_id", ""),
+            "mock_file": f"PREDEFINED_QUERY_{row.get('query_id', 'PQ')}.json",
+            "evidence_status": "Current",
+            "auditor_comments": ecs_state.rejected_controls.get(key, {}).get("reason", "—"),
+            "due_date": "2026-09-30",
+            "aging_days": 0,
+            "priority": "High" if wf_code == "rejected" else "Medium",
+            "submitted_timestamp": row.get("uploaded_at", _ts()),
+            "expiry_date": "2026-09-30",
+            "workflow_status": wf_label,
+            "workflow_code": wf_code,
+            "action_type": "Rejected evidence requires resubmission"
+            if wf_code == "rejected"
+            else "Evidence upload pending",
+            "app_owner": row.get("uploaded_by") or "App Owner",
+            "risk_rating": "High" if wf_code == "rejected" else "Medium",
+            "evidence_health": "Valid",
+            "expiry_risk": "None",
+            "escalated": key in ecs_state.escalated_controls,
+            "server_name": row.get("application", ""),
+            "environment": row.get("environment", ""),
+            "region": "Central",
+            "owner_comments": ecs_state.owner_comments.get(key, []),
+            "source_connector": row.get("source_connector", ""),
+        }
+        items.append(_enrich_queue_item(item))
+    items.sort(key=lambda x: (PRIORITY_ORDER.get(x["priority"], 9), -x["aging_days"]))
+    return items
+
+
+def build_enrolled_auditor_queue_items() -> list[dict]:
+    from modules.governance.engines.workflow_module import _enrich_queue_item
+
+    items: list[dict] = []
+    for key in ecs_state.submitted_controls:
+        enrollment = get_enrollment(key=key)
+        if not enrollment:
+            continue
+        item = {
+            "key": key,
+            "framework": enrollment["framework"],
+            "application": enrollment.get("application", "Net Banking"),
+            "control": enrollment["control_name"],
+            "control_id": enrollment.get("control_id") or enrollment.get("query_id") or "",
+            "evidence_name": f"Predefined Query {enrollment.get('query_id', '')}".strip(),
+            "evidence_id": enrollment.get("evidence_id", ""),
+            "mock_file": f"PREDEFINED_QUERY_{enrollment.get('query_id', 'PQ')}.json",
+            "evidence_status": "Current",
+            "auditor_comments": "Awaiting auditor review.",
+            "due_date": "2026-09-30",
+            "aging_days": 0,
+            "priority": "Medium",
+            "submitted_timestamp": ecs_state.submitted_meta.get(key, {}).get("submitted_at", _ts()),
+            "expiry_date": "2026-09-30",
+            "workflow_status": "Pending Auditor Review",
+            "workflow_code": "submitted",
+            "action_type": "Observation closure pending",
+            "app_owner": enrollment.get("uploaded_by") or "App Owner",
+            "risk_rating": "Medium",
+            "evidence_health": "Valid",
+            "expiry_risk": "None",
+            "escalated": key in ecs_state.escalated_controls,
+            "server_name": enrollment.get("application", ""),
+            "environment": enrollment.get("environment", ""),
+            "region": "Central",
+            "owner_comments": ecs_state.owner_comments.get(key, []),
+            "source_connector": enrollment.get("source_connector", ""),
+        }
+        items.append(_enrich_queue_item(item))
+    return items
+
+
+def open_observation_for_rejection(
+    *,
+    framework: str,
+    control_name: str,
+    control_id: str = "",
+    reason: str,
+    user: str,
+    evidence_id: str = "",
+) -> str:
+    """Open or refresh a workflow observation when auditor rejects evidence."""
+    from modules.frameworks.engines.framework_catalog import resolve_framework_name
+
+    fw = resolve_framework_name(framework)
+    obs_id = observation_id_for(fw, control_name, control_id)
+    ts = _ts()
+    rec = ecs_state.missing_evidence_registry.get(obs_id) or {
+        "observation_id": obs_id,
+        "framework": fw,
+        "control_id": control_id or control_name,
+        "control_name": control_name,
+        "control": control_name,
+        "application": "Net Banking",
+        "missing_evidence": reason,
+        "evidence_type": "Predefined Query JSON",
+        "status": "Rejected",
+        "observation_severity": "Major",
+        "risk": "High",
+        "owner": user,
+        "history": [],
+    }
+    rec.update({
+        "status": "Rejected",
+        "missing_evidence": reason,
+        "evidence_id": evidence_id or rec.get("evidence_id", ""),
+        "rejected_by": user,
+        "rejected_at": ts,
+    })
+    rec.setdefault("history", []).append(
+        {"date": ts, "action": "Rejected By Auditor", "actor": user, "remarks": reason},
+    )
+    ecs_state.missing_evidence_registry[obs_id] = rec
+    return obs_id
+
+
 def drill_workflow_metric(role: str, metric: str, count: int = 0) -> dict:
     """Enterprise-wide evidence workflow drill — traceable to displayed counts."""
     from modules.shared.utils.demo_data_standards import ensure_drill_rows, generate_standard_drill_row, pick, seed, between

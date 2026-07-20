@@ -546,6 +546,27 @@ def chatbot_answer(query: str, role: str = "owner", user: str = "User", framewor
                 fw_hint = name
                 break
 
+    from modules.shared.services.chatbot_engine import record_exchange
+    from modules.shared.services.common_evidence_queries import (
+        format_evidence_chat_response,
+        is_evidence_catalog_query,
+        try_deterministic_evidence_query,
+        try_rag_evidence_query,
+    )
+
+    det = try_deterministic_evidence_query(query, role=role, user=user)
+    if det is not None:
+        ans = format_evidence_chat_response(det, fw_hint)
+        record_exchange(user, role, query, ans)
+        return ans
+
+    if is_evidence_catalog_query(query):
+        rag = try_rag_evidence_query(query, role=role, user=user, framework=fw_hint)
+        if rag is not None:
+            ans = format_evidence_chat_response(rag, fw_hint)
+            record_exchange(user, role, query, ans)
+            return ans
+
     enhanced = try_enhanced_answer(query, role=role, user=user)
     if enhanced:
         return enhanced
@@ -1448,7 +1469,13 @@ def approve(
         del ecs_state.submitted_meta[key]
     record_approval(framework_name, control_name, user, "Observation Closed - Auditor Approved")
 
-    closed = close_observations_for_control(framework_name, control_name, "", user, role, auto=True)
+    from modules.shared.services.evidence_workflow_engine import get_enrollment
+
+    enrollment = get_enrollment(key=key)
+    resolved_control_id = (enrollment or {}).get("control_id") or (enrollment or {}).get("query_id") or ""
+    closed = close_observations_for_control(
+        framework_name, control_name, resolved_control_id, user, role, auto=True
+    )
     tp = toast_payload("approved", framework=framework_name, control=control_name)
     if closed:
         tp["body"] = f"Observation {closed[0]} closed successfully."
@@ -1504,6 +1531,18 @@ def reject(
     if key in ecs_state.submitted_meta:
         del ecs_state.submitted_meta[key]
     record_rejection(framework_name, control_name, user, reason)
+
+    from modules.shared.services.evidence_workflow_engine import get_enrollment, open_observation_for_rejection
+
+    enrollment = get_enrollment(key=control_key(framework_name, control_name))
+    open_observation_for_rejection(
+        framework=framework_name,
+        control_name=control_name,
+        control_id=(enrollment or {}).get("control_id") or (enrollment or {}).get("query_id") or "",
+        reason=reason,
+        user=user,
+        evidence_id=evidence_id or (enrollment or {}).get("evidence_id") or "",
+    )
 
     tp = toast_payload("rejected", framework=framework_name, control=control_name, detail=reason[:120])
     record_transition(key, "rejected", user, role, reason)

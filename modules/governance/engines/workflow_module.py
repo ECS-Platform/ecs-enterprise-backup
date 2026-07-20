@@ -348,6 +348,13 @@ def build_owner_work_queue(limit: int = 80) -> list[dict]:
                             extra["action_type"] = "Expiring evidence"
                             items.append(extra)
 
+    from modules.shared.services.evidence_workflow_engine import build_enrolled_owner_queue_items
+
+    for extra in build_enrolled_owner_queue_items():
+        if extra["key"] not in seen_keys:
+            seen_keys.add(extra["key"])
+            items.append(extra)
+
     items.sort(key=lambda x: (PRIORITY_ORDER.get(x["priority"], 9), -x["aging_days"]))
     return [_enrich_queue_item(i) for i in items[:limit]]
 
@@ -364,6 +371,13 @@ def build_auditor_review_queue(limit: int = 80) -> list[dict]:
         item = _queue_item(framework, ctrl, ev, include_closed=False)
         if item and item["workflow_code"] == "submitted":
             items.append(item)
+
+    from modules.shared.services.evidence_workflow_engine import build_enrolled_auditor_queue_items
+
+    enrolled_keys = {row["key"] for row in items}
+    for extra in build_enrolled_auditor_queue_items():
+        if extra["key"] not in enrolled_keys:
+            items.append(extra)
 
     for key, info in ecs_state.escalated_controls.items():
         if key not in ecs_state.submitted_controls:

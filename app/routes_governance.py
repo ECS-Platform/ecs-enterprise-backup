@@ -333,8 +333,8 @@ def register_governance_routes(app, templates):
 
     @app.get("/api/platform/rag/status")
     def api_rag_status():
-        from ecs_platform.rag import rag_status
-        return JSONResponse(rag_status())
+        from modules.shared.services.common_evidence_queries import evidence_search_status
+        return JSONResponse(evidence_search_status())
 
     @app.get("/api/platform/rag/gemini")
     def api_rag_gemini():
