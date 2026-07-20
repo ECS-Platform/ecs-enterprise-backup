@@ -60,6 +60,8 @@ def _linux_job(frameworks=("PCI DSS", "ITPP")):
 def _stub_planner(monkeypatch):
     """Stub asset loading + planning so tests never depend on the asset YAML and
     never hit a connector. execute_plan is left to per-test spying."""
+    monkeypatch.setenv("ECS_COMMON_CONTROLS_COLLECTION_ENABLED", "false")
+    monkeypatch.setenv("ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED", "false")
     monkeypatch.setattr(sch, "load_assets", lambda *a, **k: [])
     monkeypatch.setattr(
         sch, "plan_evidence",
@@ -153,10 +155,11 @@ def test_selection_filters_planned_jobs(monkeypatch):
     res_pay = sm.run_scheduler_collection(user="t", applications=["Payments"])
     assert res_pay["planned_jobs"] == 1
     assert res_pay["connectors"] == ["jira"]
-    # Framework filter is exact on planned job frameworks.
+    # Framework filter is exact on planned job frameworks; connector jobs without
+    # framework tags still pass (see _job_matches_selection).
     res_fw = sm.run_scheduler_collection(user="t", frameworks=["ITPP"])
-    assert res_fw["planned_jobs"] == 1
-    assert res_fw["connectors"] == []
+    assert res_fw["planned_jobs"] == 3
+    assert res_fw["connectors"] == ["jira", "sharepoint_graph"]
     # An empty selection means "all".
     res_all = sm.run_scheduler_collection(user="t")
     assert res_all["planned_jobs"] == 3

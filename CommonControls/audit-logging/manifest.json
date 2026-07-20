@@ -1,0 +1,19 @@
+{
+  "common_control": "Audit Logging",
+  "control_id": "CC-AUDIT_LOGGING",
+  "slug": "audit-logging",
+  "phase": "Phase1",
+  "technology": "Common Control",
+  "application": "ECS Common Controls",
+  "environment": "MVP",
+  "predefined_query_ids": ["PGX-008", "RH8-005", "RH9-005", "PCI-002", "DB-005"],
+  "alternate_collection": "Bash + SQL + folder mock",
+  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
+  "evidence_files": ["evidence.json"],
+  "validation": {
+    "rules": [
+      {"field": "audit_enabled", "equals": true},
+      {"field": "retention_days", "min": 90}
+    ]
+  }
+}

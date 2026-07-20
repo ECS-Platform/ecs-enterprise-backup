@@ -1,0 +1,19 @@
+{
+  "common_control": "Encryption at Rest",
+  "control_id": "CC-ENCRYPTION_AT_REST",
+  "slug": "encryption-at-rest",
+  "phase": "Phase1",
+  "technology": "Common Control",
+  "application": "ECS Common Controls",
+  "environment": "MVP",
+  "predefined_query_ids": ["DB-004", "PGX-002", "ORX-003", "ORX-009"],
+  "alternate_collection": "SQL + folder mock",
+  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
+  "evidence_files": ["evidence.json"],
+  "validation": {
+    "rules": [
+      {"field": "encryption_at_rest", "equals": true},
+      {"field": "encrypted_datastores_pct", "min": 95}
+    ]
+  }
+}

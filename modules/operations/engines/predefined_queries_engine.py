@@ -11,14 +11,21 @@ from modules.operations.engines.predefined_query_audit import (
     get_execution_history_for_control,
     record_execution_audit,
 )
-from modules.operations.engines.predefined_query_evidence import (
-    get_latest_evidence_for_control,
-    prepare_evidence_record,
-    register_with_evidence_repository,
-)
+from modules.operations.engines.predefined_query_evidence import get_latest_evidence_for_control
 from modules.shared.utils.pagination import paginate
 
 EXCEL_FILENAME = "ECS_Query_Driven_Control_Library_Consolidated.xlsx"
+
+_execution_persist = False
+
+
+def set_execution_persist(enabled: bool) -> None:
+    global _execution_persist
+    _execution_persist = bool(enabled)
+
+
+def execution_persist_enabled() -> bool:
+    return _execution_persist
 
 HEADER_ALIASES: dict[str, list[str]] = {
     "control_id": ["control id", "controlid", "control_id", "id", "control ref", "control reference"],
@@ -1081,95 +1088,7 @@ def run_postgresql_query(control_id: str, user: str) -> dict[str, Any]:
         }
 
     connector = PostgreSQLConnector(**get_postgresql_config())
-    framework_coverage = control.get("framework_coverage") or ""
-
-    if not connector.connect():
-        record_execution_audit(
-            control_id,
-            user,
-            "PostgreSQL",
-            "Failed",
-            error_message=connector._last_error or "Connection failed",
-            framework_coverage=framework_coverage,
-            query=query,
-        )
-        _refresh_control_last_execution(control_id)
-        return {
-            "ok": False,
-            "error": connector._last_error or "Could not connect to PostgreSQL",
-            "error_type": "connection_failure",
-        }
-
-    try:
-        result = connector.execute(query)
-    finally:
-        connector.disconnect()
-
-    rows_returned = int(result.metadata.get("rows_returned", 0)) if result.metadata else 0
-
-    if not result.success:
-        record_execution_audit(
-            control_id,
-            user,
-            "PostgreSQL",
-            "Failed",
-            duration_ms=result.duration_ms,
-            error_message=result.error_message,
-            framework_coverage=framework_coverage,
-            query=query,
-            result=result.output,
-            rows_returned=rows_returned,
-        )
-        _refresh_control_last_execution(control_id)
-        return {
-            "ok": False,
-            "error": result.error_message,
-            "error_type": result.metadata.get("error_type", "query_failure") if result.metadata else "query_failure",
-        }
-
-    record_execution_audit(
-        control_id,
-        user,
-        "PostgreSQL",
-        "Success",
-        duration_ms=result.duration_ms,
-        framework_coverage=framework_coverage,
-        query=query,
-        result=result.output,
-        rows_returned=rows_returned,
-    )
-
-    evidence = prepare_evidence_record(
-        control_id=control_id,
-        result=result.output,
-        user=user,
-        framework_coverage=framework_coverage,
-    )
-    primary_fw = control.get("frameworks", [""])[0] if control.get("frameworks") else ""
-    register_with_evidence_repository(evidence, framework=primary_fw)
-    _refresh_control_last_execution(control_id)
-
-    from modules.shared.services.audit_trail import log_event
-
-    log_event(
-        "Predefined Query Executed",
-        user,
-        primary_fw,
-        control_id,
-        f"PostgreSQL — {rows_returned} rows — {result.duration_ms}ms",
-    )
-
-    return {
-        "ok": True,
-        "message": f"Query executed successfully — {rows_returned} row(s) returned in {result.duration_ms}ms",
-        "control_id": control_id,
-        "query": query,
-        "status": "Success",
-        "rows_returned": rows_returned,
-        "output": result.output,
-        "duration_ms": result.duration_ms,
-        "evidence_id": evidence.evidence_id,
-    }
+    return _run_connector_query(control, user, "PostgreSQL", query, connector)
 
 
 def run_yugabyte_query(control_id: str, user: str) -> dict[str, Any]:
@@ -1514,8 +1433,22 @@ def get_phase1_controls(*, executable_only: bool = False) -> list[dict[str, Any]
     return rows
 
 
-def run_predefined_query(control_id: str, user: str) -> dict[str, Any]:
+def run_predefined_query(
+    control_id: str,
+    user: str,
+    *,
+    persist: bool = False,
+    scheduled: bool = False,
+) -> dict[str, Any]:
     """Dispatch live execution by control ID and technology."""
+    set_execution_persist(persist or scheduled)
+    try:
+        return _run_predefined_query_impl(control_id, user)
+    finally:
+        set_execution_persist(False)
+
+
+def _run_predefined_query_impl(control_id: str, user: str) -> dict[str, Any]:
     control = get_control_by_id(control_id)
     if not control:
         return {"ok": False, "error": "Control not found", "error_type": "missing_control"}

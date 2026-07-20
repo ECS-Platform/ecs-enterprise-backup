@@ -1,0 +1,19 @@
+{
+  "common_control": "Time Synchronization",
+  "control_id": "CC-TIME_SYNCHRONIZATION",
+  "slug": "time-synchronization",
+  "phase": "Phase1",
+  "technology": "Common Control",
+  "application": "ECS Common Controls",
+  "environment": "MVP",
+  "predefined_query_ids": ["OS-003"],
+  "alternate_collection": "Bash (timedatectl) + folder mock",
+  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
+  "evidence_files": ["evidence.json"],
+  "validation": {
+    "rules": [
+      {"field": "ntp_synchronized", "equals": true},
+      {"field": "skew_seconds", "max": 5}
+    ]
+  }
+}

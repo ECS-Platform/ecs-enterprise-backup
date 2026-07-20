@@ -62,7 +62,7 @@ def cmd_list(technology: str = "") -> int:
     return 0
 
 
-def cmd_run(control_id: str, user: str) -> int:
+def cmd_run(control_id: str, user: str, *, persist: bool = False) -> int:
     from modules.operations.engines.predefined_queries_engine import (
         get_control_by_id,
         load_predefined_queries,
@@ -75,7 +75,7 @@ def cmd_run(control_id: str, user: str) -> int:
         print(json.dumps({"ok": False, "error": f"Unknown control: {control_id}"}, indent=2))
         return 1
 
-    result = run_predefined_query(control_id, user)
+    result = run_predefined_query(control_id, user, persist=persist)
     # Never echo credentials; result payload contains only output + metadata.
     print(json.dumps(result, indent=2, default=str))
     return 0 if result.get("ok") else 1
@@ -90,11 +90,16 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument("--control", metavar="CONTROL_ID", help="Run a single control (e.g. ORX-001).")
     parser.add_argument("--technology", default="", help="Filter --list by exact technology label.")
     parser.add_argument("--user", default="cli", help="Actor name recorded in the audit log.")
+    parser.add_argument(
+        "--persist",
+        action="store_true",
+        help="Persist successful output as JSON evidence (default: preview only).",
+    )
     args = parser.parse_args(argv)
 
     if args.list:
         return cmd_list(args.technology)
-    return cmd_run(args.control, args.user)
+    return cmd_run(args.control, args.user, persist=bool(args.persist))
 
 
 if __name__ == "__main__":

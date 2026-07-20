@@ -1,0 +1,19 @@
+{
+  "common_control": "Backup & Restore",
+  "control_id": "CC-BACKUP_RESTORE",
+  "slug": "backup-restore",
+  "phase": "Phase1",
+  "technology": "Common Control",
+  "application": "ECS Common Controls",
+  "environment": "MVP",
+  "predefined_query_ids": ["DB-003", "PGX-003", "ASX-010", "ITPP-001", "RDX-002"],
+  "alternate_collection": "SQL + Bash + folder mock",
+  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
+  "evidence_files": ["evidence.json"],
+  "validation": {
+    "rules": [
+      {"field": "last_backup_status", "equals": "Success"},
+      {"field": "rpo_hours", "max": 24}
+    ]
+  }
+}

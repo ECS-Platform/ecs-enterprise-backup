@@ -12,6 +12,7 @@ import pytest
 
 from modules.operations.engines import predefined_queries_engine as engine
 from modules.operations.engines import predefined_query_phase1_registry as phase1
+from modules.operations.engines import connector_common as cc
 from modules.operations.engines.connector_common import build_execution_result
 from modules.operations.engines.query_connectors import ConnectorResult
 
@@ -75,28 +76,36 @@ def test_missing_dependency_returns_structured_error(monkeypatch):
 
 
 def test_successful_execution_persists_evidence(monkeypatch):
-    from modules.operations.engines import connector_common as cc
+    from modules.operations.engines import predefined_query_publisher as pub
 
     recorded = {}
 
-    def _register(evidence, framework=""):
-        recorded["evidence_id"] = evidence.evidence_id
-        return {"filename": "test.txt", "evidence_id": evidence.evidence_id}
+    def _publish(**kwargs):
+        recorded["control_id"] = kwargs["control"]["control_id"]
+        return {"evidence_id": "EV-TEST", "filename": "test.json", "object_key": "k", "sha256": "h"}
 
-    monkeypatch.setattr(cc, "register_with_evidence_repository", _register)
+    monkeypatch.setattr(pub, "publish_predefined_query_evidence", _publish)
     control = engine.get_control_by_id("PGX-001")
     result = ConnectorResult(success=True, output="ssl=on", duration_ms=12, metadata={"rows_returned": 1})
-    payload = cc.complete_connector_execution(control, "tester", "PostgreSQL", "SHOW ssl;", result)
+    payload = cc.complete_connector_execution(
+        control, "tester", "PostgreSQL", "SHOW ssl;", result, persist=True
+    )
     assert payload["ok"] is True
-    assert payload["evidence_id"]
+    assert payload["evidence_id"] == "EV-TEST"
+    assert payload["evidence_persisted"] is True
     assert payload["execution"]["status"] == "Success"
     assert payload["execution"]["control_id"] == "PGX-001"
+    assert recorded["control_id"] == "PGX-001"
 
 
 def test_failed_execution_creates_no_successful_evidence(monkeypatch):
-    from modules.operations.engines import connector_common as cc
+    from modules.operations.engines import predefined_query_publisher as pub
 
-    monkeypatch.setattr(cc, "register_with_evidence_repository", lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not register")))
+    monkeypatch.setattr(
+        pub,
+        "publish_predefined_query_evidence",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("should not register")),
+    )
     control = engine.get_control_by_id("PGX-001")
     result = ConnectorResult(success=False, output="", error_message="connection refused", duration_ms=5)
     payload = cc.complete_connector_execution(control, "tester", "PostgreSQL", "SHOW ssl;", result)

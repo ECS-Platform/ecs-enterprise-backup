@@ -6,10 +6,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from modules.operations.engines.predefined_query_audit import record_execution_audit
-from modules.operations.engines.predefined_query_evidence import (
-    prepare_evidence_record,
-    register_with_evidence_repository,
-)
 from modules.operations.engines.query_connectors import ConnectorResult
 
 
@@ -62,6 +58,7 @@ def complete_connector_execution(
     *,
     connect_error: str = "",
     started_at: str = "",
+    persist: bool | None = None,
 ) -> dict[str, Any]:
     """Normalize result, write audit/evidence, and return API payload."""
     started = started_at or _utc_now()
@@ -124,15 +121,28 @@ def complete_connector_execution(
         result=result.output,
         rows_returned=rows_returned,
     )
-    evidence = prepare_evidence_record(
-        control_id=control_id,
-        result=result.output,
-        user=user,
-        framework_coverage=framework_coverage,
+    from modules.operations.engines.predefined_queries_engine import (
+        _refresh_control_last_execution,
+        execution_persist_enabled,
     )
-    upload = register_with_evidence_repository(evidence, framework=primary_fw)
 
-    from modules.operations.engines.predefined_queries_engine import _refresh_control_last_execution
+    should_persist = execution_persist_enabled() if persist is None else bool(persist)
+    upload: dict[str, Any] = {}
+    evidence_id = ""
+    if should_persist:
+        from modules.operations.engines.predefined_query_publisher import publish_predefined_query_evidence
+
+        upload = publish_predefined_query_evidence(
+            control=control,
+            technology=technology,
+            query=query,
+            result=result,
+            user=user,
+            execution_id=audit.execution_id,
+            framework=primary_fw,
+        )
+        evidence_id = str(upload.get("evidence_id") or "")
+
     from modules.shared.services.audit_trail import log_event
     from modules.shared.services.ecs_logging import info
 
@@ -142,11 +152,11 @@ def complete_connector_execution(
         user,
         primary_fw,
         control_id,
-        f"{technology} — {rows_returned} rows — {result.duration_ms}ms — {upload.get('filename', evidence_filename)}",
+        f"{technology} — {rows_returned} rows — {result.duration_ms}ms — {upload.get('filename', evidence_filename) if should_persist else 'preview'}",
     )
     info(
         "PredefinedQueries",
-        f"{technology} {control_id} Success {result.duration_ms}ms evidence={upload.get('filename', evidence_filename)}",
+        f"{technology} {control_id} Success {result.duration_ms}ms evidence={'persisted' if should_persist else 'preview'}",
     )
     structured = build_execution_result(
         execution_id=audit.execution_id,
@@ -157,7 +167,7 @@ def complete_connector_execution(
         completed_at=completed,
         status="Success",
         result=result,
-        evidence_id=evidence.evidence_id,
+        evidence_id=evidence_id,
     )
     return {
         "ok": True,
@@ -168,7 +178,10 @@ def complete_connector_execution(
         "rows_returned": rows_returned,
         "output": result.output,
         "duration_ms": result.duration_ms,
-        "evidence_id": evidence.evidence_id,
-        "evidence_filename": upload.get("filename", evidence_filename),
+        "evidence_id": evidence_id,
+        "evidence_persisted": bool(should_persist and evidence_id),
+        "evidence_filename": upload.get("filename", "") if should_persist else "",
+        "evidence_object_key": upload.get("object_key", "") if should_persist else "",
+        "evidence_sha256": upload.get("sha256", "") if should_persist else "",
         "execution": structured,
     }

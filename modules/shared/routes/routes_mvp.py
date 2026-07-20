@@ -277,11 +277,13 @@ def register_mvp_routes(app, templates):
         role: str = Form("owner"),
         user: str = Form("User"),
         return_to: str = Form("detail"),
+        persist: str = Form("false"),
     ):
         from modules.operations.engines.predefined_queries_engine import run_predefined_query
 
+        persist_flag = str(persist or "").strip().lower() in {"1", "true", "yes", "on"}
         try:
-            outcome = run_predefined_query(control_id, user)
+            outcome = run_predefined_query(control_id, user, persist=persist_flag)
         except Exception as exc:  # noqa: BLE001 — never surface a 500 / stack trace to the demo
             outcome = {
                 "ok": False,

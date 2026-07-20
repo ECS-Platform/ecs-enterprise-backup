@@ -1,5 +1,6 @@
 """Automated scheduled evidence pull simulation."""
 
+import os
 import time
 from datetime import datetime, timezone
 
@@ -83,7 +84,7 @@ def _scheduler_fetched_evidence(limit: int = 200) -> list[dict]:
             continue
         # Scheduler connector ingestion persists artifacts as source=manual_upload
         # and may carry connector identity in either source_connector or metadata.source.
-        if source not in ("manual_upload", "connector_executor", "asset_scheduler"):
+        if source not in ("manual_upload", "connector_executor", "asset_scheduler", "common_controls"):
             continue
         connector_name = source_connector or str(meta.get("source", "") or "")
         if not connector_name:
@@ -251,6 +252,34 @@ def resume_scheduler(user: str = "") -> str:
 def is_scheduler_paused() -> bool:
     return bool(_scheduler_status.get("paused"))
 
+
+def _common_controls_collection_enabled() -> bool:
+    return str(os.environ.get("ECS_COMMON_CONTROLS_COLLECTION_ENABLED", "true")).strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+def _predefined_query_scheduler_enabled() -> bool:
+    return str(os.environ.get("ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED", "true")).strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+def collect_scheduled_predefined_queries(*, user: str = "scheduler", control_ids: list[str] | None = None) -> dict:
+    """Run configured predefined queries and persist JSON evidence in one pass."""
+    from modules.operations.engines.predefined_queries_engine import run_predefined_query
+
+    raw = control_ids or [os.environ.get("ECS_PREDEFINED_QUERY_SCHEDULER_CONTROL", "PGX-001")]
+    ids = [str(cid).strip() for cid in raw if str(cid).strip()]
+    results: list[dict] = []
+    for cid in ids:
+        try:
+            outcome = run_predefined_query(cid, user, scheduled=True)
+        except Exception as exc:  # noqa: BLE001
+            outcome = {"ok": False, "control_id": cid, "error": str(exc)}
+        results.append({"control_id": cid, **outcome})
+    persisted = sum(1 for row in results if row.get("evidence_persisted"))
+    return {"controls": ids, "results": results, "persisted": persisted}
 
 def _norm_scheduler_key(value: str) -> str:
     return " ".join(str(value or "").strip().lower().split())
@@ -469,11 +498,44 @@ def run_scheduler_collection(
         "job_results": job_results,
     })
 
+    cc_collected = 0
+    cc_observations = 0
+    cc_result: dict = {}
+    if _common_controls_collection_enabled():
+        try:
+            from modules.operations.engines.common_controls_collector import collect_all_common_controls
+
+            cc_run = collect_all_common_controls(user=user or "scheduler", run_id=run_id)
+            cc_result = cc_run.to_dict()
+            cc_collected = cc_run.collected
+            cc_observations = cc_run.observations
+            ingested += cc_collected
+            if cc_collected and status == "Success":
+                log_preview.append(
+                    f"[{completed_utc.strftime('%H:%M:%S')} UTC] common_controls collected={cc_collected} observations={cc_observations}"
+                )
+        except Exception:  # noqa: BLE001 - common-control collection must never break scheduler
+            cc_result = {"error": "common_controls_collection_failed"}
+
+    pq_result: dict = {}
+    pq_persisted = 0
+    if _predefined_query_scheduler_enabled():
+        try:
+            pq_result = collect_scheduled_predefined_queries(user=user or "scheduler")
+            pq_persisted = int(pq_result.get("persisted", 0))
+            ingested += pq_persisted
+            if pq_persisted and status == "Success":
+                log_preview.append(
+                    f"[{completed_utc.strftime('%H:%M:%S')} UTC] predefined_queries persisted={pq_persisted}"
+                )
+        except Exception:  # noqa: BLE001
+            pq_result = {"error": "predefined_query_collection_failed"}
+
     try:
         from modules.shared.services.ecs_logging import log_scheduler
         log_scheduler(
             f"Evidence collection {mode}",
-            f"planned_jobs={connector_plan_summary.get('planned_jobs', 0)}; ingested={ingested}",
+            f"planned_jobs={connector_plan_summary.get('planned_jobs', 0)}; ingested={ingested}; common_controls={cc_collected}",
             user=user,
         )
     except Exception:  # noqa: BLE001 - logging must never break the run
@@ -493,4 +555,9 @@ def run_scheduler_collection(
         "connectors": sorted({j.connector for j in plan.jobs if j.connector}),
         "ingested": ingested,
         "results": results,
+        "common_controls": cc_result,
+        "common_controls_collected": cc_collected,
+        "common_controls_observations": cc_observations,
+        "predefined_queries": pq_result,
+        "predefined_queries_persisted": pq_persisted,
     }
