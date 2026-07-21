@@ -194,5 +194,6 @@ def complete_connector_execution(
         "evidence_filename": upload.get("filename", "") if persisted else "",
         "evidence_object_key": upload.get("object_key", "") if (persisted or duplicate) else "",
         "evidence_sha256": upload.get("sha256", "") if (persisted or duplicate) else "",
+        "upload": upload,
         "execution": structured,
     }

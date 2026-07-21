@@ -1,0 +1,5 @@
+ECS Mock Evidence
+Application: Payments
+Framework: C-SITE
+Control: CS-C-03 — SOC integration readiness
+Environment: UAT

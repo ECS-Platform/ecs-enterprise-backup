@@ -1,0 +1,9 @@
+{
+  "application": "Net Banking",
+  "environment": "UAT",
+  "framework": "PCI DSS",
+  "control_id": "PCI-8.3",
+  "control_name": "MFA for privileged access",
+  "evidence_file": "mock_pci-dss_netbanking.json",
+  "source_connector": "mock_evidence"
+}

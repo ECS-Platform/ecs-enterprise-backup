@@ -73,11 +73,21 @@ class CollectionRun:
     receipts: list[CollectionReceipt] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        postgresql_count = sum(1 for r in self.receipts if r.metadata_persisted)
+        object_storage_count = sum(1 for r in self.receipts if r.object_stored)
+        failures = sum(1 for r in self.receipts if r.error and not r.collected)
         return {
             "run_id": self.run_id,
             "folders_discovered": self.folders_discovered,
+            "files_discovered": self.folders_discovered,
             "collected": self.collected,
+            "new_evidence": self.collected,
             "observations": self.observations,
+            "postgresql_count": postgresql_count,
+            "object_storage_count": object_storage_count,
+            "pgvector_count": 0,
+            "failures": failures,
+            "duplicates_skipped": 0,
             "receipts": [r.to_dict() for r in self.receipts],
         }
 
@@ -294,7 +304,7 @@ def collect_common_control_folder(
 
         from modules.operations.engines.evidence_repository import register_upload
 
-        register_upload(
+        ops_record = register_upload(
             filename=f"COMMON_CONTROL_{slug}.json",
             content=content_bytes,
             uploaded_by=user,
@@ -308,6 +318,13 @@ def collect_common_control_folder(
             mime_type="application/json",
             metadata=meta,
             custody_mode=custody.custody_mode,
+        )
+        from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
+
+        enroll_collected_evidence(
+            ops_record,
+            source_type="common_control",
+            observation_id=receipt.observation_id or "",
         )
 
         if vr.verdict in (VERDICT_FAIL, VERDICT_WARNING):

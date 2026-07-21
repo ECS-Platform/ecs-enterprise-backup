@@ -1,0 +1,10 @@
+{
+  "application": "Mobile Banking",
+  "control_id": "DPSC-4.1",
+  "control_name": "Consent and data retention",
+  "environment": "UAT",
+  "framework": "DPSC",
+  "source": "mock_evidence",
+  "status": "collected",
+  "summary": "Mock scheduler evidence for Mobile Banking / DPSC"
+}

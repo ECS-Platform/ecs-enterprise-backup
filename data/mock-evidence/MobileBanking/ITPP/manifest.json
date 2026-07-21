@@ -1,0 +1,9 @@
+{
+  "application": "Mobile Banking",
+  "environment": "UAT",
+  "framework": "ITPP",
+  "control_id": "IT-C-03",
+  "control_name": "Backup verification",
+  "evidence_file": "mock_itpp_mobilebanking.txt",
+  "source_connector": "mock_evidence"
+}

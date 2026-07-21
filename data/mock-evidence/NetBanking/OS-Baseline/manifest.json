@@ -1,0 +1,9 @@
+{
+  "application": "Net Banking",
+  "environment": "UAT",
+  "framework": "OS Baseline",
+  "control_id": "OSB-14",
+  "control_name": "CIS hardening baseline",
+  "evidence_file": "mock_os-baseline_netbanking.json",
+  "source_connector": "mock_evidence"
+}

@@ -1,0 +1,9 @@
+{
+  "application": "Payments",
+  "environment": "UAT",
+  "framework": "ITPP",
+  "control_id": "IT-C-03",
+  "control_name": "Backup verification",
+  "evidence_file": "mock_itpp_payments.json",
+  "source_connector": "mock_evidence"
+}

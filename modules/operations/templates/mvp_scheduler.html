@@ -146,18 +146,30 @@
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('fetched_evidence', false) }}
+<div class="d-flex flex-wrap gap-2 mb-2 small">
+<input class="form-control form-control-sm" style="max-width:10rem" id="ecsFetchedFilterRun" placeholder="Run ID" value="{{ run_id_filter|default('', true) }}">
+<input class="form-control form-control-sm" style="max-width:10rem" id="ecsFetchedFilterApp" placeholder="Application">
+<input class="form-control form-control-sm" style="max-width:10rem" id="ecsFetchedFilterFw" placeholder="Framework">
+<input class="form-control form-control-sm" style="max-width:10rem" id="ecsFetchedFilterSource" placeholder="Source">
+<select class="form-select form-select-sm" style="max-width:8rem" id="ecsFetchedFilterStatus"><option value="">All status</option><option>Collected</option><option>Uploaded</option><option>duplicate</option></select>
+</div>
 <div class="table-responsive ecs-paginated-wrap">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
-<th>Collected At</th><th>Source</th><th>Evidence Name</th><th>Application</th><th>Framework/Control</th><th>Custody Mode</th><th>Actions</th>
+<th>Collected At</th><th>Run ID</th><th>Source</th><th>Evidence Name</th><th>Application</th><th>Framework/Control</th><th>Status</th><th>Custody</th><th>Actions</th>
 </tr></thead><tbody>
 {% set fetched_rows = (scheduler.fetched_evidence if scheduler is defined and scheduler.fetched_evidence is defined else module_view.fetched_evidence|default([])) %}
+{% if run_id_filter and not fetched_rows %}
+<p class="text-muted small mb-2" id="ecsFetchedEmptyRun">No persisted evidence was found for run <code>{{ run_id_filter }}</code>.</p>
+{% endif %}
 {% for e in fetched_rows %}
-<tr data-fetched-evidence-row>
+<tr data-fetched-evidence-row data-run-id="{{ e.run_id|default('', true) }}" data-application="{{ e.application|default('', true) }}" data-framework="{{ e.framework|default('', true) }}" data-source="{{ e.source|default('', true) }}" data-status="{{ e.status|default('', true) }}">
 <td class="small">{{ e.collected_at or '—' }}</td>
+<td class="small"><code>{{ e.run_id or '—' }}</code></td>
 <td>{{ e.source or '—' }}</td>
 <td>{{ e.evidence_name or '—' }}</td>
 <td>{{ e.application or '—' }}</td>
 <td>{{ e.framework_control or '—' }}</td>
+<td>{{ e.status or e.duplicate_state or '—' }}</td>
 <td><span class="badge {% if e.custody_mode=='SNAPSHOT' %}bg-success{% else %}bg-secondary{% endif %}">{{ e.custody_mode or '—' }}</span></td>
 <td class="text-nowrap">
 {% if e.evidence_id %}
@@ -168,6 +180,41 @@
 </td></tr>
 {% endfor %}
 </tbody></table></div>
+<script>
+(function(){
+  function applyFetchedFilters(){
+    var run = (document.getElementById('ecsFetchedFilterRun')||{}).value || '';
+    var app = (document.getElementById('ecsFetchedFilterApp')||{}).value || '';
+    var fw = (document.getElementById('ecsFetchedFilterFw')||{}).value || '';
+    var src = (document.getElementById('ecsFetchedFilterSource')||{}).value || '';
+    var st = (document.getElementById('ecsFetchedFilterStatus')||{}).value || '';
+    var visible = 0;
+    document.querySelectorAll('[data-fetched-evidence-row]').forEach(function(row){
+      var ok = true;
+      var rowRun = String(row.getAttribute('data-run-id')||'');
+      if (run) {
+        var want = String(run).trim().toLowerCase();
+        var got = String(rowRun).trim().toLowerCase();
+        ok = got === want;
+      }
+      if (app && String(row.getAttribute('data-application')||'').toLowerCase().indexOf(app.toLowerCase()) < 0) ok = false;
+      if (fw && String(row.getAttribute('data-framework')||'').toLowerCase().indexOf(fw.toLowerCase()) < 0) ok = false;
+      if (src && String(row.getAttribute('data-source')||'').toLowerCase().indexOf(src.toLowerCase()) < 0) ok = false;
+      if (st && String(row.getAttribute('data-status')||'').toLowerCase().indexOf(st.toLowerCase()) < 0) ok = false;
+      row.classList.toggle('d-none', !ok);
+      if (ok) visible += 1;
+    });
+    var empty = document.getElementById('ecsFetchedEmptyRun');
+    if (empty) empty.classList.toggle('d-none', visible > 0 || !run);
+  }
+  ['ecsFetchedFilterRun','ecsFetchedFilterApp','ecsFetchedFilterFw','ecsFetchedFilterSource','ecsFetchedFilterStatus'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', applyFetchedFilters);
+    if (el && el.tagName === 'SELECT') el.addEventListener('change', applyFetchedFilters);
+  });
+  applyFetchedFilters();
+})();
+</script>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('failures', false) }}

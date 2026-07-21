@@ -182,9 +182,10 @@ def register_mvp_routes(app, templates):
         return templates.TemplateResponse(request, "dashboard_functional_head.html", ctx)
 
     @app.get("/mvp/scheduler", response_class=HTMLResponse)
-    def mvp_scheduler(request: Request, role: str = "owner", user: str = "User", response: str = "", notice: str = ""):
+    def mvp_scheduler(request: Request, role: str = "owner", user: str = "User", response: str = "", notice: str = "", run_id: str = ""):
         ctx = _base_ctx(role, user, response, notice, page_module="scheduler")
-        ctx["scheduler"] = get_scheduler_dashboard()
+        ctx["scheduler"] = get_scheduler_dashboard(run_id=run_id)
+        ctx["run_id_filter"] = run_id
         return templates.TemplateResponse(request, "mvp_scheduler.html", ctx)
 
     @app.get("/mvp/ai-ops-assistant", response_class=HTMLResponse)
@@ -471,6 +472,7 @@ def register_mvp_routes(app, templates):
 
     @app.post("/mvp/scheduler/run")
     def mvp_scheduler_run(
+        request: Request,
         role: str = Form(...),
         user: str = Form(...),
         applications: list[str] = Form(default=[]),
@@ -481,9 +483,21 @@ def register_mvp_routes(app, templates):
             log_scheduler("Manual evidence collection run triggered", user=user)
         except Exception:
             pass
-        # Real path: asset_scheduler plans + connector_executor ingests (into the
-        # existing repository). Dry-run by default; live only when
-        # ECS_CONNECTOR_EXECUTION_ENABLED=true. No fabricated counters.
+        from modules.operations.engines.scheduler_module import (
+            run_scheduler_collection,
+            start_scheduler_collection_async,
+        )
+
+        if request.headers.get("X-ECS-Scheduler-JSON") == "1":
+            if request.headers.get("X-ECS-Scheduler-Sync") == "1":
+                result = run_scheduler_collection(
+                    user=user, applications=applications, frameworks=frameworks,
+                )
+                return JSONResponse(result)
+            result = start_scheduler_collection_async(
+                user=user, applications=applications, frameworks=frameworks,
+            )
+            return JSONResponse(result)
         result = run_scheduler_collection(
             user=user, applications=applications, frameworks=frameworks,
         )
@@ -494,14 +508,29 @@ def register_mvp_routes(app, templates):
             )
         else:
             notice = (
-                f"Evidence collection (dry run) — {result['planned_jobs']} job(s) planned "
+                f"Evidence collection ({result.get('mode', 'dry-run')}) — "
+                f"{result['planned_jobs']} job(s) planned "
                 f"across {len(result['connectors'])} connector(s). "
-                f"Set ECS_CONNECTOR_EXECUTION_ENABLED=true for live collection."
+                f"Run {result.get('run_id', '')} collected {result.get('ingested', 0)} item(s)."
             )
         return RedirectResponse(
-            url=f"/mvp/scheduler?role={role}&user={user}&notice={quote(notice)}&toast=scheduler_ok",
+            url=(
+                f"/mvp/scheduler?role={role}&user={user}"
+                f"&notice={quote(notice)}&toast=scheduler_ok&run_id={quote(result.get('run_id', ''))}"
+            ),
             status_code=303,
         )
+
+    @app.get("/mvp/scheduler/run-status")
+    def mvp_scheduler_run_status(run_id: str = ""):
+        from modules.operations.engines.scheduler_module import get_run_status
+
+        if not run_id:
+            return JSONResponse({"ok": False, "error": "run_id is required"}, status_code=400)
+        status = get_run_status(run_id)
+        if not status:
+            return JSONResponse({"ok": False, "error": f"Unknown run_id: {run_id}"}, status_code=404)
+        return JSONResponse(status)
 
     @app.get("/mvp/scheduler/fetched-evidence/view", response_class=HTMLResponse)
     def mvp_scheduler_fetched_evidence_view(
@@ -536,6 +565,46 @@ def register_mvp_routes(app, templates):
             except Exception:
                 artifact = None
         if artifact is None:
+            try:
+                from modules.operations.engines import evidence_repository as ops_repo
+
+                ops_rec = next(
+                    (r for r in ops_repo.evidence_repository if str(r.get("evidence_id", "")) == evidence_id),
+                    None,
+                )
+            except Exception:
+                ops_rec = None
+            if ops_rec is not None:
+                meta = dict(ops_rec.get("metadata") or {})
+                framework = str((ops_rec.get("framework_tags") or [""])[0])
+                if str(format).strip().lower() == "json":
+                    return JSONResponse({
+                        "ok": True,
+                        "evidence_id": evidence_id,
+                        "evidence_name": str(ops_rec.get("filename") or evidence_id),
+                        "source": str(ops_rec.get("source_connector") or "mock_evidence"),
+                        "source_connector": str(ops_rec.get("source_connector") or "mock_evidence"),
+                        "application": str((ops_rec.get("application_tags") or [""])[0]),
+                        "environment": str(meta.get("environment") or ops_rec.get("environment") or ""),
+                        "framework": framework,
+                        "control": str(ops_rec.get("control") or ""),
+                        "control_id": str(ops_rec.get("control") or ""),
+                        "custody_mode": str(ops_rec.get("custody_mode") or ""),
+                        "mime_type": str(ops_rec.get("mime_type") or ""),
+                        "collected_at": str(ops_rec.get("uploaded_at") or ""),
+                        "run_id": str(meta.get("scheduler_run_id") or ""),
+                        "sha256": str(ops_rec.get("sha256") or ""),
+                        "duplicate_state": "duplicate" if str(ops_rec.get("status", "")).upper() == "DUPLICATE" else "accepted",
+                        "version": int(ops_rec.get("version") or 1),
+                        "workflow_status": str(ops_rec.get("status") or "Uploaded"),
+                        "pgvector_status": "indexed" if (ops_rec.get("search_index") or {}).get("indexed") else "not_indexed",
+                        "object_uri": str(ops_rec.get("object_uri") or ""),
+                        "object_key": str(meta.get("object_key") or ops_rec.get("object_uri") or ""),
+                        "object_reference": str(meta.get("object_key") or ops_rec.get("object_uri") or ""),
+                        "content_text": str(ops_rec.get("summary") or meta),
+                        "metadata": meta,
+                    })
+                return HTMLResponse(f"<pre>{escape(str(meta))}</pre>")
             return HTMLResponse("<p>Evidence not found.</p>", status_code=404)
 
         metadata = dict(getattr(artifact, "metadata", ()) or ())
@@ -594,13 +663,24 @@ def register_mvp_routes(app, templates):
                 "evidence_id": evidence_id,
                 "evidence_name": str(getattr(artifact, "filename", "") or evidence_id),
                 "source": str(getattr(artifact, "source_connector", "") or str(metadata.get("source", ""))),
-                "application": str(getattr(artifact, "asset_id", "") or ""),
+                "source_connector": str(getattr(artifact, "source_connector", "") or str(metadata.get("source", ""))),
+                "application": str(getattr(artifact, "asset_id", "") or metadata.get("application") or ""),
+                "environment": str(getattr(artifact, "environment", "") or metadata.get("environment") or ""),
                 "framework": framework,
                 "control": str(getattr(artifact, "control_id", "") or ""),
+                "control_id": str(getattr(artifact, "control_id", "") or ""),
                 "custody_mode": str(getattr(artifact, "custody_mode", "") or ""),
                 "mime_type": str(getattr(artifact, "mime_type", "") or ""),
                 "collected_at": str(getattr(artifact, "collected_at", "") or ""),
+                "run_id": str(metadata.get("scheduler_run_id") or metadata.get("run_id") or ""),
+                "sha256": str(getattr(artifact, "content_hash", "") or metadata.get("content_sha256") or ""),
+                "duplicate_state": "duplicate" if metadata.get("duplicate") else str(metadata.get("duplicate_state") or "accepted"),
+                "version": int(getattr(artifact, "version", 1) or 1),
+                "workflow_status": str(metadata.get("workflow_status") or metadata.get("validation_verdict") or "Collected"),
+                "pgvector_status": "indexed" if metadata.get("pgvector_indexed") else "not_indexed",
                 "object_uri": str(getattr(artifact, "object_uri", "") or ""),
+                "object_key": str(metadata.get("object_key") or getattr(artifact, "object_uri", "") or ""),
+                "object_reference": str(metadata.get("object_key") or getattr(artifact, "object_uri", "") or ""),
                 "content_text": content_text,
                 "metadata": metadata,
             })
@@ -2129,6 +2209,68 @@ def register_mvp_routes(app, templates):
         sep = "&" if "?" in return_url else "?"
         return RedirectResponse(url=f"{return_url}{sep}response={encoded}", status_code=303)
 
+    @app.get("/mvp/api/common-evidence-presets")
+    def api_common_evidence_presets(role: str = "owner"):
+        from modules.shared.services.common_evidence_presets import preset_groups_for_role
+
+        return JSONResponse({"ok": True, "groups": preset_groups_for_role(role)})
+
+    @app.post("/mvp/api/common-evidence-query")
+    def api_common_evidence_query(
+        role: str = Form(...),
+        user: str = Form(...),
+        query_key: str = Form(""),
+        query: str = Form(""),
+        application: str = Form(""),
+        framework: str = Form(""),
+        run_id: str = Form(""),
+        framework_name: str = Form(""),
+    ):
+        from modules.shared.services.chatbot_engine import record_exchange, set_chat_structured
+        from modules.shared.services.common_evidence_presets import (
+            execute_common_evidence_query,
+            render_common_query_html,
+        )
+        from modules.shared.services.common_evidence_queries import format_evidence_chat_response
+        from modules.shared.services.ecs_logging import log_chatbot
+
+        fw = framework or framework_name
+        if not query_key and not query:
+            return JSONResponse({"ok": False, "error": "query_key or query is required"}, status_code=400)
+
+        log_chatbot(user, role, f"@ceq:{query_key}" if query_key else query, framework_name)
+        result = execute_common_evidence_query(
+            query_key=query_key,
+            query=query,
+            role=role,
+            user=user,
+            application=application,
+            framework=fw,
+            run_id=run_id,
+        )
+        question = result.get("question") or query or query_key
+        plain = format_evidence_chat_response(result, framework_name)
+        record_exchange(user, role, question, plain)
+        html = render_common_query_html(result)
+        set_chat_structured(user, role, html)
+
+        return JSONResponse(
+            {
+                "ok": bool(result.get("ok", True) and not result.get("error")),
+                "query_key": query_key,
+                "query": question,
+                "plain": plain,
+                "html": html,
+                "query_type": result.get("query_type") or result.get("answer_source") or "Deterministic",
+                "total_count": result.get("total_count", 0),
+                "citations": result.get("citations") or [],
+                "needs_parameter": bool(result.get("needs_parameter")),
+                "parameter": result.get("parameter"),
+                "options": result.get("options") or [],
+                "error": result.get("error"),
+            }
+        )
+
     @app.post("/mvp/api/chat-response-mode")
     def mvp_chat_response_mode(
         scenario_key: str = Form(...),
@@ -2156,29 +2298,63 @@ def register_mvp_routes(app, templates):
 
     @app.post("/mvp/api/chat-investigation")
     def mvp_chat_investigation(
-        query: str = Form(...),
+        query: str = Form(""),
         role: str = Form(...),
         user: str = Form(...),
+        query_key: str = Form(""),
+        application: str = Form(""),
+        framework: str = Form(""),
+        run_id: str = Form(""),
     ):
         """Fresh investigation — clear history and return a single Q&A pair."""
-        from app.main import chatbot_answer
         from modules.shared.services.chatbot_engine import (
             clear_chat_history,
             clear_chat_structured,
             get_chat_structured,
+            record_exchange,
         )
+        from modules.shared.services.common_evidence_presets import (
+            execute_common_evidence_query,
+            render_common_query_html,
+        )
+        from modules.shared.services.common_evidence_queries import format_evidence_chat_response
         from modules.shared.services.ecs_logging import log_chatbot
 
-        log_chatbot(user, role, query, "")
+        if not query_key and not (query or "").strip():
+            return JSONResponse({"ok": False, "error": "query or query_key is required"}, status_code=400)
+
+        log_chatbot(user, role, f"@ceq:{query_key}" if query_key else query, "")
         clear_chat_history(user, role)
         clear_chat_structured(user, role)
-        plain = chatbot_answer(query, role=role, user=user)
-        html = get_chat_structured(user, role)
-        if not html:
-            from html import escape
 
-            html = f'<pre class="mb-0 small" style="white-space:pre-wrap;">{escape(plain)}</pre>'
-        return JSONResponse({"ok": True, "query": query, "plain": plain, "html": html})
+        if query_key:
+            result = execute_common_evidence_query(
+                query_key=query_key,
+                role=role,
+                user=user,
+                application=application,
+                framework=framework,
+                run_id=run_id,
+            )
+            question = result.get("question") or query_key
+            plain = format_evidence_chat_response(result, "")
+            html = render_common_query_html(result)
+            from modules.shared.services.chatbot_engine import set_chat_structured
+
+            set_chat_structured(user, role, html)
+            record_exchange(user, role, question, plain)
+        else:
+            from app.main import chatbot_answer
+
+            plain = chatbot_answer(query, role=role, user=user)
+            html = get_chat_structured(user, role)
+            question = query
+            if not html:
+                from html import escape
+
+                html = f'<pre class="mb-0 small" style="white-space:pre-wrap;">{escape(plain)}</pre>'
+
+        return JSONResponse({"ok": True, "query": question, "plain": plain, "html": html})
 
     @app.post("/mvp/api/chat-action")
     def mvp_chat_action(

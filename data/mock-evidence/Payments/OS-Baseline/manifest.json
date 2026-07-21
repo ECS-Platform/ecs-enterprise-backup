@@ -1,0 +1,9 @@
+{
+  "application": "Payments",
+  "environment": "UAT",
+  "framework": "OS Baseline",
+  "control_id": "OSB-14",
+  "control_name": "CIS hardening baseline",
+  "evidence_file": "mock_os-baseline_payments.csv",
+  "source_connector": "mock_evidence"
+}

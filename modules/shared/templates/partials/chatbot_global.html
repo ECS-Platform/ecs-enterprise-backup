@@ -69,6 +69,10 @@
 </div>
 </div>
 </div>
+<div class="ecs-chat-ceq-presets mb-2" id="ecsCeqPresets" aria-live="polite">
+<small class="text-muted d-block mb-1">Common evidence queries:</small>
+<div class="ecs-ceq-loading text-muted small fst-italic">Loading presets…</div>
+</div>
 <div class="ecs-chat-suggestions mb-2">
 <small class="text-muted d-block mb-1">Quick asks:</small>
 <div class="d-flex flex-wrap gap-1">
@@ -187,11 +191,139 @@
     }
   }
 
+  var ceqBusy = false;
+
+  function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function timestampUtc() {
+    return new Date().toISOString().slice(11, 16) + ' UTC';
+  }
+
+  function appendChatExchange(question, html) {
+    if (hist) {
+      var userMsg = document.createElement('div');
+      userMsg.className = 'ecs-chat-msg ecs-chat-msg-user';
+      userMsg.innerHTML = '<small class="text-muted">' + timestampUtc() + ' · You</small><div>' + escHtml(question) + '</div>';
+      hist.appendChild(userMsg);
+      var botMsg = document.createElement('div');
+      botMsg.className = 'ecs-chat-msg ecs-chat-msg-bot';
+      botMsg.innerHTML = '<small class="text-muted">Copilot</small><div class="ecs-chat-response ecs-chat-response-html">' + html + '</div>';
+      hist.appendChild(botMsg);
+      hist.scrollTop = hist.scrollHeight;
+    }
+    var panel = ensureLatestPanel();
+    panel.innerHTML = html;
+    panel.scrollTop = panel.scrollHeight;
+    splitCopilotPanels();
+    bindCeqPresets(panel);
+    bindQuickActions(panel);
+    bindSuggestButtons(panel);
+    if (window.ecsRefreshPagination) window.ecsRefreshPagination();
+  }
+
+  function runCommonEvidenceQuery(btn) {
+    if (!btn || ceqBusy || btn.disabled) return;
+    var queryKey = btn.getAttribute('data-query-key') || '';
+    var question = btn.getAttribute('data-question') || btn.textContent.trim();
+    if (!queryKey && !question) return;
+    ceqBusy = true;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    var input = document.getElementById('ecsChatInput');
+    if (input) input.value = question;
+    var loadingId = 'ecsCeqLoadingMsg';
+    var panel = ensureLatestPanel();
+    panel.innerHTML = '<div id="' + loadingId + '" class="text-muted small fst-italic py-2">Running query…</div>';
+    var fd = new FormData();
+    fd.append('role', role);
+    fd.append('user', user);
+    if (queryKey) fd.append('query_key', queryKey);
+    if (question) fd.append('query', question);
+    var app = btn.getAttribute('data-application') || '';
+    var fw = btn.getAttribute('data-framework') || '';
+    if (app) fd.append('application', app);
+    if (fw) fd.append('framework', fw);
+    var fwInput = document.querySelector('input[name="framework_name"]');
+    if (fwInput && fwInput.value) fd.append('framework_name', fwInput.value);
+    fetch('/mvp/api/common-evidence-query', { method: 'POST', body: fd })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data) throw new Error('empty response');
+        if (!data.ok && data.error) {
+          panel.innerHTML = '<div class="alert alert-danger py-2 small mb-0">' + escHtml(data.error) + '</div>';
+          return;
+        }
+        appendChatExchange(data.query || question, data.html || escHtml(data.plain || 'No response'));
+      })
+      .catch(function(err){
+        console.error('Common evidence query failed', err);
+        panel.innerHTML = '<div class="alert alert-danger py-2 small mb-0">Unable to run query. Please try again.</div>';
+      })
+      .finally(function(){
+        ceqBusy = false;
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+      });
+  }
+
+  function renderCeqPresets(groups) {
+    var root = document.getElementById('ecsCeqPresets');
+    if (!root) return;
+    if (!groups || !groups.length) {
+      root.innerHTML = '<small class="text-muted d-block mb-1">Common evidence queries:</small><p class="text-muted small mb-0">No presets available for this role.</p>';
+      return;
+    }
+    var html = '<small class="text-muted d-block mb-1">Common evidence queries:</small>';
+    groups.forEach(function(group){
+      html += '<div class="ecs-ceq-group mb-1"><small class="text-muted d-block">' + escHtml(group.group) + '</small><div class="d-flex flex-wrap gap-1">';
+      (group.presets || []).forEach(function(p){
+        html += '<button type="button" class="btn btn-outline-primary btn-sm ecs-ceq-preset" '
+          + 'data-query-key="' + escHtml(p.id) + '" data-question="' + escHtml(p.question) + '" '
+          + 'title="' + escHtml(p.question) + '" aria-label="' + escHtml(p.question) + '">'
+          + escHtml(p.label) + '</button>';
+      });
+      html += '</div></div>';
+    });
+    root.innerHTML = html;
+    bindCeqPresets(root);
+  }
+
+  function bindCeqPresets(root) {
+    (root || document).querySelectorAll('.ecs-ceq-preset').forEach(function(btn){
+      if (btn._ecsCeqBound) return;
+      btn._ecsCeqBound = true;
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        runCommonEvidenceQuery(btn);
+      });
+      btn.addEventListener('keydown', function(ev){
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); runCommonEvidenceQuery(btn); }
+      });
+    });
+  }
+
+  function loadCeqPresets() {
+    fetch('/mvp/api/common-evidence-presets?role=' + encodeURIComponent(role))
+      .then(function(r){ return r.json(); })
+      .then(function(data){ renderCeqPresets((data && data.groups) || []); })
+      .catch(function(){
+        var root = document.getElementById('ecsCeqPresets');
+        if (root) root.innerHTML = '<small class="text-muted">Common evidence queries unavailable.</small>';
+      });
+  }
+
   function bindSuggestButtons(root) {
     (root || document).querySelectorAll('.ecs-suggest-btn, .ecs-outage-mode-btn').forEach(function(btn){
       if (btn._ecsBound) return;
       btn._ecsBound = true;
       btn.addEventListener('click', function(){
+        if (btn.getAttribute('data-query-key')) {
+          runCommonEvidenceQuery(btn);
+          return;
+        }
         var input = document.getElementById('ecsChatInput');
         if (input) { input.value = btn.getAttribute('data-q'); document.getElementById('ecsChatForm').submit(); }
       });
@@ -401,7 +533,9 @@
   }
 
   bindSuggestButtons(document);
+  bindCeqPresets(document);
   bindQuickActions(document);
+  loadCeqPresets();
   splitCopilotPanels();
   var refToggle = document.getElementById('ecsChatRefToggle');
   var refPanel = document.getElementById('ecsChatRefPanel');

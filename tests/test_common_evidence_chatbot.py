@@ -247,7 +247,7 @@ def test_deterministic_queries_work_with_llm_disabled(monkeypatch):
         user="App Owner",
     )
     assert upload["evidence_id"] in answer
-    assert "[Source: DETERMINISTIC]" in answer
+    assert "Query type: Deterministic" in answer
 
 
 def test_free_text_rag_answer_contains_citations(monkeypatch):

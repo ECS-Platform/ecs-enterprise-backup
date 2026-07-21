@@ -139,7 +139,8 @@ body.ecs-governance-page .col-md-10 { display: flex; flex-direction: column; min
       });
     });
     var params = new URLSearchParams(window.location.search);
-    var tabParam = params.get('tab');
+    var tabParam = params.get('tab') || '';
+    tabParam = tabParam.replace(/-/g, '_');
     if (tabParam && document.querySelector('[data-workspace-pane="' + tabParam + '"]')) {
       activateTab(tabParam);
     } else {

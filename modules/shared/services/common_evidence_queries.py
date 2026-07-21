@@ -87,7 +87,7 @@ def _workflow_status(record: dict) -> str:
             return "Rejected"
     for wf_key in ecs_state.submitted_controls:
         submitted = ecs_state.submitted_controls[wf_key]
-        if submitted.get("evidence_id") == evidence_id:
+        if isinstance(submitted, dict) and submitted.get("evidence_id") == evidence_id:
             return "Pending Auditor Approval"
     return str(record.get("workflow_status") or record.get("status") or "Uploaded")
 
@@ -116,6 +116,9 @@ def collect_persisted_evidence_rows() -> list[dict]:
         row["framework"] = _record_framework(rec)
         row["control_id"] = _record_control_id(rec)
         row["workflow_status"] = _workflow_status(rec)
+        meta = rec.get("metadata") or {}
+        row["source_type"] = meta.get("source_type") or rec.get("source_connector") or ""
+        row["collected_at"] = rec.get("uploaded_at") or ""
         rows.append(row)
     return rows
 
@@ -842,6 +845,13 @@ def format_evidence_chat_response(result: dict[str, Any], framework_hint: str = 
     from modules.shared.services.chatbot_enhanced import format_chatbot_response
 
     body = result.get("answer") or NO_EVIDENCE_MESSAGE
+    source = result.get("query_type") or result.get("answer_source") or "Deterministic"
+    if str(source).upper() in {"DETERMINISTIC", "DETERMINISTIC_SQL"}:
+        source = "Deterministic"
+    elif str(source).upper() == "RAG":
+        source = "RAG"
+    if not str(body).startswith("Query type:"):
+        body = f"Query type: {source}\n\n{body}"
     citations = result.get("citations") or []
     if citations:
         cite_lines = []
@@ -852,8 +862,6 @@ def format_evidence_chat_response(result: dict[str, Any], framework_hint: str = 
                 f"{cite.get('object_key') or cite.get('object_reference')}"
             )
         body += "\n\nCitations:\n" + "\n".join(cite_lines)
-    source = result.get("answer_source") or "DETERMINISTIC"
-    body += f"\n\n[Source: {source}]"
     return format_chatbot_response(body, framework_hint)
 
 

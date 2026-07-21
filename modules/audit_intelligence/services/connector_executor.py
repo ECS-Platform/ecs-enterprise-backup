@@ -109,6 +109,7 @@ def _ingest_items(
     collected_by: str,
     max_items: int,
     transport: Optional[Callable[..., dict]] = None,
+    run_id: str = "",
 ) -> list[dict[str, Any]]:
     """Bridge normalized connector objects into evidence via ``register_upload``.
 
@@ -143,6 +144,9 @@ def _ingest_items(
                 for k, v in item.items()
                 if k not in {"content_bytes", "content"}
             }
+            metadata.setdefault("source_type", "connector")
+            if run_id:
+                metadata["scheduler_run_id"] = run_id
             content = item.get("content_bytes")
             if content is None and isinstance(item.get("content"), (bytes, bytearray)):
                 content = item.get("content")
@@ -183,6 +187,9 @@ def _ingest_items(
                 metadata=metadata,
                 source_modified_at=source_modified,
             )
+            from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
+
+            enroll_collected_evidence(record, source_type="connector")
             receipts.append({
                 "evidence_id": record.get("evidence_id"),
                 "filename": record.get("filename"),
@@ -261,6 +268,7 @@ def collect_evidence(
     max_items: int = DEFAULT_MAX_ITEMS,
     transport: Optional[Callable[..., dict]] = None,
     verify_ssl: bool = True,
+    run_id: str = "",
 ) -> dict[str, Any]:
     """Collect evidence from one enterprise connector and ingest it (opt-in).
 
@@ -305,7 +313,7 @@ def collect_evidence(
         receipts = _ingest_items(
             connector, items, framework=framework, application=application,
             control=control, collected_by=collected_by, max_items=max_items,
-            transport=transport,
+            transport=transport, run_id=run_id,
         )
     ingested = sum(1 for r in receipts if r.get("evidence_id"))
     return {
@@ -322,7 +330,8 @@ def collect_evidence(
 
 def collect_for_job(job: Any, *, transport: Optional[Callable[..., dict]] = None,
                     collected_by: str = "asset_scheduler",
-                    max_items: int = DEFAULT_MAX_ITEMS) -> dict[str, Any]:
+                    max_items: int = DEFAULT_MAX_ITEMS,
+                    run_id: str = "") -> dict[str, Any]:
     """Collect evidence for a scheduler ``PlannedJob`` (route == connector).
 
     Maps the planned job's connector/scope/frameworks/control onto
@@ -339,6 +348,7 @@ def collect_for_job(job: Any, *, transport: Optional[Callable[..., dict]] = None
         collected_by=collected_by,
         max_items=max_items,
         transport=transport,
+        run_id=run_id,
     )
     result["asset_id"] = getattr(job, "asset_id", "")
     result["route"] = getattr(job, "route", "")

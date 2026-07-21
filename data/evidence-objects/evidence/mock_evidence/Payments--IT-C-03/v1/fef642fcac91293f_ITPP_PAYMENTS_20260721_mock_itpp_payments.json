@@ -1,0 +1,10 @@
+{
+  "application": "Payments",
+  "control_id": "IT-C-03",
+  "control_name": "Backup verification",
+  "environment": "UAT",
+  "framework": "ITPP",
+  "source": "mock_evidence",
+  "status": "collected",
+  "summary": "Mock scheduler evidence for Payments / ITPP"
+}

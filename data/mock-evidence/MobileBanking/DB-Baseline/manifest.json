@@ -1,0 +1,9 @@
+{
+  "application": "Mobile Banking",
+  "environment": "UAT",
+  "framework": "DB Baseline",
+  "control_id": "DB-C-01",
+  "control_name": "Database access control",
+  "evidence_file": "mock_db-baseline_mobilebanking.json",
+  "source_connector": "mock_evidence"
+}

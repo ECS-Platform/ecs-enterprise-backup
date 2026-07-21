@@ -1,0 +1,9 @@
+{
+  "application": "Net Banking",
+  "environment": "UAT",
+  "framework": "C SITE",
+  "control_id": "CS-C-03",
+  "control_name": "SOC integration readiness",
+  "evidence_file": "mock_c-site_netbanking.pdf",
+  "source_connector": "mock_evidence"
+}

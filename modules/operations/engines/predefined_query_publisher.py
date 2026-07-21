@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import json
 import os
@@ -16,6 +17,26 @@ from modules.operations.engines.predefined_query_evidence import (
 from modules.operations.engines.query_connectors import ConnectorResult
 
 from app import ecs_state
+
+_active_scheduler_run_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "ecs_pq_scheduler_run_id", default=""
+)
+
+
+def set_active_scheduler_run_id(run_id: str = ""):
+    """Bind scheduler_run_id for the current collection thread/context."""
+    return _active_scheduler_run_id.set(str(run_id or "").strip())
+
+
+def reset_active_scheduler_run_id(token) -> None:
+    try:
+        _active_scheduler_run_id.reset(token)
+    except Exception:  # noqa: BLE001
+        _active_scheduler_run_id.set("")
+
+
+def get_active_scheduler_run_id() -> str:
+    return str(_active_scheduler_run_id.get() or "").strip()
 
 
 def _utc_now() -> str:
@@ -223,8 +244,10 @@ def publish_predefined_query_evidence(
     user: str,
     execution_id: str = "",
     framework: str = "",
+    scheduler_run_id: str = "",
 ) -> dict[str, Any]:
     executed_at = _utc_now()
+    run_stamp = str(scheduler_run_id or get_active_scheduler_run_id() or "").strip()
     artifact = build_artifact_json(
         control=control,
         technology=technology,
@@ -234,6 +257,8 @@ def publish_predefined_query_evidence(
         execution_id=execution_id,
         executed_at=executed_at,
     )
+    if run_stamp:
+        artifact["scheduler_run_id"] = run_stamp
     content = json.dumps(artifact, indent=2, sort_keys=True, default=str).encode("utf-8")
     content_hash = hashlib.sha256(content).hexdigest()
     ctx = resolve_execution_context(control)
@@ -285,6 +310,20 @@ def publish_predefined_query_evidence(
     )
     from modules.operations.engines.evidence_repository import register_upload
 
+    metadata = {
+        "source_type": "PREDEFINED_QUERY",
+        "collection_source": "PREDEFINED_QUERY",
+        "query_id": control_id,
+        "technology": technology,
+        "object_key": object_key,
+        "content_sha256": content_hash,
+        "canonical_fingerprint": canonical_hash,
+        "evidence_period": evidence_period,
+        "execution_id": execution_id,
+        "row_count": artifact["row_count"],
+    }
+    if run_stamp:
+        metadata["scheduler_run_id"] = run_stamp
     upload = register_upload(
         filename=filename,
         content=content,
@@ -297,17 +336,7 @@ def publish_predefined_query_evidence(
         source_url=f"object://{object_key}",
         environment=ctx["environment"],
         mime_type="application/json",
-        metadata={
-            "source_type": "PREDEFINED_QUERY",
-            "query_id": control_id,
-            "technology": technology,
-            "object_key": object_key,
-            "content_sha256": content_hash,
-            "canonical_fingerprint": canonical_hash,
-            "evidence_period": evidence_period,
-            "execution_id": execution_id,
-            "row_count": artifact["row_count"],
-        },
+        metadata=metadata,
         custody_mode=custody_mode,
     )
     register_predefined_query_indexes(
@@ -322,13 +351,13 @@ def publish_predefined_query_evidence(
         framework_coverage=control.get("framework_coverage") or "",
     )
     store_predefined_evidence(evidence)
-    from modules.shared.services.evidence_workflow_engine import enroll_persisted_evidence
+    from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
 
-    enrollment = enroll_persisted_evidence(
+    enrollment = enroll_collected_evidence(
         upload,
-        control=control,
+        source_type="predefined_query",
         artifact=artifact,
-        source_connector="PREDEFINED_QUERY",
+        skip_if_enrolled=False,
     )
     upload["metadata"] = dict(upload.get("metadata") or {})
     upload["metadata"]["workflow_key"] = enrollment["key"]

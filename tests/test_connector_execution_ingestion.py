@@ -122,6 +122,7 @@ def test_collect_unknown_connector():
 
 def test_collect_not_configured_when_flag_on_but_no_creds(monkeypatch):
     monkeypatch.setenv(ce.EXECUTION_FLAG, "true")
+    monkeypatch.setenv("DEMO_MODE", "false")
     # jira adapter is not configured offline → live path must refuse (no network).
     import modules.operations.integrations.jira as jira_mod
     monkeypatch.setattr(jira_mod, "is_configured", lambda: False)

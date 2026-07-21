@@ -304,7 +304,9 @@ def close_observations_for_control(
 
     fw = resolve_framework_name(framework)
     closed: list[str] = []
-    obs_id = observation_id_for(fw, control, control_id)
+    key = ecs_state.control_key(fw, control)
+    enrollment = get_enrollment(key=key)
+    obs_id = (enrollment or {}).get("observation_id") or observation_id_for(fw, control, control_id)
 
     def _close(oid: str, detail: str = "") -> None:
         if not oid or oid in ecs_state.closed_observations:
@@ -428,6 +430,87 @@ def resolve_upload_workflow_target(control: dict) -> dict[str, str]:
     }
 
 
+def _control_payload_from_upload(upload: dict) -> dict:
+    meta = dict(upload.get("metadata") or {})
+    framework_tags = list(upload.get("framework_tags") or [])
+    framework = framework_tags[0] if framework_tags else meta.get("framework") or upload.get("framework") or "Cross-Framework"
+    control_id = str(upload.get("control") or meta.get("control_id") or meta.get("query_id") or "CTRL-001")
+    control_name = str(meta.get("control_name") or control_id)
+    app_tags = list(upload.get("application_tags") or [])
+    return {
+        "control_id": control_id,
+        "control_name": control_name,
+        "frameworks": [framework],
+        "framework_coverage": framework,
+        "application": app_tags[0] if app_tags else str(meta.get("application") or "Net Banking"),
+    }
+
+
+def _queue_evidence_name(row: dict) -> str:
+    connector = str(row.get("source_connector") or "")
+    control_id = str(row.get("control_id") or row.get("query_id") or "")
+    if connector == "PREDEFINED_QUERY":
+        return f"Predefined Query {control_id}".strip()
+    if connector == "mock_evidence":
+        return f"Mock Evidence {control_id}".strip()
+    if connector in {"sharepoint_graph", "sharepoint", "connector_executor"}:
+        return f"SharePoint Evidence {control_id}".strip()
+    if connector == "common_controls":
+        return f"Common Control {control_id}".strip()
+    return str(row.get("evidence_id") or connector or "Collected Evidence")
+
+
+def enroll_collected_evidence(
+    upload: dict,
+    *,
+    source_type: str = "",
+    observation_id: str = "",
+    artifact: dict | None = None,
+    skip_if_enrolled: bool = True,
+) -> dict | None:
+    """Unified workflow enrollment after ``register_upload`` for all scheduler sources."""
+    evidence_id = str(upload.get("evidence_id") or "")
+    if not evidence_id:
+        return None
+    if skip_if_enrolled:
+        existing = get_enrollment(evidence_id=evidence_id)
+        if existing:
+            return existing
+    connector = str(upload.get("source_connector") or "")
+    meta = dict(upload.get("metadata") or {})
+    src_type = source_type or str(meta.get("source_type") or "")
+    if not src_type:
+        mapping = {
+            "PREDEFINED_QUERY": "predefined_query",
+            "mock_evidence": "mock_evidence",
+            "common_controls": "common_control",
+            "sharepoint_graph": "connector",
+            "sharepoint": "connector",
+        }
+        src_type = mapping.get(connector, connector or "scheduler")
+    meta["source_type"] = src_type
+    control = _control_payload_from_upload(upload)
+    fw = control["frameworks"][0] if control.get("frameworks") else control.get("framework_coverage", "")
+    linked_obs = observation_id or meta.get("observation_id") or observation_id_for(
+        fw, control["control_name"], control["control_id"],
+    )
+    open_rec = ecs_state.missing_evidence_registry.get(linked_obs) if linked_obs else None
+    if linked_obs and open_rec and str(open_rec.get("status", "")).lower() not in {"closed", "approved"}:
+        meta["observation_id"] = linked_obs
+    upload["metadata"] = meta
+    enrollment = enroll_persisted_evidence(
+        upload,
+        control=control,
+        artifact=artifact,
+        source_connector=connector or src_type.upper(),
+    )
+    if linked_obs and meta.get("observation_id"):
+        enrollment["observation_id"] = linked_obs
+        ecs_state.uploaded_evidence_enrollments[evidence_id]["observation_id"] = linked_obs
+    upload["metadata"]["workflow_key"] = enrollment["key"]
+    return enrollment
+
+
 def enroll_persisted_evidence(
     upload: dict,
     *,
@@ -526,9 +609,9 @@ def build_enrolled_owner_queue_items() -> list[dict]:
             "application": row.get("application", "Net Banking"),
             "control": row["control_name"],
             "control_id": row.get("control_id") or row.get("query_id") or "",
-            "evidence_name": f"Predefined Query {row.get('query_id', '')}".strip(),
+            "evidence_name": _queue_evidence_name(row),
             "evidence_id": row.get("evidence_id", ""),
-            "mock_file": f"PREDEFINED_QUERY_{row.get('query_id', 'PQ')}.json",
+            "mock_file": f"{row.get('source_connector', 'EVIDENCE')}_{row.get('query_id', row.get('control_id', 'item'))}.json",
             "evidence_status": "Current",
             "auditor_comments": ecs_state.rejected_controls.get(key, {}).get("reason", "—"),
             "due_date": "2026-09-30",
@@ -571,9 +654,9 @@ def build_enrolled_auditor_queue_items() -> list[dict]:
             "application": enrollment.get("application", "Net Banking"),
             "control": enrollment["control_name"],
             "control_id": enrollment.get("control_id") or enrollment.get("query_id") or "",
-            "evidence_name": f"Predefined Query {enrollment.get('query_id', '')}".strip(),
+            "evidence_name": _queue_evidence_name(enrollment),
             "evidence_id": enrollment.get("evidence_id", ""),
-            "mock_file": f"PREDEFINED_QUERY_{enrollment.get('query_id', 'PQ')}.json",
+            "mock_file": f"{enrollment.get('source_connector', 'EVIDENCE')}_{enrollment.get('query_id', enrollment.get('control_id', 'item'))}.json",
             "evidence_status": "Current",
             "auditor_comments": "Awaiting auditor review.",
             "due_date": "2026-09-30",

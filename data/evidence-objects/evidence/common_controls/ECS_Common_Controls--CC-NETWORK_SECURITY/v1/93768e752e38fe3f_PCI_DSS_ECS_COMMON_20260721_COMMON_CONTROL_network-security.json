@@ -1,0 +1,8 @@
+{
+  "collected_at": "2026-07-17T10:09:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "firewall_enabled": true,
+  "open_ports_count": 3,
+  "allowed_ports": [443, 22, 5432]
+}

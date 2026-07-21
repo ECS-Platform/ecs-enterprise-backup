@@ -536,7 +536,16 @@ control_status = ecs_state.control_status
 build_evidence_analytics = ecs_state.build_evidence_analytics
 
 
-def chatbot_answer(query: str, role: str = "owner", user: str = "User", framework_hint: str = ""):
+def chatbot_answer(
+    query: str,
+    role: str = "owner",
+    user: str = "User",
+    framework_hint: str = "",
+    query_key: str = "",
+    application: str = "",
+    framework: str = "",
+    run_id: str = "",
+):
     q = query.lower()
 
     fw_hint = framework_hint
@@ -553,6 +562,25 @@ def chatbot_answer(query: str, role: str = "owner", user: str = "User", framewor
         try_deterministic_evidence_query,
         try_rag_evidence_query,
     )
+
+    if query.startswith("@ceq:"):
+        query_key = query.split(":", 1)[1].strip()
+        query = ""
+
+    if query_key:
+        from modules.shared.services.common_evidence_presets import execute_preset_query
+
+        result = execute_preset_query(
+            query_key,
+            role=role,
+            user=user,
+            application=application,
+            framework=framework,
+            run_id=run_id,
+        )
+        ans = format_evidence_chat_response(result, fw_hint)
+        record_exchange(user, role, result.get("question") or query_key, ans)
+        return ans
 
     det = try_deterministic_evidence_query(query, role=role, user=user)
     if det is not None:

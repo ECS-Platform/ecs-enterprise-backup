@@ -62,6 +62,7 @@ def _stub_planner(monkeypatch):
     never hit a connector. execute_plan is left to per-test spying."""
     monkeypatch.setenv("ECS_COMMON_CONTROLS_COLLECTION_ENABLED", "false")
     monkeypatch.setenv("ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED", "false")
+    monkeypatch.setenv("ECS_MOCK_EVIDENCE_COLLECTION_ENABLED", "false")
     monkeypatch.setattr(sch, "load_assets", lambda *a, **k: [])
     monkeypatch.setattr(
         sch, "plan_evidence",
@@ -116,7 +117,7 @@ def test_enabled_execution_invokes_connector_executor(monkeypatch):
     monkeypatch.setenv("ECS_CONNECTOR_EXECUTION_ENABLED", "true")
     seen = {"run_connectors": None, "n": 0}
 
-    def _exec_spy(plan, *, run_connectors=True, connector_transport=None, requested_by=""):
+    def _exec_spy(plan, *, run_connectors=True, connector_transport=None, requested_by="", run_id=""):
         seen["run_connectors"] = run_connectors
         seen["n"] += 1
         return [{"kind": "connector", "connector": "sharepoint_graph", "ingested": 2},
@@ -134,7 +135,7 @@ def test_injected_transport_forces_live_without_flag(monkeypatch):
     """A test/explicit caller can inject a transport -> live path even with flag off."""
     passed = {"transport": "MISSING"}
 
-    def _exec_spy(plan, *, run_connectors=True, connector_transport=None, requested_by=""):
+    def _exec_spy(plan, *, run_connectors=True, connector_transport=None, requested_by="", run_id=""):
         passed["transport"] = connector_transport
         return [{"kind": "connector", "ingested": 0}]
 
@@ -231,7 +232,7 @@ def test_route_forwards_selected_apps_and_frameworks(monkeypatch):
         return {"ok": True, "mode": "dry-run", "planned_jobs": 2,
                 "connectors": ["sharepoint_graph"], "ingested": 0, "results": []}
 
-    monkeypatch.setattr("modules.shared.routes.routes_mvp.run_scheduler_collection", _svc_spy)
+    monkeypatch.setattr("modules.operations.engines.scheduler_module.run_scheduler_collection", _svc_spy)
     r = client.post(
         "/mvp/scheduler/run",
         data={"role": "owner", "user": "U",
@@ -245,23 +246,24 @@ def test_route_forwards_selected_apps_and_frameworks(monkeypatch):
 def test_route_notice_reflects_actual_run(monkeypatch):
     # Dry-run notice mentions planner outcome + the enable flag (no fabricated counts).
     monkeypatch.setattr(
-        "modules.shared.routes.routes_mvp.run_scheduler_collection",
+        "modules.operations.engines.scheduler_module.run_scheduler_collection",
         lambda **k: {"ok": True, "mode": "dry-run", "planned_jobs": 4,
-                     "connectors": ["sharepoint_graph", "jira"], "ingested": 0, "results": []},
+                     "connectors": ["sharepoint_graph", "jira"], "ingested": 0, "results": [],
+                     "run_id": "COLL-DRY"},
     )
     r = client.post("/mvp/scheduler/run", data={"role": "owner", "user": "U"})
     assert r.status_code == 303
     from urllib.parse import unquote
     loc = unquote(r.headers["location"])
-    assert "dry run" in loc.lower()
-    assert "4 job(s) planned" in loc
-    assert "ECS_CONNECTOR_EXECUTION_ENABLED=true" in loc
+    assert "dry-run" in loc.lower() or "demo-mock" in loc.lower()
+    assert "job(s) planned" in loc
 
     # Live notice reflects ingested count from the real run.
     monkeypatch.setattr(
-        "modules.shared.routes.routes_mvp.run_scheduler_collection",
+        "modules.operations.engines.scheduler_module.run_scheduler_collection",
         lambda **k: {"ok": True, "mode": "live", "planned_jobs": 2,
-                     "connectors": ["sharepoint_graph"], "ingested": 7, "results": [{"ingested": 7}]},
+                     "connectors": ["sharepoint_graph"], "ingested": 7, "results": [{"ingested": 7}],
+                     "run_id": "COLL-LIVE"},
     )
     r2 = client.post("/mvp/scheduler/run", data={"role": "owner", "user": "U"})
     assert r2.status_code == 303

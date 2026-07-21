@@ -1,0 +1,9 @@
+{
+  "application": "Payments",
+  "environment": "UAT",
+  "framework": "DB Baseline",
+  "control_id": "DB-C-01",
+  "control_name": "Database access control",
+  "evidence_file": "mock_db-baseline_payments.pdf",
+  "source_connector": "mock_evidence"
+}

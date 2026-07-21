@@ -1,0 +1,9 @@
+{
+  "application": "Mobile Banking",
+  "environment": "UAT",
+  "framework": "VAPT",
+  "control_id": "VAPT-9",
+  "control_name": "External pentest remediation",
+  "evidence_file": "mock_vapt_mobilebanking.txt",
+  "source_connector": "mock_evidence"
+}

@@ -1,0 +1,9 @@
+{
+  "application": "Payments",
+  "environment": "UAT",
+  "framework": "DPSC",
+  "control_id": "DPSC-4.1",
+  "control_name": "Consent and data retention",
+  "evidence_file": "mock_dpsc_payments.pdf",
+  "source_connector": "mock_evidence"
+}

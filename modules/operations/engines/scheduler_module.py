@@ -1,10 +1,12 @@
 """Automated scheduled evidence pull simulation."""
 
 import os
+import threading
 import time
 from datetime import datetime, timezone
 
 from app import ecs_state
+from app.env_bootstrap import demo_mode_enabled
 from modules.executive_overview.engines.demo_metrics import SCHEDULER_METRICS
 from modules.shared.services.audit_trail import log_event
 
@@ -52,10 +54,322 @@ _scheduler_status = {
 
 _execution_history: list[dict] = []
 _collection_seq = 0
+_run_progress: dict[str, dict] = {}
 
 
-def _scheduler_fetched_evidence(limit: int = 200) -> list[dict]:
-    """Latest persisted evidence collected by scheduler connector runs only."""
+def get_run_progress(run_id: str) -> dict | None:
+    return _run_progress.get(run_id)
+
+
+_SUMMARY_INT_KEYS = (
+    "files_discovered",
+    "new_evidence",
+    "duplicates_skipped",
+    "failures",
+    "postgresql_count",
+    "object_storage_count",
+    "pgvector_count",
+    "sources_executed",
+    "versions_created",
+    "connector_ingested",
+)
+
+_TERMINAL_RUN_STATUSES = frozenset({"success", "completed", "partial", "failed"})
+
+
+def _normalize_run_id(value: str) -> str:
+    return " ".join(str(value or "").strip().split())
+
+
+def _coerce_run_summary(raw, *, run_id: str = "", applications=None, frameworks=None) -> dict:
+    """Ensure summary is a dict with required numeric fields (never a list/None)."""
+    base = raw if isinstance(raw, dict) else {}
+    apps = base.get("selected_applications")
+    if not isinstance(apps, list):
+        apps = base.get("applications")
+    if not isinstance(apps, list):
+        apps = list(applications or [])
+    fws = base.get("selected_frameworks")
+    if not isinstance(fws, list):
+        fws = base.get("frameworks")
+    if not isinstance(fws, list):
+        fws = list(frameworks or [])
+    rid = _normalize_run_id(base.get("run_id") or run_id)
+    out = {
+        "run_id": rid,
+        "selected_applications": [str(a) for a in apps],
+        "selected_frameworks": [str(f) for f in fws],
+        "applications": [str(a) for a in apps],
+        "frameworks": [str(f) for f in fws],
+    }
+    for key in _SUMMARY_INT_KEYS:
+        try:
+            out[key] = int(base.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            out[key] = 0
+    return out
+
+
+def _summary_is_complete(summary) -> bool:
+    """True when summary is a real completion object (not missing/list/empty placeholder)."""
+    if not isinstance(summary, dict) or not summary:
+        return False
+    if not _normalize_run_id(summary.get("run_id")):
+        return False
+    # Placeholder {} / pre-start summaries lack selection keys that the builder always sets.
+    if "selected_applications" not in summary and "applications" not in summary:
+        return False
+    required = (
+        "files_discovered",
+        "new_evidence",
+        "duplicates_skipped",
+        "failures",
+        "postgresql_count",
+        "object_storage_count",
+        "pgvector_count",
+    )
+    return all(key in summary for key in required)
+
+
+def get_run_status(run_id: str) -> dict | None:
+    """Live or completed run status for polling clients."""
+    rid = _normalize_run_id(run_id)
+    live = _run_progress.get(rid) or _run_progress.get(run_id)
+    if live:
+        raw_status = live.get("status")
+        # Never invent "completed" when status is missing/undefined.
+        status = str(raw_status).strip().lower() if raw_status not in (None, "") else "running"
+        raw_summary = live.get("summary")
+        summary = (
+            _coerce_run_summary(raw_summary, run_id=rid)
+            if isinstance(raw_summary, dict) and raw_summary
+            else {}
+        )
+        # Terminal success/partial require a real summary; failed may omit counters.
+        if status in {"success", "completed", "partial"} and not _summary_is_complete(summary):
+            status = "running"
+        return {
+            "ok": True,
+            "run_id": rid,
+            "status": status,
+            "progress_events": live.get("progress_events") or live.get("progress") or [],
+            "summary": summary if _summary_is_complete(summary) or status == "failed" else {},
+            "active_step": live.get("active_step") or "",
+            "error": live.get("error"),
+        }
+    for hist in _execution_history:
+        if _normalize_run_id(hist.get("run_id")) == rid:
+            raw_status = hist.get("status")
+            status = str(raw_status).strip().lower() if raw_status not in (None, "") else ""
+            if not status:
+                # History rows without an explicit status are not treated as completed.
+                status = "running"
+            raw_summary = hist.get("summary")
+            summary = (
+                _coerce_run_summary(raw_summary, run_id=rid)
+                if isinstance(raw_summary, dict) and raw_summary
+                else {}
+            )
+            if status in {"success", "completed", "partial"} and not _summary_is_complete(summary):
+                status = "running"
+            return {
+                "ok": True,
+                "run_id": rid,
+                "status": status,
+                "progress_events": hist.get("progress_events") or [],
+                "summary": summary if _summary_is_complete(summary) or status == "failed" else {},
+                "active_step": "",
+                "error": hist.get("error"),
+            }
+    return None
+
+
+def _publish_run_progress(
+    run_id: str,
+    progress,
+    *,
+    status: str = "running",
+    summary: dict | None = None,
+    active_step: str = "",
+    error: str = "",
+) -> None:
+    if isinstance(progress, list):
+        events = progress
+        active = active_step
+    elif hasattr(progress, "to_list"):
+        events = progress.to_list()
+        active = active_step or progress.active_step()
+    else:
+        events = []
+        active = active_step
+    payload = {
+        "run_id": run_id,
+        "status": status,
+        "progress_events": events,
+        "summary": summary if summary is not None else (_run_progress.get(run_id, {}).get("summary") or {}),
+        "active_step": active,
+    }
+    if error:
+        payload["error"] = error
+    _run_progress[run_id] = payload
+
+
+def start_scheduler_collection_async(
+    *,
+    user: str = "System",
+    applications=None,
+    frameworks=None,
+    connector_transport=None,
+) -> dict:
+    """Start a collection run in the background and return run_id immediately."""
+    global _collection_seq
+    started_utc = datetime.now(timezone.utc)
+    _collection_seq += 1
+    run_id = f"COLL-{started_utc.strftime('%Y%m%d-%H%M%S')}-{_collection_seq:03d}"
+    _run_progress[run_id] = {
+        "run_id": run_id,
+        "status": "running",
+        "progress_events": [],
+        "summary": {},
+        "active_step": "plan built",
+    }
+
+    def _worker() -> None:
+        try:
+            run_scheduler_collection(
+                user=user,
+                applications=applications,
+                frameworks=frameworks,
+                connector_transport=connector_transport,
+                run_id=run_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _run_progress[run_id] = {
+                "run_id": run_id,
+                "status": "failed",
+                "progress_events": _run_progress.get(run_id, {}).get("progress_events") or [],
+                "summary": _run_progress.get(run_id, {}).get("summary") or {},
+                "error": str(exc),
+            }
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return {"ok": True, "run_id": run_id, "status": "running"}
+
+
+def _merge_run_summary(*parts: dict) -> dict:
+    totals = {
+        "files_discovered": 0,
+        "new_evidence": 0,
+        "duplicates_skipped": 0,
+        "versions_created": 0,
+        "failures": 0,
+        "postgresql_count": 0,
+        "object_storage_count": 0,
+        "pgvector_count": 0,
+        "sources_executed": 0,
+        "connector_ingested": 0,
+    }
+    for block in parts:
+        if not isinstance(block, dict):
+            continue
+        for key in totals:
+            totals[key] += int(block.get(key, 0) or 0)
+    return totals
+
+
+def _artifact_row(art) -> dict:
+    meta = dict(getattr(art, "metadata", ()) or ())
+    source = str(getattr(art, "source", "") or "")
+    source_connector = str(getattr(art, "source_connector", "") or "")
+    framework = ", ".join(getattr(art, "frameworks", ()) or ())
+    control = str(getattr(art, "control_id", "") or "")
+    evidence_id = str(getattr(art, "evidence_id", "") or "")
+    run_id = _normalize_run_id(meta.get("scheduler_run_id") or meta.get("run_id") or "")
+    duplicate = bool(meta.get("duplicate")) or str(meta.get("duplicate_state", "")).lower() == "duplicate"
+    pgvector = bool(meta.get("pgvector_indexed")) or str(meta.get("pgvector_status", "")).lower() in {"indexed", "ok", "true"}
+    try:
+        from modules.operations.engines import evidence_repository as ops_repo
+
+        ops = next((r for r in ops_repo.evidence_repository if r.get("evidence_id") == evidence_id), None)
+        if ops:
+            run_id = run_id or _normalize_run_id((ops.get("metadata") or {}).get("scheduler_run_id") or "")
+            idx = ops.get("search_index") or {}
+            pgvector = pgvector or bool(idx.get("indexed"))
+            duplicate = duplicate or str(ops.get("status", "")).upper() == "DUPLICATE"
+    except Exception:  # noqa: BLE001
+        pass
+    return {
+        "evidence_id": evidence_id,
+        "collected_at": str(getattr(art, "collected_at", "") or ""),
+        "source": source_connector or str(meta.get("source", "") or source),
+        "evidence_name": str(getattr(art, "filename", "") or evidence_id),
+        "application": str(getattr(art, "asset_id", "") or meta.get("application") or ""),
+        "environment": str(getattr(art, "environment", "") or meta.get("environment") or ""),
+        "framework": framework,
+        "control": control,
+        "framework_control": " / ".join([x for x in (framework, control) if x]),
+        "custody_mode": str(getattr(art, "custody_mode", "") or ""),
+        "run_id": run_id,
+        "status": str(meta.get("workflow_status") or meta.get("validation_verdict") or "Collected"),
+        "sha256": str(getattr(art, "content_hash", "") or meta.get("content_sha256") or ""),
+        "duplicate_state": "duplicate" if duplicate else "accepted",
+        "version": int(getattr(art, "version", 1) or 1),
+        "pgvector_status": "indexed" if pgvector else "not_indexed",
+        "object_key": str(meta.get("object_key") or getattr(art, "object_uri", "") or ""),
+        "view_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={evidence_id}",
+        "download_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={evidence_id}&raw=true",
+    }
+
+
+_SCHEDULER_SOURCES = frozenset({
+    "manual_upload",
+    "connector_executor",
+    "asset_scheduler",
+    "common_controls",
+    "mock_evidence",
+    "predefined_query",
+    "PREDEFINED_QUERY",
+})
+_SCHEDULER_CONNECTORS = frozenset({
+    "mock_evidence",
+    "common_controls",
+    "PREDEFINED_QUERY",
+    "predefined_query",
+    "sharepoint_graph",
+    "sharepoint",
+    "connector",
+})
+_SCHEDULER_COLLECTION_SOURCES = frozenset({
+    "mock_evidence",
+    "CommonControls",
+    "PREDEFINED_QUERY",
+    "predefined_query",
+    "connector",
+})
+
+
+def _is_scheduler_sourced(*, source: str, connector_name: str, meta: dict) -> bool:
+    if source in _SCHEDULER_SOURCES:
+        if source == "manual_upload":
+            return bool(
+                connector_name in _SCHEDULER_CONNECTORS
+                or meta.get("collection_source") in _SCHEDULER_COLLECTION_SOURCES
+                or meta.get("source_type") in _SCHEDULER_COLLECTION_SOURCES
+                or _normalize_run_id(meta.get("scheduler_run_id") or "")
+            )
+        return True
+    if connector_name in _SCHEDULER_CONNECTORS:
+        return True
+    if meta.get("collection_source") in _SCHEDULER_COLLECTION_SOURCES:
+        return True
+    if meta.get("source_type") in _SCHEDULER_COLLECTION_SOURCES:
+        return True
+    return bool(_normalize_run_id(meta.get("scheduler_run_id") or ""))
+
+
+def _scheduler_fetched_evidence(limit: int = 200, *, run_id: str = "") -> list[dict]:
+    """Latest persisted evidence collected by scheduler runs across all sources."""
+    want = _normalize_run_id(run_id)
     artifacts = []
     try:
         from modules.audit_intelligence.services.persistence import get_persistence
@@ -79,29 +393,62 @@ def _scheduler_fetched_evidence(limit: int = 200) -> list[dict]:
             continue
         if str(getattr(art, "evidence_id", "")).startswith("EV-DEMO-") or str(getattr(art, "evidence_id", "")) == "EV-LLM-ENC-001":
             continue
-        meta = dict(getattr(art, "metadata", ()) or ())
+        meta = dict(getattr(art, "metadata", ()) or {})
         if str(meta.get("demo", "")).strip().lower() == "llm_usecase":
             continue
-        # Scheduler connector ingestion persists artifacts as source=manual_upload
-        # and may carry connector identity in either source_connector or metadata.source.
-        if source not in ("manual_upload", "connector_executor", "asset_scheduler", "common_controls"):
-            continue
         connector_name = source_connector or str(meta.get("source", "") or "")
-        if not connector_name:
+        if not _is_scheduler_sourced(source=source, connector_name=connector_name, meta=meta):
             continue
-        framework = ", ".join(getattr(art, "frameworks", ()) or ())
-        control = str(getattr(art, "control_id", "") or "")
-        rows.append({
-            "evidence_id": str(getattr(art, "evidence_id", "") or ""),
-            "collected_at": str(getattr(art, "collected_at", "") or ""),
-            "source": connector_name,
-            "evidence_name": str(getattr(art, "filename", "") or getattr(art, "evidence_id", "")),
-            "application": str(getattr(art, "asset_id", "") or ""),
-            "framework_control": " / ".join([x for x in (framework, control) if x]),
-            "custody_mode": str(getattr(art, "custody_mode", "") or ""),
-            "view_url": str(getattr(art, "object_uri", "") or getattr(art, "source_url", "")),
-            "download_url": str(getattr(art, "object_uri", "") or getattr(art, "source_url", "")),
-        })
+        row = _artifact_row(art)
+        if not row.get("evidence_id"):
+            continue
+        if want and _normalize_run_id(row.get("run_id")) != want:
+            continue
+        rows.append(row)
+    rows.sort(key=lambda r: r.get("collected_at", ""), reverse=True)
+    seen = {r.get("evidence_id") for r in rows}
+    try:
+        from modules.operations.engines import evidence_repository as ops_repo
+
+        for rec in ops_repo.evidence_repository:
+            meta = dict(rec.get("metadata") or {})
+            eid = str(rec.get("evidence_id") or "")
+            if not eid or eid in seen:
+                continue
+            rid = _normalize_run_id(meta.get("scheduler_run_id") or "")
+            src = str(rec.get("source_connector") or meta.get("collection_source") or meta.get("source_type") or "")
+            if not _is_scheduler_sourced(source="manual_upload", connector_name=src, meta=meta):
+                continue
+            if want and rid != want:
+                continue
+            rows.append(
+                {
+                    "evidence_id": eid,
+                    "collected_at": str(rec.get("uploaded_at") or ""),
+                    "source": src or "scheduler",
+                    "evidence_name": str(rec.get("filename") or eid),
+                    "application": str((rec.get("application_tags") or [""])[0]),
+                    "environment": str(meta.get("environment") or rec.get("environment") or ""),
+                    "framework": str((rec.get("framework_tags") or [""])[0]),
+                    "control": str(rec.get("control") or ""),
+                    "framework_control": " / ".join(
+                        x for x in (str((rec.get("framework_tags") or [""])[0]), str(rec.get("control") or "")) if x
+                    ),
+                    "custody_mode": str(rec.get("custody_mode") or ""),
+                    "run_id": rid,
+                    "status": str(rec.get("status") or "Uploaded"),
+                    "sha256": str(rec.get("sha256") or ""),
+                    "duplicate_state": "duplicate" if str(rec.get("status", "")).upper() == "DUPLICATE" else "accepted",
+                    "version": int(rec.get("version") or 1),
+                    "pgvector_status": "indexed" if (rec.get("search_index") or {}).get("indexed") else "not_indexed",
+                    "object_key": str(meta.get("object_key") or rec.get("object_uri") or ""),
+                    "view_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={eid}",
+                    "download_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={eid}&raw=true",
+                }
+            )
+            seen.add(eid)
+    except Exception:  # noqa: BLE001
+        pass
     rows.sort(key=lambda r: r.get("collected_at", ""), reverse=True)
     return rows[: max(0, int(limit or 0))]
 
@@ -112,7 +459,7 @@ def _repository_count():
     return len(evidence_repository)
 
 
-def get_scheduler_dashboard():
+def get_scheduler_dashboard(*, run_id: str = ""):
     rows = []
     for row in ecs_state.scheduler_data:
         rows.append(
@@ -124,13 +471,16 @@ def get_scheduler_dashboard():
                 "last_sync": row[4] if len(row) > 4 else "—",
             }
         )
+    latest = _execution_history[0] if _execution_history else {}
     return {
         "status": _scheduler_status.copy(),
         "scheduler_rows": rows,
         "scheduler_data": ecs_state.scheduler_data,
         "repository_count": max(_repository_count(), SCHEDULER_METRICS["records_last_pull"] // 3),
         "execution_history": _execution_history,
-        "fetched_evidence": _scheduler_fetched_evidence(),
+        "fetched_evidence": _scheduler_fetched_evidence(run_id=run_id),
+        "latest_run_id": latest.get("run_id", ""),
+        "latest_run_summary": latest.get("summary", {}),
     }
 
 
@@ -265,21 +615,82 @@ def _predefined_query_scheduler_enabled() -> bool:
     }
 
 
-def collect_scheduled_predefined_queries(*, user: str = "scheduler", control_ids: list[str] | None = None) -> dict:
+def _mock_evidence_collection_enabled() -> bool:
+    return demo_mode_enabled() and str(
+        os.environ.get("ECS_MOCK_EVIDENCE_COLLECTION_ENABLED", "true")
+    ).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def collect_scheduled_predefined_queries(
+    *,
+    user: str = "scheduler",
+    control_ids: list[str] | None = None,
+    run_id: str = "",
+) -> dict:
     """Run configured predefined queries and persist JSON evidence in one pass."""
     from modules.operations.engines.predefined_queries_engine import run_predefined_query
 
     raw = control_ids or [os.environ.get("ECS_PREDEFINED_QUERY_SCHEDULER_CONTROL", "PGX-001")]
     ids = [str(cid).strip() for cid in raw if str(cid).strip()]
     results: list[dict] = []
-    for cid in ids:
-        try:
-            outcome = run_predefined_query(cid, user, scheduled=True)
-        except Exception as exc:  # noqa: BLE001
-            outcome = {"ok": False, "control_id": cid, "error": str(exc)}
-        results.append({"control_id": cid, **outcome})
+    discovered = len(ids)
+    postgresql_count = 0
+    object_storage_count = 0
+    pgvector_count = 0
+    failures = 0
+    from modules.operations.engines.predefined_query_publisher import (
+        reset_active_scheduler_run_id,
+        set_active_scheduler_run_id,
+    )
+
+    run_token = set_active_scheduler_run_id(run_id)
+    try:
+        for cid in ids:
+            try:
+                outcome = run_predefined_query(cid, user, scheduled=True)
+            except Exception as exc:  # noqa: BLE001
+                outcome = {"ok": False, "control_id": cid, "error": str(exc)}
+                failures += 1
+            if outcome.get("evidence_persisted"):
+                # Belt-and-suspenders: ensure ops record carries exact scheduler_run_id.
+                upload = outcome.get("upload") if isinstance(outcome.get("upload"), dict) else {}
+                eid = upload.get("evidence_id") if upload else outcome.get("evidence_id")
+                if run_id and eid:
+                    try:
+                        from modules.operations.engines import evidence_repository as ops_repo
+
+                        rec = next((r for r in ops_repo.evidence_repository if r.get("evidence_id") == eid), None)
+                        if rec is not None:
+                            meta = dict(rec.get("metadata") or {})
+                            meta["scheduler_run_id"] = run_id
+                            rec["metadata"] = meta
+                            if upload:
+                                upload["metadata"] = meta
+                    except Exception:  # noqa: BLE001
+                        pass
+                postgresql_count += 1
+                upload = outcome.get("upload") or {}
+                if upload.get("object_uri") or (upload.get("metadata") or {}).get("object_key"):
+                    object_storage_count += 1
+                idx = upload.get("search_index") or {}
+                if idx.get("indexed"):
+                    pgvector_count += 1
+            results.append({"control_id": cid, **outcome})
+    finally:
+        reset_active_scheduler_run_id(run_token)
     persisted = sum(1 for row in results if row.get("evidence_persisted"))
-    return {"controls": ids, "results": results, "persisted": persisted}
+    return {
+        "controls": ids,
+        "results": results,
+        "persisted": persisted,
+        "discovered": discovered,
+        "files_discovered": discovered,
+        "new_evidence": persisted,
+        "postgresql_count": postgresql_count,
+        "object_storage_count": object_storage_count,
+        "pgvector_count": pgvector_count,
+        "failures": failures,
+    }
 
 def _norm_scheduler_key(value: str) -> str:
     return " ".join(str(value or "").strip().lower().split())
@@ -408,6 +819,7 @@ def run_scheduler_collection(
     applications=None,
     frameworks=None,
     connector_transport=None,
+    run_id: str = "",
 ) -> dict:
     started_perf = time.perf_counter()
     started_utc = datetime.now(timezone.utc)
@@ -419,7 +831,8 @@ def run_scheduler_collection(
         jobs, and (dry-run) reports what *would* run;
       * ``connector_executor`` performs live evidence ingestion into the EXISTING
         repository — but only when ``ECS_CONNECTOR_EXECUTION_ENABLED=true`` (or a
-        ``connector_transport`` is injected for tests).
+        ``connector_transport`` is injected for tests);
+      * ``mock_evidence_collector`` ingests ``data/mock-evidence`` in DEMO_MODE.
 
     Safe by default: with the flag off and no injected transport this is a
     **dry-run** — the planner runs, but no connector call and no network happen.
@@ -428,18 +841,32 @@ def run_scheduler_collection(
     """
     from modules.audit_intelligence.services import asset_scheduler
     from modules.audit_intelligence.services import connector_executor
+    from modules.operations.engines.mock_evidence_collector import collect_mock_evidence
+    from modules.operations.engines.scheduler_progress import SchedulerProgressLog
 
     apps = [a for a in (applications or []) if str(a).strip()]
     fws = [f for f in (frameworks or []) if str(f).strip()]
 
-    # Build the plan from the existing asset configuration (reuse; never invents).
+    global _collection_seq
+    if not run_id:
+        _collection_seq += 1
+        run_id = f"COLL-{started_utc.strftime('%Y%m%d-%H%M%S')}-{_collection_seq:03d}"
+
+    def _on_progress(_rid: str, events: list, active: str) -> None:
+        _publish_run_progress(_rid, events, status="running", active_step=active)
+
+    progress = SchedulerProgressLog(run_id, on_update=_on_progress)
+    _publish_run_progress(run_id, progress, status="running", active_step="plan built")
+    progress.append("plan built", "Running", detail=f"apps={len(apps) or 'all'} frameworks={len(fws) or 'all'}")
+
     assets = asset_scheduler.load_assets()
     plan = asset_scheduler.plan_evidence(assets)
-    # Filter planned jobs to the operator's selection (empty selection = all).
     plan.jobs = [j for j in plan.jobs if _job_matches_selection(j, apps, fws)]
 
     live = connector_transport is not None or connector_executor.execution_enabled()
     mode = "live" if live else "dry-run"
+    if not live and demo_mode_enabled() and _mock_evidence_collection_enabled():
+        mode = "demo-mock"
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     plan_summary = plan.to_dict()["summary"]
@@ -447,12 +874,16 @@ def run_scheduler_collection(
         "planned_jobs": plan_summary.get("planned_jobs", 0),
         "by_route": plan_summary.get("by_route", {}),
     }
+    progress.append(
+        "plan built",
+        "Completed",
+        detail=f"planned_jobs={connector_plan_summary.get('planned_jobs', 0)} mode={mode}",
+    )
 
     results: list[dict] = []
     ingested = 0
     if live:
-        # Execute only connector jobs here; baseline jobs are planned/visible but
-        # collected by the predefined-query flow with its own executor path.
+        progress.append("source scanned", "Running", detail="connector plan")
         connector_plan = asset_scheduler.EvidencePlan(
             jobs=[j for j in plan.jobs if getattr(j, "connector", "")],
             unsupported=[],
@@ -460,9 +891,34 @@ def run_scheduler_collection(
         connector_plan_summary = connector_plan.to_dict()["summary"]
         results = asset_scheduler.execute_plan(
             connector_plan, run_connectors=True, connector_transport=connector_transport,
-            requested_by=user or "scheduler",
+            requested_by=user or "scheduler", run_id=run_id,
         )
         ingested = sum(int(r.get("ingested", 0) or 0) for r in results if isinstance(r, dict))
+        progress.append("source scanned", "Completed", detail=f"connectors={len(results)}")
+        for row in results:
+            step = f"connector {row.get('connector') or row.get('kind') or 'job'}"
+            ok = row.get("ok", True) is not False and int(row.get("ingested", 0) or 0) >= 0
+            progress.append(
+                step,
+                "Completed" if ok else "Failed",
+                detail=f"ingested={row.get('ingested', 0)}",
+            )
+    elif demo_mode_enabled() and _mock_evidence_collection_enabled():
+        progress.append("source scanned", "Running", detail="mock-evidence tree")
+    else:
+        progress.append("source scanned", "Skipped", detail="dry-run without DEMO_MODE mock path")
+
+    mock_summary = {}
+    if _mock_evidence_collection_enabled():
+        mock_summary = collect_mock_evidence(
+            user=user or "scheduler",
+            run_id=run_id,
+            applications=apps,
+            frameworks=fws,
+            progress=progress,
+            dry_run=False,
+        ).to_dict()
+        ingested += int(mock_summary.get("new_evidence", 0) or 0)
 
     duration_sec = max(0, int(round(time.perf_counter() - started_perf)))
     completed_utc = datetime.now(timezone.utc)
@@ -476,27 +932,8 @@ def run_scheduler_collection(
         status = "Partial"
     if live and connector_plan_summary.get("planned_jobs", 0) and not job_results:
         status = "Failed"
-    global _collection_seq
-    _collection_seq += 1
-    run_id = f"COLL-{started_utc.strftime('%Y%m%d-%H%M%S')}-{_collection_seq:03d}"
-    log_preview = [
-        f"[{started_utc.strftime('%H:%M:%S')} UTC] Collection started",
-        f"planned_jobs={connector_plan_summary.get('planned_jobs', 0)} connectors={','.join(sorted({j.connector for j in plan.jobs if j.connector})) or '-'}",
-        f"[{completed_utc.strftime('%H:%M:%S')} UTC] completed status={status} ingested={ingested}",
-    ]
-    _execution_history.insert(0, {
-        "run_id": run_id,
-        "trigger_type": "Manual",
-        "started": started_utc.strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "completed": completed_utc.strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "duration_sec": duration_sec,
-        "apps_covered": len(apps),
-        "evidence_count": ingested,
-        "status": status,
-        "initiated_by": user or "System",
-        "log_preview": log_preview,
-        "job_results": job_results,
-    })
+    if int(mock_summary.get("failures", 0) or 0) and not int(mock_summary.get("new_evidence", 0) or 0):
+        status = "Failed"
 
     cc_collected = 0
     cc_observations = 0
@@ -505,40 +942,98 @@ def run_scheduler_collection(
         try:
             from modules.operations.engines.common_controls_collector import collect_all_common_controls
 
+            progress.append("common controls", "Running")
             cc_run = collect_all_common_controls(user=user or "scheduler", run_id=run_id)
             cc_result = cc_run.to_dict()
             cc_collected = cc_run.collected
             cc_observations = cc_run.observations
             ingested += cc_collected
-            if cc_collected and status == "Success":
-                log_preview.append(
-                    f"[{completed_utc.strftime('%H:%M:%S')} UTC] common_controls collected={cc_collected} observations={cc_observations}"
-                )
-        except Exception:  # noqa: BLE001 - common-control collection must never break scheduler
+            progress.append(
+                "common controls",
+                "Completed",
+                detail=f"collected={cc_collected} observations={cc_observations}",
+            )
+        except Exception:  # noqa: BLE001
             cc_result = {"error": "common_controls_collection_failed"}
+            progress.append("common controls", "Failed")
 
     pq_result: dict = {}
     pq_persisted = 0
     if _predefined_query_scheduler_enabled():
         try:
-            pq_result = collect_scheduled_predefined_queries(user=user or "scheduler")
+            progress.append("predefined queries", "Running")
+            pq_result = collect_scheduled_predefined_queries(user=user or "scheduler", run_id=run_id)
             pq_persisted = int(pq_result.get("persisted", 0))
             ingested += pq_persisted
-            if pq_persisted and status == "Success":
-                log_preview.append(
-                    f"[{completed_utc.strftime('%H:%M:%S')} UTC] predefined_queries persisted={pq_persisted}"
-                )
+            progress.append("predefined queries", "Completed", detail=f"persisted={pq_persisted}")
         except Exception:  # noqa: BLE001
             pq_result = {"error": "predefined_query_collection_failed"}
+            progress.append("predefined queries", "Failed")
+
+    merged_counts = _merge_run_summary(mock_summary, cc_result, pq_result)
+    summary = _coerce_run_summary(
+        {
+            "run_id": run_id,
+            "applications": apps,
+            "frameworks": fws,
+            "sources_executed": merged_counts["sources_executed"] + len(job_results),
+            "files_discovered": merged_counts["files_discovered"],
+            "new_evidence": merged_counts["new_evidence"],
+            "duplicates_skipped": merged_counts["duplicates_skipped"],
+            "versions_created": merged_counts["versions_created"],
+            "failures": merged_counts["failures"],
+            "postgresql_count": merged_counts["postgresql_count"],
+            "object_storage_count": merged_counts["object_storage_count"],
+            "pgvector_count": merged_counts["pgvector_count"],
+            "connector_ingested": sum(int(r.get("ingested", 0) or 0) for r in job_results),
+        },
+        run_id=run_id,
+        applications=apps,
+        frameworks=fws,
+    )
+    if not progress.events or progress.events[-1].get("step") != "completed":
+        progress.append("completed", "Completed", detail=f"status={status}")
+
+    history_row = {
+        "run_id": run_id,
+        "trigger_type": "Manual",
+        "started": started_utc.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "completed": completed_utc.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "duration_sec": duration_sec,
+        "apps_covered": len(apps) or len({j.application for j in plan.jobs if getattr(j, "application", "")}),
+        "evidence_count": ingested,
+        "status": status,
+        "initiated_by": user or "System",
+        "log_preview": [f"{e['timestamp']} | {e['step']} | {e['status']}" + (f" — {e['detail']}" if e.get('detail') else "") for e in progress.to_list()],
+        "progress_events": progress.to_list(),
+        "summary": summary,
+        "job_results": job_results,
+        "mode": mode,
+    }
+    _execution_history.insert(0, history_row)
+    _run_progress[run_id] = {
+        "run_id": run_id,
+        "status": status.lower(),
+        "progress_events": progress.to_list(),
+        "summary": summary,
+        "result": {
+            "ok": True,
+            "run_id": run_id,
+            "status": status,
+            "ingested": ingested,
+            "progress": progress.to_list(),
+            "summary": summary,
+        },
+    }
 
     try:
         from modules.shared.services.ecs_logging import log_scheduler
         log_scheduler(
             f"Evidence collection {mode}",
-            f"planned_jobs={connector_plan_summary.get('planned_jobs', 0)}; ingested={ingested}; common_controls={cc_collected}",
+            f"planned_jobs={connector_plan_summary.get('planned_jobs', 0)}; ingested={ingested}; run_id={run_id}",
             user=user,
         )
-    except Exception:  # noqa: BLE001 - logging must never break the run
+    except Exception:  # noqa: BLE001
         pass
 
     return {
@@ -560,4 +1055,7 @@ def run_scheduler_collection(
         "common_controls_observations": cc_observations,
         "predefined_queries": pq_result,
         "predefined_queries_persisted": pq_persisted,
+        "progress": progress.to_list(),
+        "summary": summary,
+        "mock_evidence": mock_summary,
     }

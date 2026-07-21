@@ -480,7 +480,7 @@ def dry_run(
 # Optional live execution (delegates to the existing evidence service; opt-in)
 # --------------------------------------------------------------------------- #
 def execute_plan(plan: EvidencePlan, *, executor=None, requested_by: str = "asset_scheduler",
-                 run_connectors: bool = True, connector_transport=None) -> list[dict[str, Any]]:
+                 run_connectors: bool = True, connector_transport=None, run_id: str = "") -> list[dict[str, Any]]:
     """Execute a plan's jobs: *baseline* via the evidence service, *connector*
     via the connector executor (opt-in evidence ingestion).
 
@@ -511,7 +511,7 @@ def execute_plan(plan: EvidencePlan, *, executor=None, requested_by: str = "asse
             from modules.audit_intelligence.services import connector_executor
 
             receipt = connector_executor.collect_for_job(
-                job, transport=connector_transport, collected_by=requested_by,
+                job, transport=connector_transport, collected_by=requested_by, run_id=run_id,
             )
             out.append({**receipt, "kind": "connector"})
         # else: unsupported jobs (no controls + no connector) are left to manual flow
