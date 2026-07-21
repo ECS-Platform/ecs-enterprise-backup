@@ -11,7 +11,7 @@
   <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Evidence Keys</div><div class="val">{{ stats.evidence_keys }}</div></div></div>
   <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Total Versions</div><div class="val">{{ stats.total_versions }}</div></div></div>
   <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Timeline Events</div><div class="val">{{ stats.timeline_events }}</div></div></div>
-  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Technologies</div><div class="val">{{ stats.by_technology | length }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="ai-kpi"><div class="lbl">Technologies</div><div class="val">{{ stats.technologies }}</div></div></div>
 </div>
 <div class="card mb-3"><div class="card-body">
   <form method="get" class="row g-2 align-items-end ai-filter">
@@ -26,14 +26,199 @@
 <div class="card"><div class="card-body">
   {% if evidence %}
   <table class="table table-sm table-hover ai-table mb-0"><thead><tr>
-    <th>Evidence Key</th><th>Ver</th><th>Technology</th><th>Verdict</th><th>Checksum</th><th>Collected</th></tr></thead>
+    <th>Evidence Key</th><th>Ver</th><th>Technology</th><th>Verdict</th><th>Checksum</th><th>Collected</th><th>Actions</th></tr></thead>
   <tbody>
   {% for e in evidence %}
     <tr><td>{{ e.evidence_key }}</td><td>v{{ e.version }}</td><td>{{ e.technology }}</td>
     <td>{% if e.verdict %}<span class="ai-chip ai-chip-{{ e.verdict | lower }}">{{ e.verdict }}</span>{% else %}—{% endif %}</td>
-    <td><code>{{ e.checksum }}</code></td><td class="ai-meter-lbl">{{ e.collected_at[:19] }}</td></tr>
+    <td><code>{{ e.checksum }}</code></td><td class="ai-meter-lbl">{{ e.collected_at[:19] }}</td>
+    <td><button type="button" class="btn btn-sm btn-outline-primary"
+      onclick='showEvidenceDetails({{ e.evidence_key | tojson }})'>View Details</button></td></tr>
   {% endfor %}
   </tbody></table>
   {% else %}<div class="ai-meter-lbl">No evidence stored yet. Evidence is persisted from completed runs.</div>{% endif %}
 </div></div>
+
+<!-- Evidence details modal -->
+<div class="modal fade" id="evidenceDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title">Evidence Details</h5>
+          <div id="evidenceDetailsKey" class="ai-meter-lbl"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="evidenceDetailsBody">
+        <div class="ai-meter-lbl">Loading evidence details...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  function esc(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function first(obj, keys) {
+    for (const key of keys) {
+      if (obj && obj[key] !== undefined && obj[key] !== null && obj[key] !== "") {
+        return obj[key];
+      }
+    }
+    return "";
+  }
+
+  function formatValue(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "object") {
+      return "<pre class=\"mb-0 small text-wrap\">" +
+        esc(JSON.stringify(value, null, 2)) + "</pre>";
+    }
+    return esc(value);
+  }
+
+  function detailRow(label, value) {
+    return "<tr><th style=\"width:220px\">" + esc(label) + "</th><td>" +
+      formatValue(value) + "</td></tr>";
+  }
+
+  window.showEvidenceDetails = async function (evidenceKey) {
+    const modalEl = document.getElementById("evidenceDetailsModal");
+    const body = document.getElementById("evidenceDetailsBody");
+    const keyEl = document.getElementById("evidenceDetailsKey");
+
+    keyEl.textContent = evidenceKey;
+    body.innerHTML = '<div class="ai-meter-lbl">Loading evidence details...</div>';
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+    try {
+      const response = await fetch(
+        "/api/audit/evidence/" + encodeURIComponent(evidenceKey) + "/versions"
+      );
+      const payload = await response.json();
+
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.error || payload.message || "Unable to load evidence");
+      }
+
+      const versions = payload.versions || [];
+
+      if (!versions.length) {
+        body.innerHTML =
+          '<div class="alert alert-warning mb-0">No stored versions found.</div>';
+        return;
+      }
+
+      const latest = versions[versions.length - 1] || {};
+      const metadata = latest.metadata || {};
+
+      const filename =
+        first(latest, ["original_filename", "filename"]) ||
+        first(metadata, ["original_filename", "filename"]);
+
+      const application =
+        first(latest, ["application", "asset_id", "asset"]) ||
+        first(metadata, ["application", "asset_id", "asset"]);
+
+      const framework =
+        first(latest, ["framework", "frameworks"]) ||
+        first(metadata, ["framework", "frameworks"]);
+
+      const control =
+        first(latest, ["control", "control_id"]) ||
+        first(metadata, ["control", "control_id"]);
+
+      const source =
+        first(latest, ["source", "connector", "source_system"]) ||
+        first(metadata, ["source", "connector", "source_system"]);
+
+      const evidenceId =
+        first(latest, ["evidence_id", "id", "uid", "display_evidence_id"]);
+
+      const objectUri =
+        first(latest, ["object_uri"]) ||
+        first(metadata, ["object_uri"]);
+
+      const sourceUrl =
+        first(latest, ["source_url", "web_url", "url"]) ||
+        first(metadata, ["source_url", "web_url", "url"]);
+
+      const checksum =
+        first(latest, ["checksum", "sha256"]);
+
+      const collected =
+        first(latest, ["collected_at", "created_at", "timestamp"]);
+
+      let html = '<h6 class="mb-2">Latest Version</h6>';
+      html += '<div class="table-responsive"><table class="table table-sm table-bordered">';
+
+      html += detailRow("Original filename", filename);
+      html += detailRow("Evidence key", first(latest, ["evidence_key"]) || evidenceKey);
+      html += detailRow("Evidence ID / UID", evidenceId);
+      html += detailRow("Version", first(latest, ["version"]));
+      html += detailRow("Application / Asset", application);
+      html += detailRow("Framework", framework);
+      html += detailRow("Control", control);
+      html += detailRow("Technology", first(latest, ["technology"]));
+      html += detailRow("Source / Connector", source);
+      html += detailRow(
+        "Custody mode",
+        first(latest, ["custody_mode"]) || first(metadata, ["custody_mode"])
+      );
+      html += detailRow("Object URI", objectUri);
+      html += detailRow("Source URL", sourceUrl);
+      html += detailRow("Checksum / SHA256", checksum);
+      html += detailRow("Collected", collected);
+      html += detailRow("Verdict", first(latest, ["verdict"]));
+      html += detailRow("Tags", first(latest, ["tags"]));
+      html += detailRow("Metadata", metadata);
+
+      html += "</table></div>";
+
+      html += '<h6 class="mt-4 mb-2">Version History</h6>';
+      html += '<div class="table-responsive"><table class="table table-sm table-hover">';
+      html += "<thead><tr><th>Version</th><th>Collected</th><th>Checksum</th><th>Custody</th><th>Filename</th></tr></thead><tbody>";
+
+      versions.slice().reverse().forEach(function (v) {
+        const vm = v.metadata || {};
+
+        html += "<tr>" +
+          "<td>v" + esc(first(v, ["version"])) + "</td>" +
+          "<td>" + esc(first(v, ["collected_at", "created_at", "timestamp"])) + "</td>" +
+          "<td><code>" + esc(first(v, ["checksum", "sha256"])) + "</code></td>" +
+          "<td>" + esc(
+            first(v, ["custody_mode"]) ||
+            first(vm, ["custody_mode"])
+          ) + "</td>" +
+          "<td>" + esc(
+            first(v, ["original_filename", "filename"]) ||
+            first(vm, ["original_filename", "filename"])
+          ) + "</td>" +
+          "</tr>";
+      });
+
+      html += "</tbody></table></div>";
+      body.innerHTML = html;
+
+    } catch (error) {
+      body.innerHTML =
+        '<div class="alert alert-danger mb-0">Failed to load evidence details: ' +
+        esc(error.message) +
+        "</div>";
+    }
+  };
+})();
+</script>
+
 {% endblock %}

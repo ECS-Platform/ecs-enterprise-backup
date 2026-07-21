@@ -52,8 +52,12 @@ def _invalidate_dashboard_cache() -> None:
 
 
 def reset_repository() -> None:
+    global _last_canonical_failure_at, _last_canonical_success_at
     _STORE.clear()
     _TIMELINE.clear()
+    _HYDRATED_CANONICAL_UIDS.clear()
+    _last_canonical_failure_at = 0.0
+    _last_canonical_success_at = 0.0
     _invalidate_dashboard_cache()
 
 
@@ -178,6 +182,175 @@ def make_evidence_key(asset_id: str, control_id: str) -> str:
     """Stable identity for an evidence stream across versions."""
     asset = (asset_id or "global").strip() or "global"
     return f"{asset}::{control_id}".strip(":")
+
+
+# --------------------------------------------------------------------------- #
+# Canonical PostgreSQL -> in-memory hydration bridge
+# --------------------------------------------------------------------------- #
+#: evidence_uid values already merged in this process (covers both hydration
+#: and same-process ``_mirror_to_audit_repository`` writes) so repeated
+#: hydration calls never duplicate or re-version canonical rows.
+_HYDRATED_CANONICAL_UIDS: set[str] = set()
+
+#: Process-local refresh guard so ``search()``/``stats()`` (called on every
+#: request) don't open a PostgreSQL connection every time. A successful
+#: hydration is considered fresh for ``_CANONICAL_REFRESH_INTERVAL_S``; a
+#: failed/unreachable attempt is throttled for the shorter
+#: ``_CANONICAL_FAILURE_THROTTLE_S`` so a dead database isn't retried on every
+#: request either. ``force=True`` (startup) bypasses both.
+_CANONICAL_REFRESH_INTERVAL_S = 5.0
+_CANONICAL_FAILURE_THROTTLE_S = 5.0
+_last_canonical_success_at: float = 0.0
+_last_canonical_failure_at: float = 0.0
+
+
+def _canonical_metadata_dict(meta: Any) -> dict[str, Any]:
+    if isinstance(meta, dict):
+        return meta
+    if isinstance(meta, str):
+        try:
+            import json
+
+            parsed = json.loads(meta)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:  # noqa: BLE001
+            return {}
+    return {}
+
+
+def _canonical_row_to_kwargs(row: dict[str, Any]) -> dict[str, Any]:
+    """Map one ``ecs_platform.repository.EvidenceRepository`` row to
+    :func:`store_evidence` kwargs, per the field mapping in this bridge's spec."""
+    meta = _canonical_metadata_dict(row.get("metadata"))
+    application = row.get("application") or meta.get("application") or ""
+    control = meta.get("control") or row.get("title") or ""
+    title = row.get("title") or ""
+
+    technology = ""
+    try:
+        from modules.audit_intelligence.engines import technology_control_mapping as mapping
+
+        ref = mapping.get_control(control) if control else None
+        if ref:
+            technology = ref.technology or ""
+    except Exception:  # noqa: BLE001 - mapping optional
+        pass
+
+    frameworks: tuple[str, ...] = ()
+    fw = meta.get("framework")
+    if fw:
+        frameworks = (fw,) if isinstance(fw, str) else tuple(fw)
+
+    source_system = row.get("source_system") or ""
+    evidence_uid = row.get("evidence_uid") or ""
+    filename = meta.get("original_filename") or title
+
+    return dict(
+        evidence_key=make_evidence_key(application, control or title),
+        control_id=control or title,
+        content=str(row.get("content") or ""),
+        technology=technology,
+        asset_id=application,
+        frameworks=frameworks,
+        source="connector" if source_system else "",
+        filename=filename,
+        evidence_id=evidence_uid,
+        environment=meta.get("environment", ""),
+        source_connector=meta.get("source_connector") or source_system,
+        source_item_id=row.get("source_object_id") or "",
+        source_url=meta.get("web_url") or row.get("url") or "",
+        mime_type=meta.get("mime_type", ""),
+        metadata=meta,
+        custody_mode=meta.get("custody_mode") or "REFERENCE_ONLY",
+        source_modified_at=meta.get("modified_datetime", ""),
+        object_uri=meta.get("object_uri", ""),
+        content_hash_override=meta.get("sha256") or row.get("content_hash") or "",
+    )
+
+
+def _find_by_evidence_id(evidence_id: str) -> EvidenceArtifact | None:
+    if not evidence_id:
+        return None
+    for versions in _STORE.values():
+        for art in versions:
+            if art.evidence_id == evidence_id:
+                return art
+    return None
+
+
+def hydrate_from_canonical_repository(*, limit: int = 1000, force: bool = False) -> int:
+    """Best-effort bridge: merge canonical PostgreSQL evidence into ``_STORE``.
+
+    Reads through :class:`ecs_platform.repository.EvidenceRepository` (the DAL —
+    no direct psycopg2 calls here) and stores each canonical row as an
+    :class:`EvidenceArtifact` version, using the existing ``store_evidence``
+    versioning/dedup semantics. Idempotent: a canonical ``evidence_uid`` already
+    hydrated (or already mirrored in-process) is skipped on subsequent calls, so
+    repeated hydration never creates new versions or duplicates counts. Existing
+    ``_STORE`` entries (baseline/demo) are never cleared or overwritten. Never
+    raises — a missing/unreachable PostgreSQL is a silent no-op.
+
+    Process-local refresh guard: unless ``force=True`` (used at startup), this
+    is a no-op within ``_CANONICAL_REFRESH_INTERVAL_S`` of the last successful
+    hydration, or within ``_CANONICAL_FAILURE_THROTTLE_S`` of the last failed
+    attempt — so ``search()``/``stats()`` calling this on every request never
+    opens a PostgreSQL connection per request.
+    """
+    global _last_canonical_failure_at, _last_canonical_success_at
+    import time as _time
+
+    # Throttle BEFORE any repository import/construction/DAL call.
+    if not force:
+        now = _time.monotonic()
+        if _last_canonical_success_at > 0.0 and (now - _last_canonical_success_at) < _CANONICAL_REFRESH_INTERVAL_S:
+            return 0
+        if _last_canonical_failure_at > 0.0 and (now - _last_canonical_failure_at) < _CANONICAL_FAILURE_THROTTLE_S:
+            return 0
+
+    try:
+        from ecs_platform.repository import EvidenceRepository
+    except Exception:  # noqa: BLE001 - repository module unavailable
+        _last_canonical_failure_at = _time.monotonic()
+        return 0
+
+    repo = None
+    try:
+        repo = EvidenceRepository()
+        rows = repo.search_evidence(limit=limit)
+        # Stamp immediately so re-entrant search()/stats() during merge are throttled.
+        _last_canonical_success_at = _time.monotonic()
+    except Exception:  # noqa: BLE001 - PostgreSQL unreachable/misconfigured
+        _last_canonical_failure_at = _time.monotonic()
+        return 0
+    finally:
+        if repo is not None:
+            try:
+                repo.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+    hydrated = 0
+    for row in rows:
+        uid = row.get("evidence_uid") or ""
+        if not uid or uid in _HYDRATED_CANONICAL_UIDS:
+            continue
+        if _find_by_evidence_id(uid) is not None:
+            # Already present via _mirror_to_audit_repository() in this process
+            # (same evidence_id/evidence_uid) — mark hydrated, don't re-store.
+            _HYDRATED_CANONICAL_UIDS.add(uid)
+            continue
+        try:
+            store_evidence(**_canonical_row_to_kwargs(row))
+        except Exception:  # noqa: BLE001 - one bad row must never break hydration
+            continue
+        _HYDRATED_CANONICAL_UIDS.add(uid)
+        hydrated += 1
+    if hydrated:
+        _invalidate_dashboard_cache()
+    # Refresh stamp when the attempt completes so a slow merge cannot expire the
+    # success window before the next force=False caller.
+    _last_canonical_success_at = _time.monotonic()
+    return hydrated
 
 
 # --------------------------------------------------------------------------- #
@@ -368,6 +541,36 @@ def timeline(evidence_key: str = "") -> list[dict[str, Any]]:
 # --------------------------------------------------------------------------- #
 # Search
 # --------------------------------------------------------------------------- #
+def _artifact_matches_query(artifact: EvidenceArtifact, q: str) -> bool:
+    """True when free-text ``q`` matches any of the repository's searchable fields.
+
+    Covers the Evidence Repository UI fields: evidence id/uid, title/filename,
+    application (asset_id), source/connector, framework, control, and object_uri.
+    Also scans tags and metadata values (e.g. original_filename from connectors).
+    """
+    if not q:
+        return True
+    haystacks = (
+        artifact.control_id,
+        artifact.technology,
+        artifact.asset_id,
+        artifact.evidence_key,
+        artifact.filename,
+        artifact.evidence_id,
+        artifact.source_connector,
+        artifact.source,
+        artifact.object_uri,
+        artifact.source_item_id,
+        artifact.source_url,
+        artifact.custody_mode,
+        " ".join(artifact.frameworks),
+        " ".join(artifact.tags),
+        " ".join(v for _, v in (artifact.metadata or ())),
+        " ".join(k for k, _ in (artifact.metadata or ())),
+    )
+    return any(q in (h or "").lower() for h in haystacks)
+
+
 def search(
     *,
     query: str = "",
@@ -379,6 +582,11 @@ def search(
     latest_only: bool = True,
 ) -> list[EvidenceArtifact]:
     """Filter stored evidence (latest version by default)."""
+    # Keep the in-memory facade aligned with durable audit persistence so the UI
+    # lists connector/scheduler/upload evidence written in other workers or after
+    # restart. Memory still wins for keys already present (existing merge rules).
+    hydrate_from_persistence()
+    hydrate_from_canonical_repository()
     items = all_latest() if latest_only else all_artifacts()
     q = query.strip().lower()
     if technology:
@@ -392,22 +600,26 @@ def search(
     if tag:
         items = [a for a in items if tag in a.tags]
     if q:
-        items = [
-            a for a in items
-            if q in a.control_id.lower()
-            or q in a.technology.lower()
-            or q in a.asset_id.lower()
-            or q in a.evidence_key.lower()
-        ]
+        items = [a for a in items if _artifact_matches_query(a, q)]
     return items
 
 
 def stats() -> dict[str, Any]:
+    hydrate_from_persistence()
+    hydrate_from_canonical_repository()
     latest = all_latest()
+    # Unique non-empty technology values only — blank is not a technology, and the
+    # synthetic "Unknown" label used in by_technology charts must not inflate the KPI.
+    real_technologies = {
+        (a.technology or "").strip()
+        for a in latest
+        if (a.technology or "").strip()
+    }
     return {
         "evidence_keys": len(_STORE),
         "total_versions": sum(len(v) for v in _STORE.values()),
         "latest_count": len(latest),
+        "technologies": len(real_technologies),
         "by_technology": _count(latest, lambda a: a.technology or "Unknown"),
         "by_verdict": _count(latest, lambda a: a.verdict or "Unassessed"),
         "timeline_events": len(_TIMELINE),

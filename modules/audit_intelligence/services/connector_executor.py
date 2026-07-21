@@ -74,6 +74,48 @@ def _workbench_mock_transport(payload: Any) -> Callable[..., dict]:
     return t
 
 
+def _sharepoint_tree_mock_transport() -> Callable[..., dict]:
+    """Offline Graph tree that satisfies SharePoint evidence-folder traversal."""
+    children = {
+        "root": [{"id": "app-1", "name": "Net-Banking", "folder": {"childCount": 1}}],
+        "app-1": [{"id": "env-1", "name": "Production", "folder": {"childCount": 1}}],
+        "env-1": [{"id": "fw-1", "name": "ISO27001", "folder": {"childCount": 1}}],
+        "fw-1": [{"id": "ctrl-1", "name": "A.8.24", "folder": {"childCount": 1}}],
+        "ctrl-1": [{
+            "id": "file-1",
+            "name": "encryption_evidence.txt",
+            "size": 120,
+            "webUrl": "https://x/encryption_evidence.txt",
+            "lastModifiedDateTime": "2026-07-20T10:00:00Z",
+            "file": {"mimeType": "text/plain"},
+        }],
+    }
+
+    def t(method, url, headers, params, timeout=None):
+        u = str(url)
+        if "oauth2" in u or u.endswith("/token"):
+            return {"access_token": "WORKBENCH-MOCK"}
+        if u.rstrip("/").endswith("/content"):
+            return {"content_bytes": b"Encryption configuration evidence for Net Banking.\n"}
+        if "/items/" in u and u.rstrip("/").endswith("/children"):
+            item_id = u.split("/items/")[1].split("/")[0]
+            return {"value": children.get(item_id, [])}
+        if "/root:/" in u or u.rstrip("/").endswith("/root/children"):
+            return {"value": children["root"]}
+        return {"value": []}
+
+    return t
+
+
+def _verify_ssl_enabled(*, default: bool = True) -> bool:
+    """SSL verify defaults True; local HTTP Graph POC can set ECS_GRAPH_VERIFY_SSL=false."""
+    for key in ("ECS_GRAPH_VERIFY_SSL", "ECS_HTTP_VERIFY_SSL"):
+        raw = os.environ.get(key)
+        if raw is not None and str(raw).strip() != "":
+            return _truthy(raw)
+    return bool(default)
+
+
 # --------------------------------------------------------------------------- #
 # Evidence bridge
 # --------------------------------------------------------------------------- #
@@ -139,6 +181,7 @@ def _ingest_items(
             filename = str(
                 item.get("filename") or item.get("name") or _item_filename(connector, item, idx),
             )
+            item_application = str(item.get("application") or application or "Net Banking")
             metadata = {
                 k: str(v)
                 for k, v in item.items()
@@ -177,7 +220,7 @@ def _ingest_items(
                 content=content if isinstance(content, (bytes, bytearray)) else str(content).encode(),
                 uploaded_by=collected_by,
                 framework=item_framework,
-                application=application or "Net Banking",
+                application=item_application,
                 control=item_control,
                 source_connector=connector,
                 source_item_id=source_item_id,
@@ -192,7 +235,7 @@ def _ingest_items(
             enroll_collected_evidence(record, source_type="connector")
             receipts.append({
                 "evidence_id": record.get("evidence_id"),
-                "filename": record.get("filename"),
+                "filename": record.get("original_filename") or record.get("filename"),
                 "audit_repository_synced": record.get("audit_repository_synced", False),
                 "sha256": record.get("sha256"),
                 "custody_mode": record.get("custody_mode"),
@@ -216,6 +259,9 @@ def _run_adapter_fetch(
 
     Returns the adapter's standard ``{ok, status, items, ...}`` response, or a
     classified error dict. Never raises.
+
+    SharePoint uses the existing ``traverse_evidence_metadata()`` recursive walk
+    (ECS-Evidence → application → environment → framework → control → files).
     """
     meta = _ADAPTER_TESTS.get(connector)
     if not meta:
@@ -245,8 +291,11 @@ def _run_adapter_fetch(
             except Exception as exc:  # noqa: BLE001 - surface as classified error
                 return {"ok": False, "status": "auth_error", "items": [],
                         "errors": [type(exc).__name__]}
-        method = getattr(client, meta["method"])
-        result = method()
+        if connector == "sharepoint_graph" and hasattr(client, "traverse_evidence_metadata"):
+            result = client.traverse_evidence_metadata()
+        else:
+            method = getattr(client, meta["method"])
+            result = method()
     except Exception as exc:  # noqa: BLE001 - never raise to the caller
         return {"ok": False, "status": "adapter_error", "items": [],
                 "errors": [type(exc).__name__]}
@@ -267,7 +316,7 @@ def collect_evidence(
     collected_by: str = "connector_executor",
     max_items: int = DEFAULT_MAX_ITEMS,
     transport: Optional[Callable[..., dict]] = None,
-    verify_ssl: bool = True,
+    verify_ssl: Optional[bool] = None,
     run_id: str = "",
 ) -> dict[str, Any]:
     """Collect evidence from one enterprise connector and ingest it (opt-in).
@@ -292,18 +341,32 @@ def collect_evidence(
         try:
             if not _adapter_module(connector).is_configured():
                 if _demo_mode_enabled() and connector in _ADAPTER_TESTS:
-                    meta = _ADAPTER_TESTS.get(connector, {})
-                    transport = _workbench_mock_transport(meta.get("mock", {}))
+                    if connector == "sharepoint_graph":
+                        transport = _sharepoint_tree_mock_transport()
+                    else:
+                        meta = _ADAPTER_TESTS.get(connector, {})
+                        transport = _workbench_mock_transport(meta.get("mock", {}))
                     injected = True
                 else:
                     return {"ok": False, "connector": connector, "status": "not_configured",
                             "reason": "adapter is not configured", "mode": "live",
                             "ingested": 0, "receipts": []}
+            else:
+                # Live configured path: one real HTTP transport for fetch + SNAPSHOT stream.
+                from modules.operations.integrations import build_http_transport
+
+                transport = build_http_transport(
+                    verify_ssl=_verify_ssl_enabled(default=True if verify_ssl is None else verify_ssl),
+                )
         except Exception:  # noqa: BLE001
             return {"ok": False, "connector": connector, "status": "not_configured",
                     "mode": "live", "ingested": 0, "receipts": []}
 
-    resp = _run_adapter_fetch(connector, transport=transport, verify_ssl=verify_ssl)
+    resp = _run_adapter_fetch(
+        connector,
+        transport=transport,
+        verify_ssl=_verify_ssl_enabled(default=True if verify_ssl is None else verify_ssl),
+    )
     items = list(resp.get("items", []) if isinstance(resp, dict) else [])
     upstream_status = resp.get("status", "ok") if isinstance(resp, dict) else "ok"
     upstream_ok = bool(resp.get("ok", True)) if isinstance(resp, dict) else True

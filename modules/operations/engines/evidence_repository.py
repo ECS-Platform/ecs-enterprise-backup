@@ -267,6 +267,14 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             except Exception:  # noqa: BLE001 - mapping optional
                 pass
         text = content.decode("utf-8", "ignore") if isinstance(content, (bytes, bytearray)) else str(content or "")
+        meta = dict(record.get("metadata") or {})
+        # Preserve the pre-standardization name so repository search finds the
+        # filename users type (e.g. encryption_evidence.txt) even when the
+        # stored ``filename`` is the enforce_naming() variant.
+        if record.get("original_filename"):
+            meta.setdefault("original_filename", str(record["original_filename"]))
+        if record.get("application_tags"):
+            meta.setdefault("application", str((record.get("application_tags") or [""])[0]))
         ai_repo.store_evidence(
             control_id=control or record.get("filename", "UPLOAD"),
             content=text or record.get("summary", ""),
@@ -275,7 +283,7 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             frameworks=frameworks,
             verdict="",                       # manual uploads are unassessed until validated
             control_status="",
-            source="manual_upload",
+            source="manual_upload" if not record.get("source_connector") else "connector",
             filename=record.get("filename", ""),
             tags=(f"app:{application}", "source:upload",
                   f"mvp_evidence_id:{record.get('evidence_id', '')}"),
@@ -285,7 +293,7 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             source_item_id=record.get("source_item_id", ""),
             source_url=record.get("source_url", ""),
             mime_type=record.get("mime_type", ""),
-            metadata=record.get("metadata") or {},
+            metadata=meta,
             custody_mode=record.get("custody_mode", "REFERENCE_ONLY"),
             source_modified_at=record.get("source_modified_at", ""),
             object_uri=record.get("object_uri", ""),

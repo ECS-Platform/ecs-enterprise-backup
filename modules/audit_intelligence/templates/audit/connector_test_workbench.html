@@ -44,12 +44,16 @@
         <button class="btn btn-outline-primary btn-sm btn-cw" data-action="health-check" data-method="POST">Run health check</button>
         <button class="btn btn-outline-primary btn-sm btn-cw" data-action="dry-run" data-method="POST">Dry-run evidence pull</button>
         <button class="btn btn-outline-success btn-sm btn-cw" data-action="parser-test" data-method="POST">Run parser test (mock)</button>
+        <button id="cw-live-pull" class="btn btn-primary btn-sm btn-cw" data-action="collect" data-method="POST"
+                title="Live SharePoint Graph collection via collect_evidence (requires ECS_CONNECTOR_EXECUTION_ENABLED)">
+          Run live evidence pull
+        </button>
       </div>
 
       <p class="text-muted mt-3" style="font-size:.72rem;">
-        All actions are read-only. Parser test uses a deterministic mock transport
-        (no network, no secrets). Provide real credentials via <code>.env.uat</code>
-        / a secret manager for live collection.
+        Dry-run and parser test stay offline. Live SharePoint pull uses
+        <code>collect_evidence</code> against the configured Graph endpoint
+        (<code>Net-Banking</code> / <code>ISO27001</code> / <code>A.8.24</code>).
       </p>
 
       <hr class="my-2">
@@ -118,6 +122,10 @@
     cfgBadge.innerHTML = configured
       ? '<span class="cw-chip cw-ok">configured</span>'
       : '<span class="cw-chip cw-warn">not configured</span> <span class="text-muted">— parser test uses a safe mock</span>';
+    var liveBtn = document.getElementById("cw-live-pull");
+    if (liveBtn) {
+      liveBtn.style.display = (connectorSel.value === "sharepoint_graph") ? "" : "none";
+    }
   }
 
   connectorSel.addEventListener("change", refreshConfigBadge);
@@ -153,6 +161,11 @@
       var method = btn.getAttribute("data-method");
       var name = connectorSel.value;
       var url = "/api/connectors/" + encodeURIComponent(name) + "/" + action;
+      if (action === "collect" && name === "sharepoint_graph") {
+        url += "?application=" + encodeURIComponent("Net-Banking")
+            + "&framework=" + encodeURIComponent("ISO27001")
+            + "&control=" + encodeURIComponent("A.8.24");
+      }
       setStatus("running…", "cw-warn");
       errorEl.style.display = "none";
       outputEl.textContent = method + " " + url + " …";
@@ -161,11 +174,14 @@
         .then(function (res) {
           var b = res.body || {};
           outputEl.textContent = JSON.stringify(b, null, 2);
-          var hasSummary = (b.source_object_count !== undefined) || (b.evidence_objects_detected !== undefined);
+          var hasSummary = (b.source_object_count !== undefined) || (b.evidence_objects_detected !== undefined)
+            || (b.objects_fetched !== undefined) || (b.ingested !== undefined);
           summaryEl.style.display = hasSummary ? "" : "none";
           if (hasSummary) {
-            srcEl.textContent = (b.source_object_count !== undefined) ? b.source_object_count : "—";
-            evdEl.textContent = (b.evidence_objects_detected !== undefined) ? b.evidence_objects_detected : "—";
+            srcEl.textContent = (b.source_object_count !== undefined) ? b.source_object_count
+              : ((b.objects_fetched !== undefined) ? b.objects_fetched : "—");
+            evdEl.textContent = (b.evidence_objects_detected !== undefined) ? b.evidence_objects_detected
+              : ((b.ingested !== undefined) ? b.ingested : "—");
             tsEl.textContent = new Date().toISOString();
           }
           var errs = b.errors || (b.error ? [b.error] : []);

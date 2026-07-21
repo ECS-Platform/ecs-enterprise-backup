@@ -176,6 +176,15 @@ async def ecs_lifespan(application: FastAPI):
         repo_status = init_repository()
         if repo_status.get("ok"):
             ecs_logging.info("ECSPlatform", "Evidence repository schema ready")
+            try:
+                from modules.audit_intelligence.engines import evidence_repository as _ai_repo
+
+                _n_canonical = _ai_repo.hydrate_from_canonical_repository(force=True)
+                ecs_logging.info("ECSPlatform",
+                                 f"Canonical evidence hydrated: {_n_canonical} row(s)")
+            except Exception as _canon_exc:  # noqa: BLE001
+                ecs_logging.info("ECSPlatform",
+                                 f"Canonical evidence hydration skipped: {_canon_exc}")
             from ecs_platform.governance import init_governance_schema
 
             gov_status = init_governance_schema()

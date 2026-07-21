@@ -192,10 +192,8 @@ def test_collect_respects_max_items():
 # Representative connectors across auth models (Graph OAuth, SNOW, Basic, token,
 # access/secret key). Verifies the full chain end-to-end for each: fetch →
 # normalize → evidence repo (SHA-256) → audit-intelligence mirror.
+# SharePoint uses traverse_evidence_metadata (covered separately with a tree mock).
 _REPRESENTATIVE = {
-    "sharepoint_graph": {"value": [
-        {"id": "1", "name": "policy.pdf", "size": 1024, "webUrl": "https://x/1",
-         "lastModifiedDateTime": "2026-01-01", "file": {"mimeType": "application/pdf"}}]},
     "servicenow_cmdb": {"result": [
         {"sys_id": "SNOW-1", "name": "srv-web-01",
          "sys_class_name": "cmdb_ci_server", "ip_address": "10.0.0.10"}]},

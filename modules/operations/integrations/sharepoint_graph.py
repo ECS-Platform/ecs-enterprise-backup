@@ -407,6 +407,7 @@ def normalize_evidence_record(
         "drive_id": drive_id,
         "parent_path": _parent_path(item),
         "filename": parsed.get("filename") or item.get("name", ""),
+        "mime_type": item.get("mime_type", ""),
         "modified_datetime": item.get("modified_datetime", ""),
         "application": parsed.get("application", ""),
         "environment": parsed.get("environment", ""),

@@ -45,6 +45,7 @@ class EvidenceRepository:
             "dbname": self._pg.get("database", "ecs_repository"),
             "user": self._pg.get("user", "ecs_user"),
             "password": resolve_secret(self._pg.get("password_env", "ECS_REPO_PG_PASSWORD")),
+            "connect_timeout": int(self._pg.get("connect_timeout", 3)),
         }
 
     def connect(self):
@@ -321,8 +322,9 @@ class EvidenceRepository:
         params.append(limit)
         with self.connect().cursor() as cur:
             cur.execute(
-                f"SELECT id, evidence_uid, source_system, object_type, title, content, application, url, "
-                f"collected_timestamp FROM evidence {where} ORDER BY collected_timestamp DESC LIMIT %s", params)
+                f"SELECT id, evidence_uid, source_system, source_object_id, object_type, title, content, "
+                f"url, application, content_hash, metadata, collected_timestamp "
+                f"FROM evidence {where} ORDER BY collected_timestamp DESC LIMIT %s", params)
             cols = [c[0] for c in cur.description]
             return [dict(zip(cols, row)) for row in cur.fetchall()]
 

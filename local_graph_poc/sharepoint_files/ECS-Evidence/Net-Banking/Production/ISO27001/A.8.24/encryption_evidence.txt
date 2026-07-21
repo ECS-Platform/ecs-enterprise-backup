@@ -1,0 +1,4 @@
+Encryption configuration evidence for Net Banking.
+Encryption at rest: enabled
+Encryption in transit: enabled
+TLS version: TLSv1.3

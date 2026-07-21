@@ -457,6 +457,11 @@ def build_http_transport(*, verify_ssl: bool = True, max_retries: int = 1) -> Tr
                 # status 0 == connection/timeout in the stdlib client vocabulary.
                 raise IntegrationTimeout(str(exc)) from exc
             raise RuntimeError(f"http_error {status}") from exc
+        # Graph drive item /content downloads are raw file bytes, not JSON.
+        path_only = str(url or "").split("?", 1)[0].rstrip("/")
+        if path_only.endswith("/content"):
+            body = resp.body if isinstance(resp.body, str) else ""
+            return {"content_bytes": body.encode("utf-8")}
         data = resp.json()
         # Adapters expect a JSON object; wrap bare arrays / null defensively so a
         # non-dict body never crashes a normalizer that does ``payload.get(...)``.

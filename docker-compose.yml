@@ -1,4 +1,13 @@
 services:
+  local-graph-poc:
+    build: .
+    command: ["uvicorn", "local_graph_poc.mock_graph:app", "--host", "0.0.0.0", "--port", "9100"]
+    volumes:
+      - ./local_graph_poc:/app/local_graph_poc:ro
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+
   ecs:
     build: .
     ports:
@@ -75,6 +84,14 @@ services:
       # ---- Microsoft 365 (Teams + SharePoint via Graph, shared app registration) ----
       ECS_TEAMS_ENABLED: ${ECS_TEAMS_ENABLED:-false}
       ECS_SHAREPOINT_ENABLED: ${ECS_SHAREPOINT_ENABLED:-false}
+      ECS_GRAPH_BASE_URL: http://local-graph-poc:9100/v1.0
+      ECS_GRAPH_SITE_ID: test-site
+      ECS_GRAPH_TENANT_ID: local-tenant
+      ECS_GRAPH_CLIENT_ID: local-client
+      ECS_GRAPH_CLIENT_SECRET: local-secret
+      ECS_GRAPH_ACCESS_TOKEN: local-poc-token
+      ECS_GRAPH_DRIVE_ID: test-drive
+      ECS_SHAREPOINT_FOLDER_PATH: ECS-Evidence
       MS_GRAPH_URL: ${MS_GRAPH_URL:-https://graph.microsoft.com/v1.0}
       MS_TENANT_ID: ${MS_TENANT_ID:-}
       MS_CLIENT_ID: ${MS_CLIENT_ID:-}

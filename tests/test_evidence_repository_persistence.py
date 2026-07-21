@@ -25,8 +25,13 @@ from modules.operations.engines import evidence_repository as ops_repo
 
 @pytest.fixture(autouse=True)
 def _clean():
+    import time as _time
+
     P.reset_persistence()
     repo.reset_repository()
+    # Skip live PostgreSQL on search()/stats() hydration in unit tests.
+    # Canonical hydration tests that need the DAL use force=True + monkeypatch.
+    repo._last_canonical_failure_at = _time.monotonic()
     ops_repo.evidence_repository.clear()
     ops_repo.upload_tracker.clear()
     yield
@@ -173,3 +178,141 @@ def test_sharepoint_metadata_preserved_via_register_upload(tmp_path, monkeypatch
     )
     assert persisted is not None
     assert persisted.filename == record["filename"]
+
+
+# --------------------------------------------------------------------------- #
+# Canonical PostgreSQL -> Audit Intelligence hydration bridge
+# --------------------------------------------------------------------------- #
+class _FakeCanonicalRepo:
+    """Mocks ``ecs_platform.repository.EvidenceRepository`` for hydration tests."""
+
+    calls = 0
+
+    def __init__(self, rows=None, raise_on_search: bool = False):
+        self._rows = list(rows or [])
+        self._raise = raise_on_search
+
+    def search_evidence(self, *, limit: int = 1000):
+        _FakeCanonicalRepo.calls += 1
+        if self._raise:
+            raise RuntimeError("connection refused")
+        return self._rows
+
+    def close(self):
+        pass
+
+
+def _canonical_row(uid="EVD-00705", title="encryption_evidence.txt"):
+    return {
+        "evidence_uid": uid,
+        "source_system": "sharepoint_graph",
+        "source_object_id": "file-1",
+        "object_type": "file",
+        "title": title,
+        "content": "encryption at rest policy body",
+        "url": "http://minio:9000/ecs-evidence/Net-Banking/encryption_evidence.txt",
+        "application": "Net-Banking",
+        "content_hash": "fallback-hash-abc",
+        "metadata": {
+            "control": "A.8.24",
+            "framework": "ISO27001",
+            "environment": "Production",
+            "object_uri": "http://minio:9000/ecs-evidence/Net-Banking/encryption_evidence.txt",
+            "custody_mode": "SNAPSHOT",
+            "original_filename": title,
+            "modified_datetime": "2026-07-20T10:00:00Z",
+            "web_url": "https://contoso.sharepoint.com/sites/GRC/encryption_evidence.txt",
+        },
+        "collected_timestamp": "2026-07-21T08:00:00Z",
+    }
+
+
+def test_canonical_hydration_preserves_metadata_fields(monkeypatch):
+    """Canonical DAL fields (metadata + source_object_id) survive hydration mapping."""
+    row = _canonical_row()
+    monkeypatch.setattr(
+        "ecs_platform.repository.EvidenceRepository",
+        lambda: _FakeCanonicalRepo(rows=[row]),
+    )
+    assert repo.hydrate_from_canonical_repository(force=True) == 1
+
+    found = repo.search(query="EVD-00705")
+    assert len(found) == 1
+    art = found[0]
+    assert art.evidence_id == "EVD-00705"
+    assert art.frameworks == ("ISO27001",)
+    assert art.environment == "Production"
+    assert art.source_item_id == "file-1"
+    assert art.custody_mode == "SNAPSHOT"
+    assert art.object_uri == row["metadata"]["object_uri"]
+    assert art.source_modified_at == "2026-07-20T10:00:00Z"
+    assert art.source_connector == "sharepoint_graph"
+    assert art.source_url == row["metadata"]["web_url"]
+    assert art.content_hash == "fallback-hash-abc"
+    assert art.filename == "encryption_evidence.txt"
+
+
+def test_canonical_hydration_idempotent_no_duplicate_versions(monkeypatch):
+    """Repeated hydration of the same canonical row must not create new versions."""
+    row = _canonical_row()
+    fake = _FakeCanonicalRepo(rows=[row])
+    monkeypatch.setattr("ecs_platform.repository.EvidenceRepository", lambda: fake)
+
+    assert repo.hydrate_from_canonical_repository(force=True) == 1
+    assert repo.hydrate_from_canonical_repository(force=True) == 0
+    assert repo.hydrate_from_canonical_repository(force=True) == 0
+
+    versions = repo.get_versions(repo.make_evidence_key("Net-Banking", "A.8.24"))
+    assert len(versions) == 1
+
+
+def test_canonical_hydration_preserves_existing_baseline_evidence(monkeypatch):
+    """Existing in-memory (baseline/demo) evidence must survive hydration."""
+    baseline = repo.store_evidence(control_id="NGX-003", content="ssl on",
+                                   technology="NGINX", asset_id="web-1")
+    row = _canonical_row()
+    monkeypatch.setattr(
+        "ecs_platform.repository.EvidenceRepository",
+        lambda: _FakeCanonicalRepo(rows=[row]),
+    )
+    repo.hydrate_from_canonical_repository(force=True)
+
+    assert repo.get_latest(baseline.evidence_key) is not None
+    assert repo.get_latest(baseline.evidence_key).content_hash == baseline.content_hash
+    assert repo.stats()["evidence_keys"] >= 2
+
+
+def test_canonical_repository_failure_is_non_fatal(monkeypatch):
+    """An unreachable/erroring canonical repository must never break search()/stats()."""
+    monkeypatch.setattr(
+        "ecs_platform.repository.EvidenceRepository",
+        lambda: _FakeCanonicalRepo(raise_on_search=True),
+    )
+    n = repo.hydrate_from_canonical_repository(force=True)
+    assert n == 0
+    # search()/stats() call hydration internally and must still work.
+    assert repo.search(query="") == []
+    assert repo.stats()["evidence_keys"] == 0
+
+
+def test_canonical_hydration_refresh_guard_throttles_repeated_calls(monkeypatch):
+    """Within the refresh interval, non-forced hydration must not re-invoke the DAL."""
+    row = _canonical_row()
+    fake = _FakeCanonicalRepo(rows=[row])
+    monkeypatch.setattr("ecs_platform.repository.EvidenceRepository", lambda: fake)
+
+    # Clear autouse failure throttle so this test measures the success refresh guard.
+    repo._last_canonical_failure_at = 0.0
+    repo._last_canonical_success_at = 0.0
+    _FakeCanonicalRepo.calls = 0
+
+    assert repo.hydrate_from_canonical_repository(force=True) == 1
+    assert _FakeCanonicalRepo.calls == 1
+
+    # Non-forced calls (as search()/stats() make) within the refresh interval
+    # must be a no-op — no additional DAL invocation.
+    assert repo.hydrate_from_canonical_repository() == 0
+    assert repo.hydrate_from_canonical_repository() == 0
+    assert _FakeCanonicalRepo.calls == 1
+    assert repo.search(query="encryption_evidence.txt")
+    assert _FakeCanonicalRepo.calls == 1
