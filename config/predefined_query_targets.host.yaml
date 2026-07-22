@@ -19,8 +19,8 @@ environment: local
 targets:
   - target_id: local-postgres-01
     technology: postgresql
-    hostname: postgres-demo
-    ip: ""
+    hostname: localhost
+    ip: 127.0.0.1
     port: 5432
     environment: local
     credential_ref: env://ECS_PG_PASSWORD
@@ -32,8 +32,8 @@ targets:
 
   - target_id: local-mysql-01
     technology: aurora_mysql
-    hostname: mysql-demo
-    ip: ""
+    hostname: localhost
+    ip: 127.0.0.1
     port: 3306
     environment: local
     credential_ref: env://ECS_MYSQL_PASSWORD
@@ -45,8 +45,8 @@ targets:
 
   - target_id: local-redis-01
     technology: redis
-    hostname: ecs-redis-1
-    ip: ""
+    hostname: localhost
+    ip: 127.0.0.1
     port: 6379
     environment: local
     credential_ref: env://ECS_REDIS_PASSWORD
@@ -85,8 +85,8 @@ targets:
   # Heavier demo targets — enable per docker profile when running them.
   - target_id: local-oracle-01
     technology: oracle
-    hostname: oracle-demo
-    ip: ""
+    hostname: localhost
+    ip: 127.0.0.1
     port: 1521
     environment: local
     credential_ref: env://ECS_ORACLE_PASSWORD

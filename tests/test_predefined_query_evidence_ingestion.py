@@ -88,11 +88,11 @@ def test_persist_true_creates_one_evidence_artifact(monkeypatch):
     assert payload["ok"] is True
     assert payload["evidence_persisted"] is True
     assert payload["evidence_id"] == "EV-PQ-001"
-    assert captured["source_connector"] == "PREDEFINED_QUERY"
+    assert captured["source_connector"] == "predefined_query"
     assert captured["mime_type"] == "application/json"
     assert captured["control"] == "PGX-001"
     artifact = json.loads(captured["content"].decode())
-    assert artifact["source_type"] == "PREDEFINED_QUERY"
+    assert artifact["source_type"] == "predefined_query"
     assert artifact["query_id"] == "PGX-001"
     assert artifact["status"] == "SUCCESS"
 
@@ -144,7 +144,7 @@ def test_object_key_hash_and_metadata_stored(monkeypatch):
     assert upload["object_key"].startswith("predefined-query/")
     assert upload["object_key"].endswith(".json")
     assert "PGX-001" in upload["object_key"]
-    assert captured["metadata"]["source_type"] == "PREDEFINED_QUERY"
+    assert captured["metadata"]["source_type"] == "predefined_query"
     assert captured["metadata"]["object_key"] == upload["object_key"]
     assert captured["source_url"] == f"object://{upload['object_key']}"
     assert len(captured["metadata"]["content_sha256"]) == 64

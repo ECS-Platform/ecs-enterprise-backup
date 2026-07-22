@@ -308,6 +308,8 @@ def collect_mock_evidence(
         meta = {
             "scheduler_run_id": run_id,
             "collection_source": "mock_evidence",
+            "source_type": "mock_evidence",
+            "source_name": "Mock Evidence",
             "environment": str(manifest.get("environment") or "UAT"),
             "framework": framework,
             "control_name": str(manifest.get("control_name") or control_id),
@@ -367,6 +369,7 @@ def collect_mock_evidence(
                     "run_id": run_id,
                     "workflow_status": record.get("status", "Uploaded"),
                     "pgvector_indexed": meta["pgvector_indexed"],
+                    "search_index": index_report,
                 }
             )
             from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence

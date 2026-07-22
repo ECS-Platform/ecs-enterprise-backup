@@ -187,7 +187,9 @@ def _ingest_items(
                 for k, v in item.items()
                 if k not in {"content_bytes", "content"}
             }
-            metadata.setdefault("source_type", "connector")
+            metadata.setdefault("source_type", connector)
+            metadata.setdefault("connector_id", connector)
+            metadata.setdefault("source_name", connector)
             if run_id:
                 metadata["scheduler_run_id"] = run_id
             content = item.get("content_bytes")
@@ -232,7 +234,7 @@ def _ingest_items(
             )
             from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
 
-            enroll_collected_evidence(record, source_type="connector")
+            enroll_collected_evidence(record, source_type=connector)
             receipts.append({
                 "evidence_id": record.get("evidence_id"),
                 "filename": record.get("original_filename") or record.get("filename"),

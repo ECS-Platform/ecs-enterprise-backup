@@ -265,6 +265,8 @@ def collect_common_control_folder(
         meta = {
             "common_control": manifest.get("common_control") or receipt.common_control,
             "common_control_slug": slug,
+            "source_type": "common_controls",
+            "source_name": receipt.common_control,
             "predefined_query_ids": manifest.get("predefined_query_ids")
             or (list(ctrl.predefined_query_ids) if ctrl else []),
             "alternate_collection": manifest.get("alternate_collection")
@@ -323,7 +325,7 @@ def collect_common_control_folder(
 
         enroll_collected_evidence(
             ops_record,
-            source_type="common_control",
+            source_type="common_controls",
             observation_id=receipt.observation_id or "",
         )
 

@@ -107,6 +107,16 @@ def _coerce_run_summary(raw, *, run_id: str = "", applications=None, frameworks=
             out[key] = int(base.get(key, 0) or 0)
         except (TypeError, ValueError):
             out[key] = 0
+    for key in (
+        "source_breakdown",
+        "source_totals",
+        "pgvector_detail",
+        "pq_zero_reason",
+        "collection_mode",
+        "environment_flags",
+    ):
+        if key in base:
+            out[key] = base[key]
     return out
 
 
@@ -277,6 +287,479 @@ def _merge_run_summary(*parts: dict) -> dict:
     return totals
 
 
+def _classify_pgvector_status(search_index: dict | None) -> dict[str, str]:
+    """Map repository search_index payload to indexed/queued/skipped/failed/unavailable."""
+    idx = dict(search_index or {})
+    if idx.get("indexed"):
+        return {"status": "indexed", "reason": str(idx.get("reason") or "ok")}
+    reason = str(idx.get("reason") or idx.get("errors", [""])[0] if idx.get("errors") else "not_indexed")
+    if reason in {"provider_not_configured", "provider_unavailable"}:
+        return {"status": "provider_unavailable", "reason": reason}
+    if reason in {"duplicate_content", "superseded", "empty_text", "artifact_missing", "mirror_failed", "missing_hash"}:
+        return {"status": "skipped", "reason": reason}
+    if reason in {"index_failed"} or idx.get("errors"):
+        return {"status": "failed", "reason": reason}
+    if reason in {"queued", "index_queued"}:
+        return {"status": "queued", "reason": reason}
+    return {"status": "skipped", "reason": reason}
+
+
+def _normalize_source_type(*, source_connector: str = "", meta: dict | None = None) -> str:
+    meta = dict(meta or {})
+    raw = str(meta.get("source_type") or source_connector or meta.get("collection_source") or "").strip()
+    aliases = {
+        "PREDEFINED_QUERY": "predefined_query",
+        "predefined_query": "predefined_query",
+        "common_control": "common_controls",
+        "CommonControls": "common_controls",
+        "mock_evidence": "mock_evidence",
+        "sharepoint": "sharepoint_graph",
+        "connector": str(source_connector or "connector"),
+    }
+    if raw in aliases:
+        return aliases[raw]
+    if raw.lower() in {"predefined_query", "mock_evidence", "common_controls", "sharepoint_graph"}:
+        return raw.lower()
+    return raw or "unknown"
+
+
+def _source_row(
+    source: str,
+    *,
+    planned: int = 0,
+    executed: int = 0,
+    discovered: int = 0,
+    persisted: int = 0,
+    duplicates: int = 0,
+    failed: int = 0,
+    metadata_count: int = 0,
+    object_storage_count: int = 0,
+    pgvector_indexed: int = 0,
+    pgvector_queued: int = 0,
+    pgvector_skipped: int = 0,
+    pgvector_failed: int = 0,
+    pgvector_unavailable: int = 0,
+    status: str = "",
+    skip_reason: str = "",
+    **extra,
+) -> dict:
+    row = {
+        "source": source,
+        "planned": int(planned or 0),
+        "executed": int(executed or 0),
+        "discovered": int(discovered or 0),
+        "persisted": int(persisted or 0),
+        "duplicates": int(duplicates or 0),
+        "failed": int(failed or 0),
+        "metadata_count": int(metadata_count or 0),
+        "object_storage_count": int(object_storage_count or 0),
+        "pgvector_indexed": int(pgvector_indexed or 0),
+        "pgvector_queued": int(pgvector_queued or 0),
+        "pgvector_skipped": int(pgvector_skipped or 0),
+        "pgvector_failed": int(pgvector_failed or 0),
+        "pgvector_provider_unavailable": int(pgvector_unavailable or 0),
+        "status": status or ("completed" if persisted else ("skipped" if skip_reason else "empty")),
+        "skip_reason": skip_reason,
+        "failure_reason": skip_reason if status == "failed" else "",
+    }
+    row.update(extra)
+    return row
+
+
+def _aggregate_pgvector_counts(rows: list[dict]) -> dict:
+    totals = {
+        "indexed": 0,
+        "queued": 0,
+        "skipped": 0,
+        "failed": 0,
+        "provider_unavailable": 0,
+    }
+    for row in rows:
+        totals["indexed"] += int(row.get("pgvector_indexed", 0) or 0)
+        totals["queued"] += int(row.get("pgvector_queued", 0) or 0)
+        totals["skipped"] += int(row.get("pgvector_skipped", 0) or 0)
+        totals["failed"] += int(row.get("pgvector_failed", 0) or 0)
+        totals["provider_unavailable"] += int(row.get("pgvector_provider_unavailable", 0) or 0)
+    if not any(totals.values()):
+        totals["status"] = "provider_unavailable"
+        totals["reason"] = "No embeddings indexed — PGVector provider not configured or indexing skipped"
+    else:
+        totals["status"] = "indexed" if totals["indexed"] else "skipped"
+        totals["reason"] = ""
+    return totals
+
+
+def _pq_zero_reason(pq_result: dict) -> str:
+    if not isinstance(pq_result, dict):
+        return "predefined_query_collection_failed"
+    if pq_result.get("enabled") is False:
+        return str(pq_result.get("skip_reason") or "ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED=false")
+    if int(pq_result.get("persisted", 0) or 0) > 0:
+        return ""
+    if pq_result.get("error"):
+        return str(pq_result["error"])
+    reasons: list[str] = []
+    for row in pq_result.get("results") or []:
+        if row.get("evidence_persisted"):
+            continue
+        if row.get("skip_reason"):
+            reasons.append(str(row["skip_reason"]))
+        elif row.get("error_type"):
+            reasons.append(str(row["error_type"]))
+        elif row.get("error"):
+            reasons.append(str(row["error"]))
+    if reasons:
+        return "; ".join(dict.fromkeys(reasons))
+    if not pq_result.get("controls"):
+        return "no_matching_queries"
+    return "execution_did_not_persist"
+
+
+def _diagnose_predefined_query(control_id: str) -> dict:
+    from modules.operations.engines.predefined_queries_engine import (
+        assess_execution_capability,
+        get_control_by_id,
+        is_live_execution_enabled,
+    )
+
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"executable": False, "skip_reason": "missing_control", "detail": "Control not found"}
+    capability = assess_execution_capability(control)
+    if not is_live_execution_enabled(control):
+        return {
+            "executable": False,
+            "skip_reason": capability.get("status", "unsupported_control"),
+            "detail": capability.get("reason") or "Live execution is not enabled for this control",
+            "error_type": "unsupported_control",
+        }
+    return {"executable": True, "skip_reason": "", "detail": capability.get("reason", "")}
+
+
+def _pgvector_counts_from_receipts(receipts: list[dict]) -> dict[str, int]:
+    counts = {"indexed": 0, "queued": 0, "skipped": 0, "failed": 0, "provider_unavailable": 0}
+    for receipt in receipts:
+        idx = receipt.get("search_index") if isinstance(receipt.get("search_index"), dict) else {}
+        if not idx and receipt.get("evidence_id"):
+            try:
+                from modules.operations.engines import evidence_repository as ops_repo
+
+                rec = next((r for r in ops_repo.evidence_repository if r.get("evidence_id") == receipt["evidence_id"]), None)
+                idx = (rec or {}).get("search_index") or {}
+            except Exception:  # noqa: BLE001
+                idx = {}
+        bucket = _classify_pgvector_status(idx)
+        key = bucket["status"]
+        if key == "provider_unavailable":
+            counts["provider_unavailable"] += 1
+        elif key in counts:
+            counts[key] += 1
+        else:
+            counts["skipped"] += 1
+    return counts
+
+
+def build_connector_source_summary(
+    *,
+    planned_jobs: int,
+    live: bool,
+    mode: str,
+    job_results: list[dict],
+) -> dict:
+    connector_jobs = [r for r in job_results if isinstance(r, dict)]
+    if not live:
+        reason = f"{mode}: ECS_CONNECTOR_EXECUTION_ENABLED is not set and no transport injected"
+        return _source_row(
+            "connectors",
+            planned=planned_jobs,
+            status="skipped",
+            skip_reason=reason,
+            connector_ids=sorted({str(r.get("connector") or "") for r in connector_jobs if r.get("connector")}),
+        )
+    discovered = sum(int(r.get("objects_fetched", 0) or 0) for r in connector_jobs)
+    persisted = sum(int(r.get("ingested", 0) or 0) for r in connector_jobs)
+    failed = sum(1 for r in connector_jobs if r.get("ok") is False or int(r.get("ingested", 0) or 0) == 0)
+    receipts: list[dict] = []
+    for row in connector_jobs:
+        receipts.extend(row.get("receipts") or [])
+    pg = _pgvector_counts_from_receipts(receipts)
+    skip = ""
+    status = "completed"
+    if planned_jobs and not persisted and failed:
+        status = "failed"
+        skip = "; ".join(
+            dict.fromkeys(
+                str(r.get("reason") or r.get("status") or "connector_run_failed")
+                for r in connector_jobs
+                if int(r.get("ingested", 0) or 0) == 0
+            )
+        )
+    elif planned_jobs and not persisted:
+        status = "empty"
+        skip = "connectors ran but persisted zero evidence"
+    return _source_row(
+        "connectors",
+        planned=planned_jobs,
+        executed=len(connector_jobs),
+        discovered=discovered,
+        persisted=persisted,
+        failed=failed,
+        metadata_count=persisted,
+        object_storage_count=persisted,
+        pgvector_indexed=pg["indexed"],
+        pgvector_queued=pg["queued"],
+        pgvector_skipped=pg["skipped"],
+        pgvector_failed=pg["failed"],
+        pgvector_unavailable=pg["provider_unavailable"],
+        status=status,
+        skip_reason=skip,
+        connector_ids=sorted({str(r.get("connector") or "") for r in connector_jobs if r.get("connector")}),
+    )
+
+
+def build_mock_source_summary(*, mock_summary: dict, enabled: bool, demo_mode: bool) -> dict:
+    if not demo_mode:
+        return _source_row(
+            "mock_evidence",
+            status="skipped",
+            skip_reason="DEMO_MODE=false — mock evidence path disabled",
+        )
+    if not enabled:
+        return _source_row(
+            "mock_evidence",
+            status="skipped",
+            skip_reason="ECS_MOCK_EVIDENCE_COLLECTION_ENABLED=false",
+        )
+    if not mock_summary:
+        return _source_row("mock_evidence", status="skipped", skip_reason="no mock folders matched selection")
+    pg = _pgvector_counts_from_receipts(mock_summary.get("receipts") or [])
+    return _source_row(
+        "mock_evidence",
+        planned=int(mock_summary.get("files_discovered", 0) or 0),
+        executed=int(mock_summary.get("sources_executed", 0) or 0),
+        discovered=int(mock_summary.get("files_discovered", 0) or 0),
+        persisted=int(mock_summary.get("new_evidence", 0) or 0),
+        duplicates=int(mock_summary.get("duplicates_skipped", 0) or 0),
+        failed=int(mock_summary.get("failures", 0) or 0),
+        metadata_count=int(mock_summary.get("postgresql_count", 0) or 0),
+        object_storage_count=int(mock_summary.get("object_storage_count", 0) or 0),
+        pgvector_indexed=pg["indexed"] or int(mock_summary.get("pgvector_count", 0) or 0),
+        pgvector_queued=pg["queued"],
+        pgvector_skipped=pg["skipped"],
+        pgvector_failed=pg["failed"],
+        pgvector_unavailable=pg["provider_unavailable"],
+        status="completed" if int(mock_summary.get("new_evidence", 0) or 0) else "empty",
+        skip_reason="" if int(mock_summary.get("new_evidence", 0) or 0) else "mock folders discovered but nothing persisted",
+    )
+
+
+def build_common_controls_source_summary(*, cc_result: dict, enabled: bool) -> dict:
+    if not enabled:
+        return _source_row(
+            "common_controls",
+            status="skipped",
+            skip_reason="ECS_COMMON_CONTROLS_COLLECTION_ENABLED=false",
+        )
+    if cc_result.get("error"):
+        return _source_row(
+            "common_controls",
+            status="failed",
+            skip_reason=str(cc_result["error"]),
+        )
+    pg = _pgvector_counts_from_receipts(cc_result.get("receipts") or [])
+    persisted = int(cc_result.get("collected", cc_result.get("new_evidence", 0)) or 0)
+    return _source_row(
+        "common_controls",
+        planned=int(cc_result.get("folders_discovered", cc_result.get("files_discovered", 0)) or 0),
+        executed=int(cc_result.get("folders_discovered", 0) or 0),
+        discovered=int(cc_result.get("folders_discovered", cc_result.get("files_discovered", 0)) or 0),
+        persisted=persisted,
+        failed=int(cc_result.get("failures", 0) or 0),
+        metadata_count=int(cc_result.get("postgresql_count", 0) or 0),
+        object_storage_count=int(cc_result.get("object_storage_count", 0) or 0),
+        pgvector_indexed=pg["indexed"],
+        pgvector_queued=pg["queued"],
+        pgvector_skipped=pg["skipped"],
+        pgvector_failed=pg["failed"],
+        pgvector_unavailable=pg["provider_unavailable"],
+        status="completed" if persisted else "empty",
+    )
+
+
+def build_predefined_query_source_summary(*, pq_result: dict, enabled: bool) -> dict:
+    if not enabled:
+        return _source_row(
+            "predefined_query",
+            status="skipped",
+            skip_reason=str(pq_result.get("skip_reason") or "ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED=false"),
+            persist_flag=False,
+        )
+    controls = pq_result.get("controls") or []
+    results = pq_result.get("results") or []
+    executed = sum(1 for row in results if row.get("ok") is not False or row.get("error_type"))
+    persisted = int(pq_result.get("persisted", 0) or 0)
+    duplicates = sum(1 for row in results if row.get("duplicate"))
+    failed = int(pq_result.get("failures", 0) or 0)
+    pg = {"indexed": 0, "queued": 0, "skipped": 0, "failed": 0, "provider_unavailable": 0}
+    for row in results:
+        upload = row.get("upload") if isinstance(row.get("upload"), dict) else {}
+        idx = upload.get("search_index") if isinstance(upload.get("search_index"), dict) else {}
+        if idx.get("indexed"):
+            pg["indexed"] += 1
+        elif upload.get("evidence_id"):
+            bucket = _classify_pgvector_status(idx)
+            key = bucket["status"]
+            if key == "provider_unavailable":
+                pg["provider_unavailable"] += 1
+            elif key in pg:
+                pg[key] += 1
+    skip = _pq_zero_reason(pq_result) if persisted == 0 else ""
+    status = "completed" if persisted else ("skipped" if skip else "empty")
+    return _source_row(
+        "predefined_query",
+        planned=len(controls),
+        executed=max(executed, len(results)),
+        discovered=len(controls),
+        persisted=persisted,
+        duplicates=duplicates,
+        failed=failed,
+        metadata_count=int(pq_result.get("postgresql_count", 0) or 0),
+        object_storage_count=int(pq_result.get("object_storage_count", 0) or 0),
+        pgvector_indexed=pg["indexed"] or int(pq_result.get("pgvector_count", 0) or 0),
+        pgvector_queued=pg["queued"],
+        pgvector_skipped=pg["skipped"],
+        pgvector_failed=pg["failed"],
+        pgvector_unavailable=pg["provider_unavailable"],
+        status=status,
+        skip_reason=skip,
+        persist_flag=bool(pq_result.get("persist_flag", True)),
+        control_ids=controls,
+        demo_mode=bool(pq_result.get("demo_mode")),
+        environment_flags=pq_result.get("environment_flags") or {},
+    )
+
+
+def build_run_source_breakdown(
+    *,
+    connector_summary: dict,
+    mock_summary: dict,
+    cc_result: dict,
+    pq_result: dict,
+    mock_enabled: bool,
+    cc_enabled: bool,
+    pq_enabled: bool,
+    demo_mode: bool,
+) -> tuple[list[dict], dict, str]:
+    rows = [
+        build_predefined_query_source_summary(pq_result=pq_result, enabled=pq_enabled),
+        connector_summary,
+        build_common_controls_source_summary(cc_result=cc_result, enabled=cc_enabled),
+        build_mock_source_summary(mock_summary=mock_summary, enabled=mock_enabled, demo_mode=demo_mode),
+    ]
+    totals = {
+        "planned": sum(r["planned"] for r in rows),
+        "executed": sum(r["executed"] for r in rows),
+        "discovered": sum(r["discovered"] for r in rows),
+        "persisted": sum(r["persisted"] for r in rows),
+        "duplicates": sum(r["duplicates"] for r in rows),
+        "failed": sum(r["failed"] for r in rows),
+        "metadata_count": sum(r["metadata_count"] for r in rows),
+        "object_storage_count": sum(r["object_storage_count"] for r in rows),
+    }
+    totals["pgvector_detail"] = _aggregate_pgvector_counts(rows)
+    pq_zero = _pq_zero_reason(pq_result if pq_enabled else {"enabled": False, "skip_reason": pq_result.get("skip_reason", "")})
+    return rows, totals, pq_zero
+
+
+def get_scheduler_selection_catalog(role: str = "") -> dict[str, list[str]]:
+    """Canonical, deduplicated application/framework options for scheduler UI (RBAC-scoped)."""
+    from modules.operations.engines.scheduler_intelligence import APPLICATIONS, FRAMEWORKS
+    from modules.shared.services.role_filter_scope import ROLE_FRAMEWORKS, apps_for_role, normalize_role
+
+    apps: list[str] = list(APPLICATIONS)
+    for label in SCHEDULER_APPLICATION_MAP:
+        display = label.title() if label.islower() and " " in label else label
+        if display not in apps:
+            apps.append(display)
+    seen: set[str] = set()
+    deduped_apps: list[str] = []
+    for app in apps:
+        key = _norm_scheduler_key(app)
+        if key and key not in seen:
+            seen.add(key)
+            deduped_apps.append(app)
+    role_key = normalize_role(role) if role else ""
+    allowed_apps = apps_for_role(role_key) if role_key else None
+    if allowed_apps is not None:
+        deduped_apps = [
+            app for app in deduped_apps
+            if app in allowed_apps or any(part in app for part in allowed_apps)
+        ]
+    frameworks = list(FRAMEWORKS)
+    allowed_fws = ROLE_FRAMEWORKS.get(role_key) if role_key else None
+    if allowed_fws is not None:
+        frameworks = [fw for fw in frameworks if fw in allowed_fws]
+    return {"applications": deduped_apps, "frameworks": frameworks}
+
+
+def _enrich_fetched_evidence_row(
+    *,
+    evidence_id: str,
+    collected_at: str,
+    source_connector: str,
+    meta: dict,
+    filename: str,
+    application: str,
+    environment: str,
+    framework: str,
+    control: str,
+    run_id: str,
+    workflow_status: str,
+    sha256: str,
+    version: int,
+    duplicate: bool,
+    object_key: str,
+    search_index: dict | None,
+    artifact_type: str = "json",
+) -> dict:
+    source_type = _normalize_source_type(source_connector=source_connector, meta=meta)
+    pg = _classify_pgvector_status(search_index)
+    query_or_connector = str(
+        meta.get("query_id") or meta.get("connector_id") or source_connector or meta.get("common_control_slug") or ""
+    )
+    return {
+        "evidence_id": evidence_id,
+        "collected_at": collected_at,
+        "source": source_connector or source_type,
+        "source_type": source_type,
+        "source_name": str(meta.get("source_name") or meta.get("collection_source") or source_type),
+        "evidence_name": filename or evidence_id,
+        "application": application,
+        "environment": environment,
+        "framework": framework,
+        "control": control,
+        "framework_control": " / ".join(x for x in (framework, control) if x),
+        "query_id": str(meta.get("query_id") or ""),
+        "connector_id": str(meta.get("connector_id") or source_connector or ""),
+        "query_or_connector": query_or_connector,
+        "run_id": run_id,
+        "status": workflow_status,
+        "workflow_status": workflow_status,
+        "metadata_status": "persisted" if evidence_id else "missing",
+        "object_ref": object_key,
+        "object_key": object_key,
+        "artifact_type": str(meta.get("artifact_type") or artifact_type),
+        "sha256": sha256,
+        "duplicate_state": "duplicate" if duplicate else "accepted",
+        "version": version,
+        "pgvector_status": pg["status"],
+        "pgvector_reason": pg["reason"],
+        "custody_mode": str(meta.get("custody_mode") or ""),
+        "view_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={evidence_id}",
+        "download_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={evidence_id}&raw=true",
+    }
+
+
 def _artifact_row(art) -> dict:
     meta = dict(getattr(art, "metadata", ()) or ())
     source = str(getattr(art, "source", "") or "")
@@ -286,39 +769,42 @@ def _artifact_row(art) -> dict:
     evidence_id = str(getattr(art, "evidence_id", "") or "")
     run_id = _normalize_run_id(meta.get("scheduler_run_id") or meta.get("run_id") or "")
     duplicate = bool(meta.get("duplicate")) or str(meta.get("duplicate_state", "")).lower() == "duplicate"
-    pgvector = bool(meta.get("pgvector_indexed")) or str(meta.get("pgvector_status", "")).lower() in {"indexed", "ok", "true"}
+    search_index: dict = {}
+    workflow_status = str(meta.get("workflow_status") or meta.get("validation_verdict") or "Collected")
     try:
         from modules.operations.engines import evidence_repository as ops_repo
 
         ops = next((r for r in ops_repo.evidence_repository if r.get("evidence_id") == evidence_id), None)
         if ops:
             run_id = run_id or _normalize_run_id((ops.get("metadata") or {}).get("scheduler_run_id") or "")
-            idx = ops.get("search_index") or {}
-            pgvector = pgvector or bool(idx.get("indexed"))
+            search_index = dict(ops.get("search_index") or {})
             duplicate = duplicate or str(ops.get("status", "")).upper() == "DUPLICATE"
+            workflow_status = str(
+                (ops.get("metadata") or {}).get("workflow_status") or ops.get("status") or workflow_status
+            )
+            meta = {**meta, **dict(ops.get("metadata") or {})}
+            source_connector = source_connector or str(ops.get("source_connector") or "")
     except Exception:  # noqa: BLE001
         pass
-    return {
-        "evidence_id": evidence_id,
-        "collected_at": str(getattr(art, "collected_at", "") or ""),
-        "source": source_connector or str(meta.get("source", "") or source),
-        "evidence_name": str(getattr(art, "filename", "") or evidence_id),
-        "application": str(getattr(art, "asset_id", "") or meta.get("application") or ""),
-        "environment": str(getattr(art, "environment", "") or meta.get("environment") or ""),
-        "framework": framework,
-        "control": control,
-        "framework_control": " / ".join([x for x in (framework, control) if x]),
-        "custody_mode": str(getattr(art, "custody_mode", "") or ""),
-        "run_id": run_id,
-        "status": str(meta.get("workflow_status") or meta.get("validation_verdict") or "Collected"),
-        "sha256": str(getattr(art, "content_hash", "") or meta.get("content_sha256") or ""),
-        "duplicate_state": "duplicate" if duplicate else "accepted",
-        "version": int(getattr(art, "version", 1) or 1),
-        "pgvector_status": "indexed" if pgvector else "not_indexed",
-        "object_key": str(meta.get("object_key") or getattr(art, "object_uri", "") or ""),
-        "view_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={evidence_id}",
-        "download_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={evidence_id}&raw=true",
-    }
+    return _enrich_fetched_evidence_row(
+        evidence_id=evidence_id,
+        collected_at=str(getattr(art, "collected_at", "") or ""),
+        source_connector=source_connector or str(meta.get("source", "") or source),
+        meta=meta,
+        filename=str(getattr(art, "filename", "") or evidence_id),
+        application=str(getattr(art, "asset_id", "") or meta.get("application") or ""),
+        environment=str(getattr(art, "environment", "") or meta.get("environment") or ""),
+        framework=framework,
+        control=control,
+        run_id=run_id,
+        workflow_status=workflow_status,
+        sha256=str(getattr(art, "content_hash", "") or meta.get("content_sha256") or ""),
+        version=int(getattr(art, "version", 1) or 1),
+        duplicate=duplicate,
+        object_key=str(meta.get("object_key") or getattr(art, "object_uri", "") or ""),
+        search_index=search_index,
+        artifact_type=str(meta.get("artifact_type") or getattr(art, "mime_type", "") or "json"),
+    )
 
 
 _SCHEDULER_SOURCES = frozenset({
@@ -422,29 +908,25 @@ def _scheduler_fetched_evidence(limit: int = 200, *, run_id: str = "") -> list[d
             if want and rid != want:
                 continue
             rows.append(
-                {
-                    "evidence_id": eid,
-                    "collected_at": str(rec.get("uploaded_at") or ""),
-                    "source": src or "scheduler",
-                    "evidence_name": str(rec.get("filename") or eid),
-                    "application": str((rec.get("application_tags") or [""])[0]),
-                    "environment": str(meta.get("environment") or rec.get("environment") or ""),
-                    "framework": str((rec.get("framework_tags") or [""])[0]),
-                    "control": str(rec.get("control") or ""),
-                    "framework_control": " / ".join(
-                        x for x in (str((rec.get("framework_tags") or [""])[0]), str(rec.get("control") or "")) if x
-                    ),
-                    "custody_mode": str(rec.get("custody_mode") or ""),
-                    "run_id": rid,
-                    "status": str(rec.get("status") or "Uploaded"),
-                    "sha256": str(rec.get("sha256") or ""),
-                    "duplicate_state": "duplicate" if str(rec.get("status", "")).upper() == "DUPLICATE" else "accepted",
-                    "version": int(rec.get("version") or 1),
-                    "pgvector_status": "indexed" if (rec.get("search_index") or {}).get("indexed") else "not_indexed",
-                    "object_key": str(meta.get("object_key") or rec.get("object_uri") or ""),
-                    "view_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={eid}",
-                    "download_url": f"/mvp/scheduler/fetched-evidence/view?evidence_id={eid}&raw=true",
-                }
+                _enrich_fetched_evidence_row(
+                    evidence_id=eid,
+                    collected_at=str(rec.get("uploaded_at") or ""),
+                    source_connector=src or "scheduler",
+                    meta=meta,
+                    filename=str(rec.get("filename") or eid),
+                    application=str((rec.get("application_tags") or [""])[0]),
+                    environment=str(meta.get("environment") or rec.get("environment") or ""),
+                    framework=str((rec.get("framework_tags") or [""])[0]),
+                    control=str(rec.get("control") or ""),
+                    run_id=rid,
+                    workflow_status=str((meta.get("workflow_status") or rec.get("status") or "Uploaded")),
+                    sha256=str(rec.get("sha256") or ""),
+                    version=int(rec.get("version") or 1),
+                    duplicate=str(rec.get("status", "")).upper() == "DUPLICATE",
+                    object_key=str(meta.get("object_key") or rec.get("object_uri") or ""),
+                    search_index=dict(rec.get("search_index") or {}),
+                    artifact_type=str(meta.get("artifact_type") or rec.get("mime_type") or "json"),
+                )
             )
             seen.add(eid)
     except Exception:  # noqa: BLE001
@@ -481,6 +963,7 @@ def get_scheduler_dashboard(*, run_id: str = ""):
         "fetched_evidence": _scheduler_fetched_evidence(run_id=run_id),
         "latest_run_id": latest.get("run_id", ""),
         "latest_run_summary": latest.get("summary", {}),
+        "selection_catalog": get_scheduler_selection_catalog(),
     }
 
 
@@ -628,6 +1111,33 @@ def collect_scheduled_predefined_queries(
     run_id: str = "",
 ) -> dict:
     """Run configured predefined queries and persist JSON evidence in one pass."""
+    pq_enabled = _predefined_query_scheduler_enabled()
+    demo_mode = demo_mode_enabled()
+    env_flags = {
+        "DEMO_MODE": demo_mode,
+        "ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED": pq_enabled,
+        "ECS_PREDEFINED_QUERY_SCHEDULER_CONTROL": os.environ.get("ECS_PREDEFINED_QUERY_SCHEDULER_CONTROL", "PGX-001"),
+    }
+    if not pq_enabled:
+        return {
+            "enabled": False,
+            "status": "skipped",
+            "skip_reason": "ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED=false",
+            "persist_flag": False,
+            "controls": [],
+            "results": [],
+            "persisted": 0,
+            "discovered": 0,
+            "files_discovered": 0,
+            "new_evidence": 0,
+            "postgresql_count": 0,
+            "object_storage_count": 0,
+            "pgvector_count": 0,
+            "failures": 0,
+            "demo_mode": demo_mode,
+            "environment_flags": env_flags,
+        }
+
     from modules.operations.engines.predefined_queries_engine import run_predefined_query
 
     raw = control_ids or [os.environ.get("ECS_PREDEFINED_QUERY_SCHEDULER_CONTROL", "PGX-001")]
@@ -646,13 +1156,27 @@ def collect_scheduled_predefined_queries(
     run_token = set_active_scheduler_run_id(run_id)
     try:
         for cid in ids:
+            diagnosis = _diagnose_predefined_query(cid)
             try:
                 outcome = run_predefined_query(cid, user, scheduled=True)
             except Exception as exc:  # noqa: BLE001
-                outcome = {"ok": False, "control_id": cid, "error": str(exc)}
+                outcome = {
+                    "ok": False,
+                    "control_id": cid,
+                    "error": str(exc),
+                    "error_type": "execution_error",
+                    "evidence_persisted": False,
+                }
                 failures += 1
+            outcome = dict(outcome or {})
+            outcome.setdefault("control_id", cid)
+            outcome["persist_flag"] = True
+            outcome["scheduled"] = True
+            if not diagnosis.get("executable") and not outcome.get("evidence_persisted"):
+                outcome.setdefault("error_type", diagnosis.get("error_type", "unsupported_control"))
+                outcome.setdefault("error", diagnosis.get("detail"))
+                outcome["skip_reason"] = diagnosis.get("skip_reason") or diagnosis.get("detail")
             if outcome.get("evidence_persisted"):
-                # Belt-and-suspenders: ensure ops record carries exact scheduler_run_id.
                 upload = outcome.get("upload") if isinstance(outcome.get("upload"), dict) else {}
                 eid = upload.get("evidence_id") if upload else outcome.get("evidence_id")
                 if run_id and eid:
@@ -663,9 +1187,12 @@ def collect_scheduled_predefined_queries(
                         if rec is not None:
                             meta = dict(rec.get("metadata") or {})
                             meta["scheduler_run_id"] = run_id
+                            meta.setdefault("source_type", "predefined_query")
+                            meta.setdefault("query_id", cid)
                             rec["metadata"] = meta
                             if upload:
                                 upload["metadata"] = meta
+                                upload["search_index"] = rec.get("search_index") or {}
                     except Exception:  # noqa: BLE001
                         pass
                 postgresql_count += 1
@@ -675,11 +1202,15 @@ def collect_scheduled_predefined_queries(
                 idx = upload.get("search_index") or {}
                 if idx.get("indexed"):
                     pgvector_count += 1
+            elif outcome.get("ok") is False:
+                failures += 1
             results.append({"control_id": cid, **outcome})
     finally:
         reset_active_scheduler_run_id(run_token)
     persisted = sum(1 for row in results if row.get("evidence_persisted"))
     return {
+        "enabled": True,
+        "status": "completed" if persisted else "empty",
         "controls": ids,
         "results": results,
         "persisted": persisted,
@@ -690,6 +1221,9 @@ def collect_scheduled_predefined_queries(
         "object_storage_count": object_storage_count,
         "pgvector_count": pgvector_count,
         "failures": failures,
+        "persist_flag": True,
+        "demo_mode": demo_mode,
+        "environment_flags": env_flags,
     }
 
 def _norm_scheduler_key(value: str) -> str:
@@ -959,16 +1493,46 @@ def run_scheduler_collection(
 
     pq_result: dict = {}
     pq_persisted = 0
-    if _predefined_query_scheduler_enabled():
+    pq_enabled = _predefined_query_scheduler_enabled()
+    if pq_enabled:
         try:
-            progress.append("predefined queries", "Running")
+            progress.append("predefined queries", "Running", detail="persist=true (scheduled)")
             pq_result = collect_scheduled_predefined_queries(user=user or "scheduler", run_id=run_id)
             pq_persisted = int(pq_result.get("persisted", 0))
             ingested += pq_persisted
-            progress.append("predefined queries", "Completed", detail=f"persisted={pq_persisted}")
-        except Exception:  # noqa: BLE001
-            pq_result = {"error": "predefined_query_collection_failed"}
-            progress.append("predefined queries", "Failed")
+            if pq_persisted:
+                progress.append("predefined queries", "Completed", detail=f"persisted={pq_persisted}")
+            else:
+                reason = _pq_zero_reason(pq_result)
+                progress.append("predefined queries", "Skipped", detail=reason or "persisted=0")
+        except Exception as exc:  # noqa: BLE001
+            pq_result = {"error": "predefined_query_collection_failed", "detail": str(exc)}
+            progress.append("predefined queries", "Failed", detail=str(exc))
+    else:
+        pq_result = {
+            "enabled": False,
+            "skip_reason": "ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED=false",
+            "persist_flag": False,
+        }
+        progress.append("predefined queries", "Skipped", detail=pq_result["skip_reason"])
+
+    connector_summary = build_connector_source_summary(
+        planned_jobs=connector_plan_summary.get("planned_jobs", 0),
+        live=live,
+        mode=mode,
+        job_results=job_results,
+    )
+    source_breakdown, source_totals, pq_zero_reason = build_run_source_breakdown(
+        connector_summary=connector_summary,
+        mock_summary=mock_summary if isinstance(mock_summary, dict) else {},
+        cc_result=cc_result if isinstance(cc_result, dict) else {},
+        pq_result=pq_result if isinstance(pq_result, dict) else {},
+        mock_enabled=_mock_evidence_collection_enabled(),
+        cc_enabled=_common_controls_collection_enabled(),
+        pq_enabled=pq_enabled,
+        demo_mode=demo_mode_enabled(),
+    )
+    pgvector_detail = source_totals.get("pgvector_detail") or _aggregate_pgvector_counts(source_breakdown)
 
     merged_counts = _merge_run_summary(mock_summary, cc_result, pq_result)
     summary = _coerce_run_summary(
@@ -986,6 +1550,18 @@ def run_scheduler_collection(
             "object_storage_count": merged_counts["object_storage_count"],
             "pgvector_count": merged_counts["pgvector_count"],
             "connector_ingested": sum(int(r.get("ingested", 0) or 0) for r in job_results),
+            "source_breakdown": source_breakdown,
+            "source_totals": source_totals,
+            "pgvector_detail": pgvector_detail,
+            "pq_zero_reason": pq_zero_reason,
+            "collection_mode": mode,
+            "environment_flags": {
+                "DEMO_MODE": demo_mode_enabled(),
+                "ECS_CONNECTOR_EXECUTION_ENABLED": live,
+                "ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED": pq_enabled,
+                "ECS_COMMON_CONTROLS_COLLECTION_ENABLED": _common_controls_collection_enabled(),
+                "ECS_MOCK_EVIDENCE_COLLECTION_ENABLED": _mock_evidence_collection_enabled(),
+            },
         },
         run_id=run_id,
         applications=apps,

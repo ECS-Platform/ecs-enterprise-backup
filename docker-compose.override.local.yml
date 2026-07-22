@@ -1,0 +1,29 @@
+services:
+  ecs:
+    environment:
+      DEMO_MODE: "true"
+
+      # Predefined-query target
+      ECS_PG_HOST: postgres-demo
+      ECS_PG_PORT: "5432"
+      ECS_PG_DB: ecs_demo
+
+      # ECS evidence metadata repository
+      ECS_REPO_PG_HOST: postgres
+      ECS_REPO_PG_PORT: "5432"
+
+      # PGVector store
+      ECS_VECTOR_PG_HOST: pgvector
+      ECS_VECTOR_PG_PORT: "5432"
+
+      ECS_MYSQL_HOST: mysql-demo
+      ECS_MYSQL_PORT: "3306"
+
+      ECS_REDIS_HOST: redis
+      ECS_REDIS_PORT: "6379"
+
+      ECS_MINIO_ENDPOINT: http://minio:9000
+
+      ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED: "true"
+      ECS_COMMON_CONTROLS_COLLECTION_ENABLED: "true"
+      ECS_MOCK_EVIDENCE_COLLECTION_ENABLED: "true"

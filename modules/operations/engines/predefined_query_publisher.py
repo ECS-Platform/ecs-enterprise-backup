@@ -98,7 +98,7 @@ def build_artifact_json(
         columns, rows = _parse_tabular_output(result.output or "")
     row_count = int(meta.get("rows_returned", len(rows)))
     artifact: dict[str, Any] = {
-        "source_type": "PREDEFINED_QUERY",
+        "source_type": "predefined_query",
         "query_id": control_id,
         "technology": technology,
         "application": ctx["application"],
@@ -149,7 +149,7 @@ def build_canonical_fingerprint(
     *,
     artifact: dict[str, Any],
     framework: str,
-    source_connector: str = "PREDEFINED_QUERY",
+    source_connector: str = "predefined_query",
     evidence_period: str = "",
 ) -> dict[str, Any]:
     """Stable logical identity for predefined-query evidence (volatile fields excluded)."""
@@ -268,7 +268,7 @@ def publish_predefined_query_evidence(
     fingerprint = build_canonical_fingerprint(
         artifact=artifact,
         framework=primary_fw,
-        source_connector="PREDEFINED_QUERY",
+        source_connector="predefined_query",
         evidence_period=evidence_period,
     )
     canonical_hash = canonical_fingerprint_hash(fingerprint)
@@ -311,8 +311,9 @@ def publish_predefined_query_evidence(
     from modules.operations.engines.evidence_repository import register_upload
 
     metadata = {
-        "source_type": "PREDEFINED_QUERY",
-        "collection_source": "PREDEFINED_QUERY",
+        "source_type": "predefined_query",
+        "collection_source": "predefined_query",
+        "source_name": f"Predefined Query {control_id}",
         "query_id": control_id,
         "technology": technology,
         "object_key": object_key,
@@ -331,7 +332,7 @@ def publish_predefined_query_evidence(
         framework=primary_fw,
         application=ctx["application"],
         control=control_id,
-        source_connector="PREDEFINED_QUERY",
+        source_connector="predefined_query",
         source_item_id=stable_source_item_id,
         source_url=f"object://{object_key}",
         environment=ctx["environment"],

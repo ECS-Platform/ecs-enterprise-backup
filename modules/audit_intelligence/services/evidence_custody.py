@@ -214,7 +214,7 @@ def resolve_custody(
                 source_url=source_url,
                 source_modified_at=source_modified_at,
                 content=body,
-                reason=f"snapshot_store_failed:{type(exc).__name__}",
+                reason=(f"snapshot_store_failed:{type(exc).__name__}:"f"{str(exc)}"),
             )
 
     return _reference_result(

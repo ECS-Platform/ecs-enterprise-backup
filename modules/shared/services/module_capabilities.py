@@ -145,7 +145,11 @@ def _build_module_capability(module: str, role: str, analytics_filters: dict | N
 def _scheduler_view(role: str) -> dict:
     from modules.operations.engines.operations_mock_data import build_operations_dataset
     from modules.operations.engines.scheduler_intelligence import build_scheduler_intelligence
-    from modules.operations.engines.scheduler_module import get_scheduler_dashboard, is_scheduler_paused
+    from modules.operations.engines.scheduler_module import (
+        get_scheduler_dashboard,
+        get_scheduler_selection_catalog,
+        is_scheduler_paused,
+    )
     from modules.shared.services.execution_engine_registry import evidence_collection_engine
 
     ops = build_operations_dataset("scheduler", role)
@@ -190,6 +194,7 @@ def _scheduler_view(role: str) -> dict:
         "integration_health": intel["integration_health"],
         "paused": intel["paused"],
         "execution_engine": evidence_collection_engine(paused=intel["paused"], dashboard=dash),
+        "selection_catalog": get_scheduler_selection_catalog(role),
         "actions": _actions_for(role, scheduler=True),
     }
 

@@ -482,10 +482,12 @@ def enroll_collected_evidence(
     if not src_type:
         mapping = {
             "PREDEFINED_QUERY": "predefined_query",
+            "predefined_query": "predefined_query",
             "mock_evidence": "mock_evidence",
-            "common_controls": "common_control",
-            "sharepoint_graph": "connector",
-            "sharepoint": "connector",
+            "common_controls": "common_controls",
+            "common_control": "common_controls",
+            "sharepoint_graph": "sharepoint_graph",
+            "sharepoint": "sharepoint_graph",
         }
         src_type = mapping.get(connector, connector or "scheduler")
     meta["source_type"] = src_type

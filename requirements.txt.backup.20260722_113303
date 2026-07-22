@@ -33,8 +33,5 @@ pymongo
 python-dotenv>=1.2.2
 # --- ECS platform foundation ---
 pyyaml>=6.0.3
-# --- Object storage (MinIO / S3 SNAPSHOT custody) ---
-boto3>=1.34.0
 # --- Authentication foundation (Phase 1: Azure AD / OIDC / JWT validation) ---
 pyjwt[crypto]>=2.13.0
-boto3

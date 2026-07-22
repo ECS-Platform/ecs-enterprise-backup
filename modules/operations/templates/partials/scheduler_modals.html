@@ -8,13 +8,15 @@
 <div class="modal-body">
 <div class="row g-2 mb-2">
 <div class="col-md-6"><label class="form-label ecs-ws-filter-lbl">Applications</label>
-<select class="form-select form-select-sm" id="schedRunApps" multiple size="4">
-{% for s in module_view.application_scans %}<option selected>{{ s.application }}</option>{% endfor %}
+<select class="form-select form-select-sm" id="schedRunApps" multiple size="6">
+{% set catalog = module_view.selection_catalog|default({}, true) %}
+{% set catalog_apps = catalog.applications|default(module_view.application_scans|map(attribute='application')|list|unique|list, true) %}
+{% for app in catalog_apps %}<option selected>{{ app }}</option>{% endfor %}
 </select></div>
 <div class="col-md-6"><label class="form-label ecs-ws-filter-lbl">Frameworks</label>
-<select class="form-select form-select-sm" id="schedRunFw" multiple size="4">
-<option selected>PCI DSS</option><option selected>DPSC</option><option selected>ITPP</option>
-<option>AppSec</option><option>CSITE</option><option>VAPT</option>
+<select class="form-select form-select-sm" id="schedRunFw" multiple size="6">
+{% set catalog_fws = catalog.frameworks|default(['PCI DSS','DPSC','ITPP','AppSec','CSITE','VAPT','OS Baselining','DB Baselining'], true) %}
+{% for fw in catalog_fws %}<option{% if fw in ['PCI DSS','DPSC','ITPP'] %} selected{% endif %}>{{ fw }}</option>{% endfor %}
 </select></div></div>
 <p class="small text-muted mb-2">Runs the evidence-collection planner over the configured assets for the selected applications and frameworks. Dry run by default; set <code>ECS_CONNECTOR_EXECUTION_ENABLED=true</code> for live collection. In <code>DEMO_MODE</code>, mock evidence under <code>data/mock-evidence</code> is ingested through the real persistence pipeline.</p>
 <div class="ecs-sched-log d-none" id="schedRunLog"></div>
@@ -359,6 +361,36 @@
     var nearBottom = (log.scrollTop + log.clientHeight) >= (log.scrollHeight - 24);
     if (nearBottom) log.scrollTop = log.scrollHeight;
   }
+  function renderPgvectorDetail(detail) {
+    if (!detail || typeof detail !== 'object') return esc(num(0));
+    var parts = [];
+    ['indexed','queued','skipped','failed','provider_unavailable'].forEach(function(k){
+      if (detail[k]) parts.push(k + '=' + detail[k]);
+    });
+    if (parts.length) return esc(parts.join(' · '));
+    return esc((detail.reason || detail.status || 'none') + '');
+  }
+  function renderSourceBreakdown(rows) {
+    if (!rows || !rows.length) return '';
+    var html = '<div class="table-responsive mt-2"><table class="table table-sm table-bordered mb-0">' +
+      '<thead><tr><th>Source</th><th>Status</th><th>Planned</th><th>Executed</th><th>Persisted</th>' +
+      '<th>Metadata</th><th>Object</th><th>PGVector</th><th>Reason</th></tr></thead><tbody>';
+    rows.forEach(function(row){
+      var pg = ['indexed','queued','skipped','failed','provider_unavailable'].map(function(k){
+        var n = row['pgvector_' + k] || row['pgvector_' + k.replace('provider_unavailable','provider_unavailable')] || 0;
+        if (k === 'provider_unavailable') n = row.pgvector_provider_unavailable || 0;
+        return n ? (k + ':' + n) : '';
+      }).filter(Boolean).join(' ');
+      html += '<tr><td><code class="small">' + esc(row.source || '—') + '</code></td>' +
+        '<td>' + esc(row.status || '—') + '</td>' +
+        '<td>' + esc(num(row.planned)) + '</td><td>' + esc(num(row.executed)) + '</td>' +
+        '<td>' + esc(num(row.persisted)) + '</td><td>' + esc(num(row.metadata_count)) + '</td>' +
+        '<td>' + esc(num(row.object_storage_count)) + '</td>' +
+        '<td class="small">' + esc(pg || '—') + '</td>' +
+        '<td class="small text-muted">' + esc(row.skip_reason || row.failure_reason || '—') + '</td></tr>';
+    });
+    return html + '</tbody></table></div>';
+  }
   function renderRunSummary(summary, role, user, status) {
     var panel = document.getElementById('schedRunSummary');
     if (!panel || !isValidSummary(summary)) return;
@@ -368,20 +400,26 @@
     var apps = summary.selected_applications || summary.applications || [];
     var fws = summary.selected_frameworks || summary.frameworks || [];
     var label = (status === 'partial') ? 'Collection partial' : 'Collection complete';
+    var totals = summary.source_totals || {};
+    var pgDetail = summary.pgvector_detail || totals.pgvector_detail || {};
+    var pqReason = summary.pq_zero_reason || '';
+    var breakdown = summary.source_breakdown || [];
     panel.innerHTML =
       '<strong>' + esc(label) + ' — ' + esc(runId) + '</strong>' +
       '<div class="row g-1 mt-1">' +
       '<div class="col-md-4">Apps: ' + esc(listJoin(apps)) + '</div>' +
       '<div class="col-md-4">Frameworks: ' + esc(listJoin(fws)) + '</div>' +
-      '<div class="col-md-4">Sources: ' + esc(num(summary.sources_executed)) + '</div>' +
+      '<div class="col-md-4">Mode: ' + esc(summary.collection_mode || '—') + '</div>' +
       '<div class="col-md-3">Discovered: ' + esc(num(summary.files_discovered)) + '</div>' +
       '<div class="col-md-3">New evidence: ' + esc(num(summary.new_evidence)) + '</div>' +
-      '<div class="col-md-3">Duplicates skipped: ' + esc(num(summary.duplicates_skipped)) + '</div>' +
+      '<div class="col-md-3">Duplicates: ' + esc(num(summary.duplicates_skipped)) + '</div>' +
       '<div class="col-md-3">Failures: ' + esc(num(summary.failures)) + '</div>' +
-      '<div class="col-md-4">PostgreSQL: ' + esc(num(summary.postgresql_count)) + '</div>' +
-      '<div class="col-md-4">Object storage: ' + esc(num(summary.object_storage_count)) + '</div>' +
-      '<div class="col-md-4">PGVector: ' + esc(num(summary.pgvector_count)) + '</div>' +
+      '<div class="col-md-4">Metadata records: ' + esc(num(totals.metadata_count || summary.postgresql_count)) + '</div>' +
+      '<div class="col-md-4">Physical files: ' + esc(num(totals.object_storage_count || summary.object_storage_count)) + '</div>' +
+      '<div class="col-md-4">PGVector: ' + renderPgvectorDetail(pgDetail) + '</div>' +
       '</div>' +
+      (pqReason ? '<div class="alert alert-warning py-1 px-2 small mt-2 mb-0">Predefined queries persisted 0 — ' + esc(pqReason) + '</div>' : '') +
+      renderSourceBreakdown(breakdown) +
       '<a class="btn btn-sm btn-outline-primary mt-2" href="/mvp/scheduler?role=' +
         encodeURIComponent(role) + '&user=' + encodeURIComponent(user) +
         '&tab=fetched_evidence&run_id=' + encodeURIComponent(runId) +

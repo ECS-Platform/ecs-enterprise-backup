@@ -1,0 +1,10 @@
+{
+  "application": "Mobile Banking",
+  "control_id": "DB-C-01",
+  "control_name": "Database access control",
+  "environment": "UAT",
+  "framework": "DB Baseline",
+  "source": "mock_evidence",
+  "status": "collected",
+  "summary": "Mock scheduler evidence for Mobile Banking / DB-Baseline"
+}
