@@ -6,7 +6,7 @@
 supported; a SQL backend (SQLite default, Postgres-ready) is provided as a
 skeleton you can enable without changing call sites.
 
-> Cross-refs: [OBSERVATION_AND_REPOSITORY_GUIDE.md](../evidence-management/OBSERVATION_AND_REPOSITORY_GUIDE.md),
+> Cross-refs: [OBSERVATION_AND_REPOSITORY_GUIDE.md](../../evidence-management/OBSERVATION_AND_REPOSITORY_GUIDE.md),
 > [PRODUCTION_HARDENING_GUIDE.md](../production/PRODUCTION_HARDENING_GUIDE.md),
 > [PRODUCTION_READINESS_GAP_REGISTER.md](../production/PRODUCTION_READINESS_GAP_REGISTER.md).
 > Schema: [`docs/DB_SCHEMA_AUDIT_INTELLIGENCE.sql`](../DB_SCHEMA_AUDIT_INTELLIGENCE.sql).

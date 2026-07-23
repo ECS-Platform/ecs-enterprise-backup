@@ -9,7 +9,7 @@ data policy), not baked into product code.
 
 > Cross-refs: [PRODUCTION_HARDENING_GUIDE.md](PRODUCTION_HARDENING_GUIDE.md),
 > [AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md](../audit-intelligence/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md),
-> [UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md).
+> [UAT_INTEGRATION_GUIDE.md](../developer-manual/connectors/UAT_INTEGRATION_GUIDE.md).
 
 **Legend — Status:** ✅ Done · 🟡 Foundation in place (opt-in / config) · ⛳ Pending (deployment-time).
 

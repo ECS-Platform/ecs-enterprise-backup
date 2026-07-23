@@ -309,4 +309,4 @@ Cross references: [.env.uat.example](../.env.uat.example) ·
 [config/uat_connectors.example.yaml](../config/uat_connectors.example.yaml) ·
 [connector_frontend_testing_matrix.md](connector_frontend_testing_matrix.md) ·
 [DEVELOPER/ENTERPRISE_CONNECTOR_UAT_SETUP.md](ENTERPRISE_CONNECTOR_UAT_SETUP.md) ·
-[DEVELOPER/MS_GRAPH_CONNECTOR_GUIDE.md](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md).
+[DEVELOPER/MS_GRAPH_CONNECTOR_GUIDE.md](../connectors/MS_GRAPH_CONNECTOR_GUIDE.md).

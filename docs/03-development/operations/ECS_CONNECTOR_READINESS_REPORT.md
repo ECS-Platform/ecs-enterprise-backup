@@ -1,6 +1,6 @@
 # ECS Connector Readiness Report (Phase 1)
 
-**Mode:** READ-ONLY / ANALYSIS / REPORTING. **No connector implementation changes. No commits.** **Grounding:** `ecs_platform/connectors/*` (real connector clients), `ecs_platform/ingestion.py` (`sync_connector`), `ecs_platform/connectors/http_client.py` + `_msgraph.py`, `modules/operations/engines/query_connectors.py` (interfaces only), `config/integrations.yaml`, `config/environments/_base.yaml`. Complements [Integrations Index](../connectors/_legacy_INTEGRATIONS_index.md).
+**Mode:** READ-ONLY / ANALYSIS / REPORTING. **No connector implementation changes. No commits.** **Grounding:** `ecs_platform/connectors/*` (real connector clients), `ecs_platform/ingestion.py` (`sync_connector`), `ecs_platform/connectors/http_client.py` + `_msgraph.py`, `modules/operations/engines/query_connectors.py` (interfaces only), `config/integrations.yaml`, `config/environments/_base.yaml`. Complements [Integrations Index](../developer-manual/connectors/_legacy_INTEGRATIONS_index.md).
 
 > **Two connector classes in ECS:**
 > 1. **Source-system connectors** (`ecs_platform/connectors/`) — real runtime clients with `sync()` invoked by `sync_connector()`; HTTP via `http_client`/`_msgraph`; gated by `enabled` flags; resilient (a bad connector returns a structured failure, never a 500).
@@ -49,4 +49,4 @@ PostgreSQL, Linux, Trivy, Gitleaks (and Oracle/MySQL/SQL Server/Nginx/Tomcat tar
 **Connector layer: GO for demo/UAT.** Source-system connectors are runtime-complete and safely disabled until configured (no code change to onboard — env vars only). Predefined-query connectors are interface-complete (Partial) and documented as a Phase-2 execution-runtime build. No connector code modified.
 
 ## Cross-references
-- [Integrations Index](../connectors/_legacy_INTEGRATIONS_index.md) · [Predefined Query Readiness](ECS_PREDEFINED_QUERY_READINESS_REPORT.md) · [Environment Framework Review](ECS_ENVIRONMENT_FRAMEWORK_REVIEW.md) · [Connector Failure Playbook](ECS_CONNECTOR_FAILURE_PLAYBOOK.md)
+- [Integrations Index](../developer-manual/connectors/_legacy_INTEGRATIONS_index.md) · [Predefined Query Readiness](ECS_PREDEFINED_QUERY_READINESS_REPORT.md) · [Environment Framework Review](ECS_ENVIRONMENT_FRAMEWORK_REVIEW.md) · [Connector Failure Playbook](ECS_CONNECTOR_FAILURE_PLAYBOOK.md)

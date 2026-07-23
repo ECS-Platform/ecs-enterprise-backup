@@ -199,8 +199,8 @@ Follow the patterns already established across `modules/`:
 
 | Module | Responsibility | Key guide |
 |--------|----------------|-----------|
-| `audit_intelligence` | Asset discovery, technology→control→framework mapping, evidence orchestration, validation, observations, repository/packs, persistence, asset-driven scheduler, `/api/audit` + `/mvp/audit` | [TECHNOLOGY_MAPPING_GUIDE](TECHNOLOGY_MAPPING_GUIDE.md), [ASSET_DISCOVERY_GUIDE](../scheduler/ASSET_DISCOVERY_GUIDE.md), [EVIDENCE_COLLECTION_GUIDE](../evidence-management/EVIDENCE_COLLECTION_GUIDE.md), [EVIDENCE_VALIDATION_GUIDE](../evidence-management/EVIDENCE_VALIDATION_GUIDE.md), [OBSERVATION_AND_REPOSITORY_GUIDE](../evidence-management/OBSERVATION_AND_REPOSITORY_GUIDE.md), [AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE](../audit-intelligence/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md) |
-| `operations` | Predefined-query engine + DB connectors; 11 enterprise integration adapters; scheduler module | [PREDEFINED_DATABASE_QUERY_MODULE](PREDEFINED_DATABASE_QUERY_MODULE.md), [INTEGRATION_ADAPTERS_GUIDE](../connectors/INTEGRATION_ADAPTERS_GUIDE.md), [../operations/ECS_SCHEDULER_REFERENCE.md](../operations/ECS_SCHEDULER_REFERENCE.md) |
+| `audit_intelligence` | Asset discovery, technology→control→framework mapping, evidence orchestration, validation, observations, repository/packs, persistence, asset-driven scheduler, `/api/audit` + `/mvp/audit` | [TECHNOLOGY_MAPPING_GUIDE](TECHNOLOGY_MAPPING_GUIDE.md), [ASSET_DISCOVERY_GUIDE](../phase1/scheduler/ASSET_DISCOVERY_GUIDE.md), [EVIDENCE_COLLECTION_GUIDE](../evidence-management/EVIDENCE_COLLECTION_GUIDE.md), [EVIDENCE_VALIDATION_GUIDE](../evidence-management/EVIDENCE_VALIDATION_GUIDE.md), [OBSERVATION_AND_REPOSITORY_GUIDE](../evidence-management/OBSERVATION_AND_REPOSITORY_GUIDE.md), [AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE](../audit-intelligence/AUDIT_INTELLIGENCE_PERSISTENCE_GUIDE.md) |
+| `operations` | Predefined-query engine + DB connectors; 11 enterprise integration adapters; scheduler module | [PREDEFINED_DATABASE_QUERY_MODULE](PREDEFINED_DATABASE_QUERY_MODULE.md), [INTEGRATION_ADAPTERS_GUIDE](connectors/INTEGRATION_ADAPTERS_GUIDE.md), [../operations/ECS_SCHEDULER_REFERENCE.md](../operations/ECS_SCHEDULER_REFERENCE.md) |
 | `ai_sdlc` | AI-SDLC governance | [../AI/README.md](../ai-sdlc/_legacy_AI_index.md) |
 | `enterprise_grc` | Enterprise GRC / CMDB inventory | [Architecture Review](../../02-architecture/architecture/ecs_enterprise_architecture_review.md) |
 | `executive_overview` | Executive dashboards, demo metrics | [Product Manual](../../01-product/product/ECS_MASTER_PRODUCT_MANUAL.md) |
@@ -224,17 +224,17 @@ Two collector families feed evidence:
    `masked_config`/`health_check`/`fetch_*`/`normalize_*`), one response shape
    (`{ok, source, status, items, errors}`), injectable transport (no live calls
    in tests), secrets never logged.
-   Guides: [INTEGRATION_ADAPTERS_GUIDE](../connectors/INTEGRATION_ADAPTERS_GUIDE.md),
-   [MS_GRAPH_CONNECTOR_GUIDE](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md),
-   [CONNECTOR_DEEPENING_GUIDE](../connectors/CONNECTOR_DEEPENING_GUIDE.md),
-   [ENTERPRISE_CONNECTOR_UAT_SETUP](../connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md).
+   Guides: [INTEGRATION_ADAPTERS_GUIDE](connectors/INTEGRATION_ADAPTERS_GUIDE.md),
+   [MS_GRAPH_CONNECTOR_GUIDE](connectors/MS_GRAPH_CONNECTOR_GUIDE.md),
+   [CONNECTOR_DEEPENING_GUIDE](connectors/CONNECTOR_DEEPENING_GUIDE.md),
+   [ENTERPRISE_CONNECTOR_UAT_SETUP](connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md).
 
 ### Scheduler architecture
 - **Operational scheduler reference:** [../operations/ECS_SCHEDULER_REFERENCE.md](../operations/ECS_SCHEDULER_REFERENCE.md).
 - **Asset-driven scheduler** (reads a UAT/local asset inventory, classifies each
   asset, routes it to a baseline collector or enterprise connector, and produces a
   bounded, deterministic dry-run plan):
-  [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) and its
+  [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN](../phase1/scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) and its
   onboarding companion [ECS_DEVELOPER_ONBOARDING_MANUAL](ECS_DEVELOPER_ONBOARDING_MANUAL.md).
 
 ### Evidence collection architecture
@@ -247,7 +247,7 @@ hashed) → packs (verifiable manifest). See
 ### Technology classification
 Deterministic fingerprinting from image/name/ports/CMDB-class →
 `TechnologyFingerprint` → controls/frameworks. See
-[ASSET_DISCOVERY_GUIDE](../scheduler/ASSET_DISCOVERY_GUIDE.md) and
+[ASSET_DISCOVERY_GUIDE](../phase1/scheduler/ASSET_DISCOVERY_GUIDE.md) and
 [TECHNOLOGY_MAPPING_GUIDE](TECHNOLOGY_MAPPING_GUIDE.md).
 
 ### Diagnostics
@@ -385,8 +385,8 @@ Prefer **extending existing modules** over adding new ones.
 `_base` helpers (config from env, injectable transport, masked config, classified
 errors), register it in `integrations/__init__.py::ADAPTER_MODULES`, and add
 mocked tests. Route it from the asset scheduler by adding one line to
-`_CONNECTOR_ROUTES`. Guide: [INTEGRATION_ADAPTERS_GUIDE](../connectors/INTEGRATION_ADAPTERS_GUIDE.md),
-[CONNECTOR_DEEPENING_GUIDE](../connectors/CONNECTOR_DEEPENING_GUIDE.md).
+`_CONNECTOR_ROUTES`. Guide: [INTEGRATION_ADAPTERS_GUIDE](connectors/INTEGRATION_ADAPTERS_GUIDE.md),
+[CONNECTOR_DEEPENING_GUIDE](connectors/CONNECTOR_DEEPENING_GUIDE.md).
 
 **Add a technology rule** — add a `(regex, canonical_tech)` to `_TEXT_RULES` (or a
 port to `_PORT_RULES`) in
@@ -396,7 +396,7 @@ with the predefined-query catalog. Guide: [TECHNOLOGY_MAPPING_GUIDE](TECHNOLOGY_
 **Add a scheduler job** — for asset-driven planning, add assets to a
 `config/uat_assets.*.yaml`; for operational scheduling see
 [../operations/ECS_SCHEDULER_REFERENCE.md](../operations/ECS_SCHEDULER_REFERENCE.md)
-and [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md).
+and [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN](../phase1/scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md).
 
 **Add evidence mappings** — evidence maps flow from the predefined-query catalog
 (control → technology → frameworks); extend the catalog/engine rather than the
@@ -424,7 +424,7 @@ safe-error decorator. Register it in `app/main.py` if it's a new registrar.
 | **PostgreSQL** connection refused | Container not up (`docker compose ps`), wrong port/host in `.env`, or credentials not read-only. Check `docker compose logs postgres-demo`. |
 | **Python env** import errors | Wrong interpreter/venv, missing `requirements-dev.txt`, or `PYTHONPATH` not set. Activate `.venv`; run with `PYTHONPATH=.`; `python -m compileall` to locate the failure. |
 | **Connector config** not detected | Env vars not exported / unresolved `${VAR}`. Verify with `run_uat_connector_health.py --adapter <name>` (shows `SET`/`MISSING`, never values). |
-| **Microsoft Graph auth** fails | Missing `ECS_GRAPH_TENANT_ID`/`CLIENT_ID`/`CLIENT_SECRET` or insufficient app permissions/consent. See [MS_GRAPH_CONNECTOR_GUIDE](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md) + [ENTERPRISE_CONNECTOR_UAT_SETUP](../connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md). Status `auth_error` ⇒ credential/scope. |
+| **Microsoft Graph auth** fails | Missing `ECS_GRAPH_TENANT_ID`/`CLIENT_ID`/`CLIENT_SECRET` or insufficient app permissions/consent. See [MS_GRAPH_CONNECTOR_GUIDE](connectors/MS_GRAPH_CONNECTOR_GUIDE.md) + [ENTERPRISE_CONNECTOR_UAT_SETUP](connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md). Status `auth_error` ⇒ credential/scope. |
 | **Scheduler** dry-run empty or all-unsupported | Config path wrong / malformed YAML (loader returns `{}` safely), or assets lack technology/asset_type. Run with `--json` to inspect classifications and `reasons`. |
 | **YAML** mistakes | Indentation/tabs, or inline secrets (forbidden). Validate: `python -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" <file>`. |
 | **Environment variable** issues | Wrong `ECS_ENV`, unresolved `${VAR}` (treated as unset), or `.env` not loaded. Confirm with `ECS_VALIDATE_CONFIG=on` for a fail-fast check. |
@@ -444,13 +444,13 @@ of the enterprise document set:
 | Installation / Environment setup | [../DEVELOPER_SETUP_GUIDE.md](DEVELOPER_SETUP_GUIDE.md), [../ENVIRONMENT_CONFIGURATION.md](ENVIRONMENT_CONFIGURATION.md) |
 | Deployment | [../DEPLOYMENT/ECS_DEPLOYMENT_REFERENCE.md](../production/ECS_DEPLOYMENT_REFERENCE.md), [../architecture/ecs_deployment_architecture.md](../../02-architecture/architecture/ecs_deployment_architecture.md), [../operations/DEPLOYMENT_RUNBOOK.md](../operations/DEPLOYMENT_RUNBOOK.md) |
 | Administrator / Operations | [../TRAINING/ECS_ADMIN_GUIDE.md](../../01-product/product/ECS_ADMIN_GUIDE.md), [../operations/ecs_runbook.md](../operations/ecs_runbook.md), [../operations/ECS_OPERATIONS_RUNBOOK.md](../operations/ECS_OPERATIONS_RUNBOOK.md) |
-| UAT | [UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md), [../operations/UAT_VALIDATION_RUNBOOK.md](../operations/UAT_VALIDATION_RUNBOOK.md), [ENTERPRISE_CONNECTOR_UAT_SETUP.md](../connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md) |
+| UAT | [UAT_INTEGRATION_GUIDE.md](connectors/UAT_INTEGRATION_GUIDE.md), [../operations/UAT_VALIDATION_RUNBOOK.md](../operations/UAT_VALIDATION_RUNBOOK.md), [ENTERPRISE_CONNECTOR_UAT_SETUP.md](connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md) |
 | Production / DR / Monitoring | [../operations/ECS_PRODUCTION_CHECKLIST.md](../operations/ECS_PRODUCTION_CHECKLIST.md), [../operations/ECS_DISASTER_RECOVERY_PLAN.md](../operations/ECS_DISASTER_RECOVERY_PLAN.md), [../operations/ECS_PRODUCTION_MONITORING_GUIDE.md](../operations/ECS_PRODUCTION_MONITORING_GUIDE.md) |
 | Security | [../SECURITY/ECS_SECURITY_REFERENCE.md](../production/ECS_SECURITY_REFERENCE.md) |
-| Scheduler | [../operations/ECS_SCHEDULER_REFERENCE.md](../operations/ECS_SCHEDULER_REFERENCE.md), [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) |
-| Connectors / Integration | [INTEGRATION_ADAPTERS_GUIDE.md](../connectors/INTEGRATION_ADAPTERS_GUIDE.md), [../INTEGRATIONS/README.md](../connectors/_legacy_INTEGRATIONS_index.md) |
+| Scheduler | [../operations/ECS_SCHEDULER_REFERENCE.md](../operations/ECS_SCHEDULER_REFERENCE.md), [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../phase1/scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) |
+| Connectors / Integration | [INTEGRATION_ADAPTERS_GUIDE.md](connectors/INTEGRATION_ADAPTERS_GUIDE.md), [../INTEGRATIONS/README.md](connectors/_legacy_INTEGRATIONS_index.md) |
 | Evidence / Controls / Frameworks | [EVIDENCE_COLLECTION_GUIDE.md](../evidence-management/EVIDENCE_COLLECTION_GUIDE.md), [../FRAMEWORKS/README.md](../../01-product/product/_legacy_FRAMEWORKS_index.md) |
-| Technology rules | [TECHNOLOGY_MAPPING_GUIDE.md](TECHNOLOGY_MAPPING_GUIDE.md), [ASSET_DISCOVERY_GUIDE.md](../scheduler/ASSET_DISCOVERY_GUIDE.md) |
+| Technology rules | [TECHNOLOGY_MAPPING_GUIDE.md](TECHNOLOGY_MAPPING_GUIDE.md), [ASSET_DISCOVERY_GUIDE.md](../phase1/scheduler/ASSET_DISCOVERY_GUIDE.md) |
 | API / Database | [../lld/ecs_lld.md](../../02-architecture/architecture/ecs_lld.md) (UI-to-API flows), [../architecture/ECS_DATA_ARCHITECTURE_REFERENCE.md](../../02-architecture/architecture/ECS_DATA_ARCHITECTURE_REFERENCE.md), [../DB_SCHEMA_AUDIT_INTELLIGENCE.sql](../DB_SCHEMA_AUDIT_INTELLIGENCE.sql) |
 | Troubleshooting / Support | [../TROUBLESHOOTING_GUIDE.md](../../01-product/00-start-here/TROUBLESHOOTING_GUIDE.md), [../operations/ECS_SUPPORT_RUNBOOK.md](../operations/ECS_SUPPORT_RUNBOOK.md) |
 | Production readiness gaps | [PRODUCTION_READINESS_GAP_REGISTER.md](../production/PRODUCTION_READINESS_GAP_REGISTER.md) |

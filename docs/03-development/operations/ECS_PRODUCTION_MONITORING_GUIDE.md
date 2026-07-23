@@ -92,8 +92,8 @@ Escalation and triage: `ECS_SUPPORT_RUNBOOK.md`.
 - **Connector health endpoints:** `GET /api/audit/integrations/health` (all
   adapters, config-based), `GET /api/audit/integrations/{name}/health` (one).
 - **Safe manual connector checks:** Connector Test Workbench —
-  [../connector_test_workbench_design.md](../connectors/connector_test_workbench_design.md).
+  [../connector_test_workbench_design.md](../developer-manual/connectors/connector_test_workbench_design.md).
 - **Scheduler dry-run readiness:** `scripts/run_uat_asset_scheduler.py --dry-run`
-  (see [../scheduler_runtime_flow.md](../scheduler/scheduler_runtime_flow.md)).
-- **Connector API references:** [../enterprise_connector_api_reference.md](../connectors/enterprise_connector_api_reference.md),
-  [../microsoft_graph_connector_api_reference.md](../graph-api/microsoft_graph_connector_api_reference.md).
+  (see [../scheduler_runtime_flow.md](../developer-manual/phase1/scheduler/scheduler_runtime_flow.md)).
+- **Connector API references:** [../enterprise_connector_api_reference.md](../developer-manual/connectors/enterprise_connector_api_reference.md),
+  [../microsoft_graph_connector_api_reference.md](../developer-manual/connectors/microsoft_graph_connector_api_reference.md).

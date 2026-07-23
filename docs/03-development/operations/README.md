@@ -46,8 +46,8 @@ Run and operate ECS: runbooks, UAT execution, predefined-query execution, backup
 ## Related folders
 
 - [`../production/`](../production/README.md) — Production
-- [`../scheduler/`](../scheduler/README.md) — Scheduler
-- [`../connectors/`](../connectors/README.md) — Connectors
+- [`../scheduler/`](../developer-manual/phase1/scheduler/README.md) — Scheduler
+- [`../connectors/`](../developer-manual/connectors/README.md) — Connectors
 - [`../testing/`](../../04-testing/testing/README.md) — Testing
 
 ---

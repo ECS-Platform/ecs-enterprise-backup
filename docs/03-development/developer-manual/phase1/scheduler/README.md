@@ -17,7 +17,7 @@ The asset-driven scheduler runtime: end-to-end flow, runtime call graph, asset d
 ## Related folders
 
 - [`../connectors/`](../connectors/README.md) — Connectors
-- [`../evidence-management/`](../evidence-management/README.md) — Evidence Management
+- [`../evidence-management/`](../../../evidence-management/README.md) — Evidence Management
 - [`../architecture/`](../../../../02-architecture/architecture/README.md) — Architecture
 
 ---

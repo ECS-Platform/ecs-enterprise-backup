@@ -6,7 +6,7 @@ against real UAT endpoints.
 accounts; secrets in `.env.uat` (git-ignored) or a secret manager; connectors
 make no live call in tests.
 
-> Cross-refs: [MS_GRAPH_CONNECTOR_GUIDE.md](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md),
+> Cross-refs: [MS_GRAPH_CONNECTOR_GUIDE.md](../connectors/MS_GRAPH_CONNECTOR_GUIDE.md),
 > [INTEGRATION_ADAPTERS_GUIDE.md](INTEGRATION_ADAPTERS_GUIDE.md),
 > [UAT_INTEGRATION_GUIDE.md](UAT_INTEGRATION_GUIDE.md).
 
@@ -41,7 +41,7 @@ python scripts/run_uat_connector_health.py --adapter <name> --live   # if config
 ## 2. Per-connector UAT configuration
 
 ### Microsoft Graph (SharePoint / Teams / Outlook)
-See [MS_GRAPH_CONNECTOR_GUIDE.md](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md) for Azure App
+See [MS_GRAPH_CONNECTOR_GUIDE.md](../connectors/MS_GRAPH_CONNECTOR_GUIDE.md) for Azure App
 Registration + Graph permissions. Shared vars: `ECS_GRAPH_TENANT_ID`,
 `ECS_GRAPH_CLIENT_ID`, `ECS_GRAPH_CLIENT_SECRET`, `ECS_GRAPH_SCOPE`,
 `ECS_GRAPH_AUTHORITY_URL`. Connector vars: SharePoint (`ECS_GRAPH_SITE_ID`,

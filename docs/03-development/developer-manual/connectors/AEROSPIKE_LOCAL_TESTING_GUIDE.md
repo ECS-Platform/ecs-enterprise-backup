@@ -6,7 +6,7 @@ fingerprint engine, and asset scheduler — no parallel engine was added.
 
 > Cross-refs: [PREDEFINED_DATABASE_QUERY_MODULE.md](../developer-manual/PREDEFINED_DATABASE_QUERY_MODULE.md)
 > (query engine), [README_DEVELOPER.md](../developer-manual/README_DEVELOPER.md) (env/Docker),
-> [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md)
+> [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../phase1/scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md)
 > (asset routing), [ECS_DEVELOPER_ONBOARDING_GUIDE.md](../developer-manual/ECS_DEVELOPER_ONBOARDING_GUIDE.md).
 
 **Safety:** no secrets, no real IPs. Host port **3000 is reserved for Gitea**, so
@@ -162,7 +162,7 @@ The fingerprint engine (`technology_fingerprint.py`) classifies Aerospike from:
 - ports **3000** (default) or **13000** (host-mapped).
 
 The UAT asset scheduler
-([design](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md)) then classifies an Aerospike
+([design](../phase1/scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md)) then classifies an Aerospike
 asset as a **baseline_collector** (scope `technology:Aerospike`, 20 controls),
 since Aerospike is a predefined-query technology (not an enterprise connector).
 

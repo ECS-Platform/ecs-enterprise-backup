@@ -115,8 +115,8 @@ flowchart TD
 
 Collected evidence is uploaded to ECS through the standard evidence path (SHA-256
 hashing + audit-repository mirror), identical to the connector executor's bridge —
-see the [evidence flow](../architecture/ENTERPRISE_ARCHITECTURE.md#6-evidence-flow)
-and [`../evidence-management/ECS_EVIDENCE_REFERENCE_GUIDE.md`](../evidence-management/ECS_EVIDENCE_REFERENCE_GUIDE.md).
+see the [evidence flow](../../02-architecture/architecture/ENTERPRISE_ARCHITECTURE.md#6-evidence-flow)
+and [`../evidence-management/ECS_EVIDENCE_REFERENCE_GUIDE.md`](../../evidence-management/ECS_EVIDENCE_REFERENCE_GUIDE.md).
 
 ---
 

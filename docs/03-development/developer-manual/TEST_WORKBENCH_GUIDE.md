@@ -5,9 +5,9 @@ credentials and no network — through config-status, dry-run, and parser-test, 
 scheduler simulation and evidence-ingestion simulation.
 
 > **Reuse note.** The full design + REST/code paths live in
-> [`../connectors/connector_test_workbench_design.md`](../connectors/connector_test_workbench_design.md);
-> manual UI walkthrough in [`../connectors/connector_frontend_manual_testing.md`](../connectors/connector_frontend_manual_testing.md);
-> per-connector matrix in [`../connectors/connector_frontend_testing_matrix.md`](../connectors/connector_frontend_testing_matrix.md).
+> [`connectors/connector_test_workbench_design.md`](connectors/connector_test_workbench_design.md);
+> manual UI walkthrough in [`connectors/connector_frontend_manual_testing.md`](connectors/connector_frontend_manual_testing.md);
+> per-connector matrix in [`connectors/connector_frontend_testing_matrix.md`](connectors/connector_frontend_testing_matrix.md).
 > This page is the developer-manual entry point with **example JSON payloads**.
 
 UI: `/mvp/connectors/test-workbench`. All actions are read-only / mock / dry-run.
@@ -66,8 +66,8 @@ curl -s localhost:8000/api/audit/scheduler/plan
 curl -s -X POST localhost:8000/api/audit/scheduler/dry-run
 ```
 Dry-run reports planned jobs + connector readiness with **no** queries/connector
-calls. See [`../scheduler/scheduler_runtime_flow.md`](../scheduler/scheduler_runtime_flow.md)
-and [`../scheduler/test_workbench_vs_scheduler.md`](../scheduler/test_workbench_vs_scheduler.md).
+calls. See [`../phase1/scheduler/scheduler_runtime_flow.md`](../phase1/scheduler/scheduler_runtime_flow.md)
+and [`../phase1/scheduler/test_workbench_vs_scheduler.md`](../phase1/scheduler/test_workbench_vs_scheduler.md).
 
 ## Evidence-ingestion simulation
 
@@ -84,4 +84,4 @@ PYTHONPATH=. pytest tests/test_connector_test_workbench.py \
 ```
 
 ## Related
-- [`../connectors/INTEGRATION_ADAPTERS_GUIDE.md`](../connectors/INTEGRATION_ADAPTERS_GUIDE.md) · [`DEVELOPER_MANUAL.md`](DEVELOPER_MANUAL.md) · [`../runbooks/SCHEDULER_FAILURE_RUNBOOK.md`](../runbooks/SCHEDULER_FAILURE_RUNBOOK.md)
+- [`connectors/INTEGRATION_ADAPTERS_GUIDE.md`](connectors/INTEGRATION_ADAPTERS_GUIDE.md) · [`DEVELOPER_MANUAL.md`](DEVELOPER_MANUAL.md) · [`../runbooks/SCHEDULER_FAILURE_RUNBOOK.md`](../runbooks/SCHEDULER_FAILURE_RUNBOOK.md)

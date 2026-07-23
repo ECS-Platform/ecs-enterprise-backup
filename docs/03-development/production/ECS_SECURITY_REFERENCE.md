@@ -41,7 +41,7 @@
 - Anti-hallucination guardrails (`require_citations`, `refuse_without_evidence`), RBAC-before-LLM, local-first (data stays on-host with Ollama). Full detail: [AI Security Architecture](../ai-sdlc/ECS_AI_SECURITY_ARCHITECTURE.md).
 
 ## 10. Connector security
-- Least-privilege service accounts, env/vault secrets, TLS, fail-fast health checks, audit-logged ingestion. See [Integrations](../connectors/_legacy_INTEGRATIONS_index.md).
+- Least-privilege service accounts, env/vault secrets, TLS, fail-fast health checks, audit-logged ingestion. See [Integrations](../developer-manual/connectors/_legacy_INTEGRATIONS_index.md).
 
 ## 11. Environment security
 - Demo: relaxed auth, synthetic data, default-disabled SaaS connectors.

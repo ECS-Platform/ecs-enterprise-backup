@@ -13,7 +13,7 @@ Interactive ECS test/debug surfaces: the Audit LLM Prompt Workbench and related 
 
 ## Related folders
 
-- [`../connectors/`](../connectors/README.md) — Connectors
+- [`../connectors/`](../developer-manual/connectors/README.md) — Connectors
 - [`../audit-intelligence/`](../audit-intelligence/README.md) — Audit Intelligence
 - [`../benchmarks/`](../../04-testing/benchmarks/README.md) — Benchmarks
 

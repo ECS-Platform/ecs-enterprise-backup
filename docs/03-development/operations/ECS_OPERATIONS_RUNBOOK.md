@@ -155,12 +155,12 @@ See `ECS_SUPPORT_RUNBOOK.md` for symptom-driven triage and `ECS_PRODUCTION_MONIT
 
 ## 6. Connector operations references
 
-- **Connector API reference (11 connectors):** [../enterprise_connector_api_reference.md](../connectors/enterprise_connector_api_reference.md)
-- **Microsoft Graph connector reference:** [../microsoft_graph_connector_api_reference.md](../graph-api/microsoft_graph_connector_api_reference.md)
-- **Scheduler runtime flow (dry-run + execution):** [../scheduler_runtime_flow.md](../scheduler/scheduler_runtime_flow.md)
-- **Connector Test Workbench (safe health/parser testing):** [../connector_test_workbench_design.md](../connectors/connector_test_workbench_design.md)
-- **Runtime call graph & sequence diagrams:** [../runtime_call_graph.md](../scheduler/runtime_call_graph.md)
-- **Batch vs manual (scheduler vs workbench):** [../test_workbench_vs_scheduler.md](../scheduler/test_workbench_vs_scheduler.md)
+- **Connector API reference (11 connectors):** [../enterprise_connector_api_reference.md](../developer-manual/connectors/enterprise_connector_api_reference.md)
+- **Microsoft Graph connector reference:** [../microsoft_graph_connector_api_reference.md](../developer-manual/connectors/microsoft_graph_connector_api_reference.md)
+- **Scheduler runtime flow (dry-run + execution):** [../scheduler_runtime_flow.md](../developer-manual/phase1/scheduler/scheduler_runtime_flow.md)
+- **Connector Test Workbench (safe health/parser testing):** [../connector_test_workbench_design.md](../developer-manual/connectors/connector_test_workbench_design.md)
+- **Runtime call graph & sequence diagrams:** [../runtime_call_graph.md](../developer-manual/phase1/scheduler/runtime_call_graph.md)
+- **Batch vs manual (scheduler vs workbench):** [../test_workbench_vs_scheduler.md](../developer-manual/phase1/scheduler/test_workbench_vs_scheduler.md)
 
 Connector health at runtime: `GET /api/audit/integrations/health` (all) and
 `GET /api/audit/integrations/{name}/health` (one); scheduler dry-run via

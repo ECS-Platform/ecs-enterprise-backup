@@ -136,4 +136,4 @@ the server-rendered Predefined Queries screen (`/mvp/predefined-queries`) and th
 `predefined_queries_engine.run_predefined_query(control_id, user)` entry point
 rather than a dedicated public REST endpoint. See
 [../DEVELOPER/PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md)
-and [../DEVELOPER/AEROSPIKE_LOCAL_TESTING_GUIDE.md](../connectors/AEROSPIKE_LOCAL_TESTING_GUIDE.md).
+and [../DEVELOPER/AEROSPIKE_LOCAL_TESTING_GUIDE.md](connectors/AEROSPIKE_LOCAL_TESTING_GUIDE.md).

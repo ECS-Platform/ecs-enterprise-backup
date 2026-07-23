@@ -18,7 +18,7 @@ is, and decides **how to collect its evidence** — via an existing enterprise
 connector or the baseline predefined-query collector — then prints a **plan**. In
 `--dry-run` (the default) it makes **no** network/connector/query calls.
 
-Full design: [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md).
+Full design: [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../phase1/scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md).
 
 ---
 
@@ -134,9 +134,9 @@ second. Add a test for any routing/classification change you make.
 
 ## 8. Related docs
 
-- [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) — full design.
-- [ASSET_DISCOVERY_GUIDE.md](../scheduler/ASSET_DISCOVERY_GUIDE.md) — asset discovery & fingerprinting.
+- [UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../phase1/scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) — full design.
+- [ASSET_DISCOVERY_GUIDE.md](../phase1/scheduler/ASSET_DISCOVERY_GUIDE.md) — asset discovery & fingerprinting.
 - [TECHNOLOGY_MAPPING_GUIDE.md](TECHNOLOGY_MAPPING_GUIDE.md) — technology → control → framework.
-- [INTEGRATION_ADAPTERS_GUIDE.md](../connectors/INTEGRATION_ADAPTERS_GUIDE.md) — the 11 connectors.
+- [INTEGRATION_ADAPTERS_GUIDE.md](connectors/INTEGRATION_ADAPTERS_GUIDE.md) — the 11 connectors.
 - [../operations/UAT_VALIDATION_RUNBOOK.md](../operations/UAT_VALIDATION_RUNBOOK.md) — operator UAT runbook.
 - [README_DEVELOPER.md](README_DEVELOPER.md) — general developer onboarding.

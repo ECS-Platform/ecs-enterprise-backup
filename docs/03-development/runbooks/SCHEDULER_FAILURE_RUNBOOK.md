@@ -3,7 +3,7 @@
 Scheduled evidence collection is not running, failing, or stuck.
 
 > Reference: [`../operations/ECS_SCHEDULER_REFERENCE.md`](../operations/ECS_SCHEDULER_REFERENCE.md)
-> · [`../scheduler/scheduler_runtime_flow.md`](../scheduler/scheduler_runtime_flow.md)
+> · [`../scheduler/scheduler_runtime_flow.md`](../developer-manual/phase1/scheduler/scheduler_runtime_flow.md)
 > · executor: `modules/audit_intelligence/services/scheduler_execution.py`,
 > planner: `asset_scheduler.py`.
 

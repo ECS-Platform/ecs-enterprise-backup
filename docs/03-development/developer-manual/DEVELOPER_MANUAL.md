@@ -30,7 +30,7 @@ PYTHONPATH=. pytest -q
 ```
 
 ## Add a connector
-- Guide: [`../connectors/INTEGRATION_ADAPTERS_GUIDE.md`](../connectors/INTEGRATION_ADAPTERS_GUIDE.md) §7 (add an adapter)
+- Guide: [`connectors/INTEGRATION_ADAPTERS_GUIDE.md`](connectors/INTEGRATION_ADAPTERS_GUIDE.md) §7 (add an adapter)
 - Reuse an existing platform client via the bridge (`_platform_bridge.py`) — see
   the GitHub/Jenkins/Azure DevOps adapters for the pattern.
 - Wire: `ADAPTER_MODULES` (registry) → `_ADAPTER_TESTS` (workbench) →

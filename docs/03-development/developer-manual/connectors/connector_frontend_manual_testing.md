@@ -164,7 +164,7 @@ The workbench's mock parser test proves the parser works with **no credentials**
 
 1. Populate real endpoints/credentials in `.env.uat` (never commit secrets) — see
    [`uat_ip_configuration_guide.md`](../operations/uat_ip_configuration_guide.md) and
-   [`microsoft_graph_sharepoint_teams_uat_testing.md`](../graph-api/microsoft_graph_sharepoint_teams_uat_testing.md).
+   [`microsoft_graph_sharepoint_teams_uat_testing.md`](../connectors/microsoft_graph_sharepoint_teams_uat_testing.md).
 2. Validate config: `python scripts/validate_uat_config.py`.
 3. Run **Config status** and **Health check** in the workbench — they should now show
    `configured: true`.

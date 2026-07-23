@@ -12,7 +12,7 @@ predefined database query module.
 >
 > Audit-intelligence layer:
 > M1 — [TECHNOLOGY_MAPPING_GUIDE.md](TECHNOLOGY_MAPPING_GUIDE.md) (Technology →
-> Control → Framework) and [ASSET_DISCOVERY_GUIDE.md](../scheduler/ASSET_DISCOVERY_GUIDE.md)
+> Control → Framework) and [ASSET_DISCOVERY_GUIDE.md](../phase1/scheduler/ASSET_DISCOVERY_GUIDE.md)
 > (asset discovery & fingerprinting).
 > M2 — [EVIDENCE_COLLECTION_GUIDE.md](../evidence-management/EVIDENCE_COLLECTION_GUIDE.md) (orchestrator)
 > and [EVIDENCE_VALIDATION_GUIDE.md](../evidence-management/EVIDENCE_VALIDATION_GUIDE.md) (validation).
@@ -20,10 +20,10 @@ predefined database query module.
 > (observations, evidence repository, evidence packs).
 >
 > Integration & operations:
-> [INTEGRATION_ADAPTERS_GUIDE.md](../connectors/INTEGRATION_ADAPTERS_GUIDE.md) (11 enterprise
-> adapters), [MS_GRAPH_CONNECTOR_GUIDE.md](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md)
+> [INTEGRATION_ADAPTERS_GUIDE.md](connectors/INTEGRATION_ADAPTERS_GUIDE.md) (11 enterprise
+> adapters), [MS_GRAPH_CONNECTOR_GUIDE.md](connectors/MS_GRAPH_CONNECTOR_GUIDE.md)
 > (SharePoint/Teams/Outlook via Microsoft Graph),
-> [ENTERPRISE_CONNECTOR_UAT_SETUP.md](../connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md)
+> [ENTERPRISE_CONNECTOR_UAT_SETUP.md](connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md)
 > (per-connector UAT config), [E2E_SMOKE_TEST_GUIDE.md](../../04-testing/testing/E2E_SMOKE_TEST_GUIDE.md)
 > (mocked tests), [DEMO_RUNBOOK.md](../operations/DEMO_RUNBOOK.md) (leadership walkthrough), and
 > [PRODUCTION_HARDENING_GUIDE.md](../production/PRODUCTION_HARDENING_GUIDE.md).
@@ -322,7 +322,7 @@ docker compose --profile db-targets down
 - **Predefined DB query module + full troubleshooting table:**
   [PREDEFINED_DATABASE_QUERY_MODULE.md](PREDEFINED_DATABASE_QUERY_MODULE.md)
 - **Bank UAT integration & configuration guide:**
-  [UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md)
+  [UAT_INTEGRATION_GUIDE.md](connectors/UAT_INTEGRATION_GUIDE.md)
   (configure connectors for real UAT endpoints instead of Docker demo containers)
 - **Release notes / changelog:** [../../CHANGELOG.md](../../CHANGELOG.md)
   (see the `ecs-predefined-db-complete-v1` milestone for the predefined database
@@ -332,12 +332,12 @@ docker compose --profile db-targets down
 - **Common commands:** `docs/01-product/00-start-here/COMMON_COMMANDS.md`
 
 ### Connector & runtime API references (repository-grounded)
-- **Microsoft Graph connector API reference:** [../microsoft_graph_connector_api_reference.md](../graph-api/microsoft_graph_connector_api_reference.md)
-- **Enterprise connector API reference (11 connectors):** [../enterprise_connector_api_reference.md](../connectors/enterprise_connector_api_reference.md)
-- **Connector Test Workbench design & runtime:** [../connector_test_workbench_design.md](../connectors/connector_test_workbench_design.md)
-- **Scheduler runtime flow:** [../scheduler_runtime_flow.md](../scheduler/scheduler_runtime_flow.md)
-- **Test Workbench vs. Scheduler:** [../test_workbench_vs_scheduler.md](../scheduler/test_workbench_vs_scheduler.md)
-- **Runtime call graph & sequence diagrams:** [../runtime_call_graph.md](../scheduler/runtime_call_graph.md)
+- **Microsoft Graph connector API reference:** [../microsoft_graph_connector_api_reference.md](connectors/microsoft_graph_connector_api_reference.md)
+- **Enterprise connector API reference (11 connectors):** [../enterprise_connector_api_reference.md](connectors/enterprise_connector_api_reference.md)
+- **Connector Test Workbench design & runtime:** [../connector_test_workbench_design.md](connectors/connector_test_workbench_design.md)
+- **Scheduler runtime flow:** [../scheduler_runtime_flow.md](../phase1/scheduler/scheduler_runtime_flow.md)
+- **Test Workbench vs. Scheduler:** [../test_workbench_vs_scheduler.md](../phase1/scheduler/test_workbench_vs_scheduler.md)
+- **Runtime call graph & sequence diagrams:** [../runtime_call_graph.md](../phase1/scheduler/runtime_call_graph.md)
 
 ### Quick fixes
 | Symptom | Fix |

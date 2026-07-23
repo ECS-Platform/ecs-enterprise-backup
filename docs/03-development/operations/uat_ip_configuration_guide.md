@@ -122,7 +122,7 @@ export ECS_UAT_SHAREPOINT_SITE=<real-sharepoint-site-id>
 | SonarQube / Prisma / Checkmarx / Tripwire / Archer | `config/environments/uat.yaml` `connectors.*` | `ECS_SONARQUBE_BASE_URL`+`ECS_SONARQUBE_TOKEN`; `ECS_PRISMA_CLOUD_*`; `ECS_CHECKMARX_*`; `ECS_TRIPWIRE_*`; `ECS_ARCHER_*` |
 
 Full Microsoft Graph / SharePoint / Teams setup:
-[microsoft_graph_sharepoint_teams_uat_testing.md](../graph-api/microsoft_graph_sharepoint_teams_uat_testing.md).
+[microsoft_graph_sharepoint_teams_uat_testing.md](../developer-manual/connectors/microsoft_graph_sharepoint_teams_uat_testing.md).
 
 ---
 
@@ -233,6 +233,6 @@ docker compose config
   → valid.
 
 Cross references:
-[microsoft_graph_sharepoint_teams_uat_testing.md](../graph-api/microsoft_graph_sharepoint_teams_uat_testing.md) ·
-[connectors/UAT_INTEGRATION_GUIDE.md](../connectors/UAT_INTEGRATION_GUIDE.md) ·
-[connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md](../connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md).
+[microsoft_graph_sharepoint_teams_uat_testing.md](../developer-manual/connectors/microsoft_graph_sharepoint_teams_uat_testing.md) ·
+[connectors/UAT_INTEGRATION_GUIDE.md](../developer-manual/connectors/UAT_INTEGRATION_GUIDE.md) ·
+[connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md](../developer-manual/connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md).

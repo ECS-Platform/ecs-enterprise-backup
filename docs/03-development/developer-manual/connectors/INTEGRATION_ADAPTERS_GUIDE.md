@@ -34,7 +34,7 @@ never make live calls in tests (the HTTP transport is injectable).
 
 > The three Microsoft Graph connectors share `ms_graph_base.py` (OAuth2
 > client-credentials + `@odata.nextLink` pagination). See
-> [MS_GRAPH_CONNECTOR_GUIDE.md](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md) and
+> [MS_GRAPH_CONNECTOR_GUIDE.md](../connectors/MS_GRAPH_CONNECTOR_GUIDE.md) and
 > [ENTERPRISE_CONNECTOR_UAT_SETUP.md](ENTERPRISE_CONNECTOR_UAT_SETUP.md).
 >
 > The cloud/scanner adapters (AWS, Azure, GCP, Nessus, Qualys) intentionally add
