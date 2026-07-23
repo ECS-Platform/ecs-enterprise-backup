@@ -117,13 +117,26 @@ graph TD
 
 ## 4. Integration Architecture
 
-**Evidence-source connectors** (`modules/operations/engines/`): `linux_connector.py`,
-`postgresql_connector.py`, `sonarqube_connector.py`, `trivy_connector.py`, `gitleaks_connector.py`,
-plus `query_connectors.py` and `integrations_module.py`. Health/sync via `integration_health_engine.py`
-and routes `/mvp/platform/sync/{connector}`, `/api/platform/sync/{connector}`, `/api/platform/health`.
+> **Canonical Phase-1 navigators:**
+> [`INTEGRATION_ARCHITECTURE.md`](INTEGRATION_ARCHITECTURE.md),
+> [`CONNECTOR_ARCHITECTURE.md`](CONNECTOR_ARCHITECTURE.md).
+> **Inventory SoT:**
+> [`../connectors/ECS_MASTER_INTEGRATION_MATRIX.md`](../connectors/ECS_MASTER_INTEGRATION_MATRIX.md).
 
-**External demo systems** (docker-compose profiles): SonarQube, Gitea, Jenkins, Ubuntu connector host;
-SaaS connector env (Jira, GitHub, Microsoft Graph) and LLM/RAG (`OLLAMA_URL`, `ECS_LLM_PROVIDER`).
+**Evidence-source / query connectors** (`modules/operations/engines/`): e.g.
+`linux_connector.py`, `postgresql_connector.py`, `sonarqube_connector.py`,
+`trivy_connector.py`, `gitleaks_connector.py`, plus `query_connectors.py` and
+`integrations_module.py`. Enterprise adapters live under
+`modules/operations/integrations/`. Platform connectors under
+`ecs_platform/connectors/`. Health/sync via `integration_health_engine.py` and
+routes `/mvp/platform/sync/{connector}`, `/api/platform/sync/{connector}`,
+`/api/platform/health`.
+
+**External demo systems** (docker-compose profiles): SonarQube, Gitea, Jenkins,
+Ubuntu connector host, plus additional profile-gated DB/infra demos — see
+[`ecs_deployment_architecture.md`](ecs_deployment_architecture.md).
+SaaS connector env (Jira, GitHub, Microsoft Graph) and LLM/RAG (`OLLAMA_URL`,
+`ECS_LLM_PROVIDER`) are configuration-dependent.
 
 ```mermaid
 graph LR
@@ -169,8 +182,8 @@ graph TD
 ## 6. Deployment Architecture (overview)
 
 Container image `python:3.12-slim` runs `uvicorn app.main:app` on port 8000 (`Dockerfile`).
-`docker-compose.yml` provides the app plus PostgreSQL×3, pgvector, Redis, MinIO, and optional
-connector/source services (SonarQube, Gitea, Jenkins) behind compose profiles.
+`docker-compose.yml` provides the app plus PostgreSQL×2 (demo + repository), pgvector, Redis,
+MinIO, and optional connector/source/DB demo services behind compose profiles.
 
 Detailed current/target/HA/DR deployment: `docs/02-architecture/architecture/ecs_deployment_architecture.md`.
 

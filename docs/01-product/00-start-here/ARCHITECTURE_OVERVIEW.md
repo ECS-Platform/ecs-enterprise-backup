@@ -1,6 +1,6 @@
 # ECS — Architecture Overview
 
-A concise, code-grounded tour of how ECS is built. Anchored to the actual tree: `app/`, `modules/`, `ecs_platform/`, `config/`. For deep design docs see `docs/02-architecture/architecture/`, `docs/hld/`, `docs/lld/`, and `docs/02-architecture/diagrams/`.
+A concise, code-grounded tour of how ECS is built. Anchored to the actual tree: `app/`, `modules/`, `ecs_platform/`, `config/`. For deep design docs see `docs/02-architecture/architecture/` (Phase-1 views: System / Functional / Logical / Technical / Integration / Connector / Data Flow / Evidence Lifecycle / Scheduler), and `docs/02-architecture/diagrams/`.
 
 ---
 

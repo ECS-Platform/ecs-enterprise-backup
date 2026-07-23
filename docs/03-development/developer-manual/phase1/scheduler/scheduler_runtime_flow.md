@@ -66,11 +66,17 @@ LLM/RAG Index      (ecs_platform/rag.py — answer(); /api/audit-llm/query)
 Audit Readiness    (evidence_reuse_service.readiness / executive readiness)
 ```
 
-> **Important (accuracy):** the scheduler is exposed through the **CLI + service
-> API** (`asset_scheduler.dry_run` / `plan_evidence` / `execute_plan`). There is
-> **no** dedicated `/api/audit/scheduler` REST route in the repository. The
-> dry-run path performs **no** query execution and **no** connector calls — it
-> only classifies, plans, and reports config-only connector readiness.
+> **Important (accuracy):** the asset-driven scheduler is exposed through the
+> **CLI + service API** (`asset_scheduler.dry_run` / `plan_evidence` /
+> `execute_plan`) **and** REST wrappers in `routes_audit_intelligence.py`
+> (`GET /api/audit/scheduler/plan`, `POST /api/audit/scheduler/dry-run`, execute /
+> history / queue endpoints). The dry-run path performs **no** query execution and
+> **no** connector calls — it only classifies, plans, and reports config-only
+> connector readiness.
+>
+> **Phase-1 architecture entry point:**
+> [`SCHEDULER_ARCHITECTURE.md`](../../../../02-architecture/architecture/SCHEDULER_ARCHITECTURE.md)
+> (ownership, UI `COLL-` runner accounting, persistence handoff).
 
 ---
 
@@ -255,9 +261,15 @@ sequenceDiagram
 
 ## 6. Related documentation
 
+- Phase-1 Scheduler Architecture:
+  [`SCHEDULER_ARCHITECTURE.md`](../../../../02-architecture/architecture/SCHEDULER_ARCHITECTURE.md)
 - Connector references: `docs/03-development/developer-manual/connectors/enterprise_connector_api_reference.md`,
   `docs/03-development/developer-manual/connectors/microsoft_graph_connector_api_reference.md`
 - Workbench vs scheduler: `docs/03-development/developer-manual/phase1/scheduler/test_workbench_vs_scheduler.md`
 - Call graph: `docs/03-development/developer-manual/phase1/scheduler/runtime_call_graph.md`
 - Evidence reuse lifecycle: `docs/03-development/evidence-management/evidence_reuse_lifecycle_functional_design.md`
+- Data flow / evidence lifecycle:
+  `docs/02-architecture/architecture/DATA_FLOW_ARCHITECTURE.md`,
+  `docs/02-architecture/architecture/EVIDENCE_LIFECYCLE.md`
 - UAT config: `docs/03-development/operations/uat_ip_configuration_guide.md`
+

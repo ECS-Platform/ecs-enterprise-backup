@@ -21,10 +21,11 @@ files linked below — this page unifies the entry point.
 | Observation lifecycle | observation engine + `app/observations/store.py` | [`ECS_SEQUENCE_DIAGRAMS.md`](ECS_SEQUENCE_DIAGRAMS.md) (§ observation) |
 | Connector framework | `modules/operations/integrations/*`, `_platform_bridge.py` | [`../connectors/INTEGRATION_ADAPTERS_GUIDE.md`](../../03-development/developer-manual/connectors/INTEGRATION_ADAPTERS_GUIDE.md) |
 | Connector workbench / executor | `modules/audit_intelligence/services/connector_workbench.py`, `connector_executor.py` | [`../connectors/connector_test_workbench_design.md`](../../03-development/developer-manual/connectors/connector_test_workbench_design.md) |
-| Scheduler | `modules/audit_intelligence/services/asset_scheduler.py`, `scheduler_execution.py` | [`../scheduler/runtime_call_graph.md`](../../03-development/developer-manual/phase1/scheduler/runtime_call_graph.md) |
+| Scheduler | `modules/audit_intelligence/services/asset_scheduler.py`, `scheduler_execution.py`, `modules/operations/engines/scheduler_module.py` | [`SCHEDULER_ARCHITECTURE.md`](SCHEDULER_ARCHITECTURE.md), [`../scheduler/runtime_call_graph.md`](../../03-development/developer-manual/phase1/scheduler/runtime_call_graph.md) |
 | Predefined queries | `modules/operations/engines/predefined_queries_engine.py` + connectors | [`../developer-manual/PREDEFINED_DATABASE_QUERY_MODULE.md`](../../03-development/developer-manual/PREDEFINED_DATABASE_QUERY_MODULE.md) |
 | RAG / LLM | `ecs_platform/rag.py`, `ecs_platform/llm_engine/*`, `modules/audit_intelligence/llm/*` | [`../ai-sdlc/ECS_AI_ARCHITECTURE_REFERENCE.md`](../../03-development/ai-sdlc/ECS_AI_ARCHITECTURE_REFERENCE.md) |
 | Auth / RBAC / security mode | `app/auth/*`, `app/security_mode.py` | [`../production/ECS_SECURITY_REFERENCE.md`](../../03-development/production/ECS_SECURITY_REFERENCE.md) |
+
 
 ---
 

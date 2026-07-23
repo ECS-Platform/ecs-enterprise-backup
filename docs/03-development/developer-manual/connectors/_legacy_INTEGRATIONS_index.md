@@ -1,4 +1,12 @@
-# ECS Integration Architecture — Index
+# ECS Integration Architecture — Index (legacy per-connector guide list)
+
+> **Superseded as the architecture entry point.** For Phase-1 Integration /
+> Connector architecture navigators use
+> [`../architecture/INTEGRATION_ARCHITECTURE.md`](../architecture/INTEGRATION_ARCHITECTURE.md)
+> and [`../architecture/CONNECTOR_ARCHITECTURE.md`](../architecture/CONNECTOR_ARCHITECTURE.md).
+> For inventory status use
+> [`ECS_MASTER_INTEGRATION_MATRIX.md`](ECS_MASTER_INTEGRATION_MATRIX.md).
+> This file remains the **per-connector guide index** for the listed SaaS docs.
 
 **Type:** Integration reference index. **No code/UI/DB changes.** **Grounding:** `config/integrations.yaml`, `ecs_platform/ingestion.py` (`sync_connector`), `ecs_platform/config/loader.py` (`${ENV}`/`${ENV:-default}` resolution), `/mvp/integrations`, `/mvp/integration-health`, `connectors`/`sync_runs` tables.
 

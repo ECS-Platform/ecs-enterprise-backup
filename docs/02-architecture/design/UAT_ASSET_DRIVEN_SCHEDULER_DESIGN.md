@@ -16,8 +16,10 @@ ECS already had:
 - an **asset discovery** engine (normalize assets from many sources),
 - a **technology → control → framework** mapping,
 - an **evidence orchestrator** (run controls; `resolve_scope`),
-- **11 enterprise connectors** (ServiceNow, Archer, SharePoint/Teams/Outlook
-  Graph, Jira, Confluence, SonarQube, Checkmarx, Prisma Cloud, Tripwire), and
+- **enterprise connectors** (audit-intelligence adapters under
+  `modules/operations/integrations/` — inventory/status SoT:
+  [`../connectors/ECS_MASTER_INTEGRATION_MATRIX.md`](../connectors/ECS_MASTER_INTEGRATION_MATRIX.md);
+  older “11 connectors” wording is a snapshot, not SoT), and
 - an **evidence service** (execute + validate runs).
 
 What was missing was the **glue**: read an asset inventory → classify each asset →

@@ -2,12 +2,14 @@
 
 Remaining evidence lifecycle guides. Phase-1 collection/validation implementation docs moved to [../developer-manual/phase1/](../developer-manual/phase1/).
 
+## Read first
+
+- Phase-1 architecture: [DATA_FLOW_ARCHITECTURE.md](../../02-architecture/architecture/DATA_FLOW_ARCHITECTURE.md) | [EVIDENCE_LIFECYCLE.md](../../02-architecture/architecture/EVIDENCE_LIFECYCLE.md)
+
 ## Documents in this folder
 
-- [ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md](ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md)
-- [ECS_EVIDENCE_REFERENCE_GUIDE.md](ECS_EVIDENCE_REFERENCE_GUIDE.md)
-- [evidence_reuse_frontend_manual_testing.md](evidence_reuse_frontend_manual_testing.md)
-- [predefined_queries_by_technology.md](predefined_queries_by_technology.md)
+- [ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md](ECS_CONTROL_AND_EVIDENCE_REUSE_GUIDE.md) | [ECS_EVIDENCE_REFERENCE_GUIDE.md](ECS_EVIDENCE_REFERENCE_GUIDE.md)
+- [evidence_reuse_frontend_manual_testing.md](evidence_reuse_frontend_manual_testing.md) | [predefined_queries_by_technology.md](predefined_queries_by_technology.md)
 
 ## Moved
 
@@ -20,6 +22,5 @@ Remaining evidence lifecycle guides. Phase-1 collection/validation implementatio
 
 ## Related
 
-- [../developer-manual/phase1/](../developer-manual/phase1/)
-- [../use-cases/phase1/](../../01-product/use-cases/phase1)
+- [../developer-manual/phase1/](../developer-manual/phase1/) | [../use-cases/phase1/](../../01-product/use-cases/phase1)
 - [../audit-intelligence/](../audit-intelligence/README.md)

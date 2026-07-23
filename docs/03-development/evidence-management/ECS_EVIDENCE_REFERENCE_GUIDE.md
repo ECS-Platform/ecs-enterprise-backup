@@ -2,6 +2,11 @@
 
 **Type:** Evidence management reference. **No code/UI/DB changes.** **Grounding:** `ecs_platform/repository/schema.sql` (`evidence`, `evidence_reviews`, `evidence_control_map`, `evidence_framework_map`, `evidence_lineage`), `ecs_platform/ingestion.py`, `ecs_platform/rag.py`, `config/repository.yaml`, governance/evidence engines, evidence routes. Inferred items marked **[Inferred/Target]**.
 
+> **Phase-1 architecture entry points** (persistence planes, custody, multi-store
+> lifecycle — use these when docs conflict on “what got written”):
+> [`DATA_FLOW_ARCHITECTURE.md`](../../02-architecture/architecture/DATA_FLOW_ARCHITECTURE.md) ·
+> [`EVIDENCE_LIFECYCLE.md`](../../02-architecture/architecture/EVIDENCE_LIFECYCLE.md).
+
 ---
 
 ## 1. Evidence lifecycle (state machine)
@@ -19,9 +24,22 @@
 
 Source: `evidence_reviews.status` (`Approved/Rejected/UnderReview/Collected/Expired`), `evidence_health_engine`, `governance_lifecycle_engine`.
 
+Engine label mapping for submit/approve/reject:
+[`ECS_STATE_TRANSITION_MATRIX.md`](../../02-architecture/architecture/ECS_STATE_TRANSITION_MATRIX.md).
+
 ## 2. Evidence repository
 
-PostgreSQL system of record (`config/repository.yaml`, db `ecs_repository`). Core table `evidence` (uid, title, content, source_system, object_type, application, url, collected_timestamp) + maps + reviews + lineage. Object store (MinIO bucket `ecs-evidence`) holds raw artifact files. Demo mode falls back to deterministic evidence with no DB.
+**Multiple stores coexist in Phase 1** (do not treat this section as “Postgres only”):
+
+| Store | Role |
+|---|---|
+| Operations + AI in-process repositories | Default working enrollment / versioned artifacts for demo & many runtime paths |
+| PostgreSQL (`ecs_repository`) | Durable schema / best-effort bridge from `register_upload` (`postgresql_persisted`) and platform repository APIs |
+| MinIO (`ecs-evidence`) | Raw artifact **bytes** when SNAPSHOT custody stores successfully |
+| Demo `ecs_state` | Deterministic showcase workflow when durable deps are absent |
+
+Object store holds raw artifact files **when custody SNAPSHOT succeeds**. Demo mode can run with deterministic evidence and **no** DB. Details:
+[`../architecture/DATA_FLOW_ARCHITECTURE.md`](../architecture/DATA_FLOW_ARCHITECTURE.md) §6.
 
 ## 3. Evidence upload & bulk upload
 
@@ -73,6 +91,7 @@ Approved/expired evidence is retained in the repository + object store; archival
 ---
 
 ## Cross-references
+- Phase-1 data flow / lifecycle architecture: [DATA_FLOW_ARCHITECTURE.md](../../02-architecture/architecture/DATA_FLOW_ARCHITECTURE.md) · [EVIDENCE_LIFECYCLE.md](../../02-architecture/architecture/EVIDENCE_LIFECYCLE.md)
 - Controls: [ECS_CONTROL_REFERENCE_GUIDE.md](../../01-product/product/ECS_CONTROL_REFERENCE_GUIDE.md)
 - Data model: [ECS_DATA_ARCHITECTURE_REFERENCE.md](../../02-architecture/architecture/ECS_DATA_ARCHITECTURE_REFERENCE.md)
 - Lifecycle workflows: [ECS_USER_JOURNEYS.md](../../01-product/product/ECS_USER_JOURNEYS.md)

@@ -46,7 +46,17 @@ Newer navigator/hub docs that tie together the deep per-topic docs:
 
 | Topic | Canonical doc |
 | --- | --- |
-| Enterprise architecture (bank/GCP/AWS, security zones, jump server) | [`architecture/ENTERPRISE_ARCHITECTURE.md`](02-architecture/architecture/ENTERPRISE_ARCHITECTURE.md) |
+| System architecture (Phase 1) | [`architecture/SYSTEM_ARCHITECTURE.md`](02-architecture/architecture/SYSTEM_ARCHITECTURE.md) |
+| Functional architecture (Phase 1) | [`architecture/FUNCTIONAL_ARCHITECTURE.md`](02-architecture/architecture/FUNCTIONAL_ARCHITECTURE.md) |
+| Logical architecture (Phase 1) | [`architecture/LOGICAL_ARCHITECTURE.md`](02-architecture/architecture/LOGICAL_ARCHITECTURE.md) |
+| Technical architecture (Phase 1) | [`architecture/TECHNICAL_ARCHITECTURE.md`](02-architecture/architecture/TECHNICAL_ARCHITECTURE.md) |
+| Deployment architecture (Phase 1 Compose runtime) | [`architecture/ecs_deployment_architecture.md`](02-architecture/architecture/ecs_deployment_architecture.md) |
+| Integration architecture (Phase 1) | [`architecture/INTEGRATION_ARCHITECTURE.md`](02-architecture/architecture/INTEGRATION_ARCHITECTURE.md) |
+| Connector architecture (Phase 1) | [`architecture/CONNECTOR_ARCHITECTURE.md`](02-architecture/architecture/CONNECTOR_ARCHITECTURE.md) |
+| Data flow architecture (Phase 1) | [`architecture/DATA_FLOW_ARCHITECTURE.md`](02-architecture/architecture/DATA_FLOW_ARCHITECTURE.md) |
+| Evidence lifecycle (Phase 1) | [`architecture/EVIDENCE_LIFECYCLE.md`](02-architecture/architecture/EVIDENCE_LIFECYCLE.md) |
+| Scheduler architecture (Phase 1) | [`architecture/SCHEDULER_ARCHITECTURE.md`](02-architecture/architecture/SCHEDULER_ARCHITECTURE.md) |
+| Enterprise architecture (bank/GCP/AWS — largely **[TARGET]**) | [`architecture/ENTERPRISE_ARCHITECTURE.md`](02-architecture/architecture/ENTERPRISE_ARCHITECTURE.md) |
 | Solution architecture (functional/runtime/integration/data/AI) | [`architecture/SOLUTION_ARCHITECTURE.md`](02-architecture/architecture/SOLUTION_ARCHITECTURE.md) |
 | High-level design (C4) | [`architecture/HIGH_LEVEL_DESIGN.md`](02-architecture/architecture/HIGH_LEVEL_DESIGN.md) |
 | Low-level design | [`architecture/LOW_LEVEL_DESIGN.md`](02-architecture/architecture/LOW_LEVEL_DESIGN.md) |
@@ -59,6 +69,7 @@ Newer navigator/hub docs that tie together the deep per-topic docs:
 | Testing guide | [`testing/TESTING_GUIDE.md`](04-testing/testing/TESTING_GUIDE.md) |
 | GCP deployment | [`deployment/GCP_DEPLOYMENT_GUIDE.md`](03-development/deployment/GCP_DEPLOYMENT_GUIDE.md) |
 | Incident runbooks | [`runbooks/README.md`](03-development/runbooks/README.md) |
+
 
 ---
 
@@ -85,8 +96,9 @@ Pick the path that matches your role. Each step links to the best starting doc.
 4. [`operations/uat_ip_configuration_guide.md`](03-development/operations/uat_ip_configuration_guide.md) — configure UAT assets/IPs (no localhost).
 5. [`connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md`](03-development/developer-manual/connectors/ENTERPRISE_CONNECTOR_UAT_SETUP.md) — connect real systems.
 6. [`connectors/uat_connector_credentials_guide.md`](03-development/developer-manual/connectors/uat_connector_credentials_guide.md) — connector credentials.
-7. [`scheduler/scheduler_runtime_flow.md`](03-development/developer-manual/phase1/scheduler/scheduler_runtime_flow.md) — scheduled evidence pull.
+7. [`architecture/SCHEDULER_ARCHITECTURE.md`](02-architecture/architecture/SCHEDULER_ARCHITECTURE.md) — scheduler architecture, then [`scheduler/scheduler_runtime_flow.md`](03-development/developer-manual/phase1/scheduler/scheduler_runtime_flow.md) for stage detail.
 8. [`operations/ECS_GO_LIVE_CHECKLIST.md`](03-development/operations/ECS_GO_LIVE_CHECKLIST.md) — go-live checklist.
+
 
 ### Business / Auditor Path
 

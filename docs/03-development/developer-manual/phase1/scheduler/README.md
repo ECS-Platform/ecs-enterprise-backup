@@ -4,6 +4,7 @@ The asset-driven scheduler runtime: end-to-end flow, runtime call graph, asset d
 
 ## Read first
 
+- Phase-1 architecture: [`../architecture/SCHEDULER_ARCHITECTURE.md`](../architecture/SCHEDULER_ARCHITECTURE.md)
 - [`scheduler_runtime_flow.md`](scheduler_runtime_flow.md) — scheduler runtime flow
 
 ## Documents in this folder (5)

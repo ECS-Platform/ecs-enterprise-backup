@@ -224,12 +224,18 @@ and the [security-mode flow](#8-security-mode-flow) below.
 
 ## 6. Evidence flow
 
+> **Phase-1 persistence caveats:** prefer
+> [`DATA_FLOW_ARCHITECTURE.md`](DATA_FLOW_ARCHITECTURE.md) and
+> [`EVIDENCE_LIFECYCLE.md`](EVIDENCE_LIFECYCLE.md). The diagram below is a
+> bank-context summary and must **not** be read as “every collect always commits
+> PostgreSQL + object store + vectors.”
+
 ```mermaid
 flowchart LR
   SRC["Source system\n(connector / predefined query / upload)"] --> COL["Collector\n(adapter / executor / DB Agent)"]
   COL --> NORM["Normalize\n(evidence record)"]
   NORM --> HASH["SHA-256 + version"]
-  HASH --> REPO[("Evidence repository")]
+  HASH --> REPO[("Evidence repository\n(in-process ± PG bridge)")]
   REPO --> MIR["Audit-intelligence mirror"]
   MIR --> MAP["Map to control -> framework"]
   MAP --> READY["Readiness / reuse / completeness"]
