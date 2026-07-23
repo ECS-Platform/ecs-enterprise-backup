@@ -114,6 +114,22 @@ def _find_in_memory_duplicate(source_item_id: str, content_hash: str) -> Evidenc
     return None
 
 
+def _find_substantive_duplicate(source_item_id: str, substantive_hash: str) -> EvidenceArtifact | None:
+    """Match predefined-query logical duplicates (volatile fields excluded from hash)."""
+    if not source_item_id or not substantive_hash:
+        return None
+    for versions in _STORE.values():
+        for art in versions:
+            if art.source_item_id != source_item_id:
+                continue
+            meta = dict(art.metadata or ())
+            if meta.get("substantive_content_sha256") == substantive_hash:
+                return art
+            if meta.get("canonical_fingerprint") == substantive_hash:
+                return art
+    return None
+
+
 def _next_version(key: str) -> int:
     versions = list(_STORE.get(key, []))
     if _evidence_persistence_enabled():
@@ -402,6 +418,12 @@ def store_evidence(
         _find_in_memory_duplicate(source_item_id, content_hash)
         or _find_persisted_duplicate(source_item_id, content_hash)
     )
+    meta_dict = dict(metadata or {})
+    substantive_hash = meta_dict.get("substantive_content_sha256") or meta_dict.get("canonical_fingerprint")
+    if duplicate is None and substantive_hash and source_item_id:
+        substantive_dup = _find_substantive_duplicate(source_item_id, substantive_hash)
+        if substantive_dup is not None:
+            duplicate = substantive_dup
     if duplicate is not None:
         # Allow an upgrade path from REFERENCE_ONLY -> SNAPSHOT for the same
         # source object/hash when immutable bytes are now available. Without this,

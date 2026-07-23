@@ -98,6 +98,8 @@ def register_upload(
 ):
     content_bytes = content or b""
     content_hash = compute_hash(content_bytes)
+    meta_in = dict(metadata or {})
+    substantive_hash = meta_in.get("substantive_content_sha256") or meta_in.get("canonical_fingerprint")
     if not allow_duplicate:
         existing = find_upload_by_sha256(content_hash)
         if existing is not None:
@@ -106,7 +108,28 @@ def register_upload(
             dup["duplicate"] = True
             dup["duplicate_kind"] = "sha256"
             dup["original_evidence_id"] = existing.get("evidence_id", "")
+            dup["embedding_skipped"] = True
+            dup["search_index"] = {
+                "indexed": False,
+                "reason": "embedding_skipped",
+                "embedding_skipped": True,
+            }
             return dup
+        if substantive_hash:
+            logical = find_upload_by_canonical_fingerprint(substantive_hash)
+            if logical is not None:
+                dup = dict(logical)
+                dup["status"] = "DUPLICATE"
+                dup["duplicate"] = True
+                dup["duplicate_kind"] = "canonical"
+                dup["original_evidence_id"] = logical.get("evidence_id", "")
+                dup["embedding_skipped"] = True
+                dup["search_index"] = {
+                    "indexed": False,
+                    "reason": "embedding_skipped",
+                    "embedding_skipped": True,
+                }
+                return dup
 
     std_name = enforce_naming(filename, framework or "GENERAL", application)
     now = datetime.now(timezone.utc).isoformat()
@@ -234,6 +257,8 @@ def _register_search_index(record: dict, content: bytes) -> dict:
     sha = record.get("sha256") or ""
     if not sha:
         return {"indexed": False, "reason": "missing_hash"}
+    meta = dict(record.get("metadata") or {})
+    substantive_hash = meta.get("substantive_content_sha256") or meta.get("canonical_fingerprint")
     dup_peers = [
         r for r in evidence_repository[:-1]
         if r.get("sha256") == sha and r.get("evidence_id") != record.get("evidence_id")
@@ -241,9 +266,23 @@ def _register_search_index(record: dict, content: bytes) -> dict:
     if dup_peers:
         return {
             "indexed": False,
-            "reason": "duplicate_content",
+            "reason": "embedding_skipped",
+            "embedding_skipped": True,
+            "duplicate_content": True,
             "existing_evidence_id": dup_peers[0].get("evidence_id"),
         }
+    if substantive_hash:
+        logical_peer = find_upload_by_canonical_fingerprint(substantive_hash)
+        if logical_peer and logical_peer.get("evidence_id") != record.get("evidence_id"):
+            peer_idx = dict(logical_peer.get("search_index") or {})
+            if peer_idx.get("indexed") or peer_idx.get("embedded_chunks", 0) > 0:
+                return {
+                    "indexed": False,
+                    "reason": "embedding_skipped",
+                    "embedding_skipped": True,
+                    "duplicate_substantive_content": True,
+                    "existing_evidence_id": logical_peer.get("evidence_id"),
+                }
     if not record.get("audit_repository_synced"):
         return {"indexed": False, "reason": "mirror_failed"}
     try:
@@ -259,9 +298,28 @@ def _register_search_index(record: dict, content: bytes) -> dict:
         artifact = versions[-1]
         text = content.decode("utf-8", errors="ignore") if content else ""
         report = index_after_persist(artifact, normalized_text=text)
-        return {"indexed": bool(report.get("ok")), **report}
+        indexed = bool(report.get("ok")) and int(report.get("embedded_chunks", 0) or 0) > 0
+        if report.get("skipped") and report.get("reason") in {
+            "superseded",
+            "empty_text",
+            "provider_not_configured",
+            "startup_seed_no_indexing",
+        }:
+            indexed = False
+        elif report.get("ok") and int(report.get("embedded_chunks", 0) or 0) == 0:
+            if int(report.get("skipped_unchanged", 0) or 0) > 0:
+                return {
+                    "indexed": True,
+                    "reason": "already_indexed",
+                    "embedding_skipped": True,
+                    **report,
+                }
+        out = {"indexed": indexed, **report}
+        if report.get("errors"):
+            out["reason"] = "index_failed"
+        return out
     except Exception as exc:  # noqa: BLE001
-        return {"indexed": False, "reason": str(exc)}
+        return {"indexed": False, "reason": "index_failed", "errors": [str(exc)]}
 
 
 def _mirror_to_audit_repository(record, content, framework, application, control):
@@ -308,7 +366,7 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             meta.setdefault("original_filename", str(record["original_filename"]))
         if record.get("application_tags"):
             meta.setdefault("application", str((record.get("application_tags") or [""])[0]))
-        ai_repo.store_evidence(
+        stored = ai_repo.store_evidence(
             control_id=control or record.get("filename", "UPLOAD"),
             content=text or record.get("summary", ""),
             technology=technology,
@@ -333,6 +391,10 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             content_hash_override=record.get("sha256", ""),
             size_bytes_override=int(record.get("size_bytes", 0) or 0),
         )
+        record["audit_version"] = stored.version
+        meta_out = dict(record.get("metadata") or {})
+        meta_out["audit_version"] = stored.version
+        record["metadata"] = meta_out
         record["audit_repository_synced"] = True
     except Exception:  # noqa: BLE001 - bridge must never break the primary upload
         record["audit_repository_synced"] = False

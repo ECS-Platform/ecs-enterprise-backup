@@ -14,6 +14,10 @@ from typing import Any
 
 from ecs_platform.vectorstore.base import Chunk, VectorStore, chunk_text
 
+# Reuse embedding provider + vector store within a process (scheduler batches many items).
+_INDEX_PROVIDER: Any = None
+_INDEX_STORE: VectorStore | None = None
+
 # Suppresses indexing for the duration of the one-time startup framework-catalog
 # seed only (``app.main`` wraps ``refresh_repository_from_frameworks(source=
 # "startup")`` with ``suppress_startup_indexing()``). That seed can register
@@ -33,6 +37,35 @@ class suppress_startup_indexing:
 
     def __exit__(self, *exc: Any) -> None:
         _SUPPRESS.active = False
+
+
+def reset_indexing_clients() -> None:
+    """Test helper: drop cached provider/store between runs."""
+    global _INDEX_PROVIDER, _INDEX_STORE
+    _INDEX_PROVIDER = None
+    _INDEX_STORE = None
+
+
+def _get_index_provider(provider: Any = None) -> Any:
+    global _INDEX_PROVIDER
+    if provider is not None:
+        return provider
+    if _INDEX_PROVIDER is None:
+        from ecs_platform.llm_engine.provider import get_provider
+
+        _INDEX_PROVIDER = get_provider()
+    return _INDEX_PROVIDER
+
+
+def _get_index_store(store: VectorStore | None = None) -> VectorStore:
+    global _INDEX_STORE
+    if store is not None:
+        return store
+    if _INDEX_STORE is None:
+        from ecs_platform.vectorstore import get_vector_store
+
+        _INDEX_STORE = get_vector_store()
+    return _INDEX_STORE
 
 
 def _startup_indexing_suppressed() -> bool:
@@ -174,6 +207,34 @@ def _existing_chunk_hashes(store: VectorStore) -> dict[str, str]:
         return {}
 
 
+def _evidence_version_indexed(store: VectorStore, artifact: Any) -> bool:
+    """True when this evidence version + content hash already has PGVector rows."""
+    uid = _evidence_uid(artifact)
+    version = str(int(getattr(artifact, "version", 1) or 1))
+    content_hash = getattr(artifact, "content_hash", "") or ""
+    if not uid or not content_hash:
+        return False
+    try:
+        with store._connect().cursor() as cur:  # noqa: SLF001
+            cur.execute(
+                f"SELECT 1 FROM {store._table} "  # noqa: SLF001
+                "WHERE evidence_uid = %s AND metadata->>'version' = %s "
+                "AND metadata->>'content_hash' = %s LIMIT 1",
+                (uid, version, content_hash),
+            )
+            return cur.fetchone() is not None
+    except Exception:  # noqa: BLE001
+        for chunk in getattr(store, "chunks", {}).values():
+            meta = chunk.metadata or {}
+            if (
+                chunk.evidence_uid == uid
+                and str(meta.get("version")) == version
+                and meta.get("content_hash") == content_hash
+            ):
+                return True
+        return False
+
+
 def _indexing_allowed(provider: Any) -> tuple[bool, str]:
     if _startup_indexing_suppressed():
         # Only the one-time startup framework-catalog seed sets this (see
@@ -230,10 +291,15 @@ def index_evidence_version(
         report.update({"ok": True, "skipped": True, "reason": "empty_text"})
         return report
 
-    provider = provider or get_provider()
+    provider = _get_index_provider(provider)
     allowed, allow_reason = _indexing_allowed(provider)
     if not allowed:
         report.update({"ok": True, "skipped": True, "reason": allow_reason})
+        return report
+
+    store = _get_index_store(store)
+    if not force and _evidence_version_indexed(store, artifact):
+        report.update({"ok": True, "skipped": True, "reason": "already_indexed", "embedding_skipped": True})
         return report
 
     try:
@@ -243,8 +309,6 @@ def index_evidence_version(
     size = int(chunk_cfg.get("chunk_size", 1000))
     overlap = int(chunk_cfg.get("chunk_overlap", 150))
     pieces = chunk_text(text, chunk_size=size, overlap=overlap) or [text.strip()]
-
-    store = store or get_vector_store()
 
     is_latest = _is_latest_version(artifact)
     existing = {} if force else _existing_chunk_hashes(store)
@@ -272,6 +336,9 @@ def index_evidence_version(
     report["skipped_unchanged"] = len(candidates) - len(to_embed)
     if not to_embed:
         report["ok"] = True
+        if report["skipped_unchanged"]:
+            report["embedding_skipped"] = True
+            report["reason"] = "already_indexed"
         return report
 
     try:

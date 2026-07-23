@@ -295,7 +295,7 @@ def _classify_pgvector_status(search_index: dict | None) -> dict[str, str]:
     reason = str(idx.get("reason") or idx.get("errors", [""])[0] if idx.get("errors") else "not_indexed")
     if reason in {"provider_not_configured", "provider_unavailable"}:
         return {"status": "provider_unavailable", "reason": reason}
-    if reason in {"duplicate_content", "superseded", "empty_text", "artifact_missing", "mirror_failed", "missing_hash"}:
+    if reason in {"duplicate_content", "duplicate_substantive_content", "embedding_skipped", "already_indexed", "superseded", "empty_text", "artifact_missing", "mirror_failed", "missing_hash"}:
         return {"status": "skipped", "reason": reason}
     if reason in {"index_failed"} or idx.get("errors"):
         return {"status": "failed", "reason": reason}
@@ -1191,6 +1191,12 @@ def collect_scheduled_predefined_queries(
     object_storage_count = 0
     pgvector_count = 0
     failures = 0
+    new_count = 0
+    changed_count = 0
+    duplicate_count = 0
+    embedded_count = 0
+    embedding_skipped_count = 0
+    embedding_failed_count = 0
     from modules.operations.engines.predefined_query_publisher import (
         reset_active_scheduler_run_id,
         set_active_scheduler_run_id,
@@ -1245,11 +1251,42 @@ def collect_scheduled_predefined_queries(
                 idx = upload.get("search_index") or {}
                 if idx.get("indexed"):
                     pgvector_count += 1
+            elif outcome.get("duplicate"):
+                duplicate_count += 1
+                embedding_skipped_count += 1
             elif outcome.get("ok") is False:
                 failures += 1
             results.append({"control_id": cid, **outcome})
     finally:
         reset_active_scheduler_run_id(run_token)
+    for row in results:
+        if row.get("duplicate"):
+            continue
+        if not row.get("evidence_persisted"):
+            continue
+        upload = row.get("upload") if isinstance(row.get("upload"), dict) else {}
+        audit_version = int(
+            (upload.get("metadata") or {}).get("audit_version")
+            or upload.get("audit_version")
+            or 1
+        )
+        if audit_version > 1:
+            changed_count += 1
+        else:
+            new_count += 1
+        idx = upload.get("search_index") if isinstance(upload.get("search_index"), dict) else {}
+        if int(idx.get("embedded_chunks", 0) or 0) > 0:
+            embedded_count += 1
+        elif idx.get("indexed"):
+            embedded_count += 1
+        elif idx.get("embedding_skipped") or idx.get("reason") in {
+            "embedding_skipped",
+            "already_indexed",
+            "duplicate_substantive_content",
+        }:
+            embedding_skipped_count += 1
+        elif idx.get("errors") or idx.get("reason") == "index_failed":
+            embedding_failed_count += 1
     persisted = sum(1 for row in results if row.get("evidence_persisted"))
     return {
         "enabled": True,
@@ -1264,6 +1301,12 @@ def collect_scheduled_predefined_queries(
         "object_storage_count": object_storage_count,
         "pgvector_count": pgvector_count,
         "failures": failures,
+        "new": new_count,
+        "changed": changed_count,
+        "duplicates": duplicate_count,
+        "embedded": embedded_count,
+        "embedding_skipped": embedding_skipped_count,
+        "embedding_failed": embedding_failed_count,
         "persist_flag": True,
         "demo_mode": demo_mode,
         "environment_flags": env_flags,

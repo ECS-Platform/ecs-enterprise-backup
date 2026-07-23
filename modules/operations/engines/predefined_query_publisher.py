@@ -176,6 +176,7 @@ def canonical_fingerprint_hash(fingerprint: dict[str, Any]) -> str:
 
 def _duplicate_receipt(existing: dict, *, reason: str, duplicate_kind: str) -> dict[str, Any]:
     meta = dict(existing.get("metadata") or {})
+    search_index = dict(existing.get("search_index") or {})
     return {
         "status": "DUPLICATE",
         "duplicate": True,
@@ -185,11 +186,22 @@ def _duplicate_receipt(existing: dict, *, reason: str, duplicate_kind: str) -> d
         "evidence_version": int(existing.get("version") or existing.get("evidence_version") or 1),
         "object_key": meta.get("object_key") or existing.get("object_key") or "",
         "sha256": existing.get("sha256") or meta.get("content_sha256") or "",
+        "substantive_content_sha256": meta.get("substantive_content_sha256")
+        or meta.get("canonical_fingerprint")
+        or "",
         "original_evidence_id": existing.get("evidence_id", ""),
         "filename": existing.get("filename", ""),
         "custody_mode": existing.get("custody_mode", ""),
         "workflow_status": existing.get("workflow_status") or existing.get("status") or "",
         "evidence_persisted": False,
+        "embedding_skipped": True,
+        "search_index": {
+            **search_index,
+            "indexed": False,
+            "reason": "embedding_skipped",
+            "embedding_skipped": True,
+            "skipped_unchanged": search_index.get("skipped_unchanged", 0),
+        },
         "ok": True,
     }
 
@@ -369,6 +381,7 @@ def publish_predefined_query_evidence(
         "object_key": object_key,
         "content_sha256": content_hash,
         "canonical_fingerprint": canonical_hash,
+        "substantive_content_sha256": canonical_hash,
         "evidence_period": evidence_period,
         "execution_id": execution_id,
         "row_count": artifact["row_count"],

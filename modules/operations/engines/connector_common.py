@@ -189,6 +189,7 @@ def complete_connector_execution(
         "evidence_id": evidence_id,
         "evidence_persisted": persisted,
         "duplicate": duplicate,
+        "embedding_skipped": duplicate or bool(upload.get("embedding_skipped")),
         "duplicate_reason": upload.get("duplicate_reason", "") if duplicate else "",
         "original_evidence_id": upload.get("original_evidence_id", "") if duplicate else "",
         "evidence_filename": upload.get("filename", "") if persisted else "",

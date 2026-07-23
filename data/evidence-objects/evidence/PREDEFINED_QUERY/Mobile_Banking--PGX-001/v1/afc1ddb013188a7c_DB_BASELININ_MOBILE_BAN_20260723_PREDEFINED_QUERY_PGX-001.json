@@ -1,0 +1,31 @@
+{
+  "application": "Mobile Banking",
+  "asset_id": "Mobile Banking",
+  "columns": [
+    "ssl"
+  ],
+  "control_id": "PGX-001",
+  "control_name": "PostgreSQL SSL Enabled",
+  "duration_ms": 5,
+  "environment": "local",
+  "executed_at": "2026-07-23T07:28:30.035567+00:00",
+  "executed_by": "tester",
+  "execution_id": "EXEC-1",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "PGX-001",
+  "query_reference": "SHOW ssl;",
+  "result": [
+    [
+      "on"
+    ]
+  ],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "PostgreSQL"
+}

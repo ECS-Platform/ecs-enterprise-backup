@@ -257,17 +257,20 @@ def test_store_evidence_triggers_index_hook(monkeypatch):
 
 
 def test_retry_and_reindex_helpers(monkeypatch):
+    from ecs_platform.evidence_indexing import reset_indexing_clients
+
     store = _FakeStore()
     provider = _FakeProvider()
     v1 = repo.store_evidence(control_id="C-1", content="one", asset_id="app")
     v2 = repo.store_evidence(control_id="C-1", content="two", asset_id="app")
+    reset_indexing_clients()
     monkeypatch.setattr("ecs_platform.evidence_indexing._existing_chunk_hashes", lambda _store: {})
     monkeypatch.setattr(
         "ecs_platform.config.load_vectorstore_config",
         lambda: {"vectorstore": {"chunking": {"chunk_size": 1000, "chunk_overlap": 150}}},
     )
-    monkeypatch.setattr("ecs_platform.llm_engine.provider.get_provider", lambda: provider)
-    monkeypatch.setattr("ecs_platform.vectorstore.get_vector_store", lambda: store)
+    monkeypatch.setattr("ecs_platform.evidence_indexing._get_index_provider", lambda p=None: provider if p is None else p)
+    monkeypatch.setattr("ecs_platform.evidence_indexing._get_index_store", lambda s=None: store if s is None else s)
 
     retry = retry_index_evidence(v1.evidence_key, 1, normalized_text="one")
     assert retry["ok"] is True
@@ -289,4 +292,4 @@ def test_demo_mode_skips_without_provider(monkeypatch):
     )
     assert report["ok"] is True
     assert report["skipped"] is True
-    assert report["reason"] == "demo_mode_no_provider"
+    assert report["reason"] == "provider_not_configured"
