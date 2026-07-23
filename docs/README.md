@@ -26,6 +26,7 @@ everything. **New here? Start with [`00-start-here/`](00-start-here/README.md).*
 | [`audit-intelligence/`](audit-intelligence/README.md) | Audit LLM prompt inventory, NL audit queries, server-side processing |
 | [`ai-sdlc/`](ai-sdlc/README.md) | AI architecture, local-LLM strategy, model abstraction, AI governance |
 | [`architecture/`](architecture/README.md) | Architecture index, enterprise/solution arch, HLD (C4)/LLD, data & deployment architecture, workflows |
+| [`api/`](api/README.md) | Phase 1 API supplements (Framework Control Master, Evidence Dashboard progress) |
 | [`deployment/`](deployment/GCP_DEPLOYMENT_GUIDE.md) | Cloud deployment (GCP: GKE, Cloud SQL/pgvector, GCS, IAM, CI/CD, promotion) |
 | [`runbooks/`](runbooks/README.md) | Focused incident runbooks (scheduler, evidence upload, DB Agent, LLM, config, readiness) |
 | [`product/`](product/README.md) | Product manual, feature/KPI/module refs, use-case catalogs, frameworks, training |

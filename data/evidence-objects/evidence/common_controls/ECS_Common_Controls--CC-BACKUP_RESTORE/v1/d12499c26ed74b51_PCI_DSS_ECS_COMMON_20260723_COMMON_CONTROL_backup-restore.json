@@ -1,0 +1,8 @@
+{
+  "collected_at": "2026-07-17T10:07:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "last_backup_status": "Success",
+  "rpo_hours": 12,
+  "last_restore_test": "2026-06-15"
+}

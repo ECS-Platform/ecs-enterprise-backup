@@ -214,6 +214,56 @@ def find_existing_predefined_query_evidence(
     return None, ""
 
 
+def _enrich_predefined_query_metadata(
+    metadata: dict[str, Any],
+    *,
+    control: dict[str, Any],
+    artifact: dict[str, Any],
+) -> dict[str, Any]:
+    """Tag common-control reuse + FCM references without duplicating catalogue rows."""
+    out = dict(metadata)
+    control_id = str(control.get("control_id") or artifact.get("query_id") or "")
+    out["query_id"] = control_id
+    out["application"] = str(artifact.get("application") or control.get("application") or "")
+    out["environment"] = str(artifact.get("environment") or control.get("environment") or "")
+    out["artifact_type"] = "json"
+    out["framework_refs"] = list(artifact.get("frameworks") or [])
+    try:
+        from modules.operations.engines.common_controls_catalog import common_controls_for_query_id
+
+        cc_defs = common_controls_for_query_id(control_id)
+        out["common_control_slugs"] = [c.slug for c in cc_defs]
+        out["common_control_ids"] = [c.control_id for c in cc_defs]
+        fcm_refs: list[dict[str, Any]] = []
+        if cc_defs:
+            from modules.frameworks.services.common_controls_service import (
+                get_common_controls_service,
+            )
+
+            svc = get_common_controls_service()
+            for cc in cc_defs:
+                fcm_refs.extend(svc.resolve_fcm_references(cc.slug))
+            out["fcm_reference_count"] = len(fcm_refs)
+            out["fcm_framework_ids"] = sorted({r.get("framework_id") for r in fcm_refs if r.get("framework_id")})
+            if fcm_refs:
+                sample = fcm_refs[0]
+                out.setdefault("policy_refs", sample.get("policy_refs") or [])
+                out.setdefault("procedure_ids", sample.get("procedure_ids") or [])
+                out.setdefault("evidence_requirement_ids", sample.get("evidence_requirement_ids") or [])
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from modules.audit_intelligence.engines import technology_control_mapping as tcm
+
+        tref = tcm.get_control(control_id)
+        if tref:
+            out["technology_control_frameworks"] = list(tref.frameworks)
+            out["technology_control_name"] = tref.control_name
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
 def register_predefined_query_indexes(
     *,
     content_hash: str,
@@ -325,6 +375,7 @@ def publish_predefined_query_evidence(
     }
     if run_stamp:
         metadata["scheduler_run_id"] = run_stamp
+    metadata = _enrich_predefined_query_metadata(metadata, control=control, artifact=artifact)
     upload = register_upload(
         filename=filename,
         content=content,

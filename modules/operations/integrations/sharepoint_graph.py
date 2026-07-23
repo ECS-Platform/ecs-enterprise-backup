@@ -16,6 +16,7 @@ Only METADATA is fetched — file contents are never downloaded by default
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -38,10 +39,39 @@ SOURCE = "sharepoint_graph"
 TOKEN_URL_TEMPLATE = ms_graph_base.TOKEN_URL_TEMPLATE
 
 
+def _env_truthy(value: str) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def sharepoint_enabled() -> bool:
+    return _env_truthy(os.environ.get("ECS_SHAREPOINT_ENABLED", ""))
+
+
+def sharepoint_mode() -> str:
+    """Return ``mock`` or ``real``. Never silently maps real → mock."""
+    raw = str(os.environ.get("ECS_SHAREPOINT_MODE", "mock") or "mock").strip().lower()
+    return raw if raw in {"mock", "real"} else "mock"
+
+
+def is_mock_mode() -> bool:
+    return sharepoint_mode() == "mock"
+
+
+def is_real_mode() -> bool:
+    return sharepoint_mode() == "real"
+
+
+def _mock_graph_base_url() -> str:
+    return str(os.environ.get("ECS_GRAPH_BASE_URL") or "http://mock-graph:8080/v1.0").rstrip("/")
+
+
 def get_config() -> dict[str, Any]:
     """SharePoint + shared Graph config (env / YAML). Secrets read, never logged."""
     base = ms_graph_base.get_graph_config()
     cfg = _base.yaml_block(("sharepoint_graph", "sharepoint", "graph"))
+    mode = sharepoint_mode()
+    if mode == "mock" and not (base.get("base_url") or _base.env("ECS_GRAPH_BASE_URL")):
+        base["base_url"] = _mock_graph_base_url()
     base.update({
         "site_id": (str(cfg.get("site_id")) if cfg.get("site_id") else "")
         or _base.env("ECS_GRAPH_SITE_ID"),
@@ -59,6 +89,8 @@ def get_config() -> dict[str, Any]:
 
 def is_configured() -> bool:
     c = get_config()
+    if is_mock_mode():
+        return bool(c.get("drive_id") or c.get("site_id"))
     return bool(c["tenant_id"] and c["client_id"] and c["client_secret"] and c["site_id"])
 
 
@@ -79,8 +111,13 @@ def masked_config(cfg: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "scope": cfg.get("scope"),
         "timeout_sec": cfg.get("timeout_sec"),
         "max_retries": cfg.get("max_retries"),
-        "ready": bool(cfg.get("tenant_id") and cfg.get("client_id")
-                      and cfg.get("client_secret") and cfg.get("site_id")),
+        "ready": (
+            bool(cfg.get("tenant_id") and cfg.get("client_id")
+                 and cfg.get("client_secret") and cfg.get("site_id"))
+            if is_real_mode()
+            else bool(cfg.get("drive_id") or cfg.get("site_id"))
+        ),
+        "sharepoint_mode": sharepoint_mode(),
     }
 
 
@@ -92,8 +129,18 @@ class SharePointGraphClient(GraphAdapter):
 
     def is_configured(self) -> bool:
         c = self.config
+        if is_mock_mode():
+            return bool(c.get("drive_id") or c.get("site_id"))
         return bool(c.get("tenant_id") and c.get("client_id")
                     and c.get("client_secret") and c.get("site_id"))
+
+    def authenticate(self) -> Optional[str]:
+        if is_mock_mode():
+            token = str(self.config.get("access_token") or "mock-graph-token")
+            self._cached_token = token
+            self._token_attempted = True
+            return token
+        return super().authenticate()
 
     def masked_config(self) -> dict[str, Any]:
         return masked_config(self.config)

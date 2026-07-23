@@ -7,13 +7,32 @@
   "application": "ECS Common Controls",
   "environment": "MVP",
   "owner": "Platform Ops",
-  "predefined_query_ids": ["MW-002"],
+  "predefined_query_ids": [
+    "MW-002"
+  ],
   "alternate_collection": "Scanner report + folder mock",
-  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
-  "evidence_files": ["evidence.json"],
+  "frameworks": [
+    "ITPP",
+    "ASST",
+    "MBSS",
+    "PCI DSS",
+    "DPSC",
+    "C-SITE",
+    "VAPT",
+    "OS Baseline",
+    "Middleware Baseline",
+    "Database Baseline"
+  ],
+  "evidence_files": [
+    "evidence.json"
+  ],
   "validation": {
     "rules": [
-      {"field": "certificates", "type": "all_certificates_min_days", "min_days": 30}
+      {
+        "field": "certificates",
+        "type": "all_certificates_min_days",
+        "min_days": 30
+      }
     ]
   }
 }

@@ -96,6 +96,7 @@ def _module_redirect(module: str, role: str, user: str, notice: str) -> Redirect
         "onboarding": "/mvp/onboarding",
         "framework_admin": "/mvp/framework-admin",
         "framework_loader": "/mvp/framework-loader",
+        "framework_control_master": "/mvp/framework-control-master",
         "demo_overview": "/mvp/demo-overview",
         "risk_register": "/mvp/risk-register",
         "exceptions_td": "/mvp/exceptions",
@@ -777,11 +778,59 @@ def register_mvp_routes(app, templates):
         response: str = "",
         notice: str = "",
         tab: str = "",
+        application: str = "",
+        framework_id: str = "",
     ):
         ctx = _base_ctx(role, user, response, notice, page_module="evidence_dashboard")
         if tab and ctx.get("workspace"):
             ctx["workspace"]["default_tab"] = tab
+        if application or framework_id:
+            from modules.frameworks.services.framework_control_master_service import (
+                get_framework_control_master_service,
+            )
+
+            svc = get_framework_control_master_service()
+            ctx.setdefault("module_view", {})["fcm_progress"] = svc.build_evidence_dashboard_progress(
+                role=role,
+                application=application,
+                framework_id=framework_id,
+            )
         return templates.TemplateResponse(request, "mvp_evidence_dashboard.html", ctx)
+
+    @app.get("/api/evidence-dashboard/fcm-progress")
+    def api_evidence_dashboard_fcm_progress(
+        role: str = "owner",
+        application: str = "",
+        framework_id: str = "",
+    ):
+        from modules.frameworks.services.framework_control_master_service import (
+            get_framework_control_master_service,
+        )
+
+        return JSONResponse(
+            get_framework_control_master_service().build_evidence_dashboard_progress(
+                role=role,
+                application=application,
+                framework_id=framework_id,
+            )
+        )
+
+    @app.get("/api/evidence-dashboard/fcm-drill/{framework_id}/{control_id}")
+    def api_evidence_dashboard_fcm_drill(
+        framework_id: str,
+        control_id: str,
+        application: str = "",
+        role: str = "owner",
+    ):
+        from modules.frameworks.services.framework_control_master_service import (
+            get_framework_control_master_service,
+        )
+
+        payload = get_framework_control_master_service().build_evidence_progress_drill(
+            framework_id, control_id, application, role=role
+        )
+        status = 404 if not payload.get("ok") else 200
+        return JSONResponse(payload, status_code=status)
 
     @app.get("/mvp/evidence-health", response_class=HTMLResponse)
     def mvp_evidence_health(
@@ -1311,6 +1360,123 @@ def register_mvp_routes(app, templates):
             })
         except ValueError as e:
             return PlainTextResponse(str(e), status_code=404)
+
+    @app.get("/mvp/framework-control-master", response_class=HTMLResponse)
+    def mvp_framework_control_master(
+        request: Request,
+        role: str = "compliance_head",
+        user: str = "ComplianceOfficer",
+        notice: str = "",
+        framework_id: str = "",
+        q: str = "",
+    ):
+        from modules.frameworks.services.framework_control_master_service import (
+            get_framework_control_master_service,
+        )
+
+        service = get_framework_control_master_service()
+        ctx = _base_ctx(role, user, notice=notice, page_module="framework_control_master")
+        ctx["fcm"] = service.build_dashboard(role, framework_id, q)
+        return templates.TemplateResponse(request, "mvp_framework_control_master.html", ctx)
+
+    @app.get("/api/framework-control-master/frameworks")
+    def api_framework_control_master_list():
+        from modules.frameworks.services.framework_control_master_service import (
+            get_framework_control_master_service,
+        )
+
+        return JSONResponse(get_framework_control_master_service().list_frameworks())
+
+    @app.get("/api/framework-control-master/frameworks/{framework_id}")
+    def api_framework_control_master_framework(framework_id: str):
+        from modules.frameworks.services.framework_control_master_service import (
+            get_framework_control_master_service,
+        )
+
+        payload = get_framework_control_master_service().get_framework_detail(framework_id)
+        status = 404 if not payload.get("ok") else 200
+        return JSONResponse(payload, status_code=status)
+
+    @app.get("/api/framework-control-master/controls/{framework_id}/{control_id}")
+    def api_framework_control_master_control(framework_id: str, control_id: str):
+        from modules.frameworks.services.framework_control_master_service import (
+            get_framework_control_master_service,
+        )
+
+        payload = get_framework_control_master_service().get_control_detail(
+            framework_id, control_id
+        )
+        status = 404 if not payload.get("ok") else 200
+        return JSONResponse(payload, status_code=status)
+
+    @app.get("/api/framework-control-master/search")
+    def api_framework_control_master_search(
+        q: str = "",
+        framework_id: str = "",
+        domain: str = "",
+    ):
+        from modules.frameworks.services.framework_control_master_service import (
+            get_framework_control_master_service,
+        )
+
+        return JSONResponse(
+            get_framework_control_master_service().search_controls(q, framework_id, domain)
+        )
+
+    @app.get("/api/predefined-queries")
+    def api_predefined_queries_list(phase1_only: bool = True):
+        from modules.operations.services.predefined_queries_service import (
+            get_predefined_queries_service,
+        )
+
+        return JSONResponse(get_predefined_queries_service().list_controls(phase1_only=phase1_only))
+
+    @app.get("/api/predefined-queries/{control_id}")
+    def api_predefined_query_detail(control_id: str):
+        from modules.operations.services.predefined_queries_service import (
+            get_predefined_queries_service,
+        )
+
+        payload = get_predefined_queries_service().get_control(control_id)
+        status = 404 if not payload.get("ok") else 200
+        return JSONResponse(payload, status_code=status)
+
+    @app.get("/api/predefined-queries/{control_id}/mappings")
+    def api_predefined_query_mappings(control_id: str):
+        from modules.operations.services.predefined_queries_service import (
+            get_predefined_queries_service,
+        )
+
+        payload = get_predefined_queries_service().resolve_mappings(control_id)
+        status = 404 if not payload.get("ok") else 200
+        return JSONResponse(payload, status_code=status)
+
+    @app.get("/api/common-controls")
+    def api_common_controls_list():
+        from modules.frameworks.services.common_controls_service import (
+            get_common_controls_service,
+        )
+
+        return JSONResponse(get_common_controls_service().list_controls())
+
+    @app.get("/api/common-controls/{slug}")
+    def api_common_control_detail(slug: str):
+        from modules.frameworks.services.common_controls_service import (
+            get_common_controls_service,
+        )
+
+        payload = get_common_controls_service().get_control(slug)
+        status = 404 if not payload.get("ok") else 200
+        return JSONResponse(payload, status_code=status)
+
+    @app.get("/api/common-controls/framework/{framework_id}")
+    def api_common_controls_for_framework(framework_id: str):
+        from modules.frameworks.services.common_controls_service import (
+            get_common_controls_service,
+        )
+
+        refs = get_common_controls_service().controls_for_framework(framework_id)
+        return JSONResponse({"ok": True, "framework_id": framework_id, "controls": refs, "count": len(refs)})
 
     @app.get("/mvp/lifecycle", response_class=HTMLResponse)
     def mvp_lifecycle(request: Request, role: str = "owner", user: str = "User", response: str = ""):

@@ -1,0 +1,238 @@
+framework:
+  id: pci_dss
+  code: PCI
+  name: PCI DSS
+  display_name: Payment Card Industry Data Security Standard
+  category: Regulatory
+  regulator: PCI SSC
+  version: 4.0.1
+  description: Cardholder data environment controls for payment processing channels.
+  source: file_catalog
+  phase: 1
+policies:
+- id: PCI-POL-NETWORK-01
+  title: Network Policy
+  description: Governing policy for network requirements within Payment Card Industry
+    Data Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: PCI-POL-CRYPTOGRAPHY-01
+  title: Cryptography Policy
+  description: Governing policy for cryptography requirements within Payment Card
+    Industry Data Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: PCI-POL-CRYPTOGRAPHY-02
+  title: Cryptography Policy
+  description: Governing policy for cryptography requirements within Payment Card
+    Industry Data Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: PCI-POL-ACCESS_CONTR-01
+  title: Access Control Policy
+  description: Governing policy for access control requirements within Payment Card
+    Industry Data Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: PCI-POL-MONITORING-01
+  title: Monitoring Policy
+  description: Governing policy for monitoring requirements within Payment Card Industry
+    Data Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: PCI-POL-VULNERABILIT-01
+  title: Vulnerability Policy
+  description: Governing policy for vulnerability requirements within Payment Card
+    Industry Data Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: PCI-C-01
+  title: Req 1.2 — Network Segmentation
+  domain: Network
+  criticality: High
+  description: CDE segmented from untrusted networks.
+  policy_refs:
+  - PCI-POL-NETWORK-01
+  procedures:
+  - id: PCI-PROC-01
+    title: Execute — Req 1.2 — Network Segmentation
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Req 1.2 — Network Segmentation.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: PCI-EVR-011
+    title: Req 1.2 — Network Segmentation — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: PCI-EVR-012
+    title: Req 1.2 — Network Segmentation — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: PCI-C-02
+  title: Req 3.4 — Encryption at Rest
+  domain: Cryptography
+  criticality: High
+  description: PAN storage encrypted with approved algorithms.
+  policy_refs:
+  - PCI-POL-CRYPTOGRAPHY-01
+  procedures:
+  - id: PCI-PROC-02
+    title: Execute — Req 3.4 — Encryption at Rest
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Req 3.4 — Encryption at
+      Rest.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: PCI-EVR-021
+    title: Req 3.4 — Encryption at Rest — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: PCI-EVR-022
+    title: Req 3.4 — Encryption at Rest — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: PCI-C-03
+  title: Req 4.1 — Encryption in Transit
+  domain: Cryptography
+  criticality: High
+  description: TLS 1.2+ for cardholder data transmission.
+  policy_refs:
+  - PCI-POL-CRYPTOGRAPHY-02
+  procedures:
+  - id: PCI-PROC-03
+    title: Execute — Req 4.1 — Encryption in Transit
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Req 4.1 — Encryption in
+      Transit.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: PCI-EVR-031
+    title: Req 4.1 — Encryption in Transit — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: PCI-EVR-032
+    title: Req 4.1 — Encryption in Transit — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: PCI-C-04
+  title: Req 7.2 — Access Control Review
+  domain: Access Control
+  criticality: Medium
+  description: Quarterly CDE access recertification.
+  policy_refs:
+  - PCI-POL-ACCESS_CONTR-01
+  procedures:
+  - id: PCI-PROC-04
+    title: Execute — Req 7.2 — Access Control Review
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Req 7.2 — Access Control
+      Review.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: PCI-EVR-041
+    title: Req 7.2 — Access Control Review — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: PCI-EVR-042
+    title: Req 7.2 — Access Control Review — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: PCI-C-05
+  title: Req 10.2 — Audit Trail Integrity
+  domain: Monitoring
+  criticality: Medium
+  description: Centralized immutable audit logs for CDE.
+  policy_refs:
+  - PCI-POL-MONITORING-01
+  procedures:
+  - id: PCI-PROC-05
+    title: Execute — Req 10.2 — Audit Trail Integrity
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Req 10.2 — Audit Trail Integrity.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: PCI-EVR-051
+    title: Req 10.2 — Audit Trail Integrity — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: PCI-EVR-052
+    title: Req 10.2 — Audit Trail Integrity — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: PCI-C-06
+  title: Req 11.3 — External VAPT
+  domain: Vulnerability
+  criticality: Medium
+  description: Annual ASV scan with remediation validation.
+  policy_refs:
+  - PCI-POL-VULNERABILIT-01
+  procedures:
+  - id: PCI-PROC-06
+    title: Execute — Req 11.3 — External VAPT
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Req 11.3 — External VAPT.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: PCI-EVR-061
+    title: Req 11.3 — External VAPT — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: PCI-EVR-062
+    title: Req 11.3 — External VAPT — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

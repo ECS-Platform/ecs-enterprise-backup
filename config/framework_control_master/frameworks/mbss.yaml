@@ -1,0 +1,235 @@
+framework:
+  id: mbss
+  code: MBSS
+  name: MBSS
+  display_name: Minimum Baseline Security Standard
+  category: Security Baseline
+  regulator: Information Security
+  version: '2026.1'
+  description: Enterprise minimum security baseline for production banking systems.
+  source: file_catalog
+  phase: 1
+policies:
+- id: MBSS-POL-IDENTITY-01
+  title: Identity Policy
+  description: Governing policy for identity requirements within Minimum Baseline
+    Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MBSS-POL-NETWORK-01
+  title: Network Policy
+  description: Governing policy for network requirements within Minimum Baseline Security
+    Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MBSS-POL-LOGGING-01
+  title: Logging Policy
+  description: Governing policy for logging requirements within Minimum Baseline Security
+    Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MBSS-POL-PATCH-01
+  title: Patch Policy
+  description: Governing policy for patch requirements within Minimum Baseline Security
+    Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MBSS-POL-CONFIGURATIO-01
+  title: Configuration Policy
+  description: Governing policy for configuration requirements within Minimum Baseline
+    Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MBSS-POL-IDENTITY-02
+  title: Identity Policy
+  description: Governing policy for identity requirements within Minimum Baseline
+    Security Standard.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: MBSS-C-01
+  title: Privileged Access Review
+  domain: Identity
+  criticality: High
+  description: Quarterly recertification of privileged accounts.
+  policy_refs:
+  - MBSS-POL-IDENTITY-01
+  procedures:
+  - id: MBSS-PROC-01
+    title: Execute — Privileged Access Review
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Privileged Access Review.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MBSS-EVR-011
+    title: Privileged Access Review — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MBSS-EVR-012
+    title: Privileged Access Review — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MBSS-C-02
+  title: Network Segmentation
+  domain: Network
+  criticality: High
+  description: Production/DMZ segmentation validated.
+  policy_refs:
+  - MBSS-POL-NETWORK-01
+  procedures:
+  - id: MBSS-PROC-02
+    title: Execute — Network Segmentation
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Network Segmentation.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MBSS-EVR-021
+    title: Network Segmentation — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MBSS-EVR-022
+    title: Network Segmentation — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MBSS-C-03
+  title: Centralized Audit Logging
+  domain: Logging
+  criticality: High
+  description: Security events forwarded to SOC SIEM.
+  policy_refs:
+  - MBSS-POL-LOGGING-01
+  procedures:
+  - id: MBSS-PROC-03
+    title: Execute — Centralized Audit Logging
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Centralized Audit Logging.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MBSS-EVR-031
+    title: Centralized Audit Logging — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MBSS-EVR-032
+    title: Centralized Audit Logging — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MBSS-C-04
+  title: Critical Patch Compliance
+  domain: Patch
+  criticality: Medium
+  description: Critical OS and middleware patches within SLA.
+  policy_refs:
+  - MBSS-POL-PATCH-01
+  procedures:
+  - id: MBSS-PROC-04
+    title: Execute — Critical Patch Compliance
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Critical Patch Compliance.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MBSS-EVR-041
+    title: Critical Patch Compliance — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MBSS-EVR-042
+    title: Critical Patch Compliance — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MBSS-C-05
+  title: Secure Configuration Baseline
+  domain: Configuration
+  criticality: Medium
+  description: CIS-aligned hardening for production hosts.
+  policy_refs:
+  - MBSS-POL-CONFIGURATIO-01
+  procedures:
+  - id: MBSS-PROC-05
+    title: Execute — Secure Configuration Baseline
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Secure Configuration Baseline.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MBSS-EVR-051
+    title: Secure Configuration Baseline — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MBSS-EVR-052
+    title: Secure Configuration Baseline — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MBSS-C-06
+  title: MFA for Administrative Access
+  domain: Identity
+  criticality: Medium
+  description: 100% MFA on admin and jump-host access.
+  policy_refs:
+  - MBSS-POL-IDENTITY-02
+  procedures:
+  - id: MBSS-PROC-06
+    title: Execute — MFA for Administrative Access
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for MFA for Administrative Access.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MBSS-EVR-061
+    title: MFA for Administrative Access — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MBSS-EVR-062
+    title: MFA for Administrative Access — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

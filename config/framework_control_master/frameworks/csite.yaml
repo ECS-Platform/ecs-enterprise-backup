@@ -1,0 +1,237 @@
+framework:
+  id: csite
+  code: CSI
+  name: C-SITE
+  display_name: Cyber Security Incident Tracking & Evaluation
+  category: Audit Assessment
+  regulator: Internal Audit
+  version: '2026.1'
+  description: SOC monitoring, threat detection, and incident response assurance framework.
+  source: file_catalog
+  phase: 1
+policies:
+- id: CSI-POL-SOC_OPERATIO-01
+  title: SOC Operations Policy
+  description: Governing policy for soc operations requirements within Cyber Security
+    Incident Tracking & Evaluation.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: CSI-POL-THREAT_DETEC-01
+  title: Threat Detection Policy
+  description: Governing policy for threat detection requirements within Cyber Security
+    Incident Tracking & Evaluation.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: CSI-POL-INCIDENT_RES-01
+  title: Incident Response Policy
+  description: Governing policy for incident response requirements within Cyber Security
+    Incident Tracking & Evaluation.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: CSI-POL-THREAT_DETEC-02
+  title: Threat Detection Policy
+  description: Governing policy for threat detection requirements within Cyber Security
+    Incident Tracking & Evaluation.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: CSI-POL-AWARENESS-01
+  title: Awareness Policy
+  description: Governing policy for awareness requirements within Cyber Security Incident
+    Tracking & Evaluation.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: CSI-POL-THREAT_DETEC-03
+  title: Threat Detection Policy
+  description: Governing policy for threat detection requirements within Cyber Security
+    Incident Tracking & Evaluation.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: CSI-C-01
+  title: SIEM Alert Monitoring & Triage
+  domain: SOC Operations
+  criticality: High
+  description: 24x7 alert triage within defined SLA.
+  policy_refs:
+  - CSI-POL-SOC_OPERATIO-01
+  procedures:
+  - id: CSI-PROC-01
+    title: Execute — SIEM Alert Monitoring & Triage
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for SIEM Alert Monitoring &
+      Triage.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: CSI-EVR-011
+    title: SIEM Alert Monitoring & Triage — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: CSI-EVR-012
+    title: SIEM Alert Monitoring & Triage — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: CSI-C-02
+  title: EDR Threat Detection Coverage
+  domain: Threat Detection
+  criticality: High
+  description: Endpoint detection deployed on critical assets.
+  policy_refs:
+  - CSI-POL-THREAT_DETEC-01
+  procedures:
+  - id: CSI-PROC-02
+    title: Execute — EDR Threat Detection Coverage
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for EDR Threat Detection Coverage.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: CSI-EVR-021
+    title: EDR Threat Detection Coverage — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: CSI-EVR-022
+    title: EDR Threat Detection Coverage — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: CSI-C-03
+  title: Incident Response SLA
+  domain: Incident Response
+  criticality: High
+  description: P1 MTTR tracked with postmortem closure.
+  policy_refs:
+  - CSI-POL-INCIDENT_RES-01
+  procedures:
+  - id: CSI-PROC-03
+    title: Execute — Incident Response SLA
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Incident Response SLA.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: CSI-EVR-031
+    title: Incident Response SLA — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: CSI-EVR-032
+    title: Incident Response SLA — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: CSI-C-04
+  title: Threat Intelligence Integration
+  domain: Threat Detection
+  criticality: Medium
+  description: TI feeds correlated with SIEM use-cases.
+  policy_refs:
+  - CSI-POL-THREAT_DETEC-02
+  procedures:
+  - id: CSI-PROC-04
+    title: Execute — Threat Intelligence Integration
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Threat Intelligence Integration.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: CSI-EVR-041
+    title: Threat Intelligence Integration — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: CSI-EVR-042
+    title: Threat Intelligence Integration — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: CSI-C-05
+  title: Phishing Simulation Program
+  domain: Awareness
+  criticality: Medium
+  description: Employee click-rate and coaching programme.
+  policy_refs:
+  - CSI-POL-AWARENESS-01
+  procedures:
+  - id: CSI-PROC-05
+    title: Execute — Phishing Simulation Program
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Phishing Simulation Program.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: CSI-EVR-051
+    title: Phishing Simulation Program — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: CSI-EVR-052
+    title: Phishing Simulation Program — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: CSI-C-06
+  title: Vulnerability Management SLA
+  domain: Threat Detection
+  criticality: Medium
+  description: Critical vulnerability aging within tolerance.
+  policy_refs:
+  - CSI-POL-THREAT_DETEC-03
+  procedures:
+  - id: CSI-PROC-06
+    title: Execute — Vulnerability Management SLA
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Vulnerability Management
+      SLA.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: CSI-EVR-061
+    title: Vulnerability Management SLA — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: CSI-EVR-062
+    title: Vulnerability Management SLA — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

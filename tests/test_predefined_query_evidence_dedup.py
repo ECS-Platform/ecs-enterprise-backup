@@ -87,7 +87,8 @@ def test_identical_artifact_detected_by_sha256(monkeypatch):
     assert len(ops_repo.evidence_repository) == 1
 
 
-def test_logical_duplicate_ignores_execution_timestamp():
+def test_logical_duplicate_ignores_execution_timestamp(monkeypatch):
+    monkeypatch.setattr(publisher, "_utc_now", lambda: "2026-07-20T08:00:00+00:00")
     first, artifact = _publish(executed_at="2026-07-20T08:00:00+00:00")
     artifact["executed_at"] = "2026-07-20T16:30:00+00:00"
     artifact["execution_id"] = "EXEC-OTHER"

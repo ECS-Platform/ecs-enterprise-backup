@@ -1,0 +1,206 @@
+<!DOCTYPE html><html><head>
+<title>Framework Control Master — ECS</title>
+{% include "partials/mvp_styles.html" %}
+<style>
+.ecs-fcm-kpi{display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0}
+.ecs-fcm-kpi-card{flex:1 1 120px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.55rem;text-align:center}
+.ecs-fcm-kpi-val{font-size:1.05rem;font-weight:700;color:#0f172a}
+.ecs-fcm-kpi-lbl{font-size:.58rem;text-transform:uppercase;color:#64748b;font-weight:600}
+.ecs-fcm-fw-list{max-height:420px;overflow:auto}
+.ecs-fcm-fw-item{display:block;padding:.45rem .6rem;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:.35rem;text-decoration:none;color:inherit;background:#fff}
+.ecs-fcm-fw-item.is-active{border-color:#2563eb;background:#eff6ff}
+.ecs-fcm-badge{font-size:.62rem}
+.ecs-fcm-detail pre{white-space:pre-wrap;font-size:.72rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:.5rem}
+</style>
+</head>
+<body class="bg-light ecs-cap-framework-control-master"><div class="container-fluid"><div class="row">
+{% include "partials/mvp_sidebar.html" %}
+<div class="col-md-10 ecs-workspace-main">
+<div class="d-flex justify-content-between align-items-start mb-2">
+<div>
+<h1 class="ecs-workspace-title h5 mb-0">Framework Control Master</h1>
+<p class="small text-muted mb-0">Phase-1 catalogue — policies, controls, procedures, and evidence requirements via service layer (source: {{ fcm.source_type|upper }})</p>
+</div>
+<span class="badge bg-secondary ecs-fcm-badge">Catalog {{ fcm.catalog_version|default('—') }}</span>
+</div>
+{% if notice %}<div class="alert alert-success py-1 px-2 small mb-2">{{ notice }}</div>{% endif %}
+{% include "partials/role_metrics_strip.html" %}
+
+<div class="ecs-fcm-kpi">
+{% for card in fcm.kpi_cards %}
+<div class="ecs-fcm-kpi-card">
+<div class="ecs-fcm-kpi-val">{{ card.value }}</div>
+<div class="ecs-fcm-kpi-lbl">{{ card.label }}</div>
+</div>
+{% endfor %}
+</div>
+
+<div class="row g-2">
+<div class="col-lg-3">
+<div class="card shadow-sm">
+<div class="card-header py-2"><strong class="small">Framework Catalogue</strong></div>
+<div class="card-body py-2 ecs-fcm-fw-list">
+{% for fw in fcm.frameworks %}
+<a href="/mvp/framework-control-master?role={{ role|urlencode }}&user={{ user|urlencode }}&framework_id={{ fw.id|urlencode }}"
+   class="ecs-fcm-fw-item{% if fcm.selected_framework_id == fw.id %} is-active{% endif %}">
+<strong class="small d-block">{{ fw.display_name }}</strong>
+<span class="text-muted small">{{ fw.code }} · {{ fw.control_count }} controls · {{ fw.policy_count }} policies</span>
+</a>
+{% endfor %}
+</div>
+</div>
+<form class="mt-2" method="get" action="/mvp/framework-control-master">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="framework_id" value="{{ fcm.selected_framework_id }}">
+<div class="input-group input-group-sm">
+<input class="form-control" name="q" value="{{ fcm.search_query|default('') }}" placeholder="Search controls…">
+<button class="btn btn-outline-primary" type="submit">Search</button>
+</div>
+</form>
+</div>
+
+<div class="col-lg-9">
+{% if fcm.selected %}
+{% set sel = fcm.selected %}
+{% set meta = sel.framework %}
+<div class="card shadow-sm mb-2">
+<div class="card-header py-2 d-flex justify-content-between align-items-center">
+<div>
+<strong>{{ meta.display_name }}</strong>
+<span class="badge bg-light text-dark ms-1">{{ meta.code }}</span>
+<span class="badge bg-info ms-1">{{ meta.category }}</span>
+</div>
+<span class="small text-muted">{{ meta.regulator }} · v{{ meta.version }}</span>
+</div>
+<div class="card-body py-2">
+<p class="small mb-2">{{ meta.description }}</p>
+<ul class="nav nav-tabs nav-tabs-sm mb-2" role="tablist">
+<li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#fcm-policies" type="button">Policies ({{ sel.stats.policy_count }})</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#fcm-controls" type="button">Controls ({{ sel.stats.control_count }})</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#fcm-procedures" type="button">Procedures ({{ sel.stats.procedure_count }})</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#fcm-evidence" type="button">Evidence ({{ sel.stats.evidence_requirement_count }})</button></li>
+</ul>
+<div class="tab-content">
+<div class="tab-pane fade show active" id="fcm-policies">
+<div class="table-responsive">
+<table class="table table-sm table-hover mb-0">
+<thead><tr><th>Policy ID</th><th>Title</th><th>Owner</th><th>Review</th><th>Status</th></tr></thead>
+<tbody>
+{% for p in sel.policies %}
+<tr><td><code>{{ p.id }}</code></td><td>{{ p.title }}<br><span class="small text-muted">{{ p.description|truncate(80, True, '…') }}</span></td><td>{{ p.owner }}</td><td>{{ p.review_frequency|default('—') }}</td><td>{{ p.status }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+<div class="tab-pane fade" id="fcm-controls">
+<div class="table-responsive">
+<table class="table table-sm table-hover mb-0" id="fcmControlsTable">
+<thead><tr><th>Control ID</th><th>Title</th><th>Domain</th><th>Criticality</th><th></th></tr></thead>
+<tbody>
+{% for c in sel.controls %}
+<tr data-control-id="{{ c.id }}">
+<td><code>{{ c.id }}</code></td>
+<td>{{ c.title }}<br><span class="small text-muted">{{ c.description|truncate(70, True, '…') }}</span></td>
+<td>{{ c.domain }}</td>
+<td><span class="badge {% if c.criticality == 'High' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ c.criticality }}</span></td>
+<td><button type="button" class="btn btn-outline-primary btn-sm py-0 fcm-drill-btn" data-fw="{{ meta.id }}" data-control="{{ c.id }}">Detail</button></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+<div class="tab-pane fade" id="fcm-procedures">
+<div class="table-responsive">
+<table class="table table-sm table-hover mb-0">
+<thead><tr><th>Procedure</th><th>Control</th><th>Owner</th><th>Frequency</th></tr></thead>
+<tbody>
+{% for c in sel.controls %}{% for proc in c.procedures %}
+<tr><td><code>{{ proc.id }}</code> — {{ proc.title }}</td><td><code>{{ c.id }}</code></td><td>{{ proc.owner }}</td><td>{{ proc.frequency }}</td></tr>
+{% endfor %}{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+<div class="tab-pane fade" id="fcm-evidence">
+<div class="table-responsive">
+<table class="table table-sm table-hover mb-0">
+<thead><tr><th>Requirement</th><th>Control</th><th>Artefact</th><th>Frequency</th><th>Collection</th></tr></thead>
+<tbody>
+{% for c in sel.controls %}{% for ev in c.evidence_requirements %}
+<tr><td><code>{{ ev.id }}</code> — {{ ev.title }}</td><td><code>{{ c.id }}</code></td><td>{{ ev.artefact_type }}</td><td>{{ ev.frequency }}</td><td>{{ ev.collection_method }}</td></tr>
+{% endfor %}{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="card shadow-sm d-none" id="fcmControlDetail">
+<div class="card-header py-2"><strong class="small">Control Detail</strong> <button type="button" class="btn-close btn-sm float-end" id="fcmCloseDetail"></button></div>
+<div class="card-body py-2 ecs-fcm-detail" id="fcmControlDetailBody"></div>
+</div>
+{% else %}
+<div class="alert alert-info small">Select a framework from the catalogue.</div>
+{% endif %}
+
+{% if fcm.search_query and fcm.search_results %}
+<div class="card shadow-sm mt-2">
+<div class="card-header py-2"><strong class="small">Search Results — "{{ fcm.search_query }}" ({{ fcm.search_results|length }})</strong></div>
+<div class="card-body py-2">
+<div class="table-responsive">
+<table class="table table-sm mb-0">
+<thead><tr><th>Framework</th><th>Control</th><th>Domain</th></tr></thead>
+<tbody>
+{% for row in fcm.search_results %}
+<tr><td>{{ row.framework_name }}</td><td><code>{{ row.id }}</code> {{ row.title }}</td><td>{{ row.domain }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</div>
+{% endif %}
+</div>
+</div>
+</div>
+</div></div></div>
+<script>
+(function () {
+  var role = {{ role|tojson }};
+  var user = {{ user|tojson }};
+  var detail = document.getElementById('fcmControlDetail');
+  var body = document.getElementById('fcmControlDetailBody');
+  var closeBtn = document.getElementById('fcmCloseDetail');
+  function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  document.querySelectorAll('.fcm-drill-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var fw = btn.getAttribute('data-fw');
+      var control = btn.getAttribute('data-control');
+      fetch('/api/framework-control-master/controls/' + encodeURIComponent(fw) + '/' + encodeURIComponent(control))
+        .then(function (r) { return r.json(); })
+        .then(function (payload) {
+          if (!payload.ok) { body.innerHTML = '<p class="text-danger small">' + esc(payload.message) + '</p>'; detail.classList.remove('d-none'); return; }
+          var c = payload.control || {};
+          var procs = (c.procedures || []).map(function (p) {
+            return '<li><strong>' + esc(p.title) + '</strong> (' + esc(p.frequency) + ')<pre>' + esc((p.steps || []).join('\n')) + '</pre></li>';
+          }).join('');
+          var evs = (c.evidence_requirements || []).map(function (e) {
+            return '<li><code>' + esc(e.id) + '</code> ' + esc(e.title) + ' — ' + esc(e.artefact_type) + ' · ' + esc(e.collection_method) + '</li>';
+          }).join('');
+          body.innerHTML = '<p><code>' + esc(c.id) + '</code> <strong>' + esc(c.title) + '</strong></p>' +
+            '<p class="small">' + esc(c.description) + '</p>' +
+            '<p class="small"><strong>Procedures</strong></p><ul class="small">' + procs + '</ul>' +
+            '<p class="small"><strong>Evidence Requirements</strong></p><ul class="small">' + evs + '</ul>';
+          detail.classList.remove('d-none');
+        });
+    });
+  });
+  if (closeBtn) closeBtn.addEventListener('click', function () { detail.classList.add('d-none'); });
+})();
+</script>
+</body></html>

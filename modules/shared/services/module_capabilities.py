@@ -49,6 +49,7 @@ MODULE_PURPOSES = {
     "trends": "Historical compliance analytics — control implementation coverage, observation closure, auditor rejection, remediation SLA, and evidence aging.",
     "onboarding": "Application onboarding workflow — framework assignment, ownership, and registration stages.",
     "framework_admin": "Framework administration — ingest new compliance frameworks, control normalization, reuse intelligence, and activation.",
+    "framework_control_master": "Framework Control Master — canonical policies, controls, procedures, and evidence requirements across banking frameworks.",
     "risk_register": "Enterprise risk governance — inherent/residual risk, treatment, regulatory impact, and risk aging.",
     "exceptions_td": "Technical debt and exception workflow — compensating controls, TD expiry, renewal, and approval.",
     "cmdb": "CMDB and asset inventory — applications, servers, cloud assets, ownership, and compliance mapping.",
@@ -236,6 +237,9 @@ def _health_view(role: str) -> dict:
 def _evidence_dashboard_view(role: str) -> dict:
     from modules.governance.engines.evidence_health_engine import build_evidence_health_view
     from modules.governance.engines.evidence_approval_engine import build_evidence_approval_view
+    from modules.frameworks.services.framework_control_master_service import (
+        get_framework_control_master_service,
+    )
     from modules.shared.utils.standard_filter_engine import build_standard_dataset
 
     analytics = ecs_state.build_evidence_analytics()
@@ -243,6 +247,17 @@ def _evidence_dashboard_view(role: str) -> dict:
     health = build_evidence_health_view(role)
     collection = _scheduler_view(role)
     integrity = get_health_dashboard()
+    fcm_service = get_framework_control_master_service()
+    fcm_progress = fcm_service.build_evidence_dashboard_progress(role=role)
+    common_controls_summary: dict = {}
+    try:
+        from modules.frameworks.services.common_controls_service import (
+            get_common_controls_service,
+        )
+
+        common_controls_summary = get_common_controls_service().dashboard_summary()
+    except Exception:  # noqa: BLE001
+        common_controls_summary = {}
     repo_stats: dict = {}
     try:
         from modules.audit_intelligence.services import audit_repository_service as repo_svc
@@ -293,6 +308,8 @@ def _evidence_dashboard_view(role: str) -> dict:
         "health": health,
         "approval": approval,
         "integrity": integrity,
+        "fcm_progress": fcm_progress,
+        "common_controls": common_controls_summary,
         "standard_dataset": build_standard_dataset("evidence_health", role),
         "actions": _actions_for(role, health=True),
         "data_source": data_source,

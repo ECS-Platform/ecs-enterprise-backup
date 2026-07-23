@@ -1,0 +1,231 @@
+framework:
+  id: middleware_baseline
+  code: MWB
+  name: Middleware Baseline
+  display_name: Middleware Baseline
+  category: Security Baseline
+  regulator: Platform Engineering
+  version: '2026.1'
+  description: Security baseline for application servers, reverse proxies, and message
+    middleware.
+  source: file_catalog
+  phase: 1
+policies:
+- id: MWB-POL-TLS-01
+  title: TLS Policy
+  description: Governing policy for tls requirements within Middleware Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MWB-POL-HEADERS-01
+  title: Headers Policy
+  description: Governing policy for headers requirements within Middleware Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MWB-POL-WAF-01
+  title: WAF Policy
+  description: Governing policy for waf requirements within Middleware Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MWB-POL-TLS-02
+  title: TLS Policy
+  description: Governing policy for tls requirements within Middleware Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MWB-POL-WAF-02
+  title: WAF Policy
+  description: Governing policy for waf requirements within Middleware Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: MWB-POL-LOGGING-01
+  title: Logging Policy
+  description: Governing policy for logging requirements within Middleware Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: MWB-C-01
+  title: TLS 1.2+ on Internet Banking Edge
+  domain: TLS
+  criticality: High
+  description: Edge proxy enforces approved cipher suites.
+  policy_refs:
+  - MWB-POL-TLS-01
+  procedures:
+  - id: MWB-PROC-01
+    title: Execute — TLS 1.2+ on Internet Banking Edge
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for TLS 1.2+ on Internet Banking
+      Edge.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MWB-EVR-011
+    title: TLS 1.2+ on Internet Banking Edge — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MWB-EVR-012
+    title: TLS 1.2+ on Internet Banking Edge — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MWB-C-02
+  title: Security Headers — CSP/HSTS
+  domain: Headers
+  criticality: High
+  description: Response headers validated on production endpoints.
+  policy_refs:
+  - MWB-POL-HEADERS-01
+  procedures:
+  - id: MWB-PROC-02
+    title: Execute — Security Headers — CSP/HSTS
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Security Headers — CSP/HSTS.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MWB-EVR-021
+    title: Security Headers — CSP/HSTS — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MWB-EVR-022
+    title: Security Headers — CSP/HSTS — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MWB-C-03
+  title: WAF Rule Effectiveness
+  domain: WAF
+  criticality: High
+  description: Blocked attack statistics and false-positive tuning.
+  policy_refs:
+  - MWB-POL-WAF-01
+  procedures:
+  - id: MWB-PROC-03
+    title: Execute — WAF Rule Effectiveness
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for WAF Rule Effectiveness.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MWB-EVR-031
+    title: WAF Rule Effectiveness — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MWB-EVR-032
+    title: WAF Rule Effectiveness — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MWB-C-04
+  title: Certificate Lifecycle Management
+  domain: TLS
+  criticality: Medium
+  description: Certificate inventory with automated renewal.
+  policy_refs:
+  - MWB-POL-TLS-02
+  procedures:
+  - id: MWB-PROC-04
+    title: Execute — Certificate Lifecycle Management
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Certificate Lifecycle Management.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MWB-EVR-041
+    title: Certificate Lifecycle Management — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MWB-EVR-042
+    title: Certificate Lifecycle Management — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MWB-C-05
+  title: ModSecurity CRS Version
+  domain: WAF
+  criticality: Medium
+  description: CRS version attestation and change approval.
+  policy_refs:
+  - MWB-POL-WAF-02
+  procedures:
+  - id: MWB-PROC-05
+    title: Execute — ModSecurity CRS Version
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for ModSecurity CRS Version.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MWB-EVR-051
+    title: ModSecurity CRS Version — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MWB-EVR-052
+    title: ModSecurity CRS Version — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: MWB-C-06
+  title: Access Log Retention
+  domain: Logging
+  criticality: Medium
+  description: Middleware access logs retained per policy.
+  policy_refs:
+  - MWB-POL-LOGGING-01
+  procedures:
+  - id: MWB-PROC-06
+    title: Execute — Access Log Retention
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Access Log Retention.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: MWB-EVR-061
+    title: Access Log Retention — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: MWB-EVR-062
+    title: Access Log Retention — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

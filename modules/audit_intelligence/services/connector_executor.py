@@ -190,6 +190,12 @@ def _ingest_items(
             metadata.setdefault("source_type", connector)
             metadata.setdefault("connector_id", connector)
             metadata.setdefault("source_name", connector)
+            if connector == "sharepoint_graph":
+                from modules.operations.integrations import sharepoint_graph as sp
+
+                metadata["source_mode"] = sp.sharepoint_mode()
+                metadata["graph_item_id"] = source_item_id
+                metadata.setdefault("source_type", "sharepoint_graph")
             if run_id:
                 metadata["scheduler_run_id"] = run_id
             content = item.get("content_bytes")
@@ -206,7 +212,7 @@ def _ingest_items(
                     try:
                         from modules.operations.integrations import sharepoint_graph as sp
 
-                        client = sp.SharePointGraphClient(transport=transport)
+                        client = sp.SharePointGraphClient(config=sp.get_config(), transport=transport)
                         fetched = client.stream_file_content(
                             source_item_id,
                             drive_id=str(item.get("drive_id") or ""),
@@ -242,6 +248,8 @@ def _ingest_items(
                 "sha256": record.get("sha256"),
                 "custody_mode": record.get("custody_mode"),
                 "object_uri": record.get("object_uri", ""),
+                "search_index": record.get("search_index") or {},
+                "duplicate": str(record.get("status", "")).upper() == "DUPLICATE",
             })
         except Exception as exc:  # noqa: BLE001 - one bad item must not abort the run
             receipts.append({"error": type(exc).__name__, "index": idx})
@@ -418,3 +426,123 @@ def collect_for_job(job: Any, *, transport: Optional[Callable[..., dict]] = None
     result["asset_id"] = getattr(job, "asset_id", "")
     result["route"] = getattr(job, "route", "")
     return result
+
+
+def collect_sharepoint_for_scheduler(
+    *,
+    collected_by: str = "scheduler",
+    run_id: str = "",
+) -> dict[str, Any]:
+    """Run SharePoint Graph collection for the scheduler (mock or real mode).
+
+    Uses the existing ``sharepoint_graph`` adapter + ``register_upload`` bridge.
+    Never falls back from real → mock. Never raises.
+    """
+    from modules.operations.integrations import sharepoint_graph as sp
+
+    if not sp.sharepoint_enabled():
+        return {
+            "enabled": False,
+            "status": "skipped",
+            "skip_reason": "ECS_SHAREPOINT_ENABLED=false",
+            "sharepoint_mode": sp.sharepoint_mode(),
+            "discovered": 0,
+            "downloaded": 0,
+            "ingested": 0,
+            "duplicates": 0,
+            "failed": 0,
+            "receipts": [],
+        }
+
+    mode = sp.sharepoint_mode()
+    try:
+        from modules.shared.services.ecs_logging import info
+
+        info("SharePoint", f"mode={mode} scheduled collection starting run_id={run_id or '—'}")
+    except Exception:  # noqa: BLE001
+        pass
+
+    if mode == "real" and not sp.is_configured():
+        reason = (
+            "real mode requires ECS_GRAPH_TENANT_ID, ECS_GRAPH_CLIENT_ID, "
+            "ECS_GRAPH_CLIENT_SECRET, and ECS_GRAPH_SITE_ID"
+        )
+        return {
+            "enabled": True,
+            "status": "failed",
+            "skip_reason": reason,
+            "sharepoint_mode": mode,
+            "discovered": 0,
+            "downloaded": 0,
+            "ingested": 0,
+            "duplicates": 0,
+            "failed": 1,
+            "receipts": [],
+            "errors": [reason],
+        }
+
+    if mode == "mock" and not sp.is_configured():
+        reason = "mock mode requires ECS_GRAPH_DRIVE_ID or ECS_GRAPH_SITE_ID and ECS_GRAPH_BASE_URL"
+        return {
+            "enabled": True,
+            "status": "failed",
+            "skip_reason": reason,
+            "sharepoint_mode": mode,
+            "discovered": 0,
+            "downloaded": 0,
+            "ingested": 0,
+            "duplicates": 0,
+            "failed": 1,
+            "receipts": [],
+            "errors": [reason],
+        }
+
+    from modules.operations.integrations import build_http_transport
+
+    verify_ssl = _verify_ssl_enabled(default=False if mode == "mock" else True)
+    transport = build_http_transport(verify_ssl=verify_ssl)
+    result = collect_evidence(
+        "sharepoint_graph",
+        collected_by=collected_by,
+        transport=transport,
+        run_id=run_id,
+        verify_ssl=verify_ssl,
+    )
+    receipts = list(result.get("receipts") or [])
+    ingested = int(result.get("ingested", 0) or 0)
+    discovered = int(result.get("objects_fetched", 0) or 0)
+    duplicates = sum(1 for r in receipts if r.get("duplicate"))
+    failed = sum(1 for r in receipts if r.get("error")) + (
+        1 if result.get("status") in {"not_configured", "auth_error", "adapter_error"} and not ingested else 0
+    )
+    downloaded = sum(
+        1 for r in receipts
+        if r.get("evidence_id") and not r.get("duplicate")
+    )
+    out = {
+        **result,
+        "enabled": True,
+        "sharepoint_mode": mode,
+        "discovered": discovered,
+        "downloaded": downloaded,
+        "ingested": ingested,
+        "duplicates": duplicates,
+        "failed": failed,
+        "new_evidence": ingested,
+        "files_discovered": discovered,
+        "duplicates_skipped": duplicates,
+        "postgresql_count": ingested,
+        "object_storage_count": sum(1 for r in receipts if r.get("object_uri")),
+        "pgvector_count": sum(1 for r in receipts if (r.get("search_index") or {}).get("indexed")),
+    }
+    try:
+        from modules.shared.services.ecs_logging import info
+
+        info(
+            "SharePoint",
+            f"mode={mode} completed discovered={discovered} ingested={ingested} "
+            f"duplicates={duplicates} failed={failed}",
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return out

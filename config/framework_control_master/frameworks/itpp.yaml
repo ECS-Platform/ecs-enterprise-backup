@@ -1,0 +1,273 @@
+framework:
+  id: itpp
+  code: ITPP
+  name: ITPP
+  display_name: Information Technology Policies & Procedures
+  category: Internal Governance
+  regulator: ECS Internal
+  version: '2026.1'
+  description: Operational IT governance covering DR, backup, change, incident, and
+    availability management.
+  source: file_catalog
+  phase: 1
+policies:
+- id: ITPP-POL-DISASTER_REC-01
+  title: Disaster Recovery Policy
+  description: Governing policy for disaster recovery requirements within Information
+    Technology Policies & Procedures.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ITPP-POL-DISASTER_REC-02
+  title: Disaster Recovery Policy
+  description: Governing policy for disaster recovery requirements within Information
+    Technology Policies & Procedures.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ITPP-POL-BACKUP_MANAG-01
+  title: Backup Management Policy
+  description: Governing policy for backup management requirements within Information
+    Technology Policies & Procedures.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ITPP-POL-BACKUP_MANAG-02
+  title: Backup Management Policy
+  description: Governing policy for backup management requirements within Information
+    Technology Policies & Procedures.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ITPP-POL-CHANGE_MANAG-01
+  title: Change Management Policy
+  description: Governing policy for change management requirements within Information
+    Technology Policies & Procedures.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ITPP-POL-INCIDENT_MAN-01
+  title: Incident Management Policy
+  description: Governing policy for incident management requirements within Information
+    Technology Policies & Procedures.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ITPP-POL-AVAILABILITY-01
+  title: Availability Policy
+  description: Governing policy for availability requirements within Information Technology
+    Policies & Procedures.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: ITPP-C-01
+  title: DR Plan Exists
+  domain: Disaster Recovery
+  criticality: High
+  description: Enterprise DR plan approved and published annually.
+  policy_refs:
+  - ITPP-POL-DISASTER_REC-01
+  procedures:
+  - id: ITPP-PROC-01
+    title: Execute — DR Plan Exists
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for DR Plan Exists.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ITPP-EVR-011
+    title: DR Plan Exists — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ITPP-EVR-012
+    title: DR Plan Exists — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ITPP-C-02
+  title: DR Drill Conducted
+  domain: Disaster Recovery
+  criticality: High
+  description: Semi-annual failover drill executed with sign-off.
+  policy_refs:
+  - ITPP-POL-DISASTER_REC-02
+  procedures:
+  - id: ITPP-PROC-02
+    title: Execute — DR Drill Conducted
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for DR Drill Conducted.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ITPP-EVR-021
+    title: DR Drill Conducted — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ITPP-EVR-022
+    title: DR Drill Conducted — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ITPP-C-03
+  title: Backup Enabled
+  domain: Backup Management
+  criticality: High
+  description: Production workloads covered by scheduled backup jobs.
+  policy_refs:
+  - ITPP-POL-BACKUP_MANAG-01
+  procedures:
+  - id: ITPP-PROC-03
+    title: Execute — Backup Enabled
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Backup Enabled.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ITPP-EVR-031
+    title: Backup Enabled — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ITPP-EVR-032
+    title: Backup Enabled — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ITPP-C-04
+  title: Restore Testing Conducted
+  domain: Backup Management
+  criticality: Medium
+  description: Quarterly restore validation with evidence.
+  policy_refs:
+  - ITPP-POL-BACKUP_MANAG-02
+  procedures:
+  - id: ITPP-PROC-04
+    title: Execute — Restore Testing Conducted
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Restore Testing Conducted.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ITPP-EVR-041
+    title: Restore Testing Conducted — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ITPP-EVR-042
+    title: Restore Testing Conducted — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ITPP-C-05
+  title: CAB Approval
+  domain: Change Management
+  criticality: Medium
+  description: Production changes approved via Change Advisory Board.
+  policy_refs:
+  - ITPP-POL-CHANGE_MANAG-01
+  procedures:
+  - id: ITPP-PROC-05
+    title: Execute — CAB Approval
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for CAB Approval.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ITPP-EVR-051
+    title: CAB Approval — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ITPP-EVR-052
+    title: CAB Approval — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ITPP-C-06
+  title: Incident SLA Defined
+  domain: Incident Management
+  criticality: Medium
+  description: P1/P2 response and resolution SLAs documented.
+  policy_refs:
+  - ITPP-POL-INCIDENT_MAN-01
+  procedures:
+  - id: ITPP-PROC-06
+    title: Execute — Incident SLA Defined
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Incident SLA Defined.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ITPP-EVR-061
+    title: Incident SLA Defined — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ITPP-EVR-062
+    title: Incident SLA Defined — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ITPP-C-07
+  title: Availability SLA Defined
+  domain: Availability
+  criticality: Medium
+  description: Tier-1 application uptime targets published.
+  policy_refs:
+  - ITPP-POL-AVAILABILITY-01
+  procedures:
+  - id: ITPP-PROC-07
+    title: Execute — Availability SLA Defined
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Availability SLA Defined.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ITPP-EVR-071
+    title: Availability SLA Defined — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ITPP-EVR-072
+    title: Availability SLA Defined — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

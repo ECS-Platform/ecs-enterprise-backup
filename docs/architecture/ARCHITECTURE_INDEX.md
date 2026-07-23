@@ -15,7 +15,7 @@ architecture; it maps what already exists.
 | Document | Purpose | Sourced from | Status |
 |----------|---------|--------------|--------|
 | [ecs_enterprise_architecture_review.md](ecs_enterprise_architecture_review.md) | Current implemented enterprise architecture (modules, boundaries, data flow) | Live code under `modules/`, `app/`, `ecs_platform/` | ✅ Current |
-| [ECS_DATA_ARCHITECTURE_REFERENCE.md](ECS_DATA_ARCHITECTURE_REFERENCE.md) | Data model / persistence: repository + governance schema + vector store | `ecs_platform/repository/schema.sql`, `governance_schema.sql`, `pgvector_store.py` | ✅ Current |
+| [ECS_DATA_ARCHITECTURE_REFERENCE.md](ECS_DATA_ARCHITECTURE_REFERENCE.md) | Data model / persistence: repository + governance schema + vector store + Phase 1 FCM file catalogue | `ecs_platform/repository/schema.sql`, `governance_schema.sql`, `pgvector_store.py`, `config/framework_control_master/` | ✅ Current |
 | [ecs_deployment_architecture.md](ecs_deployment_architecture.md) | Deployment topology (containers, ports, profiles, config) | `Dockerfile`, `docker-compose.yml`, `config/` | ✅ Current |
 | [../hld/ecs_hld.md](ecs_hld.md) | High-Level Design — components, flows, assumptions/recommendations | Repo-wide | ✅ Current |
 | [../lld/ecs_lld.md](ecs_lld.md) | Low-Level Design — per-module components, functions, data | Repo-wide | ✅ Current |
@@ -30,6 +30,8 @@ architecture; it maps what already exists.
 | [../DEVELOPER/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md](../scheduler/UAT_ASSET_DRIVEN_SCHEDULER_DESIGN.md) | Asset-driven scheduler + evidence-routing design |
 | [../DEVELOPER/MS_GRAPH_CONNECTOR_GUIDE.md](../graph-api/MS_GRAPH_CONNECTOR_GUIDE.md) | Microsoft Graph connector foundation (SharePoint/Teams/Outlook) |
 | [../DEVELOPER/CONNECTOR_DEEPENING_GUIDE.md](../connectors/CONNECTOR_DEEPENING_GUIDE.md) | Shared enterprise connector base (`_base.py`) design |
+| [../use-cases/Phase-1/Framework Control Master and Evidence Dashboard.md](../use-cases/Phase-1/Framework%20Control%20Master%20and%20Evidence%20Dashboard.md) | Phase 1 FCM catalogue, repository/service layer, Evidence Dashboard Framework Progress integration |
+| [../api/framework_control_master.md](../api/framework_control_master.md) | FCM + Evidence Dashboard progress API endpoints |
 | [../DB_SCHEMA_AUDIT_INTELLIGENCE.sql](../DB_SCHEMA_AUDIT_INTELLIGENCE.sql) | Canonical audit-intelligence DB schema |
 | [../DEPLOYMENT/](../DEPLOYMENT) & [`deploy/README.md`](../../deploy/README.md) | Deployment pack (compose/nginx/systemd/k8s examples) |
 

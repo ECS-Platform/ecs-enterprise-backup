@@ -1,8 +1,8 @@
 """Enterprise evidence discovery — not workflow queues."""
 
-from app import ecs_state
-from modules.operations.engines.evidence_repository import evidence_repository
-from modules.frameworks.engines.framework_catalog import FRAMEWORK_CATALOG, get_all_evidence_records
+from modules.shared.services.evidence_authoritative_reader import (
+    collect_authoritative_evidence_rows,
+)
 from modules.operations.engines.evidence_repository import get_reuse_graph
 
 
@@ -14,38 +14,27 @@ def search_evidences(
     status: str = "",
 ):
     results = []
-    catalog = get_all_evidence_records()
-
-    for ev in catalog:
+    for rec in collect_authoritative_evidence_rows():
         item = {
-            "type": "catalog",
-            "framework": ev.get("framework", ""),
-            "control": ev.get("control_name", ev.get("control", "")),
-            "evidence": ev.get("evidence_name", ""),
-            "application": ev.get("application_name", ""),
-            "owner": ev.get("uploaded_by", "Enterprise Owner"),
-            "status": ev.get("audit_status", "Pending"),
-            "lifecycle": ev.get("evidence_status", "Current"),
-            "evidence_id": ev.get("evidence_id", ""),
-            "semantic_score": _semantic_score(q, ev) if q else 0,
+            "type": "persisted",
+            "framework": str(rec.get("framework") or ""),
+            "control": str(rec.get("control_id") or rec.get("control") or ""),
+            "evidence": str(rec.get("filename") or rec.get("evidence_id") or ""),
+            "original_filename": str(rec.get("original_filename") or (rec.get("metadata") or {}).get("original_filename") or ""),
+            "application": str(rec.get("application") or ""),
+            "owner": str(rec.get("uploaded_by") or "Enterprise Owner"),
+            "status": str(rec.get("audit_status") or rec.get("workflow_status") or rec.get("status") or ""),
+            "lifecycle": str(rec.get("lifecycle") or "Collected"),
+            "evidence_id": str(rec.get("evidence_id") or ""),
+            "sha256": str(rec.get("sha256") or ""),
+            "version": int(rec.get("version") or 1),
+            "custody_mode": str(rec.get("custody_mode") or ""),
+            "object_reference": str(rec.get("object_reference") or rec.get("object_uri") or ""),
+            "collection_source": str(rec.get("collection_source") or ""),
+            "collected_at": str(rec.get("collected_at") or ""),
+            "semantic_score": _semantic_score(q, rec) if q else 0,
         }
         results.append(item)
-
-    for r in evidence_repository:
-        results.append(
-            {
-                "type": "upload",
-                "framework": ", ".join(r["framework_tags"]),
-                "control": r.get("control", ""),
-                "evidence": r["filename"],
-                "application": ", ".join(r["application_tags"]),
-                "owner": r["uploaded_by"],
-                "status": r["status"],
-                "lifecycle": r["lifecycle"],
-                "evidence_id": r["evidence_id"],
-                "semantic_score": _semantic_score(q, r) if q else 0,
-            }
-        )
 
     if q:
         ql = q.lower()
@@ -55,6 +44,7 @@ def search_evidences(
             if ql in r["framework"].lower()
             or ql in r["control"].lower()
             or ql in r["evidence"].lower()
+            or ql in str(r.get("original_filename", "")).lower()
             or ql in r["application"].lower()
             or r.get("semantic_score", 0) >= 40
         ]
@@ -111,8 +101,8 @@ def build_search_discovery(
         "semantic_matches": semantic_matches[:10] if q else results[:10],
         "reuse_suggestions": reuse_suggestions,
         "related_evidences": related,
-        "framework_filters": list(FRAMEWORK_CATALOG.keys()),
-        "total_indexed": len(get_all_evidence_records()) + len(evidence_repository),
+        "framework_filters": sorted({r.get("framework", "") for r in results if r.get("framework")}),
+        "total_indexed": len(collect_authoritative_evidence_rows()),
     }
 
 
@@ -146,4 +136,4 @@ def _related_frameworks(framework: str) -> list[str]:
         "Nginx Baselining": ["OS Baselining", "CSITE"],
         "CSITE": ["PCI DSS", "DPSC"],
     }
-    return mapping.get(framework, list(FRAMEWORK_CATALOG.keys())[:2])
+    return mapping.get(framework, ["PCI DSS", "DPSC"])

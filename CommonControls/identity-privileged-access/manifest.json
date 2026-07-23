@@ -6,14 +6,40 @@
   "technology": "Common Control",
   "application": "ECS Common Controls",
   "environment": "MVP",
-  "predefined_query_ids": ["DB-002", "PGX-004", "PCI-003", "LNX-005", "LNX-007", "LNX-008"],
+  "predefined_query_ids": [
+    "DB-002",
+    "PGX-004",
+    "PCI-003",
+    "LNX-005",
+    "LNX-007",
+    "LNX-008"
+  ],
   "alternate_collection": "SQL + PowerShell + folder mock",
-  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
-  "evidence_files": ["evidence.json"],
+  "frameworks": [
+    "ITPP",
+    "ASST",
+    "MBSS",
+    "PCI DSS",
+    "DPSC",
+    "C-SITE",
+    "VAPT",
+    "OS Baseline",
+    "Middleware Baseline",
+    "Database Baseline"
+  ],
+  "evidence_files": [
+    "evidence.json"
+  ],
   "validation": {
     "rules": [
-      {"field": "privileged_accounts_reviewed", "equals": true},
-      {"field": "mfa_enabled", "equals": true}
+      {
+        "field": "privileged_accounts_reviewed",
+        "equals": true
+      },
+      {
+        "field": "mfa_enabled",
+        "equals": true
+      }
     ]
   }
 }

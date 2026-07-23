@@ -261,10 +261,20 @@ def collect_common_control_folder(
         receipt.object_stored = bool(custody.stored or custody.object_uri or custody.content_hash)
 
         frameworks = tuple(manifest.get("frameworks") or (ctrl.frameworks if ctrl else ()))
+        fcm_refs: list[dict[str, Any]] = []
+        try:
+            from modules.frameworks.services.common_controls_service import (
+                get_common_controls_service,
+            )
+
+            fcm_refs = get_common_controls_service().resolve_fcm_references(slug)
+        except Exception:  # noqa: BLE001
+            fcm_refs = []
         tags = ("common_control", slug, "phase1", "scheduler")
         meta = {
             "common_control": manifest.get("common_control") or receipt.common_control,
             "common_control_slug": slug,
+            "common_control_id": receipt.control_id,
             "source_type": "common_controls",
             "source_name": receipt.common_control,
             "predefined_query_ids": manifest.get("predefined_query_ids")
@@ -274,6 +284,11 @@ def collect_common_control_folder(
             "collection_source": "CommonControls",
             "scheduler_run_id": run_id,
             "validation_verdict": vr.verdict,
+            "framework_independent": True,
+            "framework_refs": list(frameworks),
+            "fcm_framework_ids": list({r.get("framework_id") for r in fcm_refs if r.get("framework_id")}),
+            "fcm_reference_count": len(fcm_refs),
+            "content_sha256": custody.content_hash,
         }
         artifact = ai_repo.store_evidence(
             control_id=receipt.control_id,
@@ -321,6 +336,13 @@ def collect_common_control_folder(
             metadata=meta,
             custody_mode=custody.custody_mode,
         )
+        if str(ops_record.get("status", "")).upper() == "DUPLICATE":
+            meta["duplicate"] = True
+            meta["duplicate_kind"] = ops_record.get("duplicate_kind") or "sha256"
+        receipt.metadata_persisted = receipt.metadata_persisted or bool(
+            ops_record.get("audit_repository_synced")
+        )
+        receipt.collected = receipt.collected or receipt.metadata_persisted
         from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
 
         enroll_collected_evidence(

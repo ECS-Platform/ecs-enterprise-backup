@@ -18,6 +18,7 @@ from urllib.parse import unquote
 # Align with ECS framework catalog environments (exact match, case-sensitive).
 SUPPORTED_ENVIRONMENTS = frozenset({
     "Production",
+    "PROD",
     "DR",
     "UAT",
     "SOC Production",

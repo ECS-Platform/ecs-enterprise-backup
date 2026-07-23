@@ -6,14 +6,42 @@
   "technology": "Common Control",
   "application": "ECS Common Controls",
   "environment": "MVP",
-  "predefined_query_ids": ["DB-001", "PGX-001", "NGX-003", "PCI-004", "MW-001"],
+  "predefined_query_ids": [
+    "DB-001",
+    "PGX-001",
+    "NGX-003",
+    "PCI-004",
+    "MW-001"
+  ],
   "alternate_collection": "Bash (openssl s_client) + folder mock",
-  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
-  "evidence_files": ["evidence.json"],
+  "frameworks": [
+    "ITPP",
+    "ASST",
+    "MBSS",
+    "PCI DSS",
+    "DPSC",
+    "C-SITE",
+    "VAPT",
+    "OS Baseline",
+    "Middleware Baseline",
+    "Database Baseline"
+  ],
+  "evidence_files": [
+    "evidence.json"
+  ],
   "validation": {
     "rules": [
-      {"field": "tls_enabled", "equals": true},
-      {"field": "min_protocol", "in": ["TLS1.2", "TLS1.3"]}
+      {
+        "field": "tls_enabled",
+        "equals": true
+      },
+      {
+        "field": "min_protocol",
+        "in": [
+          "TLS1.2",
+          "TLS1.3"
+        ]
+      }
     ]
   }
 }

@@ -1,0 +1,235 @@
+framework:
+  id: os_baseline
+  code: OSB
+  name: OS Baseline
+  display_name: Operating System Baseline
+  category: Security Baseline
+  regulator: Infrastructure Operations
+  version: '2026.1'
+  description: CIS-aligned operating system hardening for Linux and Windows production
+    servers.
+  source: file_catalog
+  phase: 1
+policies:
+- id: OSB-POL-HARDENING-01
+  title: Hardening Policy
+  description: Governing policy for hardening requirements within Operating System
+    Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: OSB-POL-ACCESS-01
+  title: Access Policy
+  description: Governing policy for access requirements within Operating System Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: OSB-POL-PATCH-01
+  title: Patch Policy
+  description: Governing policy for patch requirements within Operating System Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: OSB-POL-MONITORING-01
+  title: Monitoring Policy
+  description: Governing policy for monitoring requirements within Operating System
+    Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: OSB-POL-INTEGRITY-01
+  title: Integrity Policy
+  description: Governing policy for integrity requirements within Operating System
+    Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: OSB-POL-MONITORING-02
+  title: Monitoring Policy
+  description: Governing policy for monitoring requirements within Operating System
+    Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: OSB-C-01
+  title: Linux Server Hardening — CIS L2
+  domain: Hardening
+  criticality: High
+  description: CIS benchmark scan with remediation tracker.
+  policy_refs:
+  - OSB-POL-HARDENING-01
+  procedures:
+  - id: OSB-PROC-01
+    title: Execute — Linux Server Hardening — CIS L2
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Linux Server Hardening —
+      CIS L2.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: OSB-EVR-011
+    title: Linux Server Hardening — CIS L2 — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: OSB-EVR-012
+    title: Linux Server Hardening — CIS L2 — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: OSB-C-02
+  title: SSH Access Restrictions
+  domain: Access
+  criticality: High
+  description: Root login disabled; key-based access enforced.
+  policy_refs:
+  - OSB-POL-ACCESS-01
+  procedures:
+  - id: OSB-PROC-02
+    title: Execute — SSH Access Restrictions
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for SSH Access Restrictions.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: OSB-EVR-021
+    title: SSH Access Restrictions — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: OSB-EVR-022
+    title: SSH Access Restrictions — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: OSB-C-03
+  title: Patch Compliance — Critical
+  domain: Patch
+  criticality: High
+  description: Critical OS patches applied within 30 days.
+  policy_refs:
+  - OSB-POL-PATCH-01
+  procedures:
+  - id: OSB-PROC-03
+    title: Execute — Patch Compliance — Critical
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Patch Compliance — Critical.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: OSB-EVR-031
+    title: Patch Compliance — Critical — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: OSB-EVR-032
+    title: Patch Compliance — Critical — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: OSB-C-04
+  title: Privileged Command Logging
+  domain: Monitoring
+  criticality: Medium
+  description: sudo/privileged command audit trail retained.
+  policy_refs:
+  - OSB-POL-MONITORING-01
+  procedures:
+  - id: OSB-PROC-04
+    title: Execute — Privileged Command Logging
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Privileged Command Logging.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: OSB-EVR-041
+    title: Privileged Command Logging — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: OSB-EVR-042
+    title: Privileged Command Logging — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: OSB-C-05
+  title: File Integrity Monitoring
+  domain: Integrity
+  criticality: Medium
+  description: Critical system files monitored for unauthorized change.
+  policy_refs:
+  - OSB-POL-INTEGRITY-01
+  procedures:
+  - id: OSB-PROC-05
+    title: Execute — File Integrity Monitoring
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for File Integrity Monitoring.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: OSB-EVR-051
+    title: File Integrity Monitoring — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: OSB-EVR-052
+    title: File Integrity Monitoring — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: OSB-C-06
+  title: Time Synchronization (NTP)
+  domain: Monitoring
+  criticality: Medium
+  description: NTP stratum configuration and drift monitoring.
+  policy_refs:
+  - OSB-POL-MONITORING-02
+  procedures:
+  - id: OSB-PROC-06
+    title: Execute — Time Synchronization (NTP)
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Time Synchronization (NTP).
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: OSB-EVR-061
+    title: Time Synchronization (NTP) — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: OSB-EVR-062
+    title: Time Synchronization (NTP) — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

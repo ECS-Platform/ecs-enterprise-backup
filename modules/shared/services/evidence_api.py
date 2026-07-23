@@ -135,48 +135,67 @@ def submit_evidence(
 
 
 def list_evidence_repository(limit: int = 100) -> dict[str, Any]:
+    from modules.shared.services.evidence_authoritative_reader import (
+        collect_authoritative_evidence_rows,
+    )
+
     items = []
-    for rec in reversed(evidence_repository[-limit:]):
-        fw = (rec.get("framework_tags") or ["Cross-Framework"])[0]
-        app = (rec.get("application_tags") or ["Net Banking"])[0]
+    for rec in reversed(collect_authoritative_evidence_rows()[-limit:]):
         items.append({
             "evidence_id": rec.get("display_evidence_id") or rec.get("evidence_id"),
             "repository_id": rec.get("evidence_id"),
-            "framework": fw,
-            "application": app,
-            "control": rec.get("control", "—"),
+            "framework": rec.get("framework"),
+            "application": rec.get("application"),
+            "control": rec.get("control_id") or rec.get("control") or "—",
             "filename": rec.get("filename"),
             "uploaded_by": rec.get("uploaded_by"),
-            "validation_status": rec.get("validation_status") or rec.get("status", "Uploaded"),
+            "validation_status": rec.get("validation_status") or rec.get("workflow_status") or rec.get("status", "Uploaded"),
             "lifecycle": rec.get("lifecycle", "Draft"),
-            "uploaded_at": rec.get("uploaded_at"),
+            "uploaded_at": rec.get("uploaded_at") or rec.get("collected_at"),
+            "sha256": rec.get("sha256"),
+            "version": rec.get("version"),
+            "custody_mode": rec.get("custody_mode"),
+            "object_reference": rec.get("object_reference") or rec.get("object_uri"),
+            "audit_status": rec.get("audit_status"),
+            "review_status": rec.get("review_status"),
+            "approval_status": rec.get("approval_status"),
         })
     return {"status": "success", "count": len(items), "items": items}
 
 
 def get_evidence_by_id(evidence_id: str) -> dict[str, Any]:
-    for rec in evidence_repository:
-        rid = rec.get("display_evidence_id") or rec.get("evidence_id")
-        if rid == evidence_id or rec.get("evidence_id") == evidence_id:
-            fw = (rec.get("framework_tags") or ["Cross-Framework"])[0]
-            app = (rec.get("application_tags") or ["Net Banking"])[0]
-            return {
-                "status": "success",
-                "evidence_id": rid,
-                "repository_id": rec.get("evidence_id"),
-                "framework": fw,
-                "application": app,
-                "control": rec.get("control", "—"),
-                "filename": rec.get("filename"),
-                "uploaded_by": rec.get("uploaded_by"),
-                "validation_status": rec.get("validation_status") or rec.get("status"),
-                "lifecycle": rec.get("lifecycle"),
-                "comments": rec.get("comments", ""),
-                "evidence_type": rec.get("evidence_type", "Document"),
-                "audit_cycle": rec.get("audit_cycle", "Q2 2026"),
-                "sha256": rec.get("sha256"),
-            }
-    return {"status": "error", "message": f"Evidence {evidence_id} not found."}
+    from modules.shared.services.evidence_authoritative_reader import (
+        get_authoritative_evidence,
+    )
+
+    rec = get_authoritative_evidence(evidence_id)
+    if rec is None:
+        return {"status": "error", "message": f"Evidence {evidence_id} not found."}
+    return {
+        "status": "success",
+        "evidence_id": rec.get("display_evidence_id") or rec.get("evidence_id"),
+        "repository_id": rec.get("evidence_id"),
+        "framework": rec.get("framework"),
+        "application": rec.get("application"),
+        "control": rec.get("control_id") or rec.get("control") or "—",
+        "filename": rec.get("filename"),
+        "uploaded_by": rec.get("uploaded_by"),
+        "validation_status": rec.get("validation_status") or rec.get("workflow_status") or rec.get("status"),
+        "lifecycle": rec.get("lifecycle"),
+        "comments": rec.get("comments", ""),
+        "evidence_type": rec.get("evidence_type", "Document"),
+        "audit_cycle": rec.get("audit_cycle", "Q2 2026"),
+        "sha256": rec.get("sha256"),
+        "version": rec.get("version"),
+        "custody_mode": rec.get("custody_mode"),
+        "object_reference": rec.get("object_reference") or rec.get("object_uri"),
+        "collection_source": rec.get("collection_source"),
+        "collected_at": rec.get("collected_at"),
+        "audit_status": rec.get("audit_status"),
+        "review_status": rec.get("review_status"),
+        "approval_status": rec.get("approval_status"),
+        "metadata": rec.get("metadata") or {},
+    }
 
 
 def generate_audit_package(user: str = "User", role: str = "cio") -> dict[str, Any]:

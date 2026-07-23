@@ -28,6 +28,7 @@ MODULE_PATHS = {
     "onboarding": "/mvp/onboarding",
     "ai_ops_assistant": "/mvp/ai-ops-assistant",
     "framework_admin": "/mvp/framework-admin",
+    "framework_control_master": "/mvp/framework-control-master",
     "trends": "/mvp/trends",
     "cmdb": "/mvp/cmdb",
     "regulatory": "/mvp/regulatory",

@@ -16,6 +16,8 @@ This README is the **executive quick start**. For depth, see the onboarding set:
 | [`docs/00-start-here/COMMON_COMMANDS.md`](docs/00-start-here/COMMON_COMMANDS.md) | Command catalog (start/stop/test/seed/backup…) |
 | [`docs/00-start-here/TROUBLESHOOTING_GUIDE.md`](docs/00-start-here/TROUBLESHOOTING_GUIDE.md) | Symptom → root cause → resolution → verification |
 | [`docs/00-start-here/ARCHITECTURE_OVERVIEW.md`](docs/00-start-here/ARCHITECTURE_OVERVIEW.md) | Mission, modules, evidence flow, RBAC, APIs, UI |
+| [`docs/use-cases/Phase-1/Framework Control Master and Evidence Dashboard.md`](docs/use-cases/Phase-1/Framework%20Control%20Master%20and%20Evidence%20Dashboard.md) | Phase 1 FCM catalogue, Evidence Dashboard Framework Progress, APIs |
+| [`docs/api/framework_control_master.md`](docs/api/framework_control_master.md) | FCM and progress REST endpoints |
 
 ---
 

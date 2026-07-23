@@ -108,17 +108,21 @@ def _to_citation(record: dict) -> dict[str, Any]:
 
 
 def collect_persisted_evidence_rows() -> list[dict]:
-    """Normalize ops-repository uploads (including predefined-query JSON)."""
+    """Normalize authoritative persisted evidence rows for deterministic queries."""
+    from modules.shared.services.evidence_authoritative_reader import (
+        collect_authoritative_evidence_rows,
+    )
+
     rows: list[dict] = []
-    for rec in ops_repo.evidence_repository:
+    for rec in collect_authoritative_evidence_rows():
         row = dict(rec)
-        row["application"] = _record_application(rec)
-        row["framework"] = _record_framework(rec)
-        row["control_id"] = _record_control_id(rec)
+        row["application"] = rec.get("application") or _record_application(rec)
+        row["framework"] = rec.get("framework") or _record_framework(rec)
+        row["control_id"] = rec.get("control_id") or _record_control_id(rec)
         row["workflow_status"] = _workflow_status(rec)
         meta = rec.get("metadata") or {}
         row["source_type"] = meta.get("source_type") or rec.get("source_connector") or ""
-        row["collected_at"] = rec.get("uploaded_at") or ""
+        row["collected_at"] = rec.get("collected_at") or rec.get("uploaded_at") or ""
         rows.append(row)
     return rows
 

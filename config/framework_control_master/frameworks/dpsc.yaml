@@ -1,0 +1,237 @@
+framework:
+  id: dpsc
+  code: DPSC
+  name: DPSC
+  display_name: Digital Payment Security Controls
+  category: Regulatory
+  regulator: RBI
+  version: '2026.1'
+  description: Digital payment channel security controls aligned to RBI DPSC expectations.
+  source: file_catalog
+  phase: 1
+policies:
+- id: DPSC-POL-API_SECURITY-01
+  title: API Security Policy
+  description: Governing policy for api security requirements within Digital Payment
+    Security Controls.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DPSC-POL-ENCRYPTION-01
+  title: Encryption Policy
+  description: Governing policy for encryption requirements within Digital Payment
+    Security Controls.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DPSC-POL-FRAUD-01
+  title: Fraud Policy
+  description: Governing policy for fraud requirements within Digital Payment Security
+    Controls.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DPSC-POL-SETTLEMENT-01
+  title: Settlement Policy
+  description: Governing policy for settlement requirements within Digital Payment
+    Security Controls.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DPSC-POL-REPORTING-01
+  title: Reporting Policy
+  description: Governing policy for reporting requirements within Digital Payment
+    Security Controls.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DPSC-POL-ENCRYPTION-02
+  title: Encryption Policy
+  description: Governing policy for encryption requirements within Digital Payment
+    Security Controls.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: DPSC-C-01
+  title: API Security Gateway Hardening
+  domain: API Security
+  criticality: High
+  description: WAF and OAuth validation on payment APIs.
+  policy_refs:
+  - DPSC-POL-API_SECURITY-01
+  procedures:
+  - id: DPSC-PROC-01
+    title: Execute — API Security Gateway Hardening
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for API Security Gateway Hardening.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DPSC-EVR-011
+    title: API Security Gateway Hardening — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DPSC-EVR-012
+    title: API Security Gateway Hardening — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DPSC-C-02
+  title: UPI Channel Encryption
+  domain: Encryption
+  criticality: High
+  description: NPCI-aligned TLS and payload protection.
+  policy_refs:
+  - DPSC-POL-ENCRYPTION-01
+  procedures:
+  - id: DPSC-PROC-02
+    title: Execute — UPI Channel Encryption
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for UPI Channel Encryption.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DPSC-EVR-021
+    title: UPI Channel Encryption — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DPSC-EVR-022
+    title: UPI Channel Encryption — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DPSC-C-03
+  title: Fraud Monitoring Coverage
+  domain: Fraud
+  criticality: High
+  description: Real-time transaction screening effectiveness.
+  policy_refs:
+  - DPSC-POL-FRAUD-01
+  procedures:
+  - id: DPSC-PROC-03
+    title: Execute — Fraud Monitoring Coverage
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Fraud Monitoring Coverage.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DPSC-EVR-031
+    title: Fraud Monitoring Coverage — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DPSC-EVR-032
+    title: Fraud Monitoring Coverage — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DPSC-C-04
+  title: Settlement Reconciliation
+  domain: Settlement
+  criticality: Medium
+  description: Automated reconciliation with exception tracking.
+  policy_refs:
+  - DPSC-POL-SETTLEMENT-01
+  procedures:
+  - id: DPSC-PROC-04
+    title: Execute — Settlement Reconciliation
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Settlement Reconciliation.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DPSC-EVR-041
+    title: Settlement Reconciliation — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DPSC-EVR-042
+    title: Settlement Reconciliation — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DPSC-C-05
+  title: Regulatory Reporting — RBI DPSC
+  domain: Reporting
+  criticality: Medium
+  description: Self-assessment workbook and gap tracker.
+  policy_refs:
+  - DPSC-POL-REPORTING-01
+  procedures:
+  - id: DPSC-PROC-05
+    title: Execute — Regulatory Reporting — RBI DPSC
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Regulatory Reporting — RBI
+      DPSC.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DPSC-EVR-051
+    title: Regulatory Reporting — RBI DPSC — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DPSC-EVR-052
+    title: Regulatory Reporting — RBI DPSC — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DPSC-C-06
+  title: Cryptographic Key Lifecycle — Payments
+  domain: Encryption
+  criticality: Medium
+  description: HSM key rotation and dual-control ceremony.
+  policy_refs:
+  - DPSC-POL-ENCRYPTION-02
+  procedures:
+  - id: DPSC-PROC-06
+    title: Execute — Cryptographic Key Lifecycle — Payments
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Cryptographic Key Lifecycle
+      — Payments.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DPSC-EVR-061
+    title: Cryptographic Key Lifecycle — Payments — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DPSC-EVR-062
+    title: Cryptographic Key Lifecycle — Payments — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

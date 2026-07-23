@@ -62,3 +62,7 @@ def seed_demo_workflow_state():
         if key in ecs_state.submitted_controls:
             del ecs_state.submitted_controls[key]
         record_rejection(fw, ctrl, "S. Nair (Auditor)", reason)
+
+    from modules.governance.engines.fcm_evidence_demo_seed import seed_fcm_evidence_progress_demo
+
+    seed_fcm_evidence_progress_demo()

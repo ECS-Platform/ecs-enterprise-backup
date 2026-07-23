@@ -1,0 +1,229 @@
+framework:
+  id: database_baseline
+  code: DBB
+  name: Database Baseline
+  display_name: Database Baseline
+  category: Security Baseline
+  regulator: Database Operations
+  version: '2026.1'
+  description: Oracle, PostgreSQL, and CBS database security baseline controls.
+  source: file_catalog
+  phase: 1
+policies:
+- id: DBB-POL-ENCRYPTION-01
+  title: Encryption Policy
+  description: Governing policy for encryption requirements within Database Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DBB-POL-AUDIT-01
+  title: Audit Policy
+  description: Governing policy for audit requirements within Database Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DBB-POL-ACCESS-01
+  title: Access Policy
+  description: Governing policy for access requirements within Database Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DBB-POL-BACKUP-01
+  title: Backup Policy
+  description: Governing policy for backup requirements within Database Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DBB-POL-PATCH-01
+  title: Patch Policy
+  description: Governing policy for patch requirements within Database Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: DBB-POL-AUDIT-02
+  title: Audit Policy
+  description: Governing policy for audit requirements within Database Baseline.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: DBB-C-01
+  title: Transparent Data Encryption
+  domain: Encryption
+  criticality: High
+  description: TDE enabled on production databases storing sensitive data.
+  policy_refs:
+  - DBB-POL-ENCRYPTION-01
+  procedures:
+  - id: DBB-PROC-01
+    title: Execute — Transparent Data Encryption
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Transparent Data Encryption.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DBB-EVR-011
+    title: Transparent Data Encryption — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DBB-EVR-012
+    title: Transparent Data Encryption — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DBB-C-02
+  title: Database Audit Logging
+  domain: Audit
+  criticality: High
+  description: Unified audit trail with integrity verification.
+  policy_refs:
+  - DBB-POL-AUDIT-01
+  procedures:
+  - id: DBB-PROC-02
+    title: Execute — Database Audit Logging
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Database Audit Logging.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DBB-EVR-021
+    title: Database Audit Logging — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DBB-EVR-022
+    title: Database Audit Logging — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DBB-C-03
+  title: Least Privilege — DB Accounts
+  domain: Access
+  criticality: High
+  description: Role entitlement review and excess privilege remediation.
+  policy_refs:
+  - DBB-POL-ACCESS-01
+  procedures:
+  - id: DBB-PROC-03
+    title: Execute — Least Privilege — DB Accounts
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Least Privilege — DB Accounts.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DBB-EVR-031
+    title: Least Privilege — DB Accounts — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DBB-EVR-032
+    title: Least Privilege — DB Accounts — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DBB-C-04
+  title: Backup & Recovery Validation
+  domain: Backup
+  criticality: Medium
+  description: Backup success monitoring and restore test attestation.
+  policy_refs:
+  - DBB-POL-BACKUP-01
+  procedures:
+  - id: DBB-PROC-04
+    title: Execute — Backup & Recovery Validation
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Backup & Recovery Validation.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DBB-EVR-041
+    title: Backup & Recovery Validation — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DBB-EVR-042
+    title: Backup & Recovery Validation — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DBB-C-05
+  title: Database Vulnerability Scan
+  domain: Patch
+  criticality: Medium
+  description: Quarterly DB VA scan with patch application proof.
+  policy_refs:
+  - DBB-POL-PATCH-01
+  procedures:
+  - id: DBB-PROC-05
+    title: Execute — Database Vulnerability Scan
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Database Vulnerability Scan.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DBB-EVR-051
+    title: Database Vulnerability Scan — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DBB-EVR-052
+    title: Database Vulnerability Scan — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: DBB-C-06
+  title: DB Activity Monitoring
+  domain: Audit
+  criticality: Medium
+  description: DAM alerts for privileged SQL and anomalous access.
+  policy_refs:
+  - DBB-POL-AUDIT-02
+  procedures:
+  - id: DBB-PROC-06
+    title: Execute — DB Activity Monitoring
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for DB Activity Monitoring.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: DBB-EVR-061
+    title: DB Activity Monitoring — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: DBB-EVR-062
+    title: DB Activity Monitoring — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

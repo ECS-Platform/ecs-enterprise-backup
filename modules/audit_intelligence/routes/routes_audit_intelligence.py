@@ -1096,6 +1096,22 @@ def register_audit_intelligence_routes(app) -> None:
             pass
         return _ok(executed=event, runs=runs, plan=plan.to_dict())
 
+    @app.get("/api/evidence/repository")
+    @_safe
+    def api_evidence_repository(limit: str = "100"):
+        """Authoritative persisted evidence listing (ops + audit mirror)."""
+        from modules.shared.services.evidence_authoritative_reader import (
+            collect_authoritative_evidence_rows,
+            repository_stats,
+        )
+
+        try:
+            lim = max(1, min(int(limit or 100), 500))
+        except ValueError:
+            lim = 100
+        rows = collect_authoritative_evidence_rows()[-lim:]
+        return _ok(items=rows, stats=repository_stats(), count=len(rows))
+
     # ---- Evidence search (reuses the existing search engine) ----------------- #
     @app.get("/api/evidence/search")
     @_safe

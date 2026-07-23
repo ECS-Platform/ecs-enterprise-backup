@@ -1,0 +1,239 @@
+framework:
+  id: vapt
+  code: VAP
+  name: VAPT
+  display_name: Vulnerability Assessment & Penetration Testing
+  category: Audit Assessment
+  regulator: AppSec CoE
+  version: '2026.1'
+  description: Internal/external VA and penetration testing programme for banking
+    assets.
+  source: file_catalog
+  phase: 1
+policies:
+- id: VAP-POL-INTERNAL_VA-01
+  title: Internal VA Policy
+  description: Governing policy for internal va requirements within Vulnerability
+    Assessment & Penetration Testing.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: VAP-POL-EXTERNAL_VA-01
+  title: External VA Policy
+  description: Governing policy for external va requirements within Vulnerability
+    Assessment & Penetration Testing.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: VAP-POL-PENETRATION_-01
+  title: Penetration Testing Policy
+  description: Governing policy for penetration testing requirements within Vulnerability
+    Assessment & Penetration Testing.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: VAP-POL-REMEDIATION-01
+  title: Remediation Policy
+  description: Governing policy for remediation requirements within Vulnerability
+    Assessment & Penetration Testing.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: VAP-POL-REMEDIATION-02
+  title: Remediation Policy
+  description: Governing policy for remediation requirements within Vulnerability
+    Assessment & Penetration Testing.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: VAP-POL-PENETRATION_-02
+  title: Penetration Testing Policy
+  description: Governing policy for penetration testing requirements within Vulnerability
+    Assessment & Penetration Testing.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: VAP-C-01
+  title: Internal Vulnerability Assessment
+  domain: Internal VA
+  criticality: High
+  description: Quarterly authenticated scan of CDE assets.
+  policy_refs:
+  - VAP-POL-INTERNAL_VA-01
+  procedures:
+  - id: VAP-PROC-01
+    title: Execute — Internal Vulnerability Assessment
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Internal Vulnerability Assessment.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: VAP-EVR-011
+    title: Internal Vulnerability Assessment — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: VAP-EVR-012
+    title: Internal Vulnerability Assessment — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: VAP-C-02
+  title: External Vulnerability Assessment
+  domain: External VA
+  criticality: High
+  description: Internet-facing asset scope and scan report.
+  policy_refs:
+  - VAP-POL-EXTERNAL_VA-01
+  procedures:
+  - id: VAP-PROC-02
+    title: Execute — External Vulnerability Assessment
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for External Vulnerability Assessment.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: VAP-EVR-021
+    title: External Vulnerability Assessment — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: VAP-EVR-022
+    title: External Vulnerability Assessment — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: VAP-C-03
+  title: Penetration Testing — Internet Banking
+  domain: Penetration Testing
+  criticality: High
+  description: Annual pen test with executive summary.
+  policy_refs:
+  - VAP-POL-PENETRATION_-01
+  procedures:
+  - id: VAP-PROC-03
+    title: Execute — Penetration Testing — Internet Banking
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Penetration Testing — Internet
+      Banking.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: VAP-EVR-031
+    title: Penetration Testing — Internet Banking — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: VAP-EVR-032
+    title: Penetration Testing — Internet Banking — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: VAP-C-04
+  title: Remediation Evidence — Critical Findings
+  domain: Remediation
+  criticality: Medium
+  description: Critical finding closure within SLA.
+  policy_refs:
+  - VAP-POL-REMEDIATION-01
+  procedures:
+  - id: VAP-PROC-04
+    title: Execute — Remediation Evidence — Critical Findings
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Remediation Evidence — Critical
+      Findings.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: VAP-EVR-041
+    title: Remediation Evidence — Critical Findings — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: VAP-EVR-042
+    title: Remediation Evidence — Critical Findings — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: VAP-C-05
+  title: Closure Validation — Pen Test
+  domain: Remediation
+  criticality: Medium
+  description: Retest validation and auditor sign-off.
+  policy_refs:
+  - VAP-POL-REMEDIATION-02
+  procedures:
+  - id: VAP-PROC-05
+    title: Execute — Closure Validation — Pen Test
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Closure Validation — Pen
+      Test.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: VAP-EVR-051
+    title: Closure Validation — Pen Test — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: VAP-EVR-052
+    title: Closure Validation — Pen Test — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: VAP-C-06
+  title: VAPT Scope & Methodology
+  domain: Penetration Testing
+  criticality: Medium
+  description: Approved rules of engagement document.
+  policy_refs:
+  - VAP-POL-PENETRATION_-02
+  procedures:
+  - id: VAP-PROC-06
+    title: Execute — VAPT Scope & Methodology
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for VAPT Scope & Methodology.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: VAP-EVR-061
+    title: VAPT Scope & Methodology — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: VAP-EVR-062
+    title: VAPT Scope & Methodology — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

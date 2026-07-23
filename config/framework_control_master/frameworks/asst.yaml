@@ -1,0 +1,235 @@
+framework:
+  id: asst
+  code: ASST
+  name: ASST
+  display_name: Application Security Self-Assessment
+  category: Pre-Assessment
+  regulator: AppSec CoE
+  version: '2026.1'
+  description: Pre-audit application security posture questionnaire for banking channels.
+  source: file_catalog
+  phase: 1
+policies:
+- id: ASST-POL-ENCRYPTION-01
+  title: Encryption Policy
+  description: Governing policy for encryption requirements within Application Security
+    Self-Assessment.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ASST-POL-AUTHENTICATI-01
+  title: Authentication Policy
+  description: Governing policy for authentication requirements within Application
+    Security Self-Assessment.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ASST-POL-LOGGING-01
+  title: Logging Policy
+  description: Governing policy for logging requirements within Application Security
+    Self-Assessment.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ASST-POL-VULNERABILIT-01
+  title: Vulnerability Policy
+  description: Governing policy for vulnerability requirements within Application
+    Security Self-Assessment.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ASST-POL-AVAILABILITY-01
+  title: Availability Policy
+  description: Governing policy for availability requirements within Application Security
+    Self-Assessment.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+- id: ASST-POL-THIRD_PARTY-01
+  title: Third Party Policy
+  description: Governing policy for third party requirements within Application Security
+    Self-Assessment.
+  owner: Compliance & Controls
+  status: Active
+  review_frequency: Annual
+controls:
+- id: ASST-C-01
+  title: Encryption Posture
+  domain: Encryption
+  criticality: High
+  description: Data-at-rest and in-transit encryption self-attestation.
+  policy_refs:
+  - ASST-POL-ENCRYPTION-01
+  procedures:
+  - id: ASST-PROC-01
+    title: Execute — Encryption Posture
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Encryption Posture.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ASST-EVR-011
+    title: Encryption Posture — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ASST-EVR-012
+    title: Encryption Posture — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ASST-C-02
+  title: Authentication Strength
+  domain: Authentication
+  criticality: High
+  description: MFA and session management coverage matrix.
+  policy_refs:
+  - ASST-POL-AUTHENTICATI-01
+  procedures:
+  - id: ASST-PROC-02
+    title: Execute — Authentication Strength
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Authentication Strength.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ASST-EVR-021
+    title: Authentication Strength — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ASST-EVR-022
+    title: Authentication Strength — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ASST-C-03
+  title: Logging & Monitoring Coverage
+  domain: Logging
+  criticality: High
+  description: Application logs integrated with enterprise SIEM.
+  policy_refs:
+  - ASST-POL-LOGGING-01
+  procedures:
+  - id: ASST-PROC-03
+    title: Execute — Logging & Monitoring Coverage
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for Logging & Monitoring Coverage.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ASST-EVR-031
+    title: Logging & Monitoring Coverage — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ASST-EVR-032
+    title: Logging & Monitoring Coverage — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ASST-C-04
+  title: Patch & Vulnerability Posture
+  domain: Vulnerability
+  criticality: Medium
+  description: Critical patch SLA and VA scan attestation.
+  policy_refs:
+  - ASST-POL-VULNERABILIT-01
+  procedures:
+  - id: ASST-PROC-04
+    title: Execute — Patch & Vulnerability Posture
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Patch & Vulnerability Posture.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ASST-EVR-041
+    title: Patch & Vulnerability Posture — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ASST-EVR-042
+    title: Patch & Vulnerability Posture — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ASST-C-05
+  title: DR & Business Continuity
+  domain: Availability
+  criticality: Medium
+  description: Application RPO/RTO declaration and DR test proof.
+  policy_refs:
+  - ASST-POL-AVAILABILITY-01
+  procedures:
+  - id: ASST-PROC-05
+    title: Execute — DR & Business Continuity
+    owner: Control Owner
+    frequency: Quarterly
+    steps:
+    - Identify in-scope applications and environments for DR & Business Continuity.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ASST-EVR-051
+    title: DR & Business Continuity — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ASST-EVR-052
+    title: DR & Business Continuity — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months
+- id: ASST-C-06
+  title: Third-Party Dependencies
+  domain: Third Party
+  criticality: Medium
+  description: Vendor security review for integrated APIs.
+  policy_refs:
+  - ASST-POL-THIRD_PARTY-01
+  procedures:
+  - id: ASST-PROC-06
+    title: Execute — Third-Party Dependencies
+    owner: Control Owner
+    frequency: Semi-Annual
+    steps:
+    - Identify in-scope applications and environments for Third-Party Dependencies.
+    - Collect configuration or attestation artefacts from system owners.
+    - Validate evidence against policy baseline and record exceptions.
+    - Submit evidence package for auditor review and track remediation.
+  evidence_requirements:
+  - id: ASST-EVR-061
+    title: Third-Party Dependencies — primary attestation
+    artefact_type: Attestation / Configuration Export
+    frequency: Quarterly
+    collection_method: Manual Upload
+    retention_period: 12 months
+  - id: ASST-EVR-062
+    title: Third-Party Dependencies — supporting review log
+    artefact_type: Review Log / Scan Report
+    frequency: Quarterly
+    collection_method: Scheduler Pull
+    retention_period: 12 months

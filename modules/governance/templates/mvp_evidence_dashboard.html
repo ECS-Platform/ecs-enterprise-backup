@@ -1,6 +1,18 @@
 <!DOCTYPE html><html><head><title>Evidence Dashboard</title>{% include "partials/mvp_styles.html" %}{% include "partials/executive_charts_system.html" %}
 <style>
 .ecs-edash-section-title{font-size:.68rem;font-weight:700;text-transform:uppercase;color:#64748b;margin:.5rem 0 .25rem}
+.ecs-fcm-stack{display:flex;align-items:flex-end;gap:.45rem;min-height:160px;padding:.5rem 0}
+.ecs-fcm-stack-col{flex:1;min-width:48px;max-width:72px;text-align:center}
+.ecs-fcm-stack-bar{width:100%;max-width:var(--ecs-chart-bar-w,26px);margin:0 auto;border-radius:4px 4px 0 0;overflow:hidden;display:flex;flex-direction:column-reverse;height:120px;background:var(--ecs-chart-track,#eef2f6)}
+.ecs-fcm-stack-seg{width:100%;min-height:2px}
+.ecs-fcm-stack-seg.tone-green{background:var(--ecs-chart-green,#4a7c59)}
+.ecs-fcm-stack-seg.tone-orange{background:var(--ecs-chart-orange,#c27803)}
+.ecs-fcm-stack-seg.tone-red{background:var(--ecs-chart-red,#b4534a)}
+.ecs-fcm-stack-seg.tone-grey{background:var(--ecs-chart-muted,#94a3b8)}
+.ecs-fcm-legend{display:flex;flex-wrap:wrap;gap:.35rem .75rem;margin:.35rem 0}
+.ecs-fcm-legend-item{font-size:.62rem;display:flex;align-items:center;gap:.25rem}
+.ecs-fcm-legend-swatch{width:.65rem;height:.65rem;border-radius:2px;display:inline-block}
+.ecs-fcm-drill{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:.65rem;margin-top:.5rem}
 </style></head>
 <body class="bg-light ecs-cap-evidence-dashboard"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
@@ -15,6 +27,7 @@
 {% set coll = module_view.collection|default({}) %}
 {% set health = module_view.health|default({}) %}
 {% set ov = module_view.overview|default({}) %}
+{% set fcm = module_view.fcm_progress|default({}) %}
 {{ workspace_exec_strip(module_view) }}
 {{ workspace_filters(workspace, role, user) }}
 <p class="ecs-exec-desc-muted mb-2" id="ecsStdFilterSummary">{{ module_view.purpose|default('Evidence operations — repository, collection, and health signals.') }}</p>
@@ -48,6 +61,72 @@
 <p class="small text-muted mb-0 mt-1">Drill: <a href="/mvp/audit/repository?role={{ role|urlencode }}&user={{ user|urlencode }}">Evidence Repository</a> ·
 <a href="/mvp/evidence-dashboard?role={{ role|urlencode }}&user={{ user|urlencode }}&tab=health">Health tab</a></p>
 </div>
+</div>
+{{ workspace_pane_end() }}
+
+{{ workspace_pane('framework_progress', false) }}
+{% set fp = fcm %}
+<h6 class="ecs-edash-section-title">Framework-wise application progress (FCM)</h6>
+<p class="small text-muted mb-2">Closed only when all mandatory evidence requirements are satisfied and accepted. Source: Framework Control Master service.</p>
+<form class="row g-2 mb-2" method="get" action="/mvp/evidence-dashboard">
+<input type="hidden" name="role" value="{{ role }}">
+<input type="hidden" name="user" value="{{ user }}">
+<input type="hidden" name="tab" value="framework_progress">
+<div class="col-md-4">
+<label class="form-label small mb-0">Application</label>
+<select class="form-select form-select-sm" name="application" onchange="this.form.submit()">
+{% for app in fp.applications|default([]) %}
+<option value="{{ app }}"{% if fp.selected_application == app %} selected{% endif %}>{{ app }}</option>
+{% endfor %}
+</select>
+</div>
+</form>
+<div class="ecs-fcm-legend">
+{% for leg in fp.legend|default([]) %}
+<span class="ecs-fcm-legend-item"><span class="ecs-fcm-legend-swatch tone-{{ leg.tone }}"></span>{{ leg.label }}</span>
+{% endfor %}
+</div>
+<div class="chart-card mb-2">
+<div class="chart-card-title">Control status by framework — {{ fp.selected_application|default('—') }}</div>
+<div class="ecs-fcm-stack" id="ecsFcmStackChart">
+{% for row in fp.chart_rows|default([]) %}
+{% set segs = row.segments|default({}) %}
+{% set total = row.total|default(1) %}
+<div class="ecs-fcm-stack-col ecs-fcm-chart-col" data-framework-id="{{ row.framework_id|e }}" title="{{ row.framework_name }} ({{ total }} controls)">
+<div class="ecs-fcm-stack-bar">
+{% for leg in fp.legend|default([]) %}
+{% set cnt = segs.get(leg.key, 0) %}
+{% if cnt > 0 %}
+<div class="ecs-fcm-stack-seg tone-{{ leg.tone }}" style="height:{{ (cnt / total * 100)|round(1) }}%" title="{{ leg.label }}: {{ cnt }}"></div>
+{% endif %}
+{% endfor %}
+</div>
+<span class="ecs-bar-lbl small d-block mt-1">{{ row.framework_name|truncate(12, True, '…') }}</span>
+</div>
+{% else %}
+<span class="small text-muted">No framework assignments for selected application.</span>
+{% endfor %}
+</div>
+</div>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
+<th>Framework</th><th>Control</th><th>Domain</th><th>Status</th><th></th>
+</tr></thead><tbody>
+{% for c in fp.control_rows|default([]) %}
+<tr data-ecs-filter-row data-filter-framework="{{ c.framework_name }}" data-filter-application="{{ c.application }}" data-filter-status="{{ c.status }}">
+<td>{{ c.framework_name }}</td><td><code class="small">{{ c.control_id }}</code> {{ c.control_title|truncate(40, True, '…') }}</td>
+<td>{{ c.domain|default('—') }}</td>
+<td><span class="badge bg-secondary">{{ c.status|replace('_', ' ') }}</span></td>
+<td><button type="button" class="btn btn-outline-primary btn-sm py-0 ecs-fcm-drill-btn"
+  data-fw="{{ c.framework_id|e }}" data-control="{{ c.control_id|e }}" data-app="{{ c.application|e }}">Drill</button></td></tr>
+{% endfor %}
+</tbody></table>
+</div>
+<div class="ecs-fcm-drill d-none" id="ecsFcmDrillPanel">
+<div class="d-flex justify-content-between align-items-center mb-1">
+<strong class="small">Drill-down</strong><button type="button" class="btn-close btn-sm" id="ecsFcmDrillClose"></button>
+</div>
+<div id="ecsFcmDrillBody" class="small"></div>
 </div>
 {{ workspace_pane_end() }}
 
@@ -134,4 +213,43 @@
 
 </div></div></div>
 {% include "partials/standard_filter_include.html" %}
+<script>
+(function () {
+  var role = {{ role|tojson }};
+  var user = {{ user|tojson }};
+  var app = {{ (fcm.selected_application|default(''))|tojson }};
+  var panel = document.getElementById('ecsFcmDrillPanel');
+  var body = document.getElementById('ecsFcmDrillBody');
+  var closeBtn = document.getElementById('ecsFcmDrillClose');
+  function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  document.querySelectorAll('.ecs-fcm-drill-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var fw = btn.getAttribute('data-fw');
+      var control = btn.getAttribute('data-control');
+      var application = btn.getAttribute('data-app') || app;
+      fetch('/api/evidence-dashboard/fcm-drill/' + encodeURIComponent(fw) + '/' + encodeURIComponent(control) + '?application=' + encodeURIComponent(application) + '&role=' + encodeURIComponent(role))
+        .then(function (r) { return r.json(); })
+        .then(function (p) {
+          if (!p.ok) { body.innerHTML = '<p class="text-danger">' + esc(p.message) + '</p>'; panel.classList.remove('d-none'); return; }
+          var path = (p.drill_path || []).map(function (x) { return esc(x); }).join(' → ');
+          var procs = (p.procedures || []).map(function (pr) {
+            return '<li>' + esc(pr.title) + ' (' + esc(pr.frequency) + ')</li>';
+          }).join('');
+          var evs = (p.evidence_requirements || []).map(function (row) {
+            var sub = row.submitted_evidence || {};
+            return '<tr><td><code>' + esc((row.requirement || {}).id) + '</code> ' + esc((row.requirement || {}).title) + '</td>' +
+              '<td>' + esc(sub.evidence_name || sub.evidence_id || '—') + '</td><td>' + esc(row.status) + '</td></tr>';
+          }).join('');
+          body.innerHTML = '<p class="mb-1"><strong>Path:</strong> ' + path + '</p>' +
+            '<p class="mb-1"><strong>Policy:</strong> ' + esc((p.policy || {}).title) + '</p>' +
+            '<p class="mb-1"><strong>Control status:</strong> ' + esc(p.control_status) + '</p>' +
+            '<p class="mb-1"><strong>Procedures</strong></p><ul class="mb-2">' + procs + '</ul>' +
+            '<table class="table table-sm table-bordered mb-0"><thead><tr><th>Required evidence</th><th>Submitted</th><th>Status</th></tr></thead><tbody>' + evs + '</tbody></table>';
+          panel.classList.remove('d-none');
+        });
+    });
+  });
+  if (closeBtn) closeBtn.addEventListener('click', function () { panel.classList.add('d-none'); });
+})();
+</script>
 {% include "partials/chatbot_global.html" %}</body></html>

@@ -639,19 +639,62 @@ def build_predefined_query_source_summary(*, pq_result: dict, enabled: bool) -> 
     )
 
 
+def build_sharepoint_source_summary(*, sp_result: dict, enabled: bool) -> dict:
+    if not enabled:
+        return _source_row(
+            "sharepoint_graph",
+            status="skipped",
+            skip_reason=str(sp_result.get("skip_reason") or "ECS_SHAREPOINT_ENABLED=false"),
+            sharepoint_mode=sp_result.get("sharepoint_mode", ""),
+        )
+    if sp_result.get("error") or sp_result.get("status") == "failed":
+        return _source_row(
+            "sharepoint_graph",
+            status="failed",
+            skip_reason=str(sp_result.get("skip_reason") or sp_result.get("error") or "sharepoint_failed"),
+            sharepoint_mode=sp_result.get("sharepoint_mode", ""),
+            failed=int(sp_result.get("failed", 1) or 1),
+        )
+    pg = _pgvector_counts_from_receipts(sp_result.get("receipts") or [])
+    persisted = int(sp_result.get("ingested", 0) or 0)
+    return _source_row(
+        "sharepoint_graph",
+        planned=int(sp_result.get("discovered", 0) or 0),
+        executed=1,
+        discovered=int(sp_result.get("discovered", 0) or 0),
+        persisted=persisted,
+        duplicates=int(sp_result.get("duplicates", 0) or 0),
+        failed=int(sp_result.get("failed", 0) or 0),
+        metadata_count=int(sp_result.get("postgresql_count", persisted) or 0),
+        object_storage_count=int(sp_result.get("object_storage_count", 0) or 0),
+        pgvector_indexed=pg["indexed"] or int(sp_result.get("pgvector_count", 0) or 0),
+        pgvector_queued=pg["queued"],
+        pgvector_skipped=pg["skipped"],
+        pgvector_failed=pg["failed"],
+        pgvector_unavailable=pg["provider_unavailable"],
+        status="completed" if persisted else ("skipped" if sp_result.get("skip_reason") else "empty"),
+        skip_reason=str(sp_result.get("skip_reason") or ""),
+        sharepoint_mode=sp_result.get("sharepoint_mode", ""),
+        downloaded=int(sp_result.get("downloaded", 0) or 0),
+    )
+
+
 def build_run_source_breakdown(
     *,
     connector_summary: dict,
     mock_summary: dict,
     cc_result: dict,
     pq_result: dict,
+    sp_result: dict,
     mock_enabled: bool,
     cc_enabled: bool,
     pq_enabled: bool,
+    sp_enabled: bool,
     demo_mode: bool,
 ) -> tuple[list[dict], dict, str]:
     rows = [
         build_predefined_query_source_summary(pq_result=pq_result, enabled=pq_enabled),
+        build_sharepoint_source_summary(sp_result=sp_result, enabled=sp_enabled),
         connector_summary,
         build_common_controls_source_summary(cc_result=cc_result, enabled=cc_enabled),
         build_mock_source_summary(mock_summary=mock_summary, enabled=mock_enabled, demo_mode=demo_mode),
@@ -1527,9 +1570,11 @@ def run_scheduler_collection(
         mock_summary=mock_summary if isinstance(mock_summary, dict) else {},
         cc_result=cc_result if isinstance(cc_result, dict) else {},
         pq_result=pq_result if isinstance(pq_result, dict) else {},
+        sp_result={},
         mock_enabled=_mock_evidence_collection_enabled(),
         cc_enabled=_common_controls_collection_enabled(),
         pq_enabled=pq_enabled,
+        sp_enabled=False,
         demo_mode=demo_mode_enabled(),
     )
     pgvector_detail = source_totals.get("pgvector_detail") or _aggregate_pgvector_counts(source_breakdown)

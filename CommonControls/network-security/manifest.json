@@ -6,14 +6,38 @@
   "technology": "Common Control",
   "application": "ECS Common Controls",
   "environment": "MVP",
-  "predefined_query_ids": ["LNX-004", "RH8-004", "RH9-004", "K8X-007"],
+  "predefined_query_ids": [
+    "LNX-004",
+    "RH8-004",
+    "RH9-004",
+    "K8X-007"
+  ],
   "alternate_collection": "Bash + folder mock",
-  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
-  "evidence_files": ["evidence.json"],
+  "frameworks": [
+    "ITPP",
+    "ASST",
+    "MBSS",
+    "PCI DSS",
+    "DPSC",
+    "C-SITE",
+    "VAPT",
+    "OS Baseline",
+    "Middleware Baseline",
+    "Database Baseline"
+  ],
+  "evidence_files": [
+    "evidence.json"
+  ],
   "validation": {
     "rules": [
-      {"field": "firewall_enabled", "equals": true},
-      {"field": "open_ports_count", "max": 5}
+      {
+        "field": "firewall_enabled",
+        "equals": true
+      },
+      {
+        "field": "open_ports_count",
+        "max": 5
+      }
     ]
   }
 }

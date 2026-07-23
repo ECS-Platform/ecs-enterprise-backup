@@ -1,0 +1,97 @@
+catalog_version: '2026.1'
+source_type: file
+description: Phase-1 Framework Control Master — hardcoded catalogue replaceable by
+  DB/Excel/SharePoint/upload.
+frameworks:
+- id: itpp
+  code: ITPP
+  name: ITPP
+  display_name: Information Technology Policies & Procedures
+  category: Internal Governance
+  file: frameworks/itpp.yaml
+  control_count: 7
+  policy_count: 7
+- id: asst
+  code: ASST
+  name: ASST
+  display_name: Application Security Self-Assessment
+  category: Pre-Assessment
+  file: frameworks/asst.yaml
+  control_count: 6
+  policy_count: 6
+- id: mbss
+  code: MBSS
+  name: MBSS
+  display_name: Minimum Baseline Security Standard
+  category: Security Baseline
+  file: frameworks/mbss.yaml
+  control_count: 6
+  policy_count: 6
+- id: pci_dss
+  code: PCI
+  name: PCI DSS
+  display_name: Payment Card Industry Data Security Standard
+  category: Regulatory
+  file: frameworks/pci_dss.yaml
+  control_count: 6
+  policy_count: 6
+- id: dpsc
+  code: DPSC
+  name: DPSC
+  display_name: Digital Payment Security Controls
+  category: Regulatory
+  file: frameworks/dpsc.yaml
+  control_count: 6
+  policy_count: 6
+- id: csite
+  code: CSI
+  name: C-SITE
+  display_name: Cyber Security Incident Tracking & Evaluation
+  category: Audit Assessment
+  file: frameworks/csite.yaml
+  control_count: 6
+  policy_count: 6
+- id: vapt
+  code: VAP
+  name: VAPT
+  display_name: Vulnerability Assessment & Penetration Testing
+  category: Audit Assessment
+  file: frameworks/vapt.yaml
+  control_count: 6
+  policy_count: 6
+- id: os_baseline
+  code: OSB
+  name: OS Baseline
+  display_name: Operating System Baseline
+  category: Security Baseline
+  file: frameworks/os_baseline.yaml
+  control_count: 6
+  policy_count: 6
+- id: middleware_baseline
+  code: MWB
+  name: Middleware Baseline
+  display_name: Middleware Baseline
+  category: Security Baseline
+  file: frameworks/middleware_baseline.yaml
+  control_count: 6
+  policy_count: 6
+- id: database_baseline
+  code: DBB
+  name: Database Baseline
+  display_name: Database Baseline
+  category: Security Baseline
+  file: frameworks/database_baseline.yaml
+  control_count: 6
+  policy_count: 6
+aliases:
+  PCI: pci_dss
+  PCI DSS: pci_dss
+  C-SITE: csite
+  CSITE: csite
+  OS Baseline: os_baseline
+  OS Baselining: os_baseline
+  Middleware Baseline: middleware_baseline
+  Middleware Baselining: middleware_baseline
+  Database Baseline: database_baseline
+  DB Baseline: database_baseline
+  DB Baselining: database_baseline

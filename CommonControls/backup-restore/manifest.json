@@ -6,14 +6,39 @@
   "technology": "Common Control",
   "application": "ECS Common Controls",
   "environment": "MVP",
-  "predefined_query_ids": ["DB-003", "PGX-003", "ASX-010", "ITPP-001", "RDX-002"],
+  "predefined_query_ids": [
+    "DB-003",
+    "PGX-003",
+    "ASX-010",
+    "ITPP-001",
+    "RDX-002"
+  ],
   "alternate_collection": "SQL + Bash + folder mock",
-  "frameworks": ["PCI DSS", "DPSC", "ISG Baseline", "ISO 27001", "VAPT", "IS", "CSITE"],
-  "evidence_files": ["evidence.json"],
+  "frameworks": [
+    "ITPP",
+    "ASST",
+    "MBSS",
+    "PCI DSS",
+    "DPSC",
+    "C-SITE",
+    "VAPT",
+    "OS Baseline",
+    "Middleware Baseline",
+    "Database Baseline"
+  ],
+  "evidence_files": [
+    "evidence.json"
+  ],
   "validation": {
     "rules": [
-      {"field": "last_backup_status", "equals": "Success"},
-      {"field": "rpo_hours", "max": 24}
+      {
+        "field": "last_backup_status",
+        "equals": "Success"
+      },
+      {
+        "field": "rpo_hours",
+        "max": 24
+      }
     ]
   }
 }

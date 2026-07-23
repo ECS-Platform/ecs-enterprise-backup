@@ -1,0 +1,39 @@
+# Phase-1 application ↔ framework assignments for Framework Control Master progress.
+# Loaded by FileFrameworkControlRepository — not consumed directly by UI.
+assignments:
+  - application: Net Banking
+    owner: R. Mehta
+    frameworks: [pci_dss, itpp, vapt, os_baseline, mbss, csite]
+  - application: Mobile Banking
+    owner: A. Sharma
+    frameworks: [asst, dpsc, vapt, os_baseline, middleware_baseline]
+  - application: Payments
+    owner: K. Iyer
+    frameworks: [pci_dss, dpsc, mbss, middleware_baseline, database_baseline]
+  - application: UPI
+    owner: P. Nair
+    frameworks: [dpsc, mbss, vapt, os_baseline]
+  - application: CBS Oracle
+    owner: S. Banerjee
+    frameworks: [itpp, database_baseline, os_baseline, mbss]
+  - application: Treasury
+    owner: S. Banerjee
+    frameworks: [itpp, database_baseline, os_baseline]
+  - application: Loan System
+    owner: V. Rao
+    frameworks: [asst, itpp, database_baseline]
+  - application: API Gateway
+    owner: P. Nair
+    frameworks: [middleware_baseline, mbss, vapt]
+  - application: Internet Banking
+    owner: A. Sharma
+    frameworks: [pci_dss, asst, vapt, middleware_baseline]
+
+# Optional per-application control exclusions (grey / not applicable)
+not_applicable:
+  - application: Treasury
+    framework_id: vapt
+    control_ids: []
+  - application: Loan System
+    framework_id: pci_dss
+    control_ids: []

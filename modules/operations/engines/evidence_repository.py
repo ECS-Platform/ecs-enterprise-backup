@@ -94,7 +94,20 @@ def register_upload(
     metadata: dict | None = None,
     source_modified_at: str = "",
     custody_mode: str = "",
+    allow_duplicate: bool = False,
 ):
+    content_bytes = content or b""
+    content_hash = compute_hash(content_bytes)
+    if not allow_duplicate:
+        existing = find_upload_by_sha256(content_hash)
+        if existing is not None:
+            dup = dict(existing)
+            dup["status"] = "DUPLICATE"
+            dup["duplicate"] = True
+            dup["duplicate_kind"] = "sha256"
+            dup["original_evidence_id"] = existing.get("evidence_id", "")
+            return dup
+
     std_name = enforce_naming(filename, framework or "GENERAL", application)
     now = datetime.now(timezone.utc).isoformat()
 
@@ -123,6 +136,16 @@ def register_upload(
         "custody_mode": custody_mode,
         "version": 1,
     }
+    try:
+        from modules.shared.services.evidence_authoritative_reader import _enrich_fcm_mappings
+
+        record["metadata"] = _enrich_fcm_mappings(
+            record["metadata"],
+            framework=framework or "Cross-Framework",
+            control=control,
+        )
+    except Exception:  # noqa: BLE001
+        pass
     custody = _apply_custody(record, content or b"", application, control)
     file_hash = custody.content_hash
     integrity = integrity_check(file_hash, content or b"")
@@ -268,6 +291,16 @@ def _mirror_to_audit_repository(record, content, framework, application, control
                 pass
         text = content.decode("utf-8", "ignore") if isinstance(content, (bytes, bytearray)) else str(content or "")
         meta = dict(record.get("metadata") or {})
+        try:
+            from modules.shared.services.evidence_authoritative_reader import _enrich_fcm_mappings
+
+            meta = _enrich_fcm_mappings(
+                meta,
+                framework=framework or (record.get("framework_tags") or [""])[0],
+                control=control or record.get("control") or "",
+            )
+        except Exception:  # noqa: BLE001
+            pass
         # Preserve the pre-standardization name so repository search finds the
         # filename users type (e.g. encryption_evidence.txt) even when the
         # stored ``filename`` is the enforce_naming() variant.

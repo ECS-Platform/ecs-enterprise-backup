@@ -1,0 +1,2 @@
+Encryption at rest enabled for NetBanking UAT ASST control ASST-ENC-01.
+Key management: platform-managed keys with quarterly rotation.

@@ -126,6 +126,7 @@ DEFAULT_TABS: dict[str, list[Tab]] = {
     ],
     "evidence_dashboard": [
         {"id": "overview", "label": "Overview"},
+        {"id": "framework_progress", "label": "Framework Progress"},
         {"id": "collection", "label": "Collection"},
         {"id": "health", "label": "Health"},
     ],
@@ -292,24 +293,28 @@ ROLE_TABS: dict[tuple[str, str], list[Tab]] = {
     ],
     ("evidence_dashboard", "owner"): [
         {"id": "overview", "label": "Overview"},
+        {"id": "framework_progress", "label": "Framework Progress"},
         {"id": "collection", "label": "Collection"},
         {"id": "health", "label": "Health"},
         {"id": "approval", "label": "Approval"},
     ],
     ("evidence_dashboard", "auditor"): [
         {"id": "overview", "label": "Overview"},
+        {"id": "framework_progress", "label": "Framework Progress"},
         {"id": "collection", "label": "Collection"},
         {"id": "health", "label": "Health"},
         {"id": "approval", "label": "Approval"},
     ],
     ("evidence_dashboard", "compliance_head"): [
         {"id": "overview", "label": "Overview"},
+        {"id": "framework_progress", "label": "Framework Progress"},
         {"id": "collection", "label": "Collection"},
         {"id": "health", "label": "Health"},
         {"id": "approval", "label": "Approval"},
     ],
     ("evidence_dashboard", "cio"): [
         {"id": "overview", "label": "Overview"},
+        {"id": "framework_progress", "label": "Framework Progress"},
         {"id": "collection", "label": "Collection"},
         {"id": "health", "label": "Health"},
     ],

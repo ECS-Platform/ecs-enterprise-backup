@@ -39,8 +39,12 @@ applications 1───* observations      (findings)
 ### Control Model
 `controls(control_id UNIQUE, name, description, domain)` + governance `control_catalog`; mapped to evidence via `evidence_control_map(confidence)`.
 
+**Phase 1 FCM evidence linkage (in-memory / demo):** `ecs_state.uploaded_evidence_enrollments` may carry `fcm_framework_id`, `fcm_control_id`, `fcm_evr_id`, and `application` for requirement-level mapping. Progress engine also reads legacy `build_evidence_analytics()` rows by framework name + control title. Audit repository Postgres rows are **not** auto-joined to FCM requirements in Phase 1.
+
 ### Framework Model
 `frameworks(code UNIQUE, name)`; `application_frameworks` (app↔framework); `control_framework_crosswalk` (control↔framework, enables cross-framework reuse).
+
+**Phase 1 — Framework Control Master (file catalogue):** Parallel read model at `config/framework_control_master/` (`catalog.yaml`, `application_assignments.yaml`, `frameworks/*.yaml`). Loaded exclusively via `FileFrameworkControlRepository` → `FrameworkControlMasterService`. Hierarchy: Framework → Policy → Control → Procedure → Evidence Requirement. Not persisted to Postgres in Phase 1; swappable repository backend planned (DB, Excel, SharePoint, upload). UI routes must not read YAML directly.
 
 ### Observation Model
 `observations(observation_id UNIQUE, application_id, title, status, owner, framework, control_id, severity, remediation_plan, comments JSONB, closed_by/at...)`. **Note (from schema comments):** durable table exists; observation workflow still uses in-memory state — **[partial wiring]**.

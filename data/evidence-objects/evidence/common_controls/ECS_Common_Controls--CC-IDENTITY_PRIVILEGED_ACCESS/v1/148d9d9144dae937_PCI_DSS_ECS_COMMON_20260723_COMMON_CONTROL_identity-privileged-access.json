@@ -1,0 +1,9 @@
+{
+  "collected_at": "2026-07-17T10:03:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "privileged_accounts_reviewed": true,
+  "mfa_enabled": true,
+  "privileged_account_count": 14,
+  "last_access_review": "2026-07-01"
+}

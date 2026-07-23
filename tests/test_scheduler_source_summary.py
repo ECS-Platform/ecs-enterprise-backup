@@ -261,5 +261,5 @@ def test_run_summary_json_shape(monkeypatch):
     summary = result["summary"]
     json.dumps(summary)
     assert "source_breakdown" in summary
-    assert len(summary["source_breakdown"]) == 4
+    assert len(summary["source_breakdown"]) == 5
     assert summary["run_id"]
