@@ -354,6 +354,12 @@ def publish_predefined_query_evidence(
             f"{reason} Existing evidence {existing.get('evidence_id', '')}.",
             existing.get("evidence_id", ""),
         )
+        # Keep in-process indexes warm after durable hits (restart-safe dedup).
+        register_predefined_query_indexes(
+            content_hash=content_hash,
+            canonical_hash=canonical_hash,
+            record=existing,
+        )
         return _duplicate_receipt(existing, reason=reason, duplicate_kind=duplicate_kind)
 
     object_key = artifact_object_key(
@@ -370,7 +376,7 @@ def publish_predefined_query_evidence(
     custody_mode = os.environ.get("ECS_PREDEFINED_QUERY_CUSTODY", "").strip() or os.environ.get(
         "ECS_EVIDENCE_DEFAULT_CUSTODY", "SNAPSHOT"
     )
-    from modules.operations.engines.evidence_repository import register_upload
+    from modules.operations.engines.evidence_repository import publish_evidence
 
     metadata = {
         "source_type": "predefined_query",
@@ -389,7 +395,8 @@ def publish_predefined_query_evidence(
     if run_stamp:
         metadata["scheduler_run_id"] = run_stamp
     metadata = _enrich_predefined_query_metadata(metadata, control=control, artifact=artifact)
-    upload = register_upload(
+    # Same custody policy as Scheduler/connectors (repository.yaml / ECS_EVIDENCE_*).
+    upload = publish_evidence(
         filename=filename,
         content=content,
         uploaded_by=user,
@@ -415,6 +422,11 @@ def publish_predefined_query_evidence(
         user=user,
         framework_coverage=control.get("framework_coverage") or "",
     )
+    # Display / latest_result read this store — use canonical EVD-* from publish,
+    # not the local PQ-EVD-* counter from prepare_evidence_record.
+    canonical_id = str(upload.get("evidence_id") or "").strip()
+    if canonical_id:
+        evidence.evidence_id = canonical_id
     store_predefined_evidence(evidence)
     from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
 

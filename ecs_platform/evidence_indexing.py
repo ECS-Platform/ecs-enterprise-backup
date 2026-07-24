@@ -251,6 +251,38 @@ def _indexing_allowed(provider: Any) -> tuple[bool, str]:
     return False, "provider_not_configured"
 
 
+def _provider_unavailable_error(exc: BaseException) -> bool:
+    """True when Ollama/pgvector look unreachable (not a content/schema fault)."""
+    msg = str(exc or "").lower()
+    tokens = (
+        "connection",
+        "connect",
+        "timeout",
+        "timed out",
+        "refused",
+        "unreachable",
+        "unavailable",
+        "name or service not known",
+        "nodename nor servname",
+        "getaddrinfo",
+        "failed to establish",
+        "max retries",
+        "ollama",
+        "cannot connect to pgvector",
+        "model",
+        "not found",
+    )
+    return any(tok in msg for tok in tokens)
+
+
+def _fail_index_report(report: dict[str, Any], exc: BaseException) -> dict[str, Any]:
+    report["ok"] = False
+    report["skipped"] = False
+    report["errors"].append(str(exc))
+    report["reason"] = "provider_unavailable" if _provider_unavailable_error(exc) else "index_failed"
+    return report
+
+
 def index_evidence_version(
     artifact: Any,
     *,
@@ -263,8 +295,6 @@ def index_evidence_version(
 ) -> dict[str, Any]:
     """Index one evidence version into PGVector. Idempotent unless ``force``."""
     from ecs_platform.config import load_vectorstore_config
-    from ecs_platform.llm_engine.provider import get_provider
-    from ecs_platform.vectorstore import get_vector_store
 
     report: dict[str, Any] = {
         "ok": False,
@@ -298,8 +328,23 @@ def index_evidence_version(
         return report
 
     store = _get_index_store(store)
+    # Ensure PGVector table exists before duplicate checks so already_indexed
+    # queries work on a fresh store (same schema; no retrieval redesign).
+    try:
+        store.init_store()
+    except Exception as exc:  # noqa: BLE001
+        return _fail_index_report(report, exc)
+
     if not force and _evidence_version_indexed(store, artifact):
-        report.update({"ok": True, "skipped": True, "reason": "already_indexed", "embedding_skipped": True})
+        report.update({
+            "ok": True,
+            "skipped": True,
+            "reason": "already_indexed",
+            "embedding_skipped": True,
+            # Callers that treat skipped_unchanged > 0 as indexed success need a
+            # positive count even on the version-level short-circuit path.
+            "skipped_unchanged": 1,
+        })
         return report
 
     try:
@@ -342,17 +387,25 @@ def index_evidence_version(
         return report
 
     try:
-        store.init_store()
         embeddings = provider.embed([piece for _chunk, piece in to_embed])
+        if len(embeddings) != len(to_embed):
+            raise RuntimeError(
+                f"embedding count mismatch: got {len(embeddings)} for {len(to_embed)} chunks"
+            )
         out_chunks: list[Chunk] = []
         for (chunk, _piece), embedding in zip(to_embed, embeddings):
+            if not embedding:
+                raise RuntimeError(
+                    f"empty embedding vector (model={getattr(provider, 'embedding_model', '') or 'nomic-embed-text'})"
+                )
             chunk.embedding = embedding
             out_chunks.append(chunk)
         store.upsert(out_chunks)
         report["embedded_chunks"] = len(out_chunks)
         report["ok"] = True
+        report["reason"] = "ok"
     except Exception as exc:  # noqa: BLE001
-        report["errors"].append(str(exc))
+        return _fail_index_report(report, exc)
     return report
 
 
@@ -374,10 +427,17 @@ def index_after_persist(
         return {
             "ok": False,
             "skipped": False,
-            "reason": "index_failed",
+            "reason": (
+                "provider_unavailable"
+                if _provider_unavailable_error(exc)
+                else "index_failed"
+            ),
             "errors": [str(exc)],
             "evidence_key": getattr(artifact, "evidence_key", ""),
             "version": int(getattr(artifact, "version", 1) or 1),
+            "candidate_chunks": 0,
+            "embedded_chunks": 0,
+            "skipped_unchanged": 0,
         }
 
 

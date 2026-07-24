@@ -71,11 +71,11 @@ def register_with_evidence_repository(record: PredefinedQueryEvidence, framework
     Execution is not yet enabled; this prepares the integration contract.
     """
     primary_framework = framework or (record.framework_coverage.split(",")[0].strip() if record.framework_coverage else "")
-    from modules.operations.engines.evidence_repository import register_upload
+    from modules.operations.engines.evidence_repository import publish_evidence
 
     content = record.result.encode("utf-8") if record.result else b""
     filename = f"PREDEFINED_QUERY_{record.control_id}.txt"
-    upload = register_upload(
+    upload = publish_evidence(
         filename=filename,
         content=content,
         uploaded_by=record.user,

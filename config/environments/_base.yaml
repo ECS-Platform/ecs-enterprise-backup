@@ -362,6 +362,14 @@ predefined_query_targets:
   gitleaks:
     scan_path:   "${ECS_GITLEAKS_SCAN_PATH:-}"
     timeout_sec: "${ECS_GITLEAKS_TIMEOUT_SEC:-120}"
+  # Aerospike — asinfo/asadm via docker exec (ecs-aerospike). Host/port used for
+  # command templating; DEMO_MODE returns synthetic output without the container.
+  aerospike:
+    container:   "${ECS_AEROSPIKE_CONTAINER:-ecs-aerospike}"
+    host:        "${ECS_AEROSPIKE_HOST:-localhost}"
+    port:        "${ECS_AEROSPIKE_PORT:-13000}"
+    namespace:   "${ECS_AEROSPIKE_NAMESPACE:-test}"
+    timeout_sec: "${ECS_AEROSPIKE_TIMEOUT_SECONDS:-30}"
 
 # -----------------------------------------------------------------------------
 # STORAGE — object store for raw evidence artifacts. Reuses MINIO_* env names.

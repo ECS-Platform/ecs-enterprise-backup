@@ -356,7 +356,10 @@ def hydrate_from_canonical_repository(*, limit: int = 1000, force: bool = False)
             _HYDRATED_CANONICAL_UIDS.add(uid)
             continue
         try:
-            store_evidence(**_canonical_row_to_kwargs(row))
+            # Reconstruct in-memory/_STORE state only — do not re-enter publish-time
+            # embedding/PGVector (index_after_persist). Vectors already written at
+            # original collect time remain searchable; Evidence IDs unchanged.
+            store_evidence(**_canonical_row_to_kwargs(row), index=False)
         except Exception:  # noqa: BLE001 - one bad row must never break hydration
             continue
         _HYDRATED_CANONICAL_UIDS.add(uid)
@@ -399,12 +402,16 @@ def store_evidence(
     object_uri: str = "",
     content_hash_override: str = "",
     size_bytes_override: int = 0,
+    index: bool = True,
 ) -> EvidenceArtifact:
     """Store a new evidence version. Returns the created :class:`EvidenceArtifact`.
 
     Versioning is automatic: the first store for a key is v1; each subsequent store
     increments. The content hash lets callers detect unchanged evidence. When
     ``source_item_id`` is supplied, writes are idempotent for the same content hash.
+    Pass ``index=False`` to skip the post-persist vector indexing hook (used by
+    canonical hydration so startup/deferred warm-up never re-embeds existing rows).
+    Publish-time callers keep the default ``index=True``.
     """
     key = evidence_key or make_evidence_key(asset_id, control_id)
     if content_hash_override:
@@ -486,7 +493,8 @@ def store_evidence(
     if len(_TIMELINE) > MAX_TIMELINE_EVENTS:
         del _TIMELINE[: len(_TIMELINE) - MAX_TIMELINE_EVENTS]
     _persist_artifact(artifact)
-    _index_artifact(artifact, normalized_text=content or "")
+    if index:
+        _index_artifact(artifact, normalized_text=content or "")
     _invalidate_dashboard_cache()
     return artifact
 

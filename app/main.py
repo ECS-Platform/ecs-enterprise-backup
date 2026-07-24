@@ -96,182 +96,318 @@ async def ecs_lifespan(application: FastAPI):
     from modules.shared.services.ecs_logging import configure_logging, log_platform_ready, mark_startup_complete
     from modules.shared.services import ecs_logging as _ecs_log
     from app.env_bootstrap import ENV_STATUS
+    import time as _startup_time
 
-    configure_logging()
+    def _startup_stage(stage_no: int, stage_name: str):
+        """Timed enter/exit INFO logs for one lifespan init stage (diagnostics only)."""
+
+        class _Stage:
+            def __init__(self):
+                self._t0 = 0.0
+                self._label = f"[{stage_no:02d}] {stage_name}"
+
+            def __enter__(self):
+                self._t0 = _startup_time.perf_counter()
+                _ecs_log.info("ECSStartup", f"START {self._label}")
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                elapsed_ms = int(round((_startup_time.perf_counter() - self._t0) * 1000))
+                if exc_type is not None:
+                    _ecs_log.info(
+                        "ECSStartup",
+                        f"FAIL  {self._label} after {elapsed_ms}ms: "
+                        f"{exc_type.__name__}: {exc}",
+                    )
+                else:
+                    _ecs_log.info("ECSStartup", f"DONE  {self._label} in {elapsed_ms}ms")
+                return False  # never swallow exceptions — preserve existing behavior
+
+        return _Stage()
+
+    with _startup_stage(1, "configure_logging"):
+        configure_logging()
     # ---- ECS Startup banner: surface demo-mode flags loaded from .env ----
-    _ecs_log.info("ECSStartup", "ECS Startup")
-    _ecs_log.info("ECSStartup", f"DEMO_MODE={os.environ.get('DEMO_MODE', '')}")
-    _ecs_log.info("ECSStartup", f"ECS_AUTH_ENABLED={os.environ.get('ECS_AUTH_ENABLED', '')}")
-    _ecs_log.info("ECSStartup",
-                  f".env loaded={ENV_STATUS.get('loaded')} via {ENV_STATUS.get('parser')}")
+    with _startup_stage(2, "startup_banner_env_flags"):
+        _ecs_log.info("ECSStartup", "ECS Startup")
+        _ecs_log.info("ECSStartup", f"DEMO_MODE={os.environ.get('DEMO_MODE', '')}")
+        _ecs_log.info("ECSStartup", f"ECS_AUTH_ENABLED={os.environ.get('ECS_AUTH_ENABLED', '')}")
+        _ecs_log.info("ECSStartup",
+                      f".env loaded={ENV_STATUS.get('loaded')} via {ENV_STATUS.get('parser')}")
+        _host_eps = ENV_STATUS.get("host_compose_endpoints") or {}
+        if _host_eps:
+            _ecs_log.info(
+                "ECSStartup",
+                "Host compose DNS remapped for local uvicorn: "
+                + ", ".join(f"{k}={v}" for k, v in sorted(_host_eps.items())),
+            )
     from ecs_platform.evidence_indexing import suppress_startup_indexing
 
-    with suppress_startup_indexing():
-        refresh_repository_from_frameworks(source="startup")
-    seed_demo_workflow_state()
-    from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
-    self_heal_governance()
+    with _startup_stage(3, "refresh_repository_from_frameworks"):
+        with suppress_startup_indexing():
+            refresh_repository_from_frameworks(source="startup")
+    with _startup_stage(4, "seed_demo_workflow_state"):
+        seed_demo_workflow_state()
+    with _startup_stage(5, "self_heal_governance"):
+        from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
+        self_heal_governance()
     from modules.operations.engines.predefined_queries_engine import validate_startup
     from modules.shared.services import ecs_logging
 
-    pq_report = validate_startup()
-    for line in pq_report.get("log_lines", []):
-        ecs_logging.info("PredefinedQueries", line)
+    with _startup_stage(6, "predefined_queries_validate_startup"):
+        pq_report = validate_startup()
+        for line in pq_report.get("log_lines", []):
+            ecs_logging.info("PredefinedQueries", line)
+
+    # Surface object-store backend early so MinIO vs local fallback is visible.
+    with _startup_stage(7, "get_object_store"):
+        try:
+            from ecs_platform.storage import get_object_store
+
+            _ecs_log.info("ECSStartup", "ENTER get_object_store() (may open MinIO/S3 client)")
+            _store = get_object_store()
+            _ecs_log.info("ECSStartup", f"EXIT  get_object_store() -> {type(_store).__name__}")
+            ecs_logging.info(
+                "ECSPlatform",
+                f"Object storage ready: {type(_store).__name__} "
+                f"(endpoint={os.environ.get('MINIO_ENDPOINT', '')})",
+            )
+        except Exception as _store_exc:  # noqa: BLE001
+            ecs_logging.info("ECSPlatform", f"Object storage init skipped: {_store_exc}")
+            _ecs_log.info("ECSStartup", f"get_object_store exception (swallowed): {_store_exc}")
 
     # ---- Environment configuration validation (YAML-driven UAT/SIT/PROD) ----
     # Logs the active environment and validates its configuration. Fails startup
     # with meaningful errors in strict environments (sit/uat/prod) or when
     # ECS_VALIDATE_CONFIG is truthy. Never blocks the local demo. Opt out with
     # ECS_VALIDATE_CONFIG=off.
-    try:
-        from config.environment_loader import active_environment
-        from config.config_validation import validate_environment
-        from app import security_mode
-
-        env_name = active_environment()
-        # Log the resolved security posture so operators can see, at a glance,
-        # exactly which gates are active in prototype/demo vs UAT/PROD.
+    with _startup_stage(8, "environment_validation"):
         try:
-            posture = security_mode.summary()
+            from config.environment_loader import active_environment
+            from config.config_validation import validate_environment
+            from app import security_mode
+
+            env_name = active_environment()
+            # Log the resolved security posture so operators can see, at a glance,
+            # exactly which gates are active in prototype/demo vs UAT/PROD.
+            try:
+                posture = security_mode.summary()
+                ecs_logging.info(
+                    "ECSSecurity",
+                    f"Security mode: {posture['security_mode']} "
+                    f"(auth={posture['auth_enabled']}, rbac={posture['rbac_enforcement']}, "
+                    f"require_tls={posture['require_tls']}, require_secrets={posture['require_secrets']}, "
+                    f"connector_exec={posture['connector_execution_enabled']}, "
+                    f"fail_on_config_error={posture['startup_fail_on_config_error']})",
+                )
+            except Exception:  # noqa: BLE001 - posture logging must never break startup
+                pass
+
+            rep = validate_environment(env_name)
             ecs_logging.info(
-                "ECSSecurity",
-                f"Security mode: {posture['security_mode']} "
-                f"(auth={posture['auth_enabled']}, rbac={posture['rbac_enforcement']}, "
-                f"require_tls={posture['require_tls']}, require_secrets={posture['require_secrets']}, "
-                f"connector_exec={posture['connector_execution_enabled']}, "
-                f"fail_on_config_error={posture['startup_fail_on_config_error']})",
+                "ECSEnvironment",
+                f"Active environment: {env_name} "
+                f"({rep.checks_run} checks, {len(rep.errors)} errors, {len(rep.warnings)} warnings)",
             )
-        except Exception:  # noqa: BLE001 - posture logging must never break startup
-            pass
+            for warn in rep.warnings:
+                ecs_logging.info("ECSEnvironment", f"warn: {warn}")
+            for err in rep.errors:
+                ecs_logging.info("ECSEnvironment", f"ERROR: {err}")
 
-        rep = validate_environment(env_name)
-        ecs_logging.info(
-            "ECSEnvironment",
-            f"Active environment: {env_name} "
-            f"({rep.checks_run} checks, {len(rep.errors)} errors, {len(rep.warnings)} warnings)",
-        )
-        for warn in rep.warnings:
-            ecs_logging.info("ECSEnvironment", f"warn: {warn}")
-        for err in rep.errors:
-            ecs_logging.info("ECSEnvironment", f"ERROR: {err}")
-
-        # Whether config-validation ERRORS abort startup is centralized in
-        # app.security_mode: demo/prototype is NON-blocking (warn only) while
-        # prod/DR stays strict. Honors ECS_STARTUP_FAIL_ON_CONFIG_ERROR,
-        # ECS_STRICT_CONFIG_VALIDATION, and the legacy ECS_VALIDATE_CONFIG.
-        if rep.errors and security_mode.startup_fail_on_config_error():
-            raise RuntimeError(
-                f"ECS environment '{env_name}' configuration is invalid: "
-                + "; ".join(rep.errors)
-            )
-    except RuntimeError:
-        raise
-    except Exception as _env_exc:  # noqa: BLE001 - validation must never crash a healthy demo
-        ecs_logging.info("ECSEnvironment", f"environment validation skipped: {_env_exc}")
+            # Whether config-validation ERRORS abort startup is centralized in
+            # app.security_mode: demo/prototype is NON-blocking (warn only) while
+            # prod/DR stays strict. Honors ECS_STARTUP_FAIL_ON_CONFIG_ERROR,
+            # ECS_STRICT_CONFIG_VALIDATION, and the legacy ECS_VALIDATE_CONFIG.
+            if rep.errors and security_mode.startup_fail_on_config_error():
+                raise RuntimeError(
+                    f"ECS environment '{env_name}' configuration is invalid: "
+                    + "; ".join(rep.errors)
+                )
+        except RuntimeError:
+            raise
+        except Exception as _env_exc:  # noqa: BLE001 - validation must never crash a healthy demo
+            ecs_logging.info("ECSEnvironment", f"environment validation skipped: {_env_exc}")
+            _ecs_log.info("ECSStartup", f"environment_validation exception (swallowed): {_env_exc}")
 
     # Best-effort evidence repository schema init (never blocks startup).
-    try:
-        from ecs_platform.ingestion import init_repository
+    repo_status: dict = {"ok": False}
+    with _startup_stage(9, "init_repository_schema"):
+        try:
+            from ecs_platform.ingestion import init_repository
 
-        repo_status = init_repository()
-        if repo_status.get("ok"):
-            ecs_logging.info("ECSPlatform", "Evidence repository schema ready")
+            _ecs_log.info("ECSStartup", "ENTER init_repository() (Postgres schema I/O)")
+            repo_status = init_repository()
+            _ecs_log.info("ECSStartup", f"EXIT  init_repository() ok={repo_status.get('ok')}")
+            if repo_status.get("ok"):
+                ecs_logging.info("ECSPlatform", "Evidence repository schema ready")
+            else:
+                ecs_logging.info("ECSPlatform", f"Evidence repository unavailable: {repo_status.get('error', '')}")
+        except Exception as exc:  # noqa: BLE001
+            ecs_logging.info("ECSPlatform", f"Evidence repository init skipped: {exc}")
+            _ecs_log.info("ECSStartup", f"init_repository exception (swallowed): {exc}")
+            repo_status = {"ok": False}
+
+    # Governance DDL is required for request serving — keep on the critical path.
+    if repo_status.get("ok"):
+        with _startup_stage(10, "init_governance_schema"):
+            try:
+                from ecs_platform.governance import init_governance_schema
+
+                _ecs_log.info("ECSStartup", "ENTER init_governance_schema() (Postgres schema I/O)")
+                gov_status = init_governance_schema()
+                _ecs_log.info("ECSStartup", f"EXIT  init_governance_schema() ok={gov_status.get('ok')}")
+                if gov_status.get("ok"):
+                    ecs_logging.info("ECSPlatform", "Governance schema ready")
+                else:
+                    ecs_logging.info("ECSPlatform", f"Governance schema skipped: {gov_status.get('error', '')}")
+            except Exception as _gov_exc:  # noqa: BLE001
+                ecs_logging.info("ECSPlatform", f"Governance schema skipped: {_gov_exc}")
+                _ecs_log.info("ECSStartup", f"init_governance_schema exception (swallowed): {_gov_exc}")
+    else:
+        _ecs_log.info(
+            "ECSStartup",
+            "SKIP  [10] init_governance_schema (repository not ok)",
+        )
+
+    # Install durable audit backend (fast) so APIs can use it; row hydration is deferred.
+    backend = None
+    with _startup_stage(11, "durable_audit_persistence_install"):
+        try:
+            from app.audit.workflow import workflow_audit_enabled
+
+            if workflow_audit_enabled():
+                import os as _os
+
+                from modules.audit_intelligence.services.persistence import set_persistence
+                from modules.audit_intelligence.services.sql_persistence import (
+                    SqlAuditPersistence, sqlite_file_factory,
+                )
+
+                db_path = str(_os.environ.get("ECS_AUDIT_DB_PATH", "")).strip()
+                if db_path:
+                    _ecs_log.info("ECSStartup", f"ENTER SqlAuditPersistence(sqlite_file={db_path})")
+                    backend = SqlAuditPersistence(sqlite_file_factory(db_path))
+                    _where = f"sqlite file ({db_path})"
+                else:
+                    _ecs_log.info("ECSStartup", "ENTER SqlAuditPersistence(in-memory)")
+                    backend = SqlAuditPersistence()  # shared in-memory SQLite
+                    _where = "in-memory sqlite"
+                set_persistence(backend)
+                _ecs_log.info("ECSStartup", f"EXIT  set_persistence({_where})")
+                ecs_logging.info("ECSPlatform",
+                                 f"Durable audit persistence installed: {_where}")
+            else:
+                _ecs_log.info("ECSStartup", "AUDIT_WORKFLOW_ENABLED off — audit persistence no-op")
+                backend = None
+        except Exception as exc:  # noqa: BLE001 - never block startup on persistence
+            ecs_logging.info("ECSPlatform", f"Durable audit persistence skipped: {exc}")
+            _ecs_log.info("ECSStartup", f"durable_audit_persistence_install exception (swallowed): {exc}")
+            backend = None
+
+    def _deferred_backend_warmup(*, repo_ok: bool, audit_backend_ready: bool) -> None:
+        """Non-critical hydration / index warm-up after the app is serving requests.
+
+        Same work as the former blocking lifespan stages — not skipped, only deferred.
+        Never raises into the server process.
+        """
+        from modules.shared.services import ecs_logging as _log
+
+        _log.info("ECSStartup", "Deferred backend warmup started")
+        if repo_ok:
             try:
                 from modules.audit_intelligence.engines import evidence_repository as _ai_repo
 
+                _log.info(
+                    "ECSStartup",
+                    "ENTER hydrate_from_canonical_repository(force=True) (deferred)",
+                )
                 _n_canonical = _ai_repo.hydrate_from_canonical_repository(force=True)
-                ecs_logging.info("ECSPlatform",
-                                 f"Canonical evidence hydrated: {_n_canonical} row(s)")
+                _log.info(
+                    "ECSStartup",
+                    f"EXIT  hydrate_from_canonical_repository -> {_n_canonical} row(s) (deferred)",
+                )
+                _log.info("ECSPlatform", f"Canonical evidence hydrated: {_n_canonical} row(s)")
             except Exception as _canon_exc:  # noqa: BLE001
-                ecs_logging.info("ECSPlatform",
-                                 f"Canonical evidence hydration skipped: {_canon_exc}")
-            from ecs_platform.governance import init_governance_schema
+                _log.info("ECSPlatform", f"Canonical evidence hydration skipped: {_canon_exc}")
 
-            gov_status = init_governance_schema()
-            if gov_status.get("ok"):
-                ecs_logging.info("ECSPlatform", "Governance schema ready")
-            else:
-                ecs_logging.info("ECSPlatform", f"Governance schema skipped: {gov_status.get('error', '')}")
-        else:
-            ecs_logging.info("ECSPlatform", f"Evidence repository unavailable: {repo_status.get('error', '')}")
-    except Exception as exc:  # noqa: BLE001
-        ecs_logging.info("ECSPlatform", f"Evidence repository init skipped: {exc}")
+        try:
+            from app.observations.store import durable_observations_enabled, hydrate_into_memory
 
-    # Phase 4 Step 3: durable observation hydration (flag-gated, best-effort).
-    # Reloads persisted observations into in-memory state so the lifecycle survives
-    # restart without any dashboard change. No-op when OBSERVATIONS_DURABLE_ENABLED
-    # is off; never blocks startup.
-    try:
-        from app.observations.store import durable_observations_enabled, hydrate_into_memory
+            if durable_observations_enabled():
+                _log.info("ECSStartup", "ENTER hydrate_into_memory() (deferred)")
+                n = hydrate_into_memory()
+                _log.info("ECSStartup", f"EXIT  hydrate_into_memory() -> {n} record(s) (deferred)")
+                _log.info("ECSPlatform", f"Durable observations hydrated: {n} record(s)")
+        except Exception as exc:  # noqa: BLE001
+            _log.info("ECSPlatform", f"Observation hydration skipped: {exc}")
 
-        if durable_observations_enabled():
-            n = hydrate_into_memory()
-            ecs_logging.info("ECSPlatform", f"Durable observations hydrated: {n} record(s)")
-    except Exception as exc:  # noqa: BLE001
-        ecs_logging.info("ECSPlatform", f"Observation hydration skipped: {exc}")
+        try:
+            from app.audit.workflow import workflow_audit_enabled
 
-    # Durable audit-intelligence persistence (flag-gated, best-effort). The audit
-    # runs/validation/observation/evidence/pack store defaults to in-memory; when
-    # AUDIT_WORKFLOW_ENABLED is on we install the SQL backend so it survives across
-    # a run (file-backed SQLite when ECS_AUDIT_DB_PATH is set; Postgres when a DSN
-    # is configured). No-op when the flag is off -> in-memory demo mode unchanged.
-    # Never blocks startup. (Closes the gap where set_persistence was test-only.)
-    try:
-        from app.audit.workflow import workflow_audit_enabled
-
-        if workflow_audit_enabled():
-            import os as _os
-
-            from modules.audit_intelligence.services.persistence import set_persistence
-            from modules.audit_intelligence.services.sql_persistence import (
-                SqlAuditPersistence, sqlite_file_factory,
-            )
-
-            db_path = str(_os.environ.get("ECS_AUDIT_DB_PATH", "")).strip()
-            if db_path:
-                backend = SqlAuditPersistence(sqlite_file_factory(db_path))
-                _where = f"sqlite file ({db_path})"
-            else:
-                backend = SqlAuditPersistence()  # shared in-memory SQLite
-                _where = "in-memory sqlite"
-            set_persistence(backend)
-            ecs_logging.info("ECSPlatform",
-                             f"Durable audit persistence installed: {_where}")
-            try:
+            if workflow_audit_enabled() and audit_backend_ready:
                 from modules.audit_intelligence.engines import evidence_repository as _ev_repo
 
+                _log.info("ECSStartup", "ENTER hydrate_from_persistence() (deferred)")
                 n = _ev_repo.hydrate_from_persistence()
-                ecs_logging.info("ECSPlatform", f"Evidence repository hydrated: {n} version(s)")
-            except Exception as _hydrate_exc:  # noqa: BLE001
-                ecs_logging.info("ECSPlatform",
-                                 f"Evidence repository hydration skipped: {_hydrate_exc}")
-    except Exception as exc:  # noqa: BLE001 - never block startup on persistence
-        ecs_logging.info("ECSPlatform", f"Durable audit persistence skipped: {exc}")
+                _log.info("ECSStartup", f"EXIT  hydrate_from_persistence() -> {n} version(s) (deferred)")
+                _log.info("ECSPlatform", f"Evidence repository hydrated: {n} version(s)")
+        except Exception as _hydrate_exc:  # noqa: BLE001
+            _log.info("ECSPlatform", f"Evidence repository hydration skipped: {_hydrate_exc}")
 
-    # LLM-RAG startup validation (non-fatal): report whether Gemini is configured
-    # and reachable, plus how much of the repository is indexed. Secrets never logged.
-    try:
-        from ecs_platform.rag import rag_status
+        try:
+            from ecs_platform.rag import rag_status
 
-        st = rag_status()
-        if st.get("provider_configured"):
-            ecs_logging.info("ECSPlatform",
-                             f"LLM-RAG ready: provider={st['provider']} model={st['model']} "
-                             f"vector_chunks={st['vector_count']} indexed={st['indexed_pct']}%")
-            # Warm local models in the background so the first query isn't a cold start.
-            import threading
+            _log.info("ECSStartup", "ENTER rag_status() (deferred; may contact LLM / PGVector)")
+            st = rag_status()
+            _log.info(
+                "ECSStartup",
+                f"EXIT  rag_status() provider_configured={st.get('provider_configured')} (deferred)",
+            )
+            if st.get("provider_configured"):
+                _log.info(
+                    "ECSPlatform",
+                    f"LLM-RAG ready: provider={st['provider']} model={st['model']} "
+                    f"vector_chunks={st['vector_count']} indexed={st['indexed_pct']}%",
+                )
+                import threading as _threading
 
-            from ecs_platform.rag import warm_models
+                from ecs_platform.rag import warm_models
 
-            threading.Thread(target=warm_models, daemon=True).start()
-        else:
-            ecs_logging.info("ECSPlatform",
-                             "LLM-RAG disabled: provider not configured (assistant uses deterministic fallback)")
-    except Exception as exc:  # noqa: BLE001
-        ecs_logging.info("ECSPlatform", f"LLM-RAG status check skipped: {exc}")
+                _threading.Thread(target=warm_models, daemon=True).start()
+            else:
+                _log.info(
+                    "ECSPlatform",
+                    "LLM-RAG disabled: provider not configured (assistant uses deterministic fallback)",
+                )
+        except Exception as exc:  # noqa: BLE001
+            _log.info("ECSPlatform", f"LLM-RAG status check skipped: {exc}")
 
-    mark_startup_complete()
-    log_platform_ready(host="127.0.0.1", port=8000)
+        _log.info("ECSStartup", "Deferred backend warmup complete")
+
+    # Schedule non-critical work so uvicorn can accept connections immediately.
+    # Thread starts before yield; hydration/indexing still run — just off the
+    # blocking startup path (eventual consistency).
+    import threading
+
+    with _startup_stage(12, "schedule_deferred_backend_warmup"):
+        _repo_ok = bool(repo_status.get("ok"))
+        _audit_ready = backend is not None
+        threading.Thread(
+            target=_deferred_backend_warmup,
+            kwargs={"repo_ok": _repo_ok, "audit_backend_ready": _audit_ready},
+            name="ecs-deferred-backend-warmup",
+            daemon=True,
+        ).start()
+        _ecs_log.info(
+            "ECSStartup",
+            "Deferred backend warmup thread launched "
+            "(canonical hydrate / observations / audit hydrate / rag_status)",
+        )
+
+    with _startup_stage(13, "mark_startup_complete_and_ready"):
+        mark_startup_complete()
+        log_platform_ready(host="127.0.0.1", port=8000)
+    _ecs_log.info("ECSStartup", "Lifespan startup complete — yielding to uvicorn")
     yield
     # ---- Graceful shutdown (production hardening) --------------------------- #
     # Runs on SIGTERM/SIGINT and normal shutdown. Best-effort cleanup that never

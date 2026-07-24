@@ -6,6 +6,24 @@ from datetime import datetime, timezone
 
 from app import ecs_state
 
+# Startup profiling for refresh_repository_from_frameworks (instrumentation only).
+_REFRESH_PROFILE: dict | None = None
+
+
+def _prof_add(stage: str, seconds: float, **counters) -> None:
+    """Accumulate stage timings/counters while a refresh profile is active."""
+    prof = _REFRESH_PROFILE
+    if not isinstance(prof, dict):
+        return
+    stages = prof.setdefault("stages", {})
+    bucket = stages.setdefault(stage, {"seconds": 0.0, "calls": 0})
+    bucket["seconds"] += float(seconds or 0.0)
+    bucket["calls"] += 1
+    counts = prof.setdefault("counts", {})
+    for key, value in counters.items():
+        counts[key] = int(counts.get(key, 0) or 0) + int(value or 0)
+
+
 evidence_repository = []
 upload_tracker = []
 evidence_reuse_map = {}
@@ -14,8 +32,45 @@ _evidence_counter = 0
 
 def _next_id():
     global _evidence_counter
+    if _evidence_counter <= 0:
+        _evidence_counter = _max_existing_evidence_seq()
     _evidence_counter += 1
     return f"EVD-{_evidence_counter:05d}"
+
+
+def _max_existing_evidence_seq() -> int:
+    """Highest EVD-NNNNN already known (ops / audit / canonical) so new IDs never collide."""
+    import re
+
+    max_n = 0
+
+    def _consider(value: str) -> None:
+        nonlocal max_n
+        match = re.match(r"^EVD-(\d+)$", str(value or "").strip())
+        if match:
+            max_n = max(max_n, int(match.group(1)))
+
+    for rec in evidence_repository:
+        _consider(str(rec.get("evidence_id") or ""))
+    try:
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+
+        for art in ai_repo.all_artifacts():
+            _consider(str(getattr(art, "evidence_id", "") or ""))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from ecs_platform.repository.repository import EvidenceRepository
+
+        repo = EvidenceRepository()
+        try:
+            for uid in repo.list_evidence_uids(limit=5000):
+                _consider(uid)
+        finally:
+            repo.close()
+    except Exception:  # noqa: BLE001
+        pass
+    return max_n
 
 
 def enforce_naming(filename: str, framework: str, application: str) -> str:
@@ -43,8 +98,207 @@ def integrity_check(stored_hash: str, content: bytes) -> dict:
     }
 
 
+def _parse_row_metadata(raw) -> dict:
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, str):
+        try:
+            import json
+
+            parsed = json.loads(raw)
+            return dict(parsed) if isinstance(parsed, dict) else {}
+        except Exception:  # noqa: BLE001
+            return {}
+    try:
+        return dict(raw or {})
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _ops_record_from_index(indexed: dict, *, sha256: str = "") -> dict:
+    """Rebuild a minimal ops upload shape from the PQ content/fingerprint index."""
+    meta = {
+        "object_key": indexed.get("object_key") or "",
+        "content_sha256": indexed.get("sha256") or sha256,
+        "canonical_fingerprint": indexed.get("canonical_fingerprint") or "",
+        "substantive_content_sha256": indexed.get("canonical_fingerprint") or "",
+        "query_id": indexed.get("control_id") or "",
+    }
+    return {
+        "evidence_id": indexed.get("evidence_id") or "",
+        "sha256": indexed.get("sha256") or sha256,
+        "version": int(indexed.get("evidence_version") or 1),
+        "filename": indexed.get("filename") or "",
+        "custody_mode": indexed.get("custody_mode") or "",
+        "object_uri": indexed.get("object_uri") or "",
+        "control": indexed.get("control_id") or "",
+        "framework_tags": [indexed["framework"]] if indexed.get("framework") else [],
+        "metadata": meta,
+        "status": "Uploaded",
+        "workflow_status": indexed.get("workflow_status") or "Uploaded",
+    }
+
+
+def _ops_record_from_artifact(art) -> dict:
+    """Map an audit EvidenceArtifact into the ops upload shape for dedup receipts."""
+    meta = _parse_row_metadata(getattr(art, "metadata", None))
+    sha = str(
+        getattr(art, "content_hash", "")
+        or meta.get("sha256")
+        or meta.get("content_sha256")
+        or ""
+    )
+    return {
+        "evidence_id": str(getattr(art, "evidence_id", "") or ""),
+        "sha256": sha,
+        "version": int(getattr(art, "version", 1) or 1),
+        "filename": str(getattr(art, "filename", "") or ""),
+        "custody_mode": str(getattr(art, "custody_mode", "") or ""),
+        "object_uri": str(getattr(art, "object_uri", "") or meta.get("object_uri") or ""),
+        "control": str(getattr(art, "control_id", "") or meta.get("control") or ""),
+        "framework_tags": list(getattr(art, "frameworks", ()) or []),
+        "metadata": {
+            **meta,
+            "object_key": meta.get("object_key") or "",
+            "content_sha256": sha,
+            "canonical_fingerprint": meta.get("canonical_fingerprint")
+            or meta.get("substantive_content_sha256")
+            or "",
+            "substantive_content_sha256": meta.get("substantive_content_sha256")
+            or meta.get("canonical_fingerprint")
+            or "",
+        },
+        "status": "Uploaded",
+        "audit_version": int(getattr(art, "version", 1) or 1),
+    }
+
+
+def _ops_record_from_canonical_row(row: dict) -> dict:
+    meta = _parse_row_metadata(row.get("metadata"))
+    sha = str(meta.get("sha256") or meta.get("content_hash") or meta.get("content_sha256") or "")
+    return {
+        "evidence_id": str(row.get("evidence_uid") or ""),
+        "sha256": sha,
+        "version": int(meta.get("version") or 1),
+        "filename": str(meta.get("filename") or row.get("title") or ""),
+        "custody_mode": str(meta.get("custody_mode") or ""),
+        "object_uri": str(meta.get("object_uri") or row.get("url") or ""),
+        "control": str(meta.get("control") or ""),
+        "framework_tags": [meta["framework"]] if meta.get("framework") else [],
+        "metadata": {
+            **meta,
+            "content_sha256": sha,
+            "canonical_fingerprint": meta.get("canonical_fingerprint")
+            or meta.get("substantive_content_sha256")
+            or "",
+            "substantive_content_sha256": meta.get("substantive_content_sha256")
+            or meta.get("canonical_fingerprint")
+            or "",
+        },
+        "status": "Uploaded",
+    }
+
+
+def _find_durable_by_sha256(sha256: str) -> dict | None:
+    """Look up identical content in audit memory/SQL and canonical PostgreSQL."""
+    if not sha256:
+        return None
+    import time as _time
+
+    try:
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+
+        _t0 = _time.perf_counter()
+        for art in ai_repo.all_artifacts():
+            if str(getattr(art, "content_hash", "") or "") == sha256:
+                _prof_add("durable_dedup_audit_memory", _time.perf_counter() - _t0, db_reads=0)
+                return _ops_record_from_artifact(art)
+        _prof_add("durable_dedup_audit_memory", _time.perf_counter() - _t0)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from modules.audit_intelligence.services.persistence import get_persistence
+
+        _t0 = _time.perf_counter()
+        for candidate in get_persistence().list_all_evidence_versions():
+            if str(getattr(candidate, "content_hash", "") or "") == sha256:
+                _prof_add("durable_dedup_sql_persistence", _time.perf_counter() - _t0, db_reads=1)
+                return _ops_record_from_artifact(candidate)
+        _prof_add("durable_dedup_sql_persistence", _time.perf_counter() - _t0, db_reads=1)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from ecs_platform.repository.repository import EvidenceRepository
+
+        _t0 = _time.perf_counter()
+        repo = EvidenceRepository()
+        try:
+            for row in repo.search_evidence(limit=500):
+                meta = _parse_row_metadata(row.get("metadata"))
+                if str(meta.get("sha256") or meta.get("content_hash") or meta.get("content_sha256") or "") == sha256:
+                    _prof_add("durable_dedup_canonical_pg", _time.perf_counter() - _t0, db_reads=1)
+                    return _ops_record_from_canonical_row(row)
+            _prof_add("durable_dedup_canonical_pg", _time.perf_counter() - _t0, db_reads=1)
+        finally:
+            repo.close()
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def _find_durable_by_canonical(canonical_hash: str) -> dict | None:
+    """Look up logically identical PQ content across durable stores."""
+    if not canonical_hash:
+        return None
+    try:
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+
+        for art in ai_repo.all_artifacts():
+            meta = _parse_row_metadata(getattr(art, "metadata", None))
+            if (
+                meta.get("canonical_fingerprint") == canonical_hash
+                or meta.get("substantive_content_sha256") == canonical_hash
+            ):
+                return _ops_record_from_artifact(art)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from modules.audit_intelligence.services.persistence import get_persistence
+
+        for art in get_persistence().list_all_evidence_versions():
+            meta = _parse_row_metadata(getattr(art, "metadata", None))
+            if (
+                meta.get("canonical_fingerprint") == canonical_hash
+                or meta.get("substantive_content_sha256") == canonical_hash
+            ):
+                return _ops_record_from_artifact(art)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from ecs_platform.repository.repository import EvidenceRepository
+
+        repo = EvidenceRepository()
+        try:
+            for row in repo.search_evidence(limit=500):
+                meta = _parse_row_metadata(row.get("metadata"))
+                if (
+                    meta.get("canonical_fingerprint") == canonical_hash
+                    or meta.get("substantive_content_sha256") == canonical_hash
+                ):
+                    return _ops_record_from_canonical_row(row)
+        finally:
+            repo.close()
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def find_upload_by_sha256(sha256: str) -> dict | None:
-    """Return an existing ops-repository upload with the same content hash."""
+    """Return an existing ops-repository upload with the same content hash.
+
+    Checks in-memory ops rows, PQ content index, then durable audit/PostgreSQL
+    so identical SHA-256 artifacts are skipped even after process restart.
+    """
     if not sha256:
         return None
     for rec in evidence_repository:
@@ -57,7 +311,8 @@ def find_upload_by_sha256(sha256: str) -> dict | None:
             for rec in evidence_repository:
                 if rec.get("evidence_id") == evidence_id:
                     return rec
-    return None
+        return _ops_record_from_index(indexed, sha256=sha256)
+    return _find_durable_by_sha256(sha256)
 
 
 def find_upload_by_canonical_fingerprint(canonical_hash: str) -> dict | None:
@@ -71,11 +326,14 @@ def find_upload_by_canonical_fingerprint(canonical_hash: str) -> dict | None:
             for rec in evidence_repository:
                 if rec.get("evidence_id") == evidence_id:
                     return rec
+        return _ops_record_from_index(indexed)
     for rec in evidence_repository:
         meta = rec.get("metadata") or {}
         if meta.get("canonical_fingerprint") == canonical_hash:
             return rec
-    return None
+        if meta.get("substantive_content_sha256") == canonical_hash:
+            return rec
+    return _find_durable_by_canonical(canonical_hash)
 
 
 def register_upload(
@@ -96,13 +354,20 @@ def register_upload(
     custody_mode: str = "",
     allow_duplicate: bool = False,
 ):
+    import time as _time
+
+    _prof = _REFRESH_PROFILE is not None
+    _t_all = _time.perf_counter() if _prof else 0.0
     content_bytes = content or b""
+    _t0 = _time.perf_counter() if _prof else 0.0
     content_hash = compute_hash(content_bytes)
     meta_in = dict(metadata or {})
     substantive_hash = meta_in.get("substantive_content_sha256") or meta_in.get("canonical_fingerprint")
     if not allow_duplicate:
         existing = find_upload_by_sha256(content_hash)
         if existing is not None:
+            if _prof:
+                _prof_add("hash_and_dedup_check", _time.perf_counter() - _t0, register_attempts=1, duplicates_sha=1)
             dup = dict(existing)
             dup["status"] = "DUPLICATE"
             dup["duplicate"] = True
@@ -159,6 +424,9 @@ def register_upload(
         "custody_mode": custody_mode,
         "version": 1,
     }
+    if _prof:
+        _prof_add("hash_and_dedup_check", _time.perf_counter() - _t0, register_attempts=1)
+        _t0 = _time.perf_counter()
     try:
         from modules.shared.services.evidence_authoritative_reader import _enrich_fcm_mappings
 
@@ -169,7 +437,13 @@ def register_upload(
         )
     except Exception:  # noqa: BLE001
         pass
+    if _prof:
+        _prof_add("fcm_enrichment", _time.perf_counter() - _t0)
+        _t0 = _time.perf_counter()
     custody = _apply_custody(record, content or b"", application, control)
+    if _prof:
+        _prof_add("custody_object_store", _time.perf_counter() - _t0)
+        _t0 = _time.perf_counter()
     file_hash = custody.content_hash
     integrity = integrity_check(file_hash, content or b"")
     record["sha256"] = file_hash
@@ -178,6 +452,15 @@ def register_upload(
     record["custody_mode"] = custody.custody_mode
     record["object_uri"] = custody.object_uri
     record["size_bytes"] = custody.size_bytes
+    record["object_stored"] = bool(custody.object_uri) and (
+        custody.stored
+        or "immutable_exists" in str(custody.reason or "")
+        or str(custody.custody_mode or "").upper() == "SNAPSHOT"
+    )
+    if custody.reason:
+        meta_c = dict(record.get("metadata") or {})
+        meta_c.setdefault("custody_reason", custody.reason)
+        record["metadata"] = meta_c
     record["summary"] = generate_summary(record)
     record["reviewer"] = "Pending Assignment"
     evidence_repository.append(record)
@@ -185,11 +468,25 @@ def register_upload(
     # bulk uploads become real evidence for readiness, reuse, dashboards, and
     # integrity — instead of living only in this MVP in-memory list. Best-effort:
     # a bridge failure must never break the primary upload path.
+    if _prof:
+        _prof_add("record_build_and_append", _time.perf_counter() - _t0)
+        _t0 = _time.perf_counter()
     _mirror_to_audit_repository(record, content or b"", framework, application, control)
+    if _prof:
+        _prof_add("audit_mirror_and_canonical_write", _time.perf_counter() - _t0, db_writes=1)
+        _t0 = _time.perf_counter()
     record["search_index"] = _register_search_index(record, content or b"")
+    if _prof:
+        _prof_add("search_index_hook", _time.perf_counter() - _t0)
+        _t0 = _time.perf_counter()
     from modules.shared.services.audit_trail import log_event, record_version
 
-    record_version(record["evidence_id"], std_name, 1, uploaded_by)
+    record_version(
+        record["evidence_id"],
+        std_name,
+        int(record.get("version") or record.get("audit_version") or 1),
+        uploaded_by,
+    )
     log_event(
         "Evidence Uploaded",
         uploaded_by,
@@ -208,6 +505,9 @@ def register_upload(
         }
     )
     _link_reuse(record)
+    if _prof:
+        _prof_add("audit_trail_and_reuse", _time.perf_counter() - _t0)
+        _prof_add("register_upload_total", _time.perf_counter() - _t_all, register_accepted=1)
     return record
 
 
@@ -299,21 +599,22 @@ def _register_search_index(record: dict, content: bytes) -> dict:
         text = content.decode("utf-8", errors="ignore") if content else ""
         report = index_after_persist(artifact, normalized_text=text)
         indexed = bool(report.get("ok")) and int(report.get("embedded_chunks", 0) or 0) > 0
-        if report.get("skipped") and report.get("reason") in {
+        reason = str(report.get("reason") or "")
+        if report.get("skipped") and reason in {
             "superseded",
             "empty_text",
             "provider_not_configured",
             "startup_seed_no_indexing",
         }:
             indexed = False
-        elif report.get("ok") and int(report.get("embedded_chunks", 0) or 0) == 0:
-            if int(report.get("skipped_unchanged", 0) or 0) > 0:
-                return {
-                    "indexed": True,
-                    "reason": "already_indexed",
-                    "embedding_skipped": True,
-                    **report,
-                }
+        elif reason == "already_indexed" or int(report.get("skipped_unchanged", 0) or 0) > 0:
+            # Vectors already present in PGVector — treat as success, not a skip/fail.
+            return {
+                "indexed": True,
+                "reason": "already_indexed",
+                "embedding_skipped": True,
+                **report,
+            }
         out = {"indexed": indexed, **report}
         if report.get("errors"):
             out["reason"] = "index_failed"
@@ -366,14 +667,22 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             meta.setdefault("original_filename", str(record["original_filename"]))
         if record.get("application_tags"):
             meta.setdefault("application", str((record.get("application_tags") or [""])[0]))
+        try:
+            evidence_quality = float(meta.get("evidence_quality") or 0.0)
+        except (TypeError, ValueError):
+            evidence_quality = 0.0
+        # index=False: PGVector write is owned solely by _register_search_index so
+        # publish-time embedding runs once (Phase-1 pipeline). Hydration uses the
+        # same flag independently and must not be changed here.
         stored = ai_repo.store_evidence(
             control_id=control or record.get("filename", "UPLOAD"),
             content=text or record.get("summary", ""),
-            technology=technology,
+            technology=technology or str(meta.get("technology") or ""),
             asset_id=application or "",
             frameworks=frameworks,
-            verdict="",                       # manual uploads are unassessed until validated
-            control_status="",
+            verdict=str(meta.get("validation_verdict") or meta.get("verdict") or ""),
+            control_status=str(meta.get("control_status") or ""),
+            evidence_quality=evidence_quality,
             source="manual_upload" if not record.get("source_connector") else "connector",
             filename=record.get("filename", ""),
             tags=(f"app:{application}", "source:upload",
@@ -390,14 +699,111 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             object_uri=record.get("object_uri", ""),
             content_hash_override=record.get("sha256", ""),
             size_bytes_override=int(record.get("size_bytes", 0) or 0),
+            index=False,
         )
         record["audit_version"] = stored.version
+        # Authoritative version lives on the audit artifact; keep ops in sync.
+        record["version"] = int(stored.version or record.get("version") or 1)
         meta_out = dict(record.get("metadata") or {})
         meta_out["audit_version"] = stored.version
         record["metadata"] = meta_out
         record["audit_repository_synced"] = True
+        _persist_upload_to_canonical(record, text or record.get("summary", ""), stored)
     except Exception:  # noqa: BLE001 - bridge must never break the primary upload
         record["audit_repository_synced"] = False
+
+
+def _persist_upload_to_canonical(record: dict, content_text: str, stored) -> None:
+    """Best-effort write into ``ecs_platform.repository`` using the upload's Evidence ID.
+
+    Reuses the same upsert shape as the LLM usecase seed path — no new persistence
+    service. Never raises. Sets ``canonical_persisted`` on the ops record.
+    """
+    try:
+        from ecs_platform.repository.repository import EvidenceRepository
+
+        evidence_id = str(record.get("evidence_id") or getattr(stored, "evidence_id", "") or "")
+        if not evidence_id:
+            record["canonical_persisted"] = False
+            meta_fail = dict(record.get("metadata") or {})
+            meta_fail["canonical_persist_reason"] = "missing_evidence_id"
+            record["metadata"] = meta_fail
+            return
+        meta = dict(record.get("metadata") or {})
+        meta.update(
+            {
+                "evidence_id": evidence_id,
+                "filename": str(record.get("filename") or ""),
+                "custody_mode": str(record.get("custody_mode") or ""),
+                "object_uri": str(record.get("object_uri") or ""),
+                "mime_type": str(record.get("mime_type") or ""),
+                "source_url": str(record.get("source_url") or ""),
+                "source_connector": str(record.get("source_connector") or "upload"),
+                "content_hash": str(record.get("sha256") or ""),
+                "version": int(
+                    getattr(stored, "version", 0)
+                    or record.get("audit_version")
+                    or record.get("version")
+                    or 1
+                ),
+                "control": str(record.get("control") or ""),
+                "framework": str((record.get("framework_tags") or [""])[0] or ""),
+                "environment": str(record.get("environment") or ""),
+                "sha256": str(record.get("sha256") or ""),
+                "canonical_fingerprint": str(
+                    meta.get("canonical_fingerprint")
+                    or meta.get("substantive_content_sha256")
+                    or ""
+                ),
+                "substantive_content_sha256": str(
+                    meta.get("substantive_content_sha256")
+                    or meta.get("canonical_fingerprint")
+                    or ""
+                ),
+            }
+        )
+        application = str((record.get("application_tags") or [""])[0] or "")
+        control = str(record.get("control") or "")
+        item = {
+            "evidence_uid": evidence_id,
+            "source_system": str(record.get("source_connector") or "upload"),
+            "source_object_id": str(record.get("source_item_id") or evidence_id),
+            "object_type": str(record.get("mime_type") or "application/octet-stream"),
+            "title": str(record.get("filename") or evidence_id),
+            "content": content_text or "",
+            "owner": str(record.get("uploaded_by") or "ecs"),
+            "url": str(record.get("object_uri") or record.get("source_url") or ""),
+            "application": application,
+            "metadata": meta,
+            "control_mapping": [control] if control else [],
+            "framework_mapping": [fw for fw in (record.get("framework_tags") or []) if fw],
+        }
+        repo = EvidenceRepository()
+        try:
+            repo.upsert_evidence(item)
+            durable_uid = str(item.get("evidence_uid") or evidence_id)
+            # Source-identity conflict keeps the durable canonical uid — align ops
+            # and the just-mirrored audit artifact before PGVector indexing runs.
+            if durable_uid and durable_uid != evidence_id:
+                record["evidence_id"] = durable_uid
+                meta["evidence_id"] = durable_uid
+                try:
+                    object.__setattr__(stored, "evidence_id", durable_uid)
+                except Exception:  # noqa: BLE001
+                    pass
+            record["canonical_persisted"] = True
+            meta_out = dict(record.get("metadata") or {})
+            meta_out.update(meta)
+            meta_out["canonical_persisted"] = True
+            record["metadata"] = meta_out
+        finally:
+            repo.close()
+    except Exception as exc:  # noqa: BLE001 - canonical write must never break upload
+        record["canonical_persisted"] = False
+        meta_fail = dict(record.get("metadata") or {})
+        meta_fail["canonical_persisted"] = False
+        meta_fail["canonical_persist_reason"] = f"{type(exc).__name__}:{exc}"
+        record["metadata"] = meta_fail
 
 
 def _link_reuse(record):
@@ -435,23 +841,193 @@ def _link_reuse(record):
         record["reused"] = False
 
 
+def _framework_seed_bytes(row: dict, source: str) -> bytes:
+    """Deterministic seed payload used by framework-catalog refresh (unchanged)."""
+    return f"{row['framework']}|{row['control']}|{row['evidence_name']}|{source}".encode()
+
+
+def _framework_seed_source_item_id(catalog_evidence_id: str) -> str:
+    return f"framework-catalog/{catalog_evidence_id}"
+
+
+def _collect_present_framework_seed_keys() -> tuple[set[str], set[str], set[str]]:
+    """One-shot index of already-seeded catalog entries (ops + durable).
+
+    Returns (content_sha256s, catalog_evidence_ids, source_item_ids).
+    Used only to skip register_upload for unchanged seeds — no persistence changes.
+    """
+    hashes: set[str] = set()
+    catalog_ids: set[str] = set()
+    source_items: set[str] = set()
+
+    def _ingest_ops_rec(rec: dict) -> None:
+        sha = str(rec.get("sha256") or "")
+        if sha:
+            hashes.add(sha)
+        sid = str(rec.get("source_item_id") or "")
+        if sid:
+            source_items.add(sid)
+        meta = rec.get("metadata") or {}
+        if isinstance(meta, dict):
+            cid = str(meta.get("catalog_evidence_id") or "")
+            if cid:
+                catalog_ids.add(cid)
+            sha2 = str(meta.get("sha256") or meta.get("content_sha256") or meta.get("content_hash") or "")
+            if sha2:
+                hashes.add(sha2)
+
+    for rec in evidence_repository:
+        _ingest_ops_rec(rec)
+
+    try:
+        from modules.audit_intelligence.engines import evidence_repository as ai_repo
+
+        for art in ai_repo.all_artifacts():
+            sha = str(getattr(art, "content_hash", "") or "")
+            if sha:
+                hashes.add(sha)
+            sid = str(getattr(art, "source_item_id", "") or "")
+            if sid:
+                source_items.add(sid)
+            meta = dict(getattr(art, "metadata", ()) or ())
+            cid = str(meta.get("catalog_evidence_id") or "")
+            if cid:
+                catalog_ids.add(cid)
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        from modules.audit_intelligence.services.persistence import get_persistence
+
+        for candidate in get_persistence().list_all_evidence_versions():
+            sha = str(getattr(candidate, "content_hash", "") or "")
+            if sha:
+                hashes.add(sha)
+            sid = str(getattr(candidate, "source_item_id", "") or "")
+            if sid:
+                source_items.add(sid)
+            meta = dict(getattr(candidate, "metadata", ()) or ())
+            cid = str(meta.get("catalog_evidence_id") or "")
+            if cid:
+                catalog_ids.add(cid)
+        _prof_add("seed_index_sql_persistence", 0.0, db_reads=1)
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        from ecs_platform.repository.repository import EvidenceRepository
+
+        repo = EvidenceRepository()
+        try:
+            # One scan covers prior startup seeds (catalog ~702); avoids per-row durable lookups.
+            for row in repo.search_evidence(limit=5000):
+                meta = _parse_row_metadata(row.get("metadata"))
+                sha = str(
+                    meta.get("sha256")
+                    or meta.get("content_hash")
+                    or meta.get("content_sha256")
+                    or ""
+                )
+                if sha:
+                    hashes.add(sha)
+                cid = str(meta.get("catalog_evidence_id") or "")
+                if cid:
+                    catalog_ids.add(cid)
+                sid = str(row.get("source_object_id") or meta.get("source_item_id") or "")
+                if sid:
+                    source_items.add(sid)
+            _prof_add("seed_index_canonical_pg", 0.0, db_reads=1)
+        finally:
+            repo.close()
+    except Exception:  # noqa: BLE001
+        pass
+
+    return hashes, catalog_ids, source_items
+
+
 def refresh_repository_from_frameworks(source: str = "scheduler"):
-    from modules.frameworks.engines.framework_catalog import get_all_evidence_records
+    """Seed ops repository from the in-memory framework catalog.
+
+    Unchanged catalog seeds are detected before ``register_upload`` via deterministic
+    content hash / catalog identity (avoids incompatible EVD-PCI-* vs EVD-00001 checks).
+    """
+    global _REFRESH_PROFILE
+    import time as _time
+
+    from modules.frameworks.engines.framework_catalog import catalog_stats, get_all_evidence_records
+
+    _t_refresh = _time.perf_counter()
+    stats = catalog_stats()
+    _REFRESH_PROFILE = {
+        "source": source,
+        "stages": {},
+        "counts": {
+            "frameworks": int(stats.get("framework_count", 0) or 0),
+            "controls": int(stats.get("control_count", 0) or 0),
+            "catalog_evidences": int(stats.get("evidence_count", 0) or 0),
+            "rows_seen": 0,
+            "rows_skipped_exists": 0,
+            "rows_register_called": 0,
+            "added": 0,
+            "db_reads": 0,
+            "db_writes": 0,
+        },
+    }
+
+    _t0 = _time.perf_counter()
+    rows = get_all_evidence_records()
+    _prof_add("catalog_read_parse_in_memory", _time.perf_counter() - _t0)
+    # FRAMEWORK_CATALOG is already constructed in-process (no Excel I/O here).
+    _REFRESH_PROFILE["counts"]["rows_seen"] = len(rows)
+
+    _t0 = _time.perf_counter()
+    known_hashes, known_catalog_ids, known_source_items = _collect_present_framework_seed_keys()
+    _prof_add("seed_presence_index", _time.perf_counter() - _t0)
 
     added = 0
-    for row in get_all_evidence_records():
-        exists = any(r.get("evidence_id") == row["evidence_id"] for r in evidence_repository)
-        if exists:
+    for row in rows:
+        catalog_id = str(row.get("evidence_id") or "")
+        source_item_id = _framework_seed_source_item_id(catalog_id) if catalog_id else ""
+        content = _framework_seed_bytes(row, source)
+        content_hash = compute_hash(content)
+
+        _t0 = _time.perf_counter()
+        already_present = (
+            (content_hash and content_hash in known_hashes)
+            or (catalog_id and catalog_id in known_catalog_ids)
+            or (source_item_id and source_item_id in known_source_items)
+            # Legacy incompatible ID compare kept as a harmless extra check.
+            or any(r.get("evidence_id") == catalog_id for r in evidence_repository)
+        )
+        _prof_add("exists_check_in_memory", _time.perf_counter() - _t0)
+        if already_present:
+            _REFRESH_PROFILE["counts"]["rows_skipped_exists"] += 1
             continue
-        content = f"{row['framework']}|{row['control']}|{row['evidence_name']}|{source}".encode()
-        register_upload(
+
+        _REFRESH_PROFILE["counts"]["rows_register_called"] += 1
+        _t0 = _time.perf_counter()
+        result = register_upload(
             filename=row["mock_file"],
             content=content,
             uploaded_by=row["uploaded_by"] if source == "startup" else f"Scheduler ({source})",
             framework=row["framework"],
             application=row["application_name"],
             control=row["control"],
+            source_connector="framework_catalog",
+            source_item_id=source_item_id,
+            metadata={
+                "catalog_evidence_id": catalog_id,
+                "seed_source": "framework_catalog",
+                "collection_source": "framework_catalog",
+            },
         )
+        _prof_add("register_upload_outer", _time.perf_counter() - _t0)
+        if result.get("duplicate"):
+            # Same as skip: durable/ops already had this seed; do not mutate [-1] or count as added.
+            if content_hash:
+                known_hashes.add(content_hash)
+            _REFRESH_PROFILE["counts"]["rows_skipped_exists"] += 1
+            continue
         if evidence_repository:
             evidence_repository[-1]["evidence_status"] = row.get("evidence_status", "Current")
             evidence_repository[-1]["audit_status"] = row.get("audit_status", "Pending")
@@ -459,7 +1035,53 @@ def refresh_repository_from_frameworks(source: str = "scheduler"):
             evidence_repository[-1]["comments"] = row.get("comments", "")
             evidence_repository[-1]["expiry_date"] = row.get("expiry_date", "")
             evidence_repository[-1]["server_name"] = row.get("server_name", "")
+            # Keep presence index warm for later rows in this same refresh.
+            sha = str(evidence_repository[-1].get("sha256") or content_hash)
+            if sha:
+                known_hashes.add(sha)
+            if catalog_id:
+                known_catalog_ids.add(catalog_id)
+            if source_item_id:
+                known_source_items.add(source_item_id)
         added += 1
+    _REFRESH_PROFILE["counts"]["added"] = added
+    _REFRESH_PROFILE["counts"]["db_reads"] = int((_REFRESH_PROFILE.get("counts") or {}).get("db_reads", 0) or 0)
+    _REFRESH_PROFILE["counts"]["db_writes"] = int((_REFRESH_PROFILE.get("counts") or {}).get("db_writes", 0) or 0)
+    total_s = _time.perf_counter() - _t_refresh
+    _REFRESH_PROFILE["total_seconds"] = total_s
+
+    try:
+        from modules.shared.services import ecs_logging as _ecs_log
+
+        stages = sorted(
+            ((_REFRESH_PROFILE.get("stages") or {}).items()),
+            key=lambda kv: float((kv[1] or {}).get("seconds", 0) or 0),
+            reverse=True,
+        )
+        _ecs_log.info(
+            "ECSStartupProfile",
+            f"refresh_repository_from_frameworks total={total_s:.3f}s "
+            f"frameworks={_REFRESH_PROFILE['counts']['frameworks']} "
+            f"controls={_REFRESH_PROFILE['counts']['controls']} "
+            f"catalog_evidences={_REFRESH_PROFILE['counts']['catalog_evidences']} "
+            f"register_called={_REFRESH_PROFILE['counts']['rows_register_called']} "
+            f"skipped_unchanged={_REFRESH_PROFILE['counts']['rows_skipped_exists']} "
+            f"added={added} "
+            f"db_reads={_REFRESH_PROFILE['counts'].get('db_reads', 0)} "
+            f"db_writes={_REFRESH_PROFILE['counts'].get('db_writes', 0)}",
+        )
+        for name, bucket in stages:
+            _ecs_log.info(
+                "ECSStartupProfile",
+                f"  stage={name} seconds={float(bucket.get('seconds', 0)):.3f} "
+                f"calls={int(bucket.get('calls', 0))}",
+            )
+    except Exception:  # noqa: BLE001
+        pass
+    finally:
+        # Keep last profile available for tests/diagnostics; clear active flag semantics
+        # by leaving the dict populated (read-only after return).
+        pass
     return added
 
 
@@ -566,3 +1188,28 @@ def get_summaries():
         }
         for r in evidence_repository[-20:]
     ]
+
+
+def publish_evidence(
+    filename: str,
+    content: bytes,
+    uploaded_by: str,
+    framework: str = "",
+    application: str = "Net Banking",
+    control: str = "",
+    **kwargs,
+):
+    """Canonical write entry for upload/connector bridges.
+
+    Delegates to ``register_upload`` (existing ops repository + audit mirror).
+    Callers must use this name; do not introduce a second persistence path.
+    """
+    return register_upload(
+        filename,
+        content,
+        uploaded_by,
+        framework,
+        application,
+        control,
+        **kwargs,
+    )

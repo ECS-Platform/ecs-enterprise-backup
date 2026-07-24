@@ -345,8 +345,19 @@ class FileFrameworkControlRepository(FrameworkControlRepository):
 
 
 def get_framework_control_repository() -> FrameworkControlRepository:
-    """Return the process-default file repository (shared cache across callers)."""
-    global _default_repo
-    if _default_repo is None:
-        _default_repo = FileFrameworkControlRepository()
-    return _default_repo
+    """Shared Phase-1 file-catalogue repository (process-local singleton).
+
+    Instance methods use ``lru_cache`` for YAML loads; callers must reuse one
+    repository instance so those caches remain effective across rows/requests.
+    """
+    return _shared_file_framework_control_repository()
+
+
+@lru_cache(maxsize=1)
+def _shared_file_framework_control_repository() -> FileFrameworkControlRepository:
+    return FileFrameworkControlRepository()
+
+
+def clear_framework_control_repository_cache() -> None:
+    """Drop the process-local FCM repository singleton (tests / catalog reload)."""
+    _shared_file_framework_control_repository.cache_clear()

@@ -20,7 +20,7 @@ from modules.operations.engines.evidence_repository import (
     get_health_dashboard,
     get_reuse_graph,
     get_summaries,
-    register_upload,
+    publish_evidence,
     upload_tracker,
 )
 from modules.operations.engines.integrations_module import get_integration_dashboard, simulate_sync
@@ -279,7 +279,9 @@ def register_mvp_routes(app, templates):
         role: str = Form("owner"),
         user: str = Form("User"),
         return_to: str = Form("detail"),
-        persist: str = Form("false"),
+        # Phase-1 Run Query always persists evidence (JSON → SHA-256 → PG → MinIO → index).
+        # Opt out only with an explicit persist=false form field (preview/debug).
+        persist: str = Form("true"),
     ):
         from modules.operations.engines.predefined_queries_engine import run_predefined_query
 
@@ -545,12 +547,30 @@ def register_mvp_routes(app, templates):
         if not evidence_id:
             return HTMLResponse("<p>Missing evidence_id.</p>", status_code=400)
 
+        requested_id = str(evidence_id).strip()
+        resolved_id = requested_id
+        auth_row = None
+        try:
+            from modules.shared.services.evidence_authoritative_reader import (
+                get_authoritative_evidence,
+            )
+
+            auth_row = get_authoritative_evidence(requested_id)
+            if auth_row and auth_row.get("evidence_id"):
+                resolved_id = str(auth_row.get("evidence_id"))
+        except Exception:
+            auth_row = None
+
+        def _ids_match(candidate) -> bool:
+            value = str(candidate or "")
+            return value == requested_id or value == resolved_id
+
         artifact = None
         try:
             from modules.audit_intelligence.services.persistence import get_persistence
 
             for art in get_persistence().list_all_evidence_versions():
-                if getattr(art, "evidence_id", "") == evidence_id:
+                if _ids_match(getattr(art, "evidence_id", "")):
                     artifact = art
                     break
         except Exception:
@@ -560,7 +580,7 @@ def register_mvp_routes(app, templates):
                 from modules.audit_intelligence.engines import evidence_repository as ai_repo
 
                 for art in ai_repo.all_artifacts():
-                    if getattr(art, "evidence_id", "") == evidence_id:
+                    if _ids_match(getattr(art, "evidence_id", "")):
                         artifact = art
                         break
             except Exception:
@@ -570,38 +590,57 @@ def register_mvp_routes(app, templates):
                 from modules.operations.engines import evidence_repository as ops_repo
 
                 ops_rec = next(
-                    (r for r in ops_repo.evidence_repository if str(r.get("evidence_id", "")) == evidence_id),
+                    (
+                        r for r in ops_repo.evidence_repository
+                        if _ids_match(r.get("evidence_id", ""))
+                        or _ids_match(r.get("display_evidence_id", ""))
+                        or _ids_match((r.get("metadata") or {}).get("display_evidence_id", ""))
+                    ),
                     None,
                 )
             except Exception:
                 ops_rec = None
+            if ops_rec is None and auth_row is not None:
+                ops_rec = auth_row
             if ops_rec is not None:
                 meta = dict(ops_rec.get("metadata") or {})
-                framework = str((ops_rec.get("framework_tags") or [""])[0])
+                framework = str(
+                    (ops_rec.get("framework_tags") or [ops_rec.get("framework") or ""])[0]
+                    if isinstance(ops_rec.get("framework_tags"), list)
+                    else (ops_rec.get("framework") or "")
+                )
+                eid = str(ops_rec.get("evidence_id") or resolved_id or requested_id)
                 if str(format).strip().lower() == "json":
                     return JSONResponse({
                         "ok": True,
-                        "evidence_id": evidence_id,
-                        "evidence_name": str(ops_rec.get("filename") or evidence_id),
+                        "evidence_id": eid,
+                        "display_evidence_id": str(
+                            ops_rec.get("display_evidence_id") or meta.get("display_evidence_id") or ""
+                        ),
+                        "evidence_name": str(ops_rec.get("filename") or eid),
                         "source": str(ops_rec.get("source_connector") or "mock_evidence"),
                         "source_connector": str(ops_rec.get("source_connector") or "mock_evidence"),
-                        "application": str((ops_rec.get("application_tags") or [""])[0]),
+                        "application": str(
+                            (ops_rec.get("application_tags") or [ops_rec.get("application") or ""])[0]
+                            if isinstance(ops_rec.get("application_tags"), list)
+                            else (ops_rec.get("application") or "")
+                        ),
                         "environment": str(meta.get("environment") or ops_rec.get("environment") or ""),
                         "framework": framework,
-                        "control": str(ops_rec.get("control") or ""),
-                        "control_id": str(ops_rec.get("control") or ""),
+                        "control": str(ops_rec.get("control") or ops_rec.get("control_id") or ""),
+                        "control_id": str(ops_rec.get("control_id") or ops_rec.get("control") or ""),
                         "custody_mode": str(ops_rec.get("custody_mode") or ""),
                         "mime_type": str(ops_rec.get("mime_type") or ""),
-                        "collected_at": str(ops_rec.get("uploaded_at") or ""),
+                        "collected_at": str(ops_rec.get("uploaded_at") or ops_rec.get("collected_at") or ""),
                         "run_id": str(meta.get("scheduler_run_id") or ""),
                         "sha256": str(ops_rec.get("sha256") or ""),
                         "duplicate_state": "duplicate" if str(ops_rec.get("status", "")).upper() == "DUPLICATE" else "accepted",
-                        "version": int(ops_rec.get("version") or 1),
-                        "workflow_status": str(ops_rec.get("status") or "Uploaded"),
+                        "version": int(ops_rec.get("version") or ops_rec.get("audit_version") or 1),
+                        "workflow_status": str(ops_rec.get("workflow_status") or ops_rec.get("status") or "Uploaded"),
                         "pgvector_status": "indexed" if (ops_rec.get("search_index") or {}).get("indexed") else "not_indexed",
                         "object_uri": str(ops_rec.get("object_uri") or ""),
-                        "object_key": str(meta.get("object_key") or ops_rec.get("object_uri") or ""),
-                        "object_reference": str(meta.get("object_key") or ops_rec.get("object_uri") or ""),
+                        "object_key": str(meta.get("object_key") or ops_rec.get("object_uri") or ops_rec.get("object_key") or ""),
+                        "object_reference": str(meta.get("object_key") or ops_rec.get("object_uri") or ops_rec.get("object_reference") or ""),
                         "content_text": str(ops_rec.get("summary") or meta),
                         "metadata": meta,
                     })
@@ -647,7 +686,11 @@ def register_mvp_routes(app, templates):
                 from modules.operations.engines import evidence_repository as ops_repo
 
                 rec = next(
-                    (r for r in ops_repo.evidence_repository if str(r.get("evidence_id", "")) == evidence_id),
+                    (
+                        r for r in ops_repo.evidence_repository
+                        if str(r.get("evidence_id", "")) in {requested_id, resolved_id}
+                        or str(r.get("display_evidence_id", "")) in {requested_id, resolved_id}
+                    ),
                     None,
                 )
                 if rec:
@@ -765,7 +808,7 @@ def register_mvp_routes(app, templates):
         count = 0
         for f in files:
             content = await f.read()
-            register_upload(f.filename, content, user, framework, application)
+            publish_evidence(f.filename, content, user, framework, application)
             count += 1
         notice = quote(f"Bulk upload complete: {count} file(s) with metadata tags applied.")
         return RedirectResponse(url=f"/mvp/upload?role={role}&user={user}&notice={notice}", status_code=303)

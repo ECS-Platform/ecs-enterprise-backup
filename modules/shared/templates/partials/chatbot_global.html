@@ -15,12 +15,10 @@
 <div class="ecs-chat-panel" id="ecsChatPanel">
 <div class="ecs-chat-header">
 <div class="ecs-chat-header-main">
-<span class="ecs-chat-logo">✦</span>
-<div class="ecs-chat-header-text">
+<span class="ecs-chat-logo" aria-hidden="true">✦</span>
 <strong class="ecs-chat-title">ECS Operations Copilot</strong>
-<small class="chat-ts d-block">Governance &amp; operations intelligence</small>
-</div>
-<span class="badge bg-primary ecs-chat-role-badge ms-1">{{ role|replace('_',' ')|title }}</span>
+<small class="chat-ts ecs-chat-subtitle">Governance &amp; operations intelligence</small>
+<span class="badge bg-primary ecs-chat-role-badge">{{ role|replace('_',' ')|title }}</span>
 </div>
 <div class="ecs-chat-header-controls" role="toolbar" aria-label="Copilot controls">
 <div class="btn-group btn-group-sm ecs-chat-dock-group me-1" role="group" aria-label="Dock position">
@@ -41,40 +39,33 @@
 </div>
 
 <div class="ecs-chat-body" id="ecsChatBody">
-<div class="ecs-chat-split">
-<div class="ecs-chat-answer-panel">
-<div class="ecs-chat-history" id="ecsChatHistory">
+<div class="ecs-chat-output" id="ecsChatOutput">
 {% if chat_history is defined and chat_history %}
 {% for h in chat_history %}
 <div class="ecs-chat-msg ecs-chat-msg-user"><small class="text-muted">{{ h.timestamp }} · You</small><div>{{ h.query }}</div></div>
 <div class="ecs-chat-msg ecs-chat-msg-bot"><small class="text-muted">Copilot</small><div>{{ h.response[:280] }}{% if h.response|length > 280 %}…{% endif %}</div></div>
 {% endfor %}
 {% endif %}
-</div>
-<div class="ecs-chat-answer-main" id="ecsChatAnswerMain">
 {% if chat_response_html is defined and chat_response_html %}
+<div class="ecs-chat-msg ecs-chat-msg-bot ecs-chat-msg-latest">
+<small class="text-muted">Copilot</small>
 <div class="ecs-chat-response ecs-chat-response-html" id="ecsChatLatest">{{ chat_response_html|safe }}</div>
+</div>
 {% elif response %}
+<div class="ecs-chat-msg ecs-chat-msg-bot ecs-chat-msg-latest">
+<small class="text-muted">Copilot</small>
 <div class="ecs-chat-response" id="ecsChatLatest" style="white-space: pre-wrap;">{{ response }}</div>
+</div>
 {% endif %}
 </div>
+
+<div class="ecs-chat-prompts" id="ecsChatPrompts">
+<div class="ecs-chat-ceq-presets" id="ecsCeqPresets" aria-live="polite">
+<div class="ecs-ceq-presets-title">Suggested questions</div>
+<div class="ecs-ceq-loading text-muted small fst-italic">Loading suggestions…</div>
 </div>
-<div class="ecs-chat-ref-panel" id="ecsChatRefPanel">
-<div class="ecs-chat-ref-header">
-<button type="button" class="ecs-chat-ref-toggle btn btn-link btn-sm p-0" id="ecsChatRefToggle" title="Collapse references">◀</button>
-<span>References &amp; Evidence</span>
-</div>
-<div class="ecs-chat-ref-body" id="ecsChatRefBody">
-<p class="text-muted small mb-0">Citations, evidence links, and linked observations appear here when Copilot responds.</p>
-</div>
-</div>
-</div>
-<div class="ecs-chat-ceq-presets mb-2" id="ecsCeqPresets" aria-live="polite">
-<small class="text-muted d-block mb-1">Common evidence queries:</small>
-<div class="ecs-ceq-loading text-muted small fst-italic">Loading presets…</div>
-</div>
-<div class="ecs-chat-suggestions mb-2">
-<small class="text-muted d-block mb-1">Quick asks:</small>
+<div class="ecs-chat-suggestions">
+<small class="text-muted d-block mb-1">Quick asks</small>
 <div class="d-flex flex-wrap gap-1">
 <button type="button" class="btn btn-outline-danger btn-sm ecs-suggest-btn" data-q="Why is Net Banking down?">Net Banking outage</button>
 <button type="button" class="btn btn-outline-danger btn-sm ecs-suggest-btn" data-q="Why are UPI transactions failing?">UPI delays</button>
@@ -89,6 +80,9 @@
 {% endif %}
 </div>
 </div>
+</div>
+
+<div class="ecs-chat-composer">
 <form method="post" action="/mvp/chat" id="ecsChatForm">
 <input type="hidden" name="role" value="{{role}}">
 <input type="hidden" name="user" value="{{user}}">
@@ -96,9 +90,12 @@
 {% if framework_name is defined and framework_name %}
 <input type="hidden" name="framework_name" value="{{framework_name}}">
 {% endif %}
-<input class="form-control form-control-sm mb-2" name="query" id="ecsChatInput" placeholder="e.g. Why is Net Banking down? Show DR readiness" required autocomplete="off">
-<button class="btn btn-ecs-primary btn-primary w-100 btn-sm">Ask Copilot</button>
+<div class="ecs-chat-form-row">
+<textarea class="form-control form-control-sm" name="query" id="ecsChatInput" rows="1" placeholder="Ask about evidence, controls, compliance, risks, or operations..." required></textarea>
+<button class="btn btn-ecs-primary btn-primary btn-sm" type="submit">Ask</button>
+</div>
 </form>
+</div>
 </div>
 <div class="ecs-chat-resize-handle" id="ecsChatResizeHandle" title="Drag to resize"></div>
 </div>
@@ -110,6 +107,12 @@
   var role = {{ role|tojson }};
   var storageKey = 'ecs_copilot_ui_' + String(user).replace(/\s/g,'_') + '_' + role;
   var persistKey = 'ecs_copilot_persist_' + role;
+  var GROUP_LABELS = {
+    'Recent Evidence': 'Recent Evidence',
+    'Scheduler Run': 'Scheduler',
+    'Review & Observations': 'Review & Observations',
+    'Coverage & Gaps': 'Reuse, Framework & Applications'
+  };
 
   function loadState() {
     try {
@@ -141,11 +144,16 @@
   var collapsedBar = document.getElementById('ecsChatCollapsedBar');
   var fab = document.getElementById('ecsChatFab');
   var body = document.getElementById('ecsChatBody');
-  var hist = document.getElementById('ecsChatHistory');
+  var hist = null; /* legacy; output is the single message stream */
+  var output = document.getElementById('ecsChatOutput');
   var latest = document.getElementById('ecsChatLatest');
   var unreadBadge = document.getElementById('ecsChatUnreadBadge');
   var fabBadge = document.getElementById('ecsChatFabBadge');
   var alertBadge = document.getElementById('ecsChatAlertBadge');
+
+  function scrollOutputToBottom() {
+    if (output) output.scrollTop = output.scrollHeight;
+  }
 
   function setState(state) {
     copilot.setAttribute('data-state', state);
@@ -176,22 +184,20 @@
   }
 
   function saveScroll() {
-    saveState({
-      scrollHistory: hist ? hist.scrollTop : 0,
-      scrollLatest: latest ? latest.scrollTop : 0
-    });
+    saveState({ scrollOutput: output ? output.scrollTop : 0 });
   }
   function restoreScroll() {
     var s = loadState();
-    if (hist && s.scrollHistory != null) hist.scrollTop = s.scrollHistory;
-    if (latest && s.scrollLatest != null) latest.scrollTop = s.scrollLatest;
-    else {
-      if (hist) hist.scrollTop = hist.scrollHeight;
-      if (latest) latest.scrollTop = latest.scrollHeight;
-    }
+    if (!output) return;
+    if (s.scrollOutput != null) output.scrollTop = s.scrollOutput;
+    else scrollOutputToBottom();
   }
 
   var ceqBusy = false;
+  var pendingQueryKey = '';
+  var pendingApplication = '';
+  var pendingFramework = '';
+  var pendingFilledText = '';
 
   function escHtml(s) {
     if (s == null) return '';
@@ -202,83 +208,461 @@
     return new Date().toISOString().slice(11, 16) + ' UTC';
   }
 
-  function appendChatExchange(question, html) {
-    if (hist) {
+  function evidenceViewUrl(evidenceId) {
+    return '/mvp/scheduler/fetched-evidence/view?evidence_id=' + encodeURIComponent(evidenceId);
+  }
+
+  function isTechnicalLine(line) {
+    var t = String(line || '').trim();
+    if (!t) return false;
+    return /^(Query type|Result|Handler|Preset|Pipeline|answer_source|Answer source)\s*:/i.test(t)
+      || /^(Deterministic|Deterministic_SQL|RAG|Semantic|LLM|DETERMINISTIC)\s*$/i.test(t)
+      || /^Query type:\s*(Deterministic|RAG|Semantic)/i.test(t);
+  }
+
+  function softPrompt(question) {
+    var q = String(question || '').trim();
+    if (!q) return '';
+    // Light phrasing polish for preset catalogue questions — presentation only.
+    q = q.replace(/^Show the last 5 evidences collected$/i, 'Show me the last 5 pieces of evidence.');
+    q = q.replace(/^Show the latest evidence for (.+)$/i, 'Show me the latest evidence for $1.');
+    q = q.replace(/^Show evidence collected for (.+)$/i, 'Show me evidence collected for $1.');
+    q = q.replace(/^Show evidence collected in the latest scheduler run$/i, 'Show me evidence from the latest scheduler run.');
+    q = q.replace(/^Show duplicate evidences skipped in the latest run$/i, 'Show me duplicate evidence skipped in the latest run.');
+    q = q.replace(/^Show failed evidence collections$/i, 'Show me failed evidence collections.');
+    q = q.replace(/^Show evidences pending review$/i, 'Show me evidence pending review.');
+    q = q.replace(/^Show recently approved evidences$/i, 'Show me recently approved evidence.');
+    q = q.replace(/^Show latest evidence versions$/i, 'Show me the latest evidence versions.');
+    q = q.replace(/^Show evidence expiring in the next 30 days$/i, 'Show me evidence expiring in the next 30 days.');
+    q = q.replace(/^Show the latest 5 open observations$/i, 'Show me the latest open observations.');
+    q = q.replace(/^Show high-risk open observations$/i, 'Show me high-risk open observations.');
+    q = q.replace(/^Show overdue observations$/i, 'Show me overdue observations.');
+    q = q.replace(/^Show open observations for (.+)$/i, 'Show me open observations for $1.');
+    q = q.replace(/^Show open (.+) observations$/i, 'Show me open $1 observations.');
+    q = q.replace(/^Show rejected evidences requiring resubmission$/i, 'Show me rejected evidence that needs resubmission.');
+    q = q.replace(/^Show evidence count by framework$/i, 'Show me evidence counts by framework.');
+    q = q.replace(/^Show evidence count by application$/i, 'Show me evidence counts by application.');
+    q = q.replace(/^Show controls without evidence$/i, 'Show me controls that still need evidence.');
+    q = q.replace(/^Show evidences reused across frameworks$/i, 'Show me evidence reused across frameworks.');
+    q = q.replace(/^Show evidences not indexed in PGVector$/i, 'Show me evidence that is not yet indexed for search.');
+    return q;
+  }
+
+  function fillComposer(question, opts) {
+    opts = opts || {};
+    var input = document.getElementById('ecsChatInput');
+    if (!input) return;
+    input.value = softPrompt(question || opts.question || '');
+    pendingQueryKey = opts.queryKey || '';
+    pendingApplication = opts.application || '';
+    pendingFramework = opts.framework || '';
+    pendingFilledText = input.value;
+    input.focus();
+    if (typeof input.setSelectionRange === 'function') {
+      var len = input.value.length;
+      input.setSelectionRange(len, len);
+    }
+  }
+
+  function lightMarkdown(text) {
+    var s = escHtml(text || '');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|\s)\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    return s;
+  }
+
+  function humanizePlainText(text, citations) {
+    var raw = String(text || '').replace(/\r/g, '');
+    var lines = raw.split('\n');
+    var kept = [];
+    var items = [];
+    var currentItem = null;
+
+    function flushItem() {
+      if (!currentItem) return;
+      items.push(currentItem);
+      currentItem = null;
+    }
+
+    lines.forEach(function(line){
+      var trimmed = line.trim();
+      if (!trimmed || isTechnicalLine(trimmed)) return;
+      if (/^Citations?:/i.test(trimmed)) return;
+      if (/^-\s*EVD-/i.test(trimmed)) return;
+
+      var numbered = trimmed.match(/^(\d+)\.\s+(.*)$/);
+      if (numbered) {
+        flushItem();
+        var title = numbered[2];
+        var eidMatch = title.match(/\b(EVD-[A-Za-z0-9_-]+)\b/i);
+        currentItem = {
+          title: title,
+          evidence_id: eidMatch ? eidMatch[1] : '',
+          app: '', fw: '', control: '', source: '', collected: '', status: '', version: ''
+        };
+        return;
+      }
+      if (currentItem) {
+        var mApp = trimmed.match(/^Application:\s*(.+)$/i);
+        var mFw = trimmed.match(/^Framework:\s*(.+)$/i);
+        var mCtrl = trimmed.match(/^Control:\s*(.+)$/i);
+        var mCol = trimmed.match(/^Collected:\s*(.+)$/i);
+        var mStat = trimmed.match(/^Status:\s*(.+)$/i);
+        var mSrc = trimmed.match(/^Source:\s*(.+)$/i);
+        var mVer = trimmed.match(/^Version:\s*(.+)$/i);
+        var mEid = trimmed.match(/^Evidence ID:\s*(.+)$/i);
+        var mView = trimmed.match(/^View Evidence:\s*(.+)$/i);
+        if (mApp) { currentItem.app = mApp[1]; return; }
+        if (mFw) { currentItem.fw = mFw[1]; return; }
+        if (mCtrl) { currentItem.control = mCtrl[1]; return; }
+        if (mCol) { currentItem.collected = mCol[1]; return; }
+        if (mStat) { currentItem.status = mStat[1]; return; }
+        if (mSrc) { currentItem.source = mSrc[1]; return; }
+        if (mVer) { currentItem.version = mVer[1]; return; }
+        if (mEid) {
+          currentItem.evidence_id = mEid[1].trim();
+          return;
+        }
+        if (mView) {
+          var hrefMatch = mView[1].match(/evidence_id=([^&\s]+)/i);
+          if (hrefMatch) currentItem.evidence_id = decodeURIComponent(hrefMatch[1]);
+          else if (/^EVD-/i.test(mView[1].trim())) currentItem.evidence_id = mView[1].trim();
+          return;
+        }
+      }
+      if (/^(Source|Application|Framework|Control|Collected|Status|View Evidence|Evidence ID|Version)\s*:/i.test(trimmed)) {
+        return;
+      }
+      flushItem();
+      kept.push(trimmed);
+    });
+    flushItem();
+
+    // Merge citation metadata into parsed items (and fill gaps).
+    var cites = (citations || []).filter(function(c){ return c && c.evidence_id; });
+    items.forEach(function(item, idx){
+      var cite = cites[idx] || null;
+      if (!cite && item.evidence_id) {
+        for (var i = 0; i < cites.length; i++) {
+          if (String(cites[i].evidence_id) === String(item.evidence_id)) { cite = cites[i]; break; }
+        }
+      }
+      if (!cite) return;
+      if (!item.evidence_id) item.evidence_id = cite.evidence_id || '';
+      if (!item.app) item.app = cite.application || '';
+      if (!item.fw) item.fw = cite.framework || '';
+      if (!item.control) item.control = cite.control_id || cite.control || '';
+      if (!item.source) item.source = cite.source_connector || cite.source_type || cite.source || '';
+      if (!item.status) item.status = cite.status || cite.workflow_status || '';
+      if (!item.collected) item.collected = (cite.collected_at || cite.uploaded_at || '').toString().slice(0, 19);
+      if (!item.version && (cite.version != null && cite.version !== '')) item.version = String(cite.version);
+    });
+
+    // If answer text had no numbered items, build cards from citations.
+    if (!items.length && cites.length) {
+      cites.forEach(function(cite){
+        items.push({
+          title: cite.evidence_id || '',
+          evidence_id: cite.evidence_id || '',
+          app: cite.application || '',
+          fw: cite.framework || '',
+          control: cite.control_id || cite.control || '',
+          source: cite.source_connector || cite.source_type || cite.source || '',
+          collected: (cite.collected_at || cite.uploaded_at || '').toString().slice(0, 19),
+          status: cite.status || cite.workflow_status || '',
+          version: cite.version != null ? String(cite.version) : ''
+        });
+      });
+    }
+
+    function rewriteLead(text) {
+      var t = String(text || '').replace(/^Result:\s*/i, '');
+      t = t.replace(/^Last 5 evidences collected$/i, 'I found the five most recent evidence items collected for your accessible applications.');
+      t = t.replace(/^Last (\d+) evidences collected$/i, 'I found the $1 most recent evidence items collected for your accessible applications.');
+      t = t.replace(/^Latest evidence for (.+)$/i, 'Here is the latest evidence for $1.');
+      t = t.replace(/^Evidence collected for (.+)$/i, 'Here is evidence collected for $1.');
+      t = t.replace(/^No matching evidence found\.?$/i, 'I could not find matching evidence for that request.');
+      return t;
+    }
+
+    var evidenceItems = items.filter(function(it){ return it.evidence_id || /^EVD-/i.test(it.title || ''); });
+    var otherItems = items.filter(function(it){ return !(it.evidence_id || /^EVD-/i.test(it.title || '')); });
+    var lead = '';
+    if (evidenceItems.length || otherItems.length) {
+      lead = kept.length
+        ? rewriteLead(kept.shift())
+        : (items.length === 1
+          ? 'I found 1 matching result for your accessible scope.'
+          : ('I found ' + items.length + ' matching results for your accessible scope.'));
+    } else if (kept.length) {
+      lead = rewriteLead(kept.shift());
+    } else {
+      lead = 'I could not find matching evidence for that request.';
+    }
+
+    var html = '<div class="ecs-ceq-rich">';
+    html += '<p class="ecs-ceq-lead">' + lightMarkdown(lead);
+    if (evidenceItems.length && evidenceItems.length <= 5) {
+      evidenceItems.forEach(function(_it, idx){
+        html += ' <span class="ecs-chat-cite-mark">' + (idx + 1) + '</span>';
+      });
+    }
+    html += '</p>';
+    if (kept.length) {
+      kept.forEach(function(line){
+        html += '<p>' + lightMarkdown(line) + '</p>';
+      });
+    }
+    if (otherItems.length) {
+      html += '<ul class="ecs-ceq-bullets">';
+      otherItems.forEach(function(item){
+        var bits = [];
+        if (item.app) bits.push(item.app);
+        if (item.fw) bits.push(item.fw);
+        if (item.control) bits.push(item.control);
+        if (item.status) bits.push(item.status);
+        var line = item.title || 'Item';
+        if (bits.length) line += ' — ' + bits.join(' · ');
+        html += '<li>' + lightMarkdown(line) + '</li>';
+      });
+      html += '</ul>';
+    }
+    if (evidenceItems.length) {
+      var pageSize = 5;
+      var total = evidenceItems.length;
+      var initial = Math.min(pageSize, total);
+      html += '<div class="ecs-ev-inline-list" data-ev-total="' + total + '" data-ev-shown="' + initial + '">';
+      if (total > pageSize) {
+        html += '<div class="ecs-ev-showing" aria-live="polite">Showing ' + initial + ' of ' + total + ' results.</div>';
+      }
+      evidenceItems.forEach(function(item, idx){
+        html += buildEvidenceCard(item, idx + 1, idx >= pageSize);
+      });
+      if (total > pageSize) {
+        html += '<button type="button" class="btn btn-sm btn-outline-secondary ecs-ev-show-all">Show all</button>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function formatConversationHtml(html, citations) {
+    if (!html) return '';
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html;
+
+    // Preserve rich ops-intel / investigation cards; only humanize CEQ text blocks.
+    var hasSpecial = !!wrap.querySelector('.ecs-ops-intel-card, .ecsOpsInvestigation, .chart-card, details, table');
+
+    // Drop duplicate raw View Evidence buttons from backend HTML; cards replace them.
+    wrap.querySelectorAll('a.btn, .ecs-ceq-response > a.btn, .ecs-ceq-response > .btn').forEach(function(el){
+      var href = el.getAttribute('href') || '';
+      if (href.indexOf('evidence_id=') !== -1 || /View\s+EVD-/i.test(el.textContent || '') || /View Evidence/i.test(el.textContent || '')) {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }
+    });
+
+    if (!hasSpecial) {
+      var pre = wrap.querySelector('pre');
+      var textSource = pre ? pre.textContent : wrap.textContent;
+      if (textSource && textSource.trim()) {
+        return humanizePlainText(textSource, citations || []);
+      }
+    }
+
+    wrap.querySelectorAll('pre').forEach(function(pre){
+      var block = document.createElement('div');
+      block.innerHTML = humanizePlainText(pre.textContent || '', citations || []);
+      if (pre.parentNode) pre.parentNode.replaceChild(block.firstChild || block, pre);
+    });
+    return wrap.innerHTML;
+  }
+
+  function buildEvidenceCard(item, index, hidden) {
+    var eid = String(item.evidence_id || '').trim();
+    if (!eid && /^EVD-/i.test(item.title || '')) eid = String(item.title).trim();
+    if (!eid) return '';
+
+    var app = item.app || item.application || '';
+    var fw = item.fw || item.framework || '';
+    var control = item.control || item.control_id || '';
+    var source = item.source || item.source_connector || item.source_type || '';
+    var status = item.status || item.workflow_status || '';
+    var collected = item.collected || item.collected_at || item.uploaded_at || '';
+    if (collected) collected = String(collected).slice(0, 19);
+    var version = item.version != null && item.version !== '' ? String(item.version) : '1';
+
+    var line1 = [app, fw || control].filter(Boolean).join(' · ');
+    if (fw && control && fw !== control) line1 = [app, fw, control].filter(Boolean).join(' · ');
+    var line2 = [source, status, collected ? ('Collected ' + collected) : '', 'v' + version]
+      .filter(Boolean).join(' · ');
+
+    var hiddenClass = hidden ? ' ecs-ev-card-hidden' : '';
+    var html = '<article class="ecs-ev-card' + hiddenClass + '" data-evidence-id="' + escHtml(eid) + '">';
+    html += '<div class="ecs-ev-card-top">';
+    html += '<div class="ecs-ev-card-id"><span class="ecs-ev-card-num">' + escHtml(String(index)) + '</span>' + escHtml(eid) + '</div>';
+    html += '<a class="btn btn-sm btn-outline-primary ecs-ev-view-btn" href="' + escHtml(evidenceViewUrl(eid)) + '">View Evidence</a>';
+    html += '</div>';
+    if (line1) html += '<div class="ecs-ev-card-line">' + escHtml(line1) + '</div>';
+    if (line2) html += '<div class="ecs-ev-card-line ecs-ev-card-line-muted">' + escHtml(line2) + '</div>';
+    html += '</article>';
+    return html;
+  }
+
+  function bindEvidenceShowAll(root) {
+    (root || document).querySelectorAll('.ecs-ev-inline-list').forEach(function(list){
+      if (list._ecsEvShowAllBound) return;
+      list._ecsEvShowAllBound = true;
+      var btn = list.querySelector('.ecs-ev-show-all');
+      if (!btn) return;
+      btn.addEventListener('click', function(){
+        var total = parseInt(list.getAttribute('data-ev-total') || '0', 10) || 0;
+        list.querySelectorAll('.ecs-ev-card.ecs-ev-card-hidden').forEach(function(card){
+          card.classList.remove('ecs-ev-card-hidden');
+        });
+        list.setAttribute('data-ev-shown', String(total));
+        var status = list.querySelector('.ecs-ev-showing');
+        if (status) status.textContent = 'Showing ' + total + ' of ' + total + ' results.';
+        btn.remove();
+        scrollOutputToBottom();
+      });
+    });
+  }
+
+  function finalizeAssistantResponse(el, citations) {
+    if (!el) return;
+    if (!el.classList.contains('ecs-chat-response-html')) {
+      el.classList.add('ecs-chat-response-html');
+    }
+    if (!el.querySelector('.ecs-ceq-rich, .ecs-ev-card') &&
+        (el.querySelector('pre') || /Query type:/i.test(el.textContent || '') || (citations && citations.length))) {
+      el.innerHTML = formatConversationHtml(el.innerHTML, citations || []);
+    }
+    bindEvidenceShowAll(el);
+  }
+
+  function clearOutputArea() {
+    if (output) output.innerHTML = '';
+    latest = null;
+  }
+
+  function renderDeterministicResult(question, html, citations) {
+    // Command-style: replace the entire output with only this CEQ result.
+    clearOutputArea();
+    var formatted = formatConversationHtml(html, citations || []);
+    if (!output) return;
+
+    if (question) {
       var userMsg = document.createElement('div');
       userMsg.className = 'ecs-chat-msg ecs-chat-msg-user';
       userMsg.innerHTML = '<small class="text-muted">' + timestampUtc() + ' · You</small><div>' + escHtml(question) + '</div>';
-      hist.appendChild(userMsg);
-      var botMsg = document.createElement('div');
-      botMsg.className = 'ecs-chat-msg ecs-chat-msg-bot';
-      botMsg.innerHTML = '<small class="text-muted">Copilot</small><div class="ecs-chat-response ecs-chat-response-html">' + html + '</div>';
-      hist.appendChild(botMsg);
-      hist.scrollTop = hist.scrollHeight;
+      output.appendChild(userMsg);
     }
-    var panel = ensureLatestPanel();
-    panel.innerHTML = html;
-    panel.scrollTop = panel.scrollHeight;
-    splitCopilotPanels();
-    bindCeqPresets(panel);
-    bindQuickActions(panel);
-    bindSuggestButtons(panel);
+
+    var panelEl = ensureLatestPanel();
+    panelEl.innerHTML = formatted;
+    bindEvidenceShowAll(panelEl);
+    scrollOutputToBottom();
+    bindQuickActions(panelEl);
+    bindSuggestButtons(panelEl);
     if (window.ecsRefreshPagination) window.ecsRefreshPagination();
   }
 
-  function runCommonEvidenceQuery(btn) {
-    if (!btn || ceqBusy || btn.disabled) return;
-    var queryKey = btn.getAttribute('data-query-key') || '';
-    var question = btn.getAttribute('data-question') || btn.textContent.trim();
-    if (!queryKey && !question) return;
-    ceqBusy = true;
-    btn.disabled = true;
-    btn.setAttribute('aria-busy', 'true');
+  function askCopilot() {
+    if (ceqBusy) return;
     var input = document.getElementById('ecsChatInput');
-    if (input) input.value = question;
-    var loadingId = 'ecsCeqLoadingMsg';
-    var panel = ensureLatestPanel();
-    panel.innerHTML = '<div id="' + loadingId + '" class="text-muted small fst-italic py-2">Running query…</div>';
+    var question = input ? String(input.value || '').trim() : '';
+    var queryKey = pendingQueryKey;
+    if (!queryKey && !question) return;
+
+    // Free-text (no pending preset key) keeps the classic /mvp/chat route so
+    // ops-intel, knowledge, and RAG conversation history stay unchanged.
+    if (!queryKey) {
+      var form = document.getElementById('ecsChatForm');
+      if (form) form.submit();
+      return;
+    }
+
+    // Deterministic CEQ presets are command-style: clear prior output first.
+    clearOutputArea();
+    ceqBusy = true;
+    var panelEl = ensureLatestPanel();
+    panelEl.innerHTML = '<div class="text-muted small fst-italic py-2">Thinking…</div>';
+    scrollOutputToBottom();
+
     var fd = new FormData();
     fd.append('role', role);
     fd.append('user', user);
-    if (queryKey) fd.append('query_key', queryKey);
+    fd.append('query_key', queryKey);
     if (question) fd.append('query', question);
-    var app = btn.getAttribute('data-application') || '';
-    var fw = btn.getAttribute('data-framework') || '';
-    if (app) fd.append('application', app);
-    if (fw) fd.append('framework', fw);
+    if (pendingApplication) fd.append('application', pendingApplication);
+    if (pendingFramework) fd.append('framework', pendingFramework);
     var fwInput = document.querySelector('input[name="framework_name"]');
     if (fwInput && fwInput.value) fd.append('framework_name', fwInput.value);
+
+    pendingQueryKey = '';
+    pendingApplication = '';
+    pendingFramework = '';
+    pendingFilledText = '';
+
     fetch('/mvp/api/common-evidence-query', { method: 'POST', body: fd })
       .then(function(r){ return r.json(); })
       .then(function(data){
         if (!data) throw new Error('empty response');
         if (!data.ok && data.error) {
-          panel.innerHTML = '<div class="alert alert-danger py-2 small mb-0">' + escHtml(data.error) + '</div>';
+          clearOutputArea();
+          panelEl = ensureLatestPanel();
+          panelEl.innerHTML = '<div class="alert alert-danger py-2 small mb-0">' + escHtml(data.error) + '</div>';
           return;
         }
-        appendChatExchange(data.query || question, data.html || escHtml(data.plain || 'No response'));
+        // Parameter prompts (pick application/framework) still use chip buttons.
+        if (data.needs_parameter && data.html) {
+          clearOutputArea();
+          panelEl = ensureLatestPanel();
+          panelEl.innerHTML = data.html;
+          bindCeqPresets(panelEl);
+          return;
+        }
+        renderDeterministicResult(
+          data.query || question,
+          data.html || escHtml(data.plain || 'No response'),
+          data.citations || []
+        );
+        if (input) input.value = '';
       })
       .catch(function(err){
-        console.error('Common evidence query failed', err);
-        panel.innerHTML = '<div class="alert alert-danger py-2 small mb-0">Unable to run query. Please try again.</div>';
+        console.error('Copilot ask failed', err);
+        clearOutputArea();
+        panelEl = ensureLatestPanel();
+        panelEl.innerHTML = '<div class="alert alert-danger py-2 small mb-0">Unable to run that request. Please try again.</div>';
       })
-      .finally(function(){
-        ceqBusy = false;
-        btn.disabled = false;
-        btn.removeAttribute('aria-busy');
-      });
+      .finally(function(){ ceqBusy = false; });
+  }
+
+  function populateFromPreset(btn) {
+    if (!btn) return;
+    var queryKey = btn.getAttribute('data-query-key') || '';
+    var question = btn.getAttribute('data-question') || btn.getAttribute('data-q') || btn.textContent.trim();
+    fillComposer(question, {
+      queryKey: queryKey,
+      application: btn.getAttribute('data-application') || '',
+      framework: btn.getAttribute('data-framework') || ''
+    });
   }
 
   function renderCeqPresets(groups) {
     var root = document.getElementById('ecsCeqPresets');
     if (!root) return;
     if (!groups || !groups.length) {
-      root.innerHTML = '<small class="text-muted d-block mb-1">Common evidence queries:</small><p class="text-muted small mb-0">No presets available for this role.</p>';
+      root.innerHTML = '<div class="ecs-ceq-presets-title">Suggested questions</div><p class="text-muted small mb-0">No presets available for this role.</p>';
       return;
     }
-    var html = '<small class="text-muted d-block mb-1">Common evidence queries:</small>';
+    var html = '<div class="ecs-ceq-presets-title">Suggested questions</div>';
     groups.forEach(function(group){
-      html += '<div class="ecs-ceq-group mb-1"><small class="text-muted d-block">' + escHtml(group.group) + '</small><div class="d-flex flex-wrap gap-1">';
+      var label = GROUP_LABELS[group.group] || group.group;
+      html += '<div class="ecs-ceq-group"><div class="ecs-ceq-group-label">' + escHtml(label) + '</div><div class="ecs-ceq-chip-row">';
       (group.presets || []).forEach(function(p){
         html += '<button type="button" class="btn btn-outline-primary btn-sm ecs-ceq-preset" '
           + 'data-query-key="' + escHtml(p.id) + '" data-question="' + escHtml(p.question) + '" '
@@ -297,10 +681,24 @@
       btn._ecsCeqBound = true;
       btn.addEventListener('click', function(ev){
         ev.preventDefault();
-        runCommonEvidenceQuery(btn);
+        // Parameter chips inside answers still carry data-application / data-framework
+        // and should execute once chosen (they complete a pending ask).
+        if (btn.getAttribute('data-application') || btn.getAttribute('data-framework')) {
+          fillComposer(btn.getAttribute('data-question') || btn.textContent.trim(), {
+            queryKey: btn.getAttribute('data-query-key') || pendingQueryKey || '',
+            application: btn.getAttribute('data-application') || '',
+            framework: btn.getAttribute('data-framework') || ''
+          });
+          askCopilot();
+          return;
+        }
+        populateFromPreset(btn);
       });
       btn.addEventListener('keydown', function(ev){
-        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); runCommonEvidenceQuery(btn); }
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          btn.click();
+        }
       });
     });
   }
@@ -311,7 +709,7 @@
       .then(function(data){ renderCeqPresets((data && data.groups) || []); })
       .catch(function(){
         var root = document.getElementById('ecsCeqPresets');
-        if (root) root.innerHTML = '<small class="text-muted">Common evidence queries unavailable.</small>';
+        if (root) root.innerHTML = '<div class="ecs-ceq-presets-title">Suggested questions</div><small class="text-muted">Suggestions unavailable.</small>';
       });
   }
 
@@ -320,54 +718,27 @@
       if (btn._ecsBound) return;
       btn._ecsBound = true;
       btn.addEventListener('click', function(){
-        if (btn.getAttribute('data-query-key')) {
-          runCommonEvidenceQuery(btn);
-          return;
-        }
-        var input = document.getElementById('ecsChatInput');
-        if (input) { input.value = btn.getAttribute('data-q'); document.getElementById('ecsChatForm').submit(); }
+        populateFromPreset(btn);
       });
     });
   }
 
-  function splitCopilotPanels() {
-    var latest = document.getElementById('ecsChatLatest');
-    var refBody = document.getElementById('ecsChatRefBody');
-    if (!latest || !refBody) return;
-    var clone = latest.cloneNode(true);
-    var refs = clone.querySelectorAll('a, .chart-card, .btn, ul, ol');
-    var refHtml = [];
-    refs.forEach(function(el) {
-      if (el.tagName === 'A' || el.classList.contains('btn') || el.classList.contains('chart-card')) {
-        refHtml.push(el.outerHTML);
-        if (el.parentNode) el.parentNode.removeChild(el);
-      }
-    });
-    if (refHtml.length) {
-      refBody.innerHTML = '<div class="ecs-chat-ref-cards">' + refHtml.join('') + '</div>';
-    }
-    var summary = clone.textContent.trim().substring(0, 600);
-    if (summary && latest.textContent.length > 400) {
-      var sumEl = document.createElement('div');
-      sumEl.className = 'ecs-chat-summary small text-muted mb-2';
-      sumEl.textContent = summary.substring(0, 220) + (summary.length > 220 ? '…' : '');
-      if (!latest.querySelector('.ecs-chat-summary')) latest.insertBefore(sumEl, latest.firstChild);
-    }
-  }
-
   function ensureLatestPanel() {
-    var main = document.getElementById('ecsChatAnswerMain');
     var el = document.getElementById('ecsChatLatest');
-    if (el) return el;
+    if (el) {
+      latest = el;
+      return el;
+    }
+    if (!output) return null;
+    var wrap = document.createElement('div');
+    wrap.className = 'ecs-chat-msg ecs-chat-msg-bot ecs-chat-msg-latest';
+    wrap.innerHTML = '<small class="text-muted">Copilot</small>';
     el = document.createElement('div');
     el.id = 'ecsChatLatest';
     el.className = 'ecs-chat-response ecs-chat-response-html';
-    if (main) main.appendChild(el);
-    else {
-      var bodyEl = document.getElementById('ecsChatBody');
-      var form = document.getElementById('ecsChatForm');
-      if (bodyEl && form) bodyEl.insertBefore(el, form);
-    }
+    wrap.appendChild(el);
+    output.appendChild(wrap);
+    latest = el;
     return el;
   }
 
@@ -390,12 +761,12 @@
           .then(function(r){ return r.json(); })
           .then(function(data){
             if (!data || !data.html) return;
-            var panel = ensureLatestPanel();
-            panel.innerHTML = data.html;
-            panel.scrollTop = panel.scrollHeight;
-            splitCopilotPanels();
-            bindQuickActions(panel);
-            bindSuggestButtons(panel);
+            var panelEl = ensureLatestPanel();
+            panelEl.innerHTML = data.html;
+            scrollOutputToBottom();
+            finalizeAssistantResponse(panelEl, []);
+            bindQuickActions(panelEl);
+            bindSuggestButtons(panelEl);
             if (window.ecsRefreshPagination) window.ecsRefreshPagination();
           })
           .catch(function(err){ console.error('Quick action failed', err); })
@@ -405,9 +776,13 @@
   }
 
   function clearVisibleChat() {
-    if (hist) hist.innerHTML = '';
-    if (latest) latest.remove();
-    saveState({ scrollHistory: 0, scrollLatest: 0, cleared: true });
+    if (output) output.innerHTML = '';
+    latest = null;
+    pendingQueryKey = '';
+    pendingApplication = '';
+    pendingFramework = '';
+    pendingFilledText = '';
+    saveState({ scrollOutput: 0, cleared: true });
   }
 
   function initFromStorage() {
@@ -416,10 +791,6 @@
     var size = s.size || (window.innerWidth < 768 ? 'sm' : 'md');
     setSize(size);
     var state = s.state;
-    // Default to a non-overlapping state on first load so dashboards/charts stay
-    // fully visible at executive-demo viewports. Expand only when the user has a
-    // saved preference, on small screens we always minimise, and we surface new
-    // responses via the unread badge below rather than auto-expanding.
     if (!state) state = 'minimized';
     if (state === 'minimized') setState('minimized');
     else if (state === 'closed') setState('closed');
@@ -507,8 +878,7 @@
   });
   copilot.addEventListener('click', function(e){ e.stopPropagation(); copilot.classList.remove('ecs-chat-dim'); });
 
-  if (hist) hist.addEventListener('scroll', function(){ saveState({ scrollHistory: hist.scrollTop }); });
-  if (latest) latest.addEventListener('scroll', function(){ saveState({ scrollLatest: latest.scrollTop }); });
+  if (output) output.addEventListener('scroll', function(){ saveState({ scrollOutput: output.scrollTop }); });
 
   var handle = document.getElementById('ecsChatResizeHandle');
   if (handle) {
@@ -517,8 +887,8 @@
       var startX = e.clientX, startY = e.clientY;
       var startW = copilot.offsetWidth, startH = panel.offsetHeight;
       function onMove(ev) {
-        var w = Math.min(Math.max(startW + (startX - ev.clientX), 300), 640);
-        var h = Math.min(Math.max(startH + (startY - ev.clientY), 280), window.innerHeight * 0.9);
+        var w = Math.min(Math.max(startW + (startX - ev.clientX), 360), Math.min(980, window.innerWidth - 24));
+        var h = Math.min(Math.max(startH + (startY - ev.clientY), 280), window.innerHeight * 0.72);
         copilot.style.width = w + 'px';
         panel.style.height = h + 'px';
         saveState({ customWidth: w, customHeight: h });
@@ -536,22 +906,39 @@
   bindCeqPresets(document);
   bindQuickActions(document);
   loadCeqPresets();
-  splitCopilotPanels();
-  var refToggle = document.getElementById('ecsChatRefToggle');
-  var refPanel = document.getElementById('ecsChatRefPanel');
-  if (refToggle && refPanel) {
-    refToggle.addEventListener('click', function(e) {
-      e.stopPropagation();
-      refPanel.classList.toggle('is-collapsed');
-      refToggle.textContent = refPanel.classList.contains('is-collapsed') ? '▶' : '◀';
+
+  var chatForm = document.getElementById('ecsChatForm');
+  var chatInput = document.getElementById('ecsChatInput');
+  if (chatForm) {
+    chatForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      askCopilot();
     });
   }
-  if (latest) { bindSuggestButtons(latest); bindQuickActions(latest); }
+  if (chatInput) {
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        askCopilot();
+      }
+    });
+    chatInput.addEventListener('input', function() {
+      if (chatInput.value !== pendingFilledText) {
+        pendingQueryKey = '';
+        pendingApplication = '';
+        pendingFramework = '';
+      }
+    });
+  }
+
+  if (latest) {
+    bindSuggestButtons(latest);
+    bindQuickActions(latest);
+    finalizeAssistantResponse(latest, []);
+  }
   var returnUrlInput = document.getElementById('ecsChatReturnUrl');
   if (returnUrlInput) returnUrlInput.value = window.location.pathname + window.location.search;
   initFromStorage();
-  if (window.ecsRefreshPagination) window.ecsRefreshPagination();
-
   if (window.ecsRefreshPagination) window.ecsRefreshPagination();
 
   var s = loadState();

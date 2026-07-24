@@ -2,7 +2,7 @@
 # ECS root startup — interactive menu + non-interactive flags.
 #
 #   ./start_ecs.sh            # interactive menu
-#   ./start_ecs.sh --demo     # demo mode (scripts/start_ecs_demo.sh --all --skip-heavy)
+#   ./start_ecs.sh --demo     # demo mode (Docker deps only + local Uvicorn)
 #   ./start_ecs.sh --llm      # LLM demo / low memory (lightweight compose stack only)
 #   ./start_ecs.sh --run      # normal run / development mode (Uvicorn)
 #   ./start_ecs.sh --status   # basic ECS status (read-only)
@@ -12,6 +12,10 @@
 # Targeted ECS process/port handling only: no broad process sweeps and no
 # compose teardown. Only confirmed ECS host processes / the ECS container are
 # ever stopped; unrelated processes are reported, never terminated.
+#
+# Demo mode uses Docker ONLY for infrastructure/demo targets. The ECS FastAPI
+# application always runs locally via uvicorn in this shell (never the compose
+# `ecs` / ecs-enterprise-backup-ecs-1 container).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
@@ -167,26 +171,6 @@ _stop_docker_ecs() {
 }
 
 # --------------------------------------------------------------------------- #
-# D: Demo mode
-# --------------------------------------------------------------------------- #
-run_demo() {
-  # 1-2. Stop only confirmed ECS host Uvicorn processes (so the demo's Docker
-  #      ECS is the single runtime). Never touches unrelated processes.
-  _stop_ecs_uvicorn
-  # 3. Detect the Docker Compose ECS container (report only; the demo script
-  #    manages it).
-  local container
-  container="$(_docker_ecs_container)"
-  [ -n "$container" ] && echo "Docker ECS container detected: ${container}"
-  # 4-5. Inspect port 8000; an unrelated owner blocks the demo (do not kill it).
-  if _report_port_conflict; then
-    exit 1
-  fi
-  # 6. Never invoke Uvicorn in demo mode — delegate to the demo orchestrator.
-  ./scripts/start_ecs_demo.sh --all --skip-heavy
-}
-
-# --------------------------------------------------------------------------- #
 # L: LLM demo / low memory (lightweight compose stack — no PQ/demo targets)
 # --------------------------------------------------------------------------- #
 # Backing services required by ecs for repository, vectors, cache, and objects.
@@ -224,26 +208,26 @@ run_llm_demo() {
   echo "ECS LLM demo stack started → http://127.0.0.1:${ECS_PORT}"
 }
 
-# --------------------------------------------------------------------------- #
-# R: Normal run / development mode
-# --------------------------------------------------------------------------- #
-
 # True only if the ECS Python deps are importable in the chosen interpreter.
 _deps_present() {
   "$1" -c 'import fastapi, uvicorn, jinja2, multipart' >/dev/null 2>&1
 }
 
-run_normal() {
-  # 1-2. Stop only the Docker ECS container (leave PostgreSQL/Redis/MinIO/demo
-  #      targets/connector containers/volumes untouched).
-  _stop_docker_ecs
-
-  # 6. An unrelated process on :8000 blocks a host run (do not kill it).
-  if _report_port_conflict; then
-    exit 1
+# Prefer venv python when present (Unix or Windows Git Bash layout).
+_python_bin() {
+  if [ -x ".venv/bin/python" ]; then
+    echo ".venv/bin/python"
+  elif [ -x ".venv/Scripts/python.exe" ]; then
+    echo ".venv/Scripts/python.exe"
+  elif command -v python >/dev/null 2>&1; then
+    echo "python"
+  else
+    echo "python3"
   fi
+}
 
-  # 3-5. If ECS already owns :8000, stop it gracefully and restart fresh.
+# Free :8000 when an ECS host uvicorn already owns it (shared by demo + normal).
+_prepare_host_port_for_uvicorn() {
   local pids port_pid
   pids="$(_ecs_uvicorn_pids)"
   port_pid="$(_port_owner_pid)"
@@ -265,28 +249,144 @@ run_normal() {
     done
     _wait_port_free || true
   fi
+}
 
-  # 7. Prefer the venv interpreter's `-m uvicorn`; else the existing fallback.
-  # 8. Install deps only if genuinely missing (prefer a clear error over
-  #    reinstalling on every startup).
+# Start compose dependency/demo services for --all --skip-heavy, excluding `ecs`.
+# Reuses scripts/ecs_demo_startup.py helpers (no duplicated service lists) and
+# prints the same technology status table used by the demo orchestrator.
+_start_demo_dependencies() {
+  local py
+  py="$(_python_bin)"
+  echo "Starting Docker dependency services (excluding compose service 'ecs')…"
+  PYTHONPATH="${SCRIPT_DIR}${PYTHONPATH:+:${PYTHONPATH}}" "$py" - <<'PY'
+from __future__ import annotations
+
+import sys
+
+from scripts.check_predefined_db_environment import load_env
+from scripts.ecs_demo_startup import (
+    CORE_SERVICES,
+    ECS_SERVICE,
+    build_rows,
+    compose_config_valid,
+    compose_up,
+    detect_port_conflicts,
+    docker_available,
+    ecs_runtime,
+    load_compose_services,
+    parse_args,
+    print_table,
+    services_for_mode,
+    TECHNOLOGY_SPECS,
+    wait_core_backing,
+)
+
+print(f"[demo] env: {load_env()}")
+if not docker_available():
+    print("ERROR: Docker Desktop/daemon is not available. Start Docker and retry.", file=sys.stderr)
+    raise SystemExit(1)
+
+ok, msg = compose_config_valid()
+if not ok:
+    print(f"ERROR: docker compose config invalid: {msg}", file=sys.stderr)
+    raise SystemExit(1)
+
+args = parse_args(["--all", "--skip-heavy"])
+services, profiles = services_for_mode(args)
+services.discard(ECS_SERVICE)
+to_start = set(CORE_SERVICES) | (services - set(CORE_SERVICES))
+print(
+    "[demo] dependency services: "
+    + (", ".join(sorted(to_start)) if to_start else "(none)")
+)
+compose_up(to_start, profiles)
+failures = wait_core_backing(args.wait_timeout)
+if failures:
+    for item in failures:
+        print(f"CORE FAILURE: {item}", file=sys.stderr)
+    raise SystemExit(1)
+print("[demo] core backing services are healthy")
+
+conflicts = detect_port_conflicts(list(TECHNOLOGY_SPECS), load_compose_services())
+for msg in conflicts:
+    print(f"WARNING: port conflict: {msg}")
+print(f"ECS runtime: {ecs_runtime()} (app will start via local uvicorn)")
+print_table(build_rows(to_start, wait=True, probe_connectors=False, port_conflicts=conflicts))
+raise SystemExit(0)
+PY
+}
+
+# Launch host uvicorn in the foreground. Extra flags are forwarded as-is.
+# Uses exec so when uvicorn exits, this script exits with the same status.
+_launch_host_uvicorn() {
   echo "Starting ECS on :${ECS_PORT} (logs below)…"
-  (sleep 3 && open "http://127.0.0.1:${ECS_PORT}" 2>/dev/null) &
   if [ -x ".venv/bin/python" ]; then
     if ! _deps_present ".venv/bin/python"; then
       echo "ECS dependencies missing in .venv — installing once…"
       .venv/bin/python -m pip install fastapi uvicorn jinja2 python-multipart || {
         echo "ERROR: failed to install ECS dependencies in .venv." >&2; exit 1; }
     fi
-    exec .venv/bin/python -m uvicorn app.main:app --reload
+    exec .venv/bin/python -m uvicorn app.main:app "$@"
   else
-    # Existing valid fallback (no venv): use uvicorn on PATH.
     if ! command -v uvicorn >/dev/null 2>&1; then
       echo "ECS dependencies missing — installing once…"
       pip install fastapi uvicorn jinja2 python-multipart || {
         echo "ERROR: failed to install ECS dependencies." >&2; exit 1; }
     fi
-    exec uvicorn app.main:app --reload
+    exec uvicorn app.main:app "$@"
   fi
+}
+
+# --------------------------------------------------------------------------- #
+# D: Demo mode — Docker deps only; local uvicorn for the ECS app
+# --------------------------------------------------------------------------- #
+run_demo() {
+  echo "Demo mode: Docker for infrastructure/demo services only; ECS app via local uvicorn."
+
+  # Stop any existing compose ECS application container (do not restart it).
+  _stop_docker_ecs
+
+  # Unrelated owner of :8000 blocks the host run (do not kill it).
+  if _report_port_conflict; then
+    exit 1
+  fi
+
+  # Free :8000 if a previous host ECS uvicorn is still bound.
+  _prepare_host_port_for_uvicorn
+
+  # Start dependency containers only (never compose service `ecs`) and print
+  # the demo technology status / diagnostics table.
+  if ! _start_demo_dependencies; then
+    exit 1
+  fi
+
+  # Match docker ecs service defaults when unset; .env / process env still win.
+  export DEMO_MODE="${DEMO_MODE:-true}"
+  export ECS_AUTH_ENABLED="${ECS_AUTH_ENABLED:-false}"
+
+  # Foreground local app — exits when uvicorn exits.
+  _launch_host_uvicorn --host 0.0.0.0 --port "${ECS_PORT}" --reload
+}
+
+# --------------------------------------------------------------------------- #
+# R: Normal run / development mode
+# --------------------------------------------------------------------------- #
+run_normal() {
+  # 1-2. Stop only the Docker ECS container (leave PostgreSQL/Redis/MinIO/demo
+  #      targets/connector containers/volumes untouched).
+  _stop_docker_ecs
+
+  # 6. An unrelated process on :8000 blocks a host run (do not kill it).
+  if _report_port_conflict; then
+    exit 1
+  fi
+
+  # 3-5. If ECS already owns :8000, stop it gracefully and restart fresh.
+  _prepare_host_port_for_uvicorn
+
+  # 7-8. Prefer the venv interpreter's `-m uvicorn`; install deps only if missing.
+  (sleep 3 && open "http://127.0.0.1:${ECS_PORT}" 2>/dev/null) &
+  _launch_host_uvicorn --reload
 }
 
 # --------------------------------------------------------------------------- #
@@ -325,11 +425,16 @@ ECS Startup
 
 Usage:
   ./start_ecs.sh            Interactive menu
-  ./start_ecs.sh --demo     Demo mode (scripts/start_ecs_demo.sh --all --skip-heavy)
+  ./start_ecs.sh --demo     Demo mode (Docker deps only + local Uvicorn)
   ./start_ecs.sh --llm      LLM demo / low memory (postgres, pgvector, redis, minio, ecs)
   ./start_ecs.sh --run      Normal run / development mode (Uvicorn)
   ./start_ecs.sh --status   Show current basic ECS status (read-only)
   ./start_ecs.sh --help     Show this help
+
+Demo mode starts supporting Docker services (Postgres, PGVector, Redis, MinIO,
+demo targets, etc.) but does NOT start the compose `ecs` application container.
+The FastAPI app runs locally via:
+  uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 EOF
 }
 

@@ -197,29 +197,6 @@ def validate_evidence(manifest: dict[str, Any], payload: dict[str, Any]) -> Vali
     )
 
 
-def _resolve_custody(
-    *,
-    filename: str,
-    content: bytes,
-    evidence_key: str,
-    source_item_id: str,
-    version: int,
-) -> Any:
-    from modules.audit_intelligence.services import evidence_custody as custody
-
-    return custody.resolve_custody(
-        source_connector="common_controls",
-        source_item_id=source_item_id,
-        source_url=f"file://CommonControls/{filename}",
-        source_modified_at="",
-        filename=filename,
-        mime_type="application/json",
-        evidence_key=evidence_key,
-        version=version,
-        content=content or None,
-    )
-
-
 def collect_common_control_folder(
     folder: Path,
     *,
@@ -244,21 +221,12 @@ def collect_common_control_folder(
             return receipt
         payload = _load_json(primary)
         content_bytes = primary.read_bytes()
-        content_text = json.dumps(payload, indent=2, sort_keys=True)
         vr = validate_evidence(manifest, payload)
         receipt.verdict = vr.verdict
 
         asset_id = str(manifest.get("application") or "ECS Common Controls")
         evidence_key = ai_repo.make_evidence_key(asset_id, receipt.control_id)
         source_item_id = f"common-controls/{slug}/{primary.name}"
-        custody = _resolve_custody(
-            filename=primary.name,
-            content=content_bytes,
-            evidence_key=evidence_key,
-            source_item_id=source_item_id,
-            version=1,
-        )
-        receipt.object_stored = bool(custody.stored or custody.object_uri or custody.content_hash)
 
         frameworks = tuple(manifest.get("frameworks") or (ctrl.frameworks if ctrl else ()))
         fcm_refs: list[dict[str, Any]] = []
@@ -270,7 +238,6 @@ def collect_common_control_folder(
             fcm_refs = get_common_controls_service().resolve_fcm_references(slug)
         except Exception:  # noqa: BLE001
             fcm_refs = []
-        tags = ("common_control", slug, "phase1", "scheduler")
         meta = {
             "common_control": manifest.get("common_control") or receipt.common_control,
             "common_control_slug": slug,
@@ -284,44 +251,18 @@ def collect_common_control_folder(
             "collection_source": "CommonControls",
             "scheduler_run_id": run_id,
             "validation_verdict": vr.verdict,
+            "control_status": vr.control_status,
+            "evidence_quality": vr.evidence_quality,
+            "technology": str(manifest.get("technology") or "Common Control"),
             "framework_independent": True,
             "framework_refs": list(frameworks),
             "fcm_framework_ids": list({r.get("framework_id") for r in fcm_refs if r.get("framework_id")}),
             "fcm_reference_count": len(fcm_refs),
-            "content_sha256": custody.content_hash,
         }
-        artifact = ai_repo.store_evidence(
-            control_id=receipt.control_id,
-            content=content_text,
-            technology=str(manifest.get("technology") or "Common Control"),
-            asset_id=asset_id,
-            frameworks=frameworks,
-            run_id=run_id,
-            verdict=vr.verdict,
-            control_status=vr.control_status,
-            evidence_quality=vr.evidence_quality,
-            source="common_controls",
-            filename=f"COMMON_CONTROL_{slug}.json",
-            tags=tags,
-            evidence_key=evidence_key,
-            environment=str(manifest.get("environment") or "MVP"),
-            source_connector="common_controls",
-            source_item_id=source_item_id,
-            source_url=f"file://CommonControls/{slug}/{primary.name}",
-            mime_type="application/json",
-            metadata=meta,
-            custody_mode=custody.custody_mode,
-            object_uri=custody.object_uri,
-            content_hash_override=custody.content_hash,
-            size_bytes_override=custody.size_bytes,
-        )
-        receipt.metadata_persisted = artifact is not None
-        receipt.evidence_key = evidence_key
-        receipt.collected = True
+        # Single canonical pipeline — no parallel store_evidence / pre-custody.
+        from modules.operations.engines.evidence_repository import publish_evidence
 
-        from modules.operations.engines.evidence_repository import register_upload
-
-        ops_record = register_upload(
+        ops_record = publish_evidence(
             filename=f"COMMON_CONTROL_{slug}.json",
             content=content_bytes,
             uploaded_by=user,
@@ -334,15 +275,16 @@ def collect_common_control_folder(
             environment=str(manifest.get("environment") or "MVP"),
             mime_type="application/json",
             metadata=meta,
-            custody_mode=custody.custody_mode,
         )
         if str(ops_record.get("status", "")).upper() == "DUPLICATE":
             meta["duplicate"] = True
             meta["duplicate_kind"] = ops_record.get("duplicate_kind") or "sha256"
-        receipt.metadata_persisted = receipt.metadata_persisted or bool(
-            ops_record.get("audit_repository_synced")
+        receipt.object_stored = bool(ops_record.get("object_uri") or ops_record.get("sha256"))
+        receipt.metadata_persisted = bool(ops_record.get("audit_repository_synced")) or bool(
+            ops_record.get("evidence_id")
         )
-        receipt.collected = receipt.collected or receipt.metadata_persisted
+        receipt.evidence_key = evidence_key
+        receipt.collected = receipt.metadata_persisted
         from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
 
         enroll_collected_evidence(
@@ -356,7 +298,7 @@ def collect_common_control_folder(
                 vr,
                 asset_id=asset_id,
                 owner=str(manifest.get("owner") or "Platform Ops"),
-                evidence_reference=artifact.evidence_id if artifact else evidence_key,
+                evidence_reference=str(ops_record.get("evidence_id") or evidence_key),
                 control_name=receipt.common_control,
             )
             if observation:

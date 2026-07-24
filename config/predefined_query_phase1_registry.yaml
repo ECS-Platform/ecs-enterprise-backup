@@ -20,13 +20,13 @@ technologies:
   - GitLeaks
   - Kubernetes
   - OpenShift
+  - Aerospike
 
 deferred_technologies:
   - Windows
   - SQL Server
   - MongoDB
   - Redis
-  - Aerospike
   - Unknown
 
 technology_connectors:
@@ -105,8 +105,33 @@ technology_connectors:
     execution_mode: cli
     target_key: openshift
     target_required: true
+  Aerospike:
+    connector: aerospike_connector
+    execution_mode: shell
+    target_key: aerospike
+    target_required: true
 
 selected_control_ids:
+  - ASX-001
+  - ASX-002
+  - ASX-003
+  - ASX-004
+  - ASX-005
+  - ASX-006
+  - ASX-007
+  - ASX-008
+  - ASX-009
+  - ASX-010
+  - ASX-011
+  - ASX-012
+  - ASX-013
+  - ASX-014
+  - ASX-015
+  - ASX-016
+  - ASX-017
+  - ASX-018
+  - ASX-019
+  - ASX-020
   - APP-001
   - APP-002
   - APP-004

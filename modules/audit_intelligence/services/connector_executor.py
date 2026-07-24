@@ -11,9 +11,9 @@ connector, HTTP, hashing, or evidence-store logic:
   * the adapter client + primary ``fetch_*`` method map from the Connector Test
     Workbench (:data:`connector_workbench._ADAPTER_TESTS`),
   * the **real** HTTP transport factory (``integrations.build_http_transport``),
-  * the existing evidence bridge
-    (``operations.evidence_repository.register_upload`` → which already mirrors
-    into the audit-intelligence evidence repository).
+  * the canonical evidence pipeline
+    (``operations.evidence_repository.publish_evidence`` → MinIO / PostgreSQL /
+    audit version / PGVector).
 
 Safety guarantees:
   * **Opt-in / offline by default.** Live collection requires BOTH the flag
@@ -153,12 +153,12 @@ def _ingest_items(
     transport: Optional[Callable[..., dict]] = None,
     run_id: str = "",
 ) -> list[dict[str, Any]]:
-    """Bridge normalized connector objects into evidence via ``register_upload``.
+    """Bridge normalized connector objects into evidence via ``publish_evidence``.
 
-    Reuses the manual/bulk upload bridge (which SHA-256s, versions, and mirrors
-    into the audit-intelligence repository). Returns per-item ingestion receipts.
+    Reuses the single Phase-1 persistence pipeline (custody/MinIO → audit version →
+    canonical PostgreSQL → PGVector). Returns per-item ingestion receipts.
     """
-    from modules.operations.engines import evidence_repository as ops_repo
+    from modules.operations.engines.evidence_repository import publish_evidence
 
     receipts: list[dict[str, Any]] = []
     for idx, item in enumerate(items[: max(0, max_items)]):
@@ -223,7 +223,7 @@ def _ingest_items(
                         content = None
             if content is None:
                 content = _item_to_content(item)
-            record = ops_repo.register_upload(
+            record = publish_evidence(
                 filename=filename,
                 content=content if isinstance(content, (bytes, bytearray)) else str(content).encode(),
                 uploaded_by=collected_by,
@@ -388,9 +388,10 @@ def collect_evidence(
             control=control, collected_by=collected_by, max_items=max_items,
             transport=transport, run_id=run_id,
         )
-    ingested = sum(1 for r in receipts if r.get("evidence_id"))
+    # Duplicates still carry evidence_id but did not complete a new write cycle.
+    ingested = sum(1 for r in receipts if r.get("evidence_id") and not r.get("duplicate"))
     return {
-        "ok": bool(upstream_ok and (ingested > 0 or not items)),
+        "ok": bool(upstream_ok and (ingested > 0 or not items or any(r.get("duplicate") for r in receipts))),
         "connector": connector,
         "mode": "mock" if injected else "live",
         "status": upstream_status,

@@ -82,7 +82,11 @@ class EvidenceRepository:
 
     # ---- writes ----
     def upsert_evidence(self, item: dict[str, Any]) -> int:
-        """Insert/update one evidence row (idempotent on source identity). Returns id."""
+        """Insert/update one evidence row (idempotent on source identity). Returns id.
+
+        On source-identity conflict the existing durable ``evidence_uid`` is kept and
+        written back onto ``item['evidence_uid']`` so callers can align ops IDs.
+        """
         chash = _content_hash(item.get("source_system", ""), item.get("source_object_id", ""),
                               item.get("title", ""), item.get("content", ""))
         uid = item.get("evidence_uid") or str(uuid.uuid4())
@@ -97,13 +101,16 @@ class EvidenceRepository:
                     url = EXCLUDED.url, application = EXCLUDED.application,
                     content_hash = EXCLUDED.content_hash, metadata = EXCLUDED.metadata,
                     collected_timestamp = now()
-                RETURNING id
+                RETURNING id, evidence_uid
                 """,
                 (uid, item.get("source_system"), item.get("source_object_id"), item.get("object_type"),
                  item.get("title"), item.get("content"), item.get("owner"), item.get("url"),
                  item.get("application"), chash, json.dumps(item.get("metadata", {}))),
             )
-            ev_id = cur.fetchone()[0]
+            row = cur.fetchone()
+            ev_id = row[0]
+            durable_uid = row[1]
+            item["evidence_uid"] = durable_uid
             for ctrl in item.get("control_mapping", []) or []:
                 cur.execute(
                     "INSERT INTO evidence_control_map (evidence_id, control_id) VALUES (%s,%s) "
@@ -114,8 +121,17 @@ class EvidenceRepository:
                     "ON CONFLICT DO NOTHING", (ev_id, fw))
             cur.execute(
                 "INSERT INTO evidence_lineage (evidence_id, operation, actor, detail) VALUES (%s,%s,%s,%s)",
-                (ev_id, "collect", item.get("source_system"), json.dumps({"uid": uid})))
+                (ev_id, "collect", item.get("source_system"), json.dumps({"uid": durable_uid})))
         return ev_id
+
+    def list_evidence_uids(self, limit: int = 5000) -> list[str]:
+        """Return evidence_uid values (for ops ID counter seeding)."""
+        with self.connect().cursor() as cur:
+            cur.execute(
+                "SELECT evidence_uid FROM evidence ORDER BY id DESC LIMIT %s",
+                (max(1, int(limit)),),
+            )
+            return [str(r[0]) for r in cur.fetchall() if r and r[0]]
 
     def bulk_upsert(self, items: Iterable[dict[str, Any]]) -> int:
         count = 0

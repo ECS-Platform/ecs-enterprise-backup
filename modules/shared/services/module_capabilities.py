@@ -195,7 +195,10 @@ def _scheduler_view(role: str) -> dict:
         "integration_health": intel["integration_health"],
         "paused": intel["paused"],
         "execution_engine": evidence_collection_engine(paused=intel["paused"], dashboard=dash),
-        "selection_catalog": get_scheduler_selection_catalog(role),
+        # Run-collection dialog must list the full configured app/framework
+        # catalogue. RBAC still scopes dashboard rows via build_operations_dataset;
+        # do not shrink the planner targets to the current persona's app filter.
+        "selection_catalog": get_scheduler_selection_catalog(),
         "actions": _actions_for(role, scheduler=True),
     }
 

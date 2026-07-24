@@ -290,12 +290,14 @@ def _merge_run_summary(*parts: dict) -> dict:
 def _classify_pgvector_status(search_index: dict | None) -> dict[str, str]:
     """Map repository search_index payload to indexed/queued/skipped/failed/unavailable."""
     idx = dict(search_index or {})
-    if idx.get("indexed"):
-        return {"status": "indexed", "reason": str(idx.get("reason") or "ok")}
     reason = str(idx.get("reason") or idx.get("errors", [""])[0] if idx.get("errors") else "not_indexed")
+    # Vectors already present are indexed success (not a skip), even when callers
+    # only set reason=already_indexed without indexed=True.
+    if idx.get("indexed") or reason == "already_indexed":
+        return {"status": "indexed", "reason": reason if reason and reason != "not_indexed" else "ok"}
     if reason in {"provider_not_configured", "provider_unavailable"}:
         return {"status": "provider_unavailable", "reason": reason}
-    if reason in {"duplicate_content", "duplicate_substantive_content", "embedding_skipped", "already_indexed", "superseded", "empty_text", "artifact_missing", "mirror_failed", "missing_hash"}:
+    if reason in {"duplicate_content", "duplicate_substantive_content", "embedding_skipped", "superseded", "empty_text", "artifact_missing", "mirror_failed", "missing_hash"}:
         return {"status": "skipped", "reason": reason}
     if reason in {"index_failed"} or idx.get("errors"):
         return {"status": "failed", "reason": reason}
@@ -439,6 +441,9 @@ def _diagnose_predefined_query(control_id: str) -> dict:
 def _pgvector_counts_from_receipts(receipts: list[dict]) -> dict[str, int]:
     counts = {"indexed": 0, "queued": 0, "skipped": 0, "failed": 0, "provider_unavailable": 0}
     for receipt in receipts:
+        # Duplicates are not embed attempts — exclude from PGVector indexed/skipped totals.
+        if receipt.get("duplicate"):
+            continue
         idx = receipt.get("search_index") if isinstance(receipt.get("search_index"), dict) else {}
         if not idx and receipt.get("evidence_id"):
             try:
@@ -602,9 +607,12 @@ def build_predefined_query_source_summary(*, pq_result: dict, enabled: bool) -> 
     failed = int(pq_result.get("failures", 0) or 0)
     pg = {"indexed": 0, "queued": 0, "skipped": 0, "failed": 0, "provider_unavailable": 0}
     for row in results:
+        # Count embed outcomes only for newly persisted rows (not SHA/canonical duplicates).
+        if row.get("duplicate") or not row.get("evidence_persisted"):
+            continue
         upload = row.get("upload") if isinstance(row.get("upload"), dict) else {}
         idx = upload.get("search_index") if isinstance(upload.get("search_index"), dict) else {}
-        if idx.get("indexed"):
+        if idx.get("indexed") or str(idx.get("reason") or "") == "already_indexed":
             pg["indexed"] += 1
         elif upload.get("evidence_id"):
             bucket = _classify_pgvector_status(idx)
@@ -1141,6 +1149,51 @@ def _predefined_query_scheduler_enabled() -> bool:
     }
 
 
+def _scheduler_pq_control_ids(control_ids: list[str] | None = None) -> list[str]:
+    """Resolve scheduler PQ control IDs (comma/semicolon-separated env supported)."""
+    raw = control_ids if control_ids is not None else [
+        os.environ.get("ECS_PREDEFINED_QUERY_SCHEDULER_CONTROL", "PGX-001")
+    ]
+    ids: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        for part in str(item or "").replace(";", ",").split(","):
+            cid = part.strip()
+            if not cid or cid in seen:
+                continue
+            seen.add(cid)
+            ids.append(cid)
+    return ids
+
+
+def _log_scheduler_pq_failure(*, control_id: str, user: str, error: str, run_id: str = "") -> None:
+    """Log predefined-query scheduler failures via existing audit + scheduler logs."""
+    detail = str(error or "predefined_query_failed")
+    try:
+        log_event(
+            "Scheduler Predefined Query Failed",
+            user or "scheduler",
+            "",
+            control_id,
+            detail,
+            run_id or "",
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from modules.shared.services.ecs_logging import error as log_error
+        from modules.shared.services.ecs_logging import log_scheduler
+
+        log_scheduler(
+            "Predefined query failed",
+            f"control_id={control_id}; run_id={run_id or '-'}; error={detail}",
+            user=user or "scheduler",
+        )
+        log_error("Scheduler", f"Predefined query {control_id} failed: {detail}")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _mock_evidence_collection_enabled() -> bool:
     return demo_mode_enabled() and str(
         os.environ.get("ECS_MOCK_EVIDENCE_COLLECTION_ENABLED", "true")
@@ -1183,8 +1236,7 @@ def collect_scheduled_predefined_queries(
 
     from modules.operations.engines.predefined_queries_engine import run_predefined_query
 
-    raw = control_ids or [os.environ.get("ECS_PREDEFINED_QUERY_SCHEDULER_CONTROL", "PGX-001")]
-    ids = [str(cid).strip() for cid in raw if str(cid).strip()]
+    ids = _scheduler_pq_control_ids(control_ids)
     results: list[dict] = []
     discovered = len(ids)
     postgresql_count = 0
@@ -1206,7 +1258,9 @@ def collect_scheduled_predefined_queries(
     try:
         for cid in ids:
             diagnosis = _diagnose_predefined_query(cid)
+            failure_logged = False
             try:
+                # Preserve existing predefined-query engine entrypoint (scheduled → persist).
                 outcome = run_predefined_query(cid, user, scheduled=True)
             except Exception as exc:  # noqa: BLE001
                 outcome = {
@@ -1217,6 +1271,13 @@ def collect_scheduled_predefined_queries(
                     "evidence_persisted": False,
                 }
                 failures += 1
+                failure_logged = True
+                _log_scheduler_pq_failure(
+                    control_id=cid,
+                    user=user,
+                    error=str(exc),
+                    run_id=run_id,
+                )
             outcome = dict(outcome or {})
             outcome.setdefault("control_id", cid)
             outcome["persist_flag"] = True
@@ -1251,11 +1312,28 @@ def collect_scheduled_predefined_queries(
                 idx = upload.get("search_index") or {}
                 if idx.get("indexed"):
                     pgvector_count += 1
+                try:
+                    from modules.shared.services.ecs_logging import log_scheduler
+
+                    log_scheduler(
+                        "Predefined query persisted",
+                        f"control_id={cid}; evidence_id={eid or '-'}; run_id={run_id or '-'}",
+                        user=user or "scheduler",
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
             elif outcome.get("duplicate"):
                 duplicate_count += 1
                 embedding_skipped_count += 1
             elif outcome.get("ok") is False:
-                failures += 1
+                if not failure_logged:
+                    failures += 1
+                    _log_scheduler_pq_failure(
+                        control_id=cid,
+                        user=user,
+                        error=str(outcome.get("error") or outcome.get("error_type") or "execution_failed"),
+                        run_id=run_id,
+                    )
             results.append({"control_id": cid, **outcome})
     finally:
         reset_active_scheduler_run_id(run_token)
@@ -1591,9 +1669,22 @@ def run_scheduler_collection(
             else:
                 reason = _pq_zero_reason(pq_result)
                 progress.append("predefined queries", "Skipped", detail=reason or "persisted=0")
+            if int(pq_result.get("failures", 0) or 0):
+                if status == "Success" and pq_persisted:
+                    status = "Partial"
+                elif status == "Success" and not pq_persisted:
+                    status = "Partial"
         except Exception as exc:  # noqa: BLE001
-            pq_result = {"error": "predefined_query_collection_failed", "detail": str(exc)}
+            pq_result = {"error": "predefined_query_collection_failed", "detail": str(exc), "failures": 1}
             progress.append("predefined queries", "Failed", detail=str(exc))
+            _log_scheduler_pq_failure(
+                control_id="*",
+                user=user or "scheduler",
+                error=str(exc),
+                run_id=run_id,
+            )
+            if status == "Success":
+                status = "Partial"
     else:
         pq_result = {
             "enabled": False,
@@ -1623,6 +1714,7 @@ def run_scheduler_collection(
     pgvector_detail = source_totals.get("pgvector_detail") or _aggregate_pgvector_counts(source_breakdown)
 
     merged_counts = _merge_run_summary(mock_summary, cc_result, pq_result)
+    connector_ingested = sum(int(r.get("ingested", 0) or 0) for r in job_results)
     summary = _coerce_run_summary(
         {
             "run_id": run_id,
@@ -1630,14 +1722,15 @@ def run_scheduler_collection(
             "frameworks": fws,
             "sources_executed": merged_counts["sources_executed"] + len(job_results),
             "files_discovered": merged_counts["files_discovered"],
-            "new_evidence": merged_counts["new_evidence"],
+            # Align with source_totals.metadata_count (include connector ingest).
+            "new_evidence": merged_counts["new_evidence"] + connector_ingested,
             "duplicates_skipped": merged_counts["duplicates_skipped"],
             "versions_created": merged_counts["versions_created"],
             "failures": merged_counts["failures"],
-            "postgresql_count": merged_counts["postgresql_count"],
-            "object_storage_count": merged_counts["object_storage_count"],
+            "postgresql_count": merged_counts["postgresql_count"] + connector_ingested,
+            "object_storage_count": merged_counts["object_storage_count"] + connector_ingested,
             "pgvector_count": merged_counts["pgvector_count"],
-            "connector_ingested": sum(int(r.get("ingested", 0) or 0) for r in job_results),
+            "connector_ingested": connector_ingested,
             "source_breakdown": source_breakdown,
             "source_totals": source_totals,
             "pgvector_detail": pgvector_detail,

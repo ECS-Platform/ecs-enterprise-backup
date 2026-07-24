@@ -12,12 +12,16 @@ export ECS_VECTOR_PG_HOST=localhost
 export ECS_VECTOR_PG_PORT=5434
 export ECS_VECTOR_PG_PASSWORD=ecs_password
 
-# Ollama
+# Ollama (host-side — NOT host.docker.internal)
 export ECS_LLM_PROVIDER=ollama
 export OLLAMA_URL=http://localhost:11434
 export OLLAMA_MODEL=qwen3:8b
+export ECS_EMBEDDING_MODEL=nomic-embed-text
 
 # Python
 export PYTHONPATH=.
 
 echo "✅ ECS benchmark environment loaded."
+echo "   OLLAMA_URL=$OLLAMA_URL"
+echo "   ECS_REPO_PG=$ECS_REPO_PG_HOST:$ECS_REPO_PG_PORT"
+echo "   ECS_VECTOR_PG=$ECS_VECTOR_PG_HOST:$ECS_VECTOR_PG_PORT"

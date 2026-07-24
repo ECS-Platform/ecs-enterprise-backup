@@ -251,7 +251,7 @@ def collect_mock_evidence(
     progress.append("source scanned", "Completed", detail=f"combinations={len(combos)}")
     summary.sources_executed = len(combos)
 
-    from modules.operations.engines.evidence_repository import find_upload_by_sha256, register_upload
+    from modules.operations.engines.evidence_repository import find_upload_by_sha256, publish_evidence
 
     for app_label, fw_label, folder in combos:
         manifest_path = folder / "manifest.json"
@@ -323,7 +323,7 @@ def collect_mock_evidence(
             )
         )
         try:
-            record = register_upload(
+            record = publish_evidence(
                 filename=evidence_file.name,
                 content=content,
                 uploaded_by=user or "scheduler",
@@ -336,7 +336,6 @@ def collect_mock_evidence(
                 environment=str(manifest.get("environment") or "UAT"),
                 mime_type=mime,
                 metadata=meta,
-                custody_mode=os.environ.get("ECS_MOCK_EVIDENCE_CUSTODY", "SNAPSHOT"),
             )
             index_report = record.get("search_index") or {}
             meta["pgvector_indexed"] = bool(index_report.get("indexed"))

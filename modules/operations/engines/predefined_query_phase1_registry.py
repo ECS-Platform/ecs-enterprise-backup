@@ -31,6 +31,7 @@ _TARGET_KEY_BY_TECH: dict[str, str] = {
     "GitLeaks": "gitleaks",
     "Kubernetes": "kubernetes",
     "OpenShift": "openshift",
+    "Aerospike": "aerospike",
 }
 
 
@@ -143,6 +144,14 @@ def has_configured_target(technology: str) -> bool:
     if technology in ("Linux", "Red Hat Enterprise Linux 8.x", "Red Hat Enterprise Linux 9.x",
                       "NGINX", "Apache HTTPD", "Tomcat"):
         return _non_empty(block.get("container"))
+
+    if technology == "Aerospike":
+        import os
+
+        # Demo mode uses deterministic synthetic output without a live node.
+        if str(os.environ.get("DEMO_MODE", "")).strip().lower() in {"1", "true", "yes", "on"}:
+            return True
+        return _non_empty(block.get("container")) or _non_empty(block.get("host"))
 
     if technology in ("SonarQube", "Trivy"):
         return _non_empty(block.get("base_url")) or _non_empty(block.get("image"))

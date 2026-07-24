@@ -316,7 +316,18 @@ class OllamaProvider(LLMProvider):
     whenever a base URL is set (Ollama needs no key)."""
 
     def _base(self) -> str:
-        return self.provider_cfg.get("base_url", "http://host.docker.internal:11434").rstrip("/")
+        # Prefer live OLLAMA_URL over provider_cfg: load_llm_config() is lru-cached
+        # and may have resolved ${OLLAMA_URL:-host.docker.internal} before
+        # env_bootstrap rewrote the env for host uvicorn. Cached instances
+        # (e.g. evidence_indexing._INDEX_PROVIDER) keep that stale base_url in
+        # provider_cfg; reading os.environ here makes every embed/chat use the
+        # post-bootstrap URL (http://localhost:11434 on host).
+        url = (
+            str(os.environ.get("OLLAMA_URL") or "").strip()
+            or str(self.provider_cfg.get("base_url") or "").strip()
+            or "http://host.docker.internal:11434"
+        )
+        return url.rstrip("/")
 
     def _keep_alive(self) -> str:
         # Keep the model resident to avoid repeated cold starts. Configurable via

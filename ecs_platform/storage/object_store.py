@@ -106,6 +106,7 @@ class S3ObjectStore(EvidenceObjectStore):
         self._access_key = access_key
         self._secret_key = secret_key
         self._client = None
+        self._bucket_ready = False
 
     def _client_or_create(self):
         if self._client is not None:
@@ -124,14 +125,30 @@ class S3ObjectStore(EvidenceObjectStore):
         )
         return self._client
 
+    def _ensure_bucket(self) -> None:
+        """Create the evidence bucket once when missing (MinIO/S3). Never redesigns custody."""
+        if self._bucket_ready:
+            return
+        client = self._client_or_create()
+        try:
+            client.head_bucket(Bucket=self._bucket)
+        except Exception:  # noqa: BLE001 - create when absent
+            try:
+                client.create_bucket(Bucket=self._bucket)
+            except Exception:  # noqa: BLE001 - race / already owned
+                client.head_bucket(Bucket=self._bucket)
+        self._bucket_ready = True
+
     def exists(self, key: str) -> bool:
         try:
+            self._ensure_bucket()
             self._client_or_create().head_object(Bucket=self._bucket, Key=key)
             return True
         except Exception:  # noqa: BLE001
             return False
 
     def put_immutable(self, key: str, body: bytes, *, content_type: str = "") -> str:
+        self._ensure_bucket()
         if self.exists(key):
             raise FileExistsError(key)
         kwargs: dict[str, Any] = {"Bucket": self._bucket, "Key": key, "Body": body}

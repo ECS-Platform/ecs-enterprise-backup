@@ -26,14 +26,21 @@
 <div class="card"><div class="card-body">
   {% if evidence %}
   <table class="table table-sm table-hover ai-table mb-0"><thead><tr>
-    <th>Evidence Key</th><th>Ver</th><th>Technology</th><th>Verdict</th><th>Checksum</th><th>Collected</th><th>Actions</th></tr></thead>
+    <th>Evidence ID</th><th>Evidence Key</th><th>Ver</th><th>Technology</th><th>Verdict</th><th>Checksum</th><th>Collected</th><th>Actions</th></tr></thead>
   <tbody>
   {% for e in evidence %}
-    <tr><td>{{ e.evidence_key }}</td><td>v{{ e.version }}</td><td>{{ e.technology }}</td>
+    <tr><td><code>{{ e.evidence_id or e.display_evidence_id or "—" }}</code></td>
+    <td>{{ e.evidence_key or "—" }}</td><td>v{{ e.version or 1 }}</td><td>{{ e.technology }}</td>
     <td>{% if e.verdict %}<span class="ai-chip ai-chip-{{ e.verdict | lower }}">{{ e.verdict }}</span>{% else %}—{% endif %}</td>
-    <td><code>{{ e.checksum }}</code></td><td class="ai-meter-lbl">{{ e.collected_at[:19] }}</td>
-    <td><button type="button" class="btn btn-sm btn-outline-primary"
-      onclick='showEvidenceDetails({{ e.evidence_key | tojson }})'>View Details</button></td></tr>
+    <td><code>{{ e.checksum }}</code></td><td class="ai-meter-lbl">{{ (e.collected_at or "")[:19] }}</td>
+    <td class="text-nowrap">
+      <button type="button" class="btn btn-sm btn-outline-primary"
+        onclick='showEvidenceDetails({{ (e.evidence_key or e.evidence_id) | tojson }})'>View Details</button>
+      {% if e.evidence_id %}
+      <a class="btn btn-sm btn-outline-secondary"
+        href="/mvp/scheduler/fetched-evidence/view?evidence_id={{ e.evidence_id | urlencode }}&role={{ role }}&user={{ user | urlencode }}">View Evidence</a>
+      {% endif %}
+    </td></tr>
   {% endfor %}
   </tbody></table>
   {% else %}<div class="ai-meter-lbl">No evidence stored yet. Evidence is persisted from completed runs.</div>{% endif %}
@@ -140,8 +147,8 @@
         first(metadata, ["control", "control_id"]);
 
       const source =
-        first(latest, ["source", "connector", "source_system"]) ||
-        first(metadata, ["source", "connector", "source_system"]);
+        first(latest, ["source", "source_connector", "connector", "source_system"]) ||
+        first(metadata, ["source", "source_connector", "connector", "source_system"]);
 
       const evidenceId =
         first(latest, ["evidence_id", "id", "uid", "display_evidence_id"]);
@@ -185,6 +192,11 @@
       html += detailRow("Metadata", metadata);
 
       html += "</table></div>";
+
+      if (evidenceId) {
+        html += '<div class="mt-3"><a class="btn btn-sm btn-outline-secondary" href="/mvp/scheduler/fetched-evidence/view?evidence_id=' +
+          encodeURIComponent(String(evidenceId)) + '">View Evidence</a></div>';
+      }
 
       html += '<h6 class="mt-4 mb-2">Version History</h6>';
       html += '<div class="table-responsive"><table class="table table-sm table-hover">';

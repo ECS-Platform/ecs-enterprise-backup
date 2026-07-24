@@ -25,6 +25,11 @@ from modules.shared.services.evidence_authoritative_reader import (
 def _clean():
     import time as _time
 
+    from modules.frameworks.repositories.framework_control_repository import (
+        clear_framework_control_repository_cache,
+    )
+
+    clear_framework_control_repository_cache()
     ai_repo.reset_repository()
     ai_repo._last_canonical_failure_at = _time.monotonic()
     ops_repo.evidence_repository.clear()
@@ -33,6 +38,7 @@ def _clean():
     ai_repo.reset_repository()
     ops_repo.evidence_repository.clear()
     ops_repo.upload_tracker.clear()
+    clear_framework_control_repository_cache()
 
 
 def test_register_upload_sha256_duplicate_is_detected():
@@ -81,6 +87,75 @@ def test_fcm_mapping_enriched_on_upload():
     assert meta.get("policy_refs")
     assert meta.get("procedure_ids")
     assert meta.get("evidence_requirement_ids")
+
+
+def test_fcm_enrichment_reuses_shared_repository_across_rows(monkeypatch):
+    """Authoritative collection must not construct a new FCM repo per evidence row."""
+    from modules.frameworks.repositories import framework_control_repository as fcm_mod
+    from modules.shared.services.evidence_authoritative_reader import _enrich_fcm_mappings
+
+    fcm_mod.clear_framework_control_repository_cache()
+    ctors = {"n": 0}
+    real_init = fcm_mod.FileFrameworkControlRepository.__init__
+
+    def _counting_init(self, *args, **kwargs):
+        ctors["n"] += 1
+        return real_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(fcm_mod.FileFrameworkControlRepository, "__init__", _counting_init)
+
+    # Force enrichment path (empty meta) across many rows / calls.
+    for i in range(25):
+        out = _enrich_fcm_mappings(
+            {},
+            framework="PCI DSS",
+            control="PCI-C-01",
+        )
+        assert out.get("fcm_framework_id") == "pci_dss"
+        assert out.get("fcm_control_id") == "PCI-C-01"
+
+    assert ctors["n"] == 1, f"expected one shared FCM repo ctor, got {ctors['n']}"
+
+    for i in range(10):
+        ops_repo.register_upload(
+            f"row-{i}.pdf",
+            f"body-{i}".encode(),
+            "owner",
+            "PCI DSS",
+            "Net Banking",
+            "PCI-C-01",
+        )
+    before = ctors["n"]
+    rows = collect_authoritative_evidence_rows()
+    assert len(rows) >= 10
+    # Collection may construct at most one additional singleton if cache was cold;
+    # with warm shared repo from enrich loop above, ctor count must not grow per row.
+    assert ctors["n"] - before <= 1
+    assert ctors["n"] <= 2
+
+
+def test_fcm_enrichment_semantics_unchanged_via_shared_repo():
+    from modules.frameworks.repositories.framework_control_repository import (
+        FileFrameworkControlRepository,
+        clear_framework_control_repository_cache,
+        get_framework_control_repository,
+    )
+    from modules.shared.services.evidence_authoritative_reader import _enrich_fcm_mappings
+
+    clear_framework_control_repository_cache()
+    shared = get_framework_control_repository()
+    direct = FileFrameworkControlRepository()
+
+    via_shared = _enrich_fcm_mappings({}, framework="PCI DSS", control="PCI-C-01")
+    # Mirror legacy direct-instance lookup path for semantic parity.
+    fw_id = direct.resolve_framework_id("pci_dss")
+    doc = direct.get_framework(fw_id)
+    assert doc
+    match = next(c for c in (doc.get("controls") or []) if c.get("id") == "PCI-C-01")
+    assert via_shared.get("fcm_framework_id") == fw_id
+    assert via_shared.get("fcm_control_id") == match.get("id")
+    assert via_shared.get("policy_refs") == list(match.get("policy_refs") or [])
+    assert shared is get_framework_control_repository()
 
 
 def test_audit_only_artifact_visible_after_ops_clear():

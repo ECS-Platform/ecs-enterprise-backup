@@ -25,6 +25,22 @@ _BANKING_APPS = (
     "UPI",
 )
 
+_CONTROL_ID_RE = re.compile(
+    r"\b((?:PGX|CC|ITP|PCI|MBSS)(?:-[A-Z0-9_]+)+|[A-Z]{2,5}-\d{2,4})\b",
+    re.I,
+)
+_EXPLICIT_CONTROL_REQUEST_RE = re.compile(
+    r"\b(?:common\s+)?control(?:\s+id)?\b",
+    re.I,
+)
+_UNRESOLVED_EXPLICIT_CONTROL = "__UNRESOLVED_EXPLICIT_CONTROL__"
+_PCI_C01_ALIASES = frozenset(
+    {
+        "PCI-C01",
+        "REQ 3.4 - ENCRYPTION AT REST",
+    }
+)
+
 
 def _parse_iso_date(value: str) -> datetime | None:
     raw = (value or "").strip()
@@ -136,10 +152,45 @@ def _extract_application(query: str) -> str | None:
 
 
 def _extract_control_id(query: str) -> str | None:
-    match = re.search(r"\b([A-Z]{2,5}-\d{2,4})\b", query or "")
-    if match:
-        return match.group(1)
+    for match in _CONTROL_ID_RE.finditer(query or ""):
+        candidate = match.group(1).upper()
+        # SHA-256 is evidence metadata, not a control identifier.
+        if candidate == "SHA-256":
+            continue
+        return candidate
     return None
+
+
+def _normalize_control_value(value: Any) -> str:
+    return " ".join(
+        str(value or "")
+        .strip()
+        .upper()
+        .replace("—", "-")
+        .replace("–", "-")
+        .split()
+    )
+
+
+def _control_values_match(expected: Any, actual: Any) -> bool:
+    """Conservatively match exact control values, ID tokens, and the PCI-C01 alias."""
+    expected_norm = _normalize_control_value(expected)
+    actual_norm = _normalize_control_value(actual)
+    if not expected_norm or not actual_norm:
+        return False
+    if expected_norm == actual_norm:
+        return True
+
+    expected_tokens = {
+        match.group(1).upper() for match in _CONTROL_ID_RE.finditer(str(expected or ""))
+    }
+    actual_tokens = {
+        match.group(1).upper() for match in _CONTROL_ID_RE.finditer(str(actual or ""))
+    }
+    if expected_tokens & actual_tokens:
+        return True
+
+    return expected_norm in _PCI_C01_ALIASES and actual_norm in _PCI_C01_ALIASES
 
 
 def _extract_framework(query: str) -> str | None:
@@ -201,7 +252,12 @@ def _filter_rows(rows: list[dict], filters: dict[str, Any]) -> list[dict]:
         out = [r for r in out if r.get("framework") == filters["framework"]]
     if filters.get("control_id"):
         cid = filters["control_id"]
-        out = [r for r in out if r.get("control_id") == cid or r.get("control") == cid]
+        out = [
+            r
+            for r in out
+            if _control_values_match(cid, r.get("control_id"))
+            or _control_values_match(cid, r.get("control"))
+        ]
     if filters.get("evidence_id"):
         eid = filters["evidence_id"]
         out = [r for r in out if r.get("evidence_id") == eid]
@@ -710,6 +766,11 @@ COMMON_QUERY_CATALOG: list[dict[str, Any]] = [
 def match_common_intent(query: str) -> dict[str, Any] | None:
     q = (query or "").lower()
     filters = parse_query_filters(query)
+    if _EXPLICIT_CONTROL_REQUEST_RE.search(query or "") and not filters.get("control_id"):
+        # Preserve the user's explicit scope. The sentinel cannot match evidence,
+        # so unresolved control requests return no evidence instead of an unrelated
+        # unscoped latest row.
+        filters["control_id"] = _UNRESOLVED_EXPLICIT_CONTROL
     for entry in COMMON_QUERY_CATALOG:
         if any(re.search(pattern, q) for pattern in entry["patterns"]):
             missing = [f for f in entry.get("required_filters", []) if not filters.get(f)]
@@ -759,8 +820,42 @@ def try_deterministic_evidence_query(query: str, *, role: str = "owner", user: s
 
 def _citations_from_rag(rag_result: dict[str, Any]) -> list[dict[str, Any]]:
     citations: list[dict[str, Any]] = []
+    from modules.shared.services.evidence_authoritative_reader import get_authoritative_evidence
+
+    def _framework_from_raw(raw: dict[str, Any]) -> str:
+        fws = raw.get("frameworks") or []
+        if isinstance(fws, (list, tuple)):
+            # Prefer Phase-1 display names (e.g. "PCI DSS") over connector codes ("PCI-DSS").
+            for fw in fws:
+                text = str(fw or "").strip()
+                if text and " " in text:
+                    return text
+            return str(fws[0]).strip() if fws else ""
+        return str(fws or "").strip()
+
+    def _apply_framework(cite: dict[str, Any], raw: dict[str, Any]) -> None:
+        raw_fw = _framework_from_raw(raw)
+        current = str(cite.get("framework") or "").strip()
+        if raw_fw and (
+            not current
+            or current.lower() in {"cross-framework", "none"}
+            or (raw_fw != current and " " in raw_fw and "-" in current)
+        ):
+            cite["framework"] = raw_fw
+        elif not current and raw_fw:
+            cite["framework"] = raw_fw
+
     for raw in rag_result.get("citations") or []:
         uid = raw.get("evidence_uid") or raw.get("evidence_id") or ""
+        auth = get_authoritative_evidence(str(uid)) if uid else None
+        if auth is not None:
+            cite = _to_citation(auth)
+            if raw.get("application"):
+                cite["application"] = raw["application"]
+            _apply_framework(cite, raw)
+            citations.append(cite)
+            continue
+
         matched = None
         for rec in ops_repo.evidence_repository:
             meta = rec.get("metadata") or {}
@@ -774,7 +869,7 @@ def _citations_from_rag(rag_result: dict[str, Any]) -> list[dict[str, Any]]:
             if tag_hit:
                 matched = rec
                 break
-        if matched is None and uid.startswith("EVD-"):
+        if matched is None and str(uid).startswith("EVD-"):
             matched = next((r for r in ops_repo.evidence_repository if r.get("evidence_id") == uid), None)
         if matched is None:
             citations.append(
@@ -783,6 +878,7 @@ def _citations_from_rag(rag_result: dict[str, Any]) -> list[dict[str, Any]]:
                     "version": raw.get("version") or 1,
                     "control_id": ", ".join(raw.get("controls") or []) or "",
                     "application": raw.get("application") or "",
+                    "framework": _framework_from_raw(raw),
                     "source_connector": raw.get("source_system") or "",
                     "object_key": raw.get("url") or "",
                     "object_reference": raw.get("url") or "",
@@ -792,6 +888,7 @@ def _citations_from_rag(rag_result: dict[str, Any]) -> list[dict[str, Any]]:
         cite = _to_citation(matched)
         if raw.get("application"):
             cite["application"] = raw["application"]
+        _apply_framework(cite, raw)
         citations.append(cite)
     return citations
 

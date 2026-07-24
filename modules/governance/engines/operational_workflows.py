@@ -442,10 +442,10 @@ def process_upload_missing(
     }
     ecs_state.operational_uploads.append(record)
     if submit_type != "upload_draft":
-        from modules.operations.engines.evidence_repository import register_upload
+        from modules.operations.engines.evidence_repository import publish_evidence
         from modules.frameworks.engines.framework_catalog import resolve_framework_name
         fw = resolve_framework_name(ctx["framework"])
-        register_upload(fname, b"ECS operational upload", user, framework=fw, application=ctx["application"], control=ctx["control"])
+        publish_evidence(fname, b"ECS operational upload", user, framework=fw, application=ctx["application"], control=ctx["control"])
         key = ecs_state.control_key(fw, ctx["control"])
         ts_full = _ts()
         ecs_state.submitted_controls[key] = {"submitted_by": user, "submitted_at": ts_full}

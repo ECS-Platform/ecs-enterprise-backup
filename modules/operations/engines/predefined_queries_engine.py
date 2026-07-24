@@ -1437,10 +1437,15 @@ def run_predefined_query(
     control_id: str,
     user: str,
     *,
-    persist: bool = False,
+    persist: bool = True,
     scheduled: bool = False,
 ) -> dict[str, Any]:
-    """Dispatch live execution by control ID and technology."""
+    """Dispatch live execution by control ID and technology.
+
+    Phase-1 default is ``persist=True`` so Run Query completes the evidence
+    pipeline (artifact → SHA-256 → PostgreSQL metadata → MinIO → version → PGVector).
+    Pass ``persist=False`` only for explicit preview/dry-run callers.
+    """
     set_execution_persist(persist or scheduled)
     try:
         return _run_predefined_query_impl(control_id, user)

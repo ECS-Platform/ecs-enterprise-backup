@@ -560,7 +560,13 @@ def _retrieve(question: str, scope_filter: dict[str, Any], hints: dict[str, Any]
 
 
 def _enrich(uids: list[str]) -> list[dict[str, Any]]:
-    """Steps 3+4: attach source/timestamp + reuse (controls) + framework mappings."""
+    """Steps 3+4: attach source/timestamp + reuse (controls) + framework mappings.
+
+    Frameworks come from:
+      1. control → CONTROL_CROSSWALK (connector-style control ids)
+      2. evidence_framework_map (Phase-1 direct framework tags)
+      3. evidence.metadata.framework (persisted Phase-1 metadata fallback)
+    """
     if not uids:
         return []
     try:
@@ -568,11 +574,13 @@ def _enrich(uids: list[str]) -> list[dict[str, Any]]:
             cur.execute(
                 """
                 SELECT e.evidence_uid, e.source_system, e.object_type, e.title, e.content,
-                       e.application, e.url, e.collected_timestamp,
+                       e.application, e.url, e.collected_timestamp, e.metadata,
                        array_remove(array_agg(DISTINCT m.control_id), NULL) AS controls,
+                       array_remove(array_agg(DISTINCT fm.framework_code), NULL) AS mapped_frameworks,
                        r.status AS review_status
                 FROM evidence e
                 LEFT JOIN evidence_control_map m ON m.evidence_id = e.id
+                LEFT JOIN evidence_framework_map fm ON fm.evidence_id = e.id
                 LEFT JOIN evidence_reviews r ON r.evidence_uid = e.evidence_uid
                 WHERE e.evidence_uid = ANY(%s)
                 GROUP BY e.id, r.status
@@ -591,6 +599,29 @@ def _enrich(uids: list[str]) -> list[dict[str, Any]]:
         for cid in controls:
             for fw, ref in CONTROL_CROSSWALK.get(cid, {}).items():
                 fw_refs.setdefault(fw, ref)
+        for fw in row.get("mapped_frameworks") or []:
+            code = str(fw or "").strip()
+            if code:
+                fw_refs.setdefault(code, code)
+        meta = row.get("metadata") or {}
+        if isinstance(meta, str):
+            try:
+                import json as _json
+
+                meta = _json.loads(meta)
+            except Exception:  # noqa: BLE001
+                meta = {}
+        if isinstance(meta, dict):
+            meta_fw = meta.get("framework")
+            if isinstance(meta_fw, (list, tuple)):
+                for fw in meta_fw:
+                    code = str(fw or "").strip()
+                    if code:
+                        fw_refs.setdefault(code, code)
+            else:
+                code = str(meta_fw or "").strip()
+                if code:
+                    fw_refs.setdefault(code, code)
         out.append({
             "evidence_uid": uid, "source_system": row.get("source_system"),
             "object_type": row.get("object_type"), "title": row.get("title"),
@@ -654,7 +685,10 @@ def _assemble_prompt(question: str, facts: list[str], evidence: list[dict[str, A
         f"QUESTION: {question}\n\n"
         "Answer using ONLY the facts and evidence above. Cite evidence as [E#]. "
         "When relevant, name the source system, collection timestamp, and the frameworks "
-        "each cited evidence satisfies. If the context is insufficient, say so explicitly.")
+        "each cited evidence satisfies. "
+        "If EVIDENCE blocks are present above, do not say that no evidence was found; "
+        "cite the retrieved items and state clearly if they are only a partial match. "
+        "If the context is insufficient and no EVIDENCE blocks are present, say so explicitly.")
     return "\n\n".join(parts)
 
 

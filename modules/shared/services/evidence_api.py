@@ -9,7 +9,7 @@ from typing import Any
 from app import ecs_state
 from modules.governance.engines.audit_prep_data import build_audit_package_preview, build_export_bundle_preview
 from modules.shared.services.audit_trail import log_event
-from modules.operations.engines.evidence_repository import evidence_repository, register_upload
+from modules.operations.engines.evidence_repository import evidence_repository, publish_evidence
 
 _package_store: dict[str, Any] = {}
 _export_store: dict[str, Any] = {}
@@ -37,7 +37,7 @@ def upload_evidence(
     audit_cycle: str = "Q2 2026",
     owner: str = "",
 ) -> dict[str, Any]:
-    record = register_upload(
+    record = publish_evidence(
         filename or "evidence_upload.pdf",
         content or b"mock-evidence-content",
         uploaded_by,

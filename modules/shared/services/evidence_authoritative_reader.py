@@ -89,16 +89,30 @@ def _ops_row(rec: dict) -> dict[str, Any]:
     )
     framework = str((rec.get("framework_tags") or ["Cross-Framework"])[0])
     application = str((rec.get("application_tags") or ["Net Banking"])[0])
+    control = str(rec.get("control") or meta.get("control_id") or "")
     row = dict(rec)
     row["metadata"] = meta
     row["application"] = application
     row["framework"] = framework
-    row["control_id"] = str(rec.get("control") or meta.get("control_id") or "")
+    row["control_id"] = control
+    # Template + /versions API key by evidence_key (asset::control), not evidence_id.
+    row["evidence_key"] = str(
+        rec.get("evidence_key")
+        or _derive_evidence_key(application, control or str(rec.get("filename") or "UPLOAD"))
+    )
+    sha = str(rec.get("sha256") or meta.get("sha256") or meta.get("content_sha256") or "")
+    row["checksum"] = str(rec.get("checksum") or (sha[:8] if sha else ""))
+    # Prefer audit mirror version when present so UI matches version history.
+    row["version"] = int(rec.get("audit_version") or rec.get("version") or meta.get("audit_version") or 1)
+    if rec.get("display_evidence_id"):
+        row["display_evidence_id"] = str(rec.get("display_evidence_id"))
+    elif meta.get("display_evidence_id"):
+        row["display_evidence_id"] = str(meta.get("display_evidence_id"))
     row["collection_source"] = (
         meta.get("collection_source") or rec.get("source_connector") or meta.get("source_type") or ""
     )
     row["environment"] = str(rec.get("environment") or meta.get("environment") or "")
-    row["collected_at"] = rec.get("uploaded_at") or meta.get("collected_at") or ""
+    row["collected_at"] = str(rec.get("uploaded_at") or meta.get("collected_at") or "")
     row["object_key"] = meta.get("object_key") or rec.get("object_uri") or ""
     row["object_reference"] = row["object_key"] or rec.get("object_uri") or ""
     row["file_location"] = row["object_key"] or rec.get("source_url") or ""
@@ -111,6 +125,17 @@ def _ops_row(rec: dict) -> dict[str, Any]:
     return row
 
 
+def _derive_evidence_key(application: str, control: str) -> str:
+    """Match audit-repo keying used by register_upload / store_evidence."""
+    try:
+        from modules.audit_intelligence.engines.evidence_repository import make_evidence_key
+
+        return make_evidence_key(application, control)
+    except Exception:  # noqa: BLE001
+        asset = (application or "global").strip() or "global"
+        return f"{asset}::{control}".strip(":")
+
+
 def _artifact_row(art) -> dict[str, Any]:
     meta = _enrich_fcm_mappings(
         _meta_dict(getattr(art, "metadata", ()) or ()),
@@ -121,23 +146,35 @@ def _artifact_row(art) -> dict[str, Any]:
     framework = frameworks[0] if frameworks else str(meta.get("framework") or "Cross-Framework")
     application = str(getattr(art, "asset_id", "") or meta.get("application") or "Net Banking")
     evidence_id = str(getattr(art, "evidence_id", "") or "")
+    control = str(getattr(art, "control_id", "") or meta.get("control_id") or "")
+    evidence_key = str(
+        getattr(art, "evidence_key", "")
+        or _derive_evidence_key(application, control or str(getattr(art, "filename", "") or "UPLOAD"))
+    )
+    content_hash = str(getattr(art, "content_hash", "") or meta.get("content_sha256") or "")
+    checksum = str(getattr(art, "checksum", "") or (content_hash[:8] if content_hash else ""))
     workflow_status = str(
         meta.get("workflow_status") or meta.get("validation_verdict") or "Collected"
     )
+    display_id = str(meta.get("display_evidence_id") or "")
     row = {
         "evidence_id": evidence_id,
+        "evidence_key": evidence_key,
         "filename": str(getattr(art, "filename", "") or evidence_id),
         "original_filename": meta.get("original_filename") or getattr(art, "filename", ""),
         "framework_tags": frameworks or [framework],
         "application_tags": [application],
         "framework": framework,
         "application": application,
-        "control": str(getattr(art, "control_id", "") or ""),
-        "control_id": str(getattr(art, "control_id", "") or meta.get("control_id") or ""),
+        "control": control,
+        "control_id": control,
+        "technology": str(getattr(art, "technology", "") or meta.get("technology") or ""),
+        "verdict": str(getattr(art, "verdict", "") or meta.get("verdict") or ""),
         "uploaded_by": meta.get("uploaded_by") or meta.get("collected_by") or "System",
         "uploaded_at": str(getattr(art, "collected_at", "") or ""),
         "collected_at": str(getattr(art, "collected_at", "") or ""),
-        "sha256": str(getattr(art, "content_hash", "") or meta.get("content_sha256") or ""),
+        "sha256": content_hash,
+        "checksum": checksum,
         "version": int(getattr(art, "version", 1) or 1),
         "custody_mode": str(getattr(art, "custody_mode", "") or meta.get("custody_mode") or ""),
         "object_uri": str(getattr(art, "object_uri", "") or meta.get("object_uri") or ""),
@@ -161,6 +198,8 @@ def _artifact_row(art) -> dict[str, Any]:
         "audit_status": meta.get("audit_status") or workflow_status,
         "tags": list(getattr(art, "tags", ()) or ()),
     }
+    if display_id:
+        row["display_evidence_id"] = display_id
     row["workflow_status"] = _workflow_status(row)
     row["approval_status"] = meta.get("approval_status") or row["workflow_status"]
     row["review_status"] = meta.get("review_status") or row["workflow_status"]
@@ -199,6 +238,10 @@ def collect_authoritative_evidence_rows(*, latest_only: bool = True) -> list[dic
             int(art_row.get("version") or 1),
         )
         for key in (
+            "evidence_key",
+            "checksum",
+            "technology",
+            "verdict",
             "custody_mode",
             "object_uri",
             "object_key",
@@ -206,10 +249,15 @@ def collect_authoritative_evidence_rows(*, latest_only: bool = True) -> list[dic
             "file_location",
             "sha256",
             "collected_at",
+            "display_evidence_id",
+            "mime_type",
+            "source_url",
+            "source_connector",
         ):
             if not merged.get(key) and art_row.get(key):
                 merged[key] = art_row[key]
         merged["audit_repository_synced"] = True
+        # Ops metadata wins on conflict; fill gaps from audit artifact.
         meta = {**_meta_dict(art_row.get("metadata")), **_meta_dict(merged.get("metadata"))}
         merged["metadata"] = meta
         by_id[eid] = merged
@@ -218,10 +266,20 @@ def collect_authoritative_evidence_rows(*, latest_only: bool = True) -> list[dic
 
 
 def get_authoritative_evidence(evidence_id: str) -> dict[str, Any] | None:
+    needle = str(evidence_id or "").strip()
+    if not needle:
+        return None
     for row in collect_authoritative_evidence_rows():
-        if str(row.get("evidence_id") or "") == evidence_id:
+        if str(row.get("evidence_id") or "") == needle:
             return row
-        if str(row.get("display_evidence_id") or "") == evidence_id:
+        if str(row.get("display_evidence_id") or "") == needle:
+            return row
+        if str(row.get("repository_id") or "") == needle:
+            return row
+        meta = _meta_dict(row.get("metadata"))
+        if str(meta.get("display_evidence_id") or "") == needle:
+            return row
+        if str(meta.get("evidence_id") or "") == needle:
             return row
     return None
 

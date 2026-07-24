@@ -20,7 +20,7 @@
   function isExcluded(el) {
     var chat = el.closest('#ecsChatCopilot');
     if (!chat) return false;
-    return !el.closest('.ecs-chat-response-html, .ecs-chat-history');
+    return !el.closest('.ecs-chat-response-html, .ecs-chat-output');
   }
 
   function ensureTableStructure(table) {

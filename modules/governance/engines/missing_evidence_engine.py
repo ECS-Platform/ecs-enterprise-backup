@@ -227,8 +227,8 @@ def apply_upload(
             "evidence_id": rec.get("evidence_id", ""),
         }
         ecs_state.submitted_meta[key] = {"submitted_at": ts_full, "observation_id": observation_id}
-        from modules.operations.engines.evidence_repository import register_upload
-        register_upload(
+        from modules.operations.engines.evidence_repository import publish_evidence
+        publish_evidence(
             filename or f"{observation_id}_evidence.pdf",
             b"ECS gap upload artefact",
             user,
