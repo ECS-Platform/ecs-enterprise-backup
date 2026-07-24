@@ -34,10 +34,10 @@ def _enrich_fcm_mappings(meta: dict[str, Any], *, framework: str, control: str) 
         return meta
     try:
         from modules.frameworks.repositories.framework_control_repository import (
-            FileFrameworkControlRepository,
+            get_framework_control_repository,
         )
 
-        repo = FileFrameworkControlRepository()
+        repo = get_framework_control_repository()
         fw_id = repo.resolve_framework_id(
             framework.lower().replace(" ", "_").replace("-", "_")
         )

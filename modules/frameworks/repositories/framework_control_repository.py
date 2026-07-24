@@ -17,6 +17,10 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _CATALOG_DIR = _REPO_ROOT / "config" / "framework_control_master"
 _CATALOG_PATH = _CATALOG_DIR / "catalog.yaml"
 
+# Process-level YAML parse cache keyed by resolved path + mtime (immutable reads).
+_yaml_doc_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_default_repo: "FileFrameworkControlRepository | None" = None
+
 
 def _load_yaml(path: Path) -> dict[str, Any]:
     if not path.is_file():
@@ -24,11 +28,28 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     try:
         import yaml
 
+        key = str(path.resolve())
+        mtime = path.stat().st_mtime
+        cached = _yaml_doc_cache.get(key)
+        if cached is not None and cached[0] == mtime:
+            return cached[1]
+
         with path.open(encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
-        return data if isinstance(data, dict) else {}
+        result = data if isinstance(data, dict) else {}
+        _yaml_doc_cache[key] = (mtime, result)
+        return result
     except Exception:  # noqa: BLE001
         return {}
+
+
+def clear_framework_control_repository_cache() -> None:
+    """Clear FCM YAML and default repository caches (tests / catalog reload)."""
+    global _default_repo
+    _yaml_doc_cache.clear()
+    if _default_repo is not None:
+        _default_repo.clear_cache()
+        _default_repo = None
 
 
 class FrameworkControlRepository(ABC):
@@ -93,6 +114,12 @@ class FileFrameworkControlRepository(FrameworkControlRepository):
         self._catalog_dir = catalog_dir or _CATALOG_DIR
         self._catalog_path = self._catalog_dir / "catalog.yaml"
         self._assignments_path = self._catalog_dir / "application_assignments.yaml"
+
+    def clear_cache(self) -> None:
+        """Clear instance-level LRU caches (catalog, assignments, framework docs)."""
+        self._catalog.cache_clear()
+        self._assignments_doc.cache_clear()
+        self._load_framework_doc.cache_clear()
 
     def source_type(self) -> str:
         return "file"
@@ -318,5 +345,8 @@ class FileFrameworkControlRepository(FrameworkControlRepository):
 
 
 def get_framework_control_repository() -> FrameworkControlRepository:
-    """Factory — swap implementation via env/config in a later phase."""
-    return FileFrameworkControlRepository()
+    """Return the process-default file repository (shared cache across callers)."""
+    global _default_repo
+    if _default_repo is None:
+        _default_repo = FileFrameworkControlRepository()
+    return _default_repo
