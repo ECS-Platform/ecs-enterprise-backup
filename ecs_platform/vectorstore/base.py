@@ -69,3 +69,13 @@ class VectorStore(ABC):
 
     @abstractmethod
     def delete_for_evidence(self, evidence_uid: str) -> None: ...
+
+    @abstractmethod
+    def delete_stale_managed_chunks(
+        self,
+        candidate_chunk_ids: set[str],
+        *,
+        managed_doc_kinds: tuple[str, ...] = ("evidence", "governance"),
+    ) -> int:
+        """Remove managed corpus rows whose chunk_id is no longer a reindex candidate."""
+        ...

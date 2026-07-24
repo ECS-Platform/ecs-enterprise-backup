@@ -89,8 +89,12 @@ class PgVectorStore(VectorStore):
         if filters:
             conds = []
             for key, val in filters.items():
-                conds.append("metadata->>%s = %s")
-                filter_params.extend([key, str(val)])
+                if isinstance(val, (list, tuple, set)):
+                    conds.append("metadata->>%s = ANY(%s)")
+                    filter_params.extend([key, [str(v) for v in val]])
+                else:
+                    conds.append("metadata->>%s = %s")
+                    filter_params.extend([key, str(val)])
             if conds:
                 filter_clause = "WHERE " + " AND ".join(conds)
         params = [*select_params, *filter_params, vec, top_k]
@@ -111,3 +115,59 @@ class PgVectorStore(VectorStore):
     def delete_for_evidence(self, evidence_uid: str) -> None:
         with self._connect().cursor() as cur:
             cur.execute(f"DELETE FROM {self._table} WHERE evidence_uid = %s", (evidence_uid,))
+
+    def delete_stale_managed_chunks(
+        self,
+        candidate_chunk_ids: set[str],
+        *,
+        managed_doc_kinds: tuple[str, ...] = ("evidence", "governance"),
+    ) -> int:
+        if not managed_doc_kinds:
+            return 0
+        with self._connect().cursor() as cur:
+            if candidate_chunk_ids:
+                cur.execute(
+                    f"""
+                    DELETE FROM {self._table}
+                    WHERE metadata->>'doc_kind' = ANY(%s)
+                      AND NOT (chunk_id = ANY(%s))
+                    """,
+                    (list(managed_doc_kinds), list(candidate_chunk_ids)),
+                )
+            else:
+                cur.execute(
+                    f"DELETE FROM {self._table} WHERE metadata->>'doc_kind' = ANY(%s)",
+                    (list(managed_doc_kinds),),
+                )
+            return int(cur.rowcount or 0)
+
+    def indexed_evidence_stats(
+        self,
+        *,
+        evidence_doc_kinds: tuple[str, ...] = ("evidence", "evidence_version"),
+    ) -> dict[str, int]:
+        """Distinct indexed evidence UIDs and chunk counts for readiness metrics."""
+        with self._connect().cursor() as cur:
+            cur.execute(f"SELECT count(*) FROM {self._table}")
+            vector_count = int(cur.fetchone()[0])
+            cur.execute(
+                f"""
+                SELECT count(DISTINCT evidence_uid) FROM {self._table}
+                WHERE metadata->>'doc_kind' = ANY(%s)
+                """,
+                (list(evidence_doc_kinds),),
+            )
+            indexed_evidence = int(cur.fetchone()[0] or 0)
+            cur.execute(
+                f"""
+                SELECT count(*) FROM {self._table}
+                WHERE metadata->>'doc_kind' = ANY(%s)
+                """,
+                (list(evidence_doc_kinds),),
+            )
+            indexed_chunks = int(cur.fetchone()[0] or 0)
+        return {
+            "vector_count": vector_count,
+            "indexed_evidence": indexed_evidence,
+            "indexed_chunks": indexed_chunks,
+        }

@@ -85,6 +85,10 @@ _STATUS_WORDS = {
     "rejected": "Rejected", "approved": "Approved", "expired": "Expired",
     "under review": "UnderReview", "pending": "UnderReview", "collected": "Collected",
 }
+# Vector doc_kind values treated as evidence corpus (exclude governance/lineage/audit).
+_EVIDENCE_DOC_KINDS = ("evidence", "evidence_version")
+# doc_kind values owned by rag.reindex_evidence() reconciliation.
+_MANAGED_REINDEX_DOC_KINDS = ("evidence", "governance")
 
 
 def llm_connectivity() -> dict[str, Any]:
@@ -136,7 +140,8 @@ def rag_status() -> dict[str, Any]:
     """Readiness of the RAG stack: provider key + vector index population."""
     status: dict[str, Any] = {
         "provider": "", "provider_configured": False, "model": "", "embedding_model": "",
-        "vector_ready": False, "vector_count": 0, "evidence_count": 0, "indexed_pct": 0.0,
+        "vector_ready": False, "vector_count": 0, "indexed_chunks": 0,
+        "indexed_evidence": 0, "evidence_count": 0, "indexed_pct": 0.0,
         "ready": False, "notes": [],
     }
     try:
@@ -157,9 +162,16 @@ def rag_status() -> dict[str, Any]:
 
         store = get_vector_store()
         store.init_store()
-        with store._connect().cursor() as cur:  # noqa: SLF001 - internal count
-            cur.execute(f"SELECT count(*) FROM {store._table}")  # noqa: SLF001
-            status["vector_count"] = int(cur.fetchone()[0])
+        stats = getattr(store, "indexed_evidence_stats", None)
+        if callable(stats):
+            idx = stats(evidence_doc_kinds=_EVIDENCE_DOC_KINDS)
+            status["vector_count"] = idx.get("vector_count", 0)
+            status["indexed_chunks"] = idx.get("indexed_chunks", 0)
+            status["indexed_evidence"] = idx.get("indexed_evidence", 0)
+        else:
+            with store._connect().cursor() as cur:  # noqa: SLF001 - internal count
+                cur.execute(f"SELECT count(*) FROM {store._table}")  # noqa: SLF001
+                status["vector_count"] = int(cur.fetchone()[0])
         status["vector_ready"] = status["vector_count"] > 0
     except Exception as exc:  # noqa: BLE001
         status["notes"].append(f"vector store unavailable: {exc}")
@@ -171,7 +183,10 @@ def rag_status() -> dict[str, Any]:
         status["notes"].append(f"repository unavailable: {exc}")
 
     if status["evidence_count"]:
-        status["indexed_pct"] = round(100 * status["vector_count"] / status["evidence_count"], 1)
+        status["indexed_pct"] = min(
+            100.0,
+            round(100 * status["indexed_evidence"] / status["evidence_count"], 1),
+        )
     status["ready"] = bool(status["provider_configured"])
     return status
 
@@ -290,8 +305,8 @@ def reindex_evidence(limit: int = 5000, *, incremental: bool = True) -> dict[str
     report: dict[str, Any] = {
         "ok": False, "provider": "", "model": "", "embedding_model": "",
         "evidence": 0, "governance_docs": 0, "candidate_chunks": 0,
-        "embedded_chunks": 0, "skipped_unchanged": 0, "vector_count": 0,
-        "errors": [], "elapsed_sec": 0.0,
+        "embedded_chunks": 0, "skipped_unchanged": 0, "stale_removed": 0,
+        "vector_count": 0, "errors": [], "elapsed_sec": 0.0,
     }
     try:
         from ecs_platform.config import load_vectorstore_config
@@ -377,6 +392,16 @@ def reindex_evidence(limit: int = 5000, *, incremental: bool = True) -> dict[str
             store.upsert(out_chunks)
         report["embedded_chunks"] = embedded
 
+        candidate_ids = {c.chunk_id for c, _ in candidates}
+        try:
+            report["stale_removed"] = store.delete_stale_managed_chunks(
+                candidate_ids,
+                managed_doc_kinds=_MANAGED_REINDEX_DOC_KINDS,
+            )
+        except Exception as exc:  # noqa: BLE001
+            report["stale_removed"] = 0
+            report["errors"].append(f"stale reconciliation: {exc}")
+
         # Final vector count straight from the store.
         try:
             with store._connect().cursor() as cur:  # noqa: SLF001
@@ -445,6 +470,26 @@ def _parse_hints(question: str) -> dict[str, Any]:
     return hints
 
 
+def _is_governance_corpus_question(question: str) -> bool:
+    """True when the query targets governance/coverage/reuse metrics, not raw evidence text."""
+    q = (question or "").lower()
+    gov_words = (
+        "framework coverage", "framework mapping", "crosswalk", "readiness gap",
+        "audit readiness", "control gap", "control coverage", "portfolio",
+        "application inventory", "evidence reuse", "reuse across", "reused across",
+        "framework obligation", "framework progress",
+    )
+    if any(w in q for w in gov_words):
+        return True
+    if "reuse" in q and "evidence" in q:
+        return True
+    if "coverage" in q and ("framework" in q or "control" in q):
+        return True
+    if "readiness" in q and "audit" in q:
+        return True
+    return False
+
+
 def _retrieve(question: str, scope_filter: dict[str, Any], hints: dict[str, Any],
               top_k: int) -> tuple[list[str], str, int]:
     """Step 2: retrieve candidate evidence UIDs. Vector-first, repository fallback.
@@ -467,6 +512,8 @@ def _retrieve(question: str, scope_filter: dict[str, Any], hints: dict[str, Any]
                 vfilter["application"] = hints["application"]
             if hints.get("source_system"):
                 vfilter["source_system"] = hints["source_system"]
+            if not _is_governance_corpus_question(question):
+                vfilter["doc_kind"] = list(_EVIDENCE_DOC_KINDS)
             embedding = provider.embed([question])[0]
             hits = store.search(embedding, top_k=top_k, filters=vfilter or None)
             uids: list[str] = []

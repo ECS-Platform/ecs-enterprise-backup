@@ -56,12 +56,65 @@ class _FakeStore(VectorStore):
         return len(chunks)
 
     def search(self, embedding: list[float], *, top_k: int = 8, filters: dict[str, Any] | None = None):
-        return []
+        hits = []
+        for chunk in self.chunks.values():
+            if filters:
+                ok = True
+                for key, val in filters.items():
+                    meta_val = str((chunk.metadata or {}).get(key, ""))
+                    if isinstance(val, (list, tuple, set)):
+                        if meta_val not in {str(v) for v in val}:
+                            ok = False
+                            break
+                    elif meta_val != str(val):
+                        ok = False
+                        break
+                if not ok:
+                    continue
+            hits.append(chunk)
+        return hits[:top_k]
 
     def delete_for_evidence(self, evidence_uid: str) -> None:
         for cid in list(self.chunks):
             if self.chunks[cid].evidence_uid == evidence_uid:
                 del self.chunks[cid]
+
+    def delete_stale_managed_chunks(
+        self,
+        candidate_chunk_ids: set[str],
+        *,
+        managed_doc_kinds: tuple[str, ...] = ("evidence", "governance"),
+    ) -> int:
+        removed = 0
+        for cid in list(self.chunks):
+            kind = str((self.chunks[cid].metadata or {}).get("doc_kind", ""))
+            if kind not in managed_doc_kinds:
+                continue
+            if cid not in candidate_chunk_ids:
+                del self.chunks[cid]
+                removed += 1
+        return removed
+
+    def indexed_evidence_stats(
+        self,
+        *,
+        evidence_doc_kinds: tuple[str, ...] = ("evidence", "evidence_version"),
+    ) -> dict[str, int]:
+        kinds = set(evidence_doc_kinds)
+        indexed_uids = {
+            c.evidence_uid
+            for c in self.chunks.values()
+            if str((c.metadata or {}).get("doc_kind", "")) in kinds
+        }
+        indexed_chunks = sum(
+            1 for c in self.chunks.values()
+            if str((c.metadata or {}).get("doc_kind", "")) in kinds
+        )
+        return {
+            "vector_count": len(self.chunks),
+            "indexed_evidence": len(indexed_uids),
+            "indexed_chunks": indexed_chunks,
+        }
 
     def _connect(self):
         return self
