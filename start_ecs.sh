@@ -3,6 +3,7 @@
 #
 #   ./start_ecs.sh            # interactive menu
 #   ./start_ecs.sh --demo     # demo mode (scripts/start_ecs_demo.sh --all --skip-heavy)
+#   ./start_ecs.sh --llm      # LLM demo / low memory (lightweight compose stack only)
 #   ./start_ecs.sh --run      # normal run / development mode (Uvicorn)
 #   ./start_ecs.sh --status   # basic ECS status (read-only)
 #   ./start_ecs.sh --help     # usage
@@ -186,6 +187,44 @@ run_demo() {
 }
 
 # --------------------------------------------------------------------------- #
+# L: LLM demo / low memory (lightweight compose stack — no PQ/demo targets)
+# --------------------------------------------------------------------------- #
+# Backing services required by ecs for repository, vectors, cache, and objects.
+LLM_DEMO_BACKING_SERVICES=(postgres pgvector redis minio)
+LLM_DEMO_ECS_SERVICE=ecs
+
+run_llm_demo() {
+  # Same host-runtime hygiene as demo mode: stop host Uvicorn, never touch unrelated PIDs.
+  _stop_ecs_uvicorn
+  if _report_port_conflict; then
+    exit 1
+  fi
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "ERROR: docker not found." >&2
+    exit 1
+  fi
+
+  echo ""
+  echo "LLM Demo / Low Memory — starting lightweight stack only:"
+  printf '  %s\n' "${LLM_DEMO_BACKING_SERVICES[@]}" "${LLM_DEMO_ECS_SERVICE}"
+  echo "  (PQ/demo targets are NOT started: postgres-demo, sonarqube-demo, oracle-demo,"
+  echo "   mongodb-demo, mysql-demo, apache/nginx/tomcat demos, rhel/ubuntu demos, aerospike)"
+  echo ""
+  echo "NOTE: Ollama runs natively on macOS — it is NOT started from Docker Compose."
+  echo "      For LLM / RAG testing, run separately: ollama serve"
+  echo ""
+
+  # Backing services first, then ECS without pulling in depends_on demo targets
+  # (ecs declares depends_on postgres-demo, which we intentionally skip).
+  docker compose up -d "${LLM_DEMO_BACKING_SERVICES[@]}"
+  docker compose up -d --no-deps "${LLM_DEMO_ECS_SERVICE}"
+
+  echo ""
+  echo "ECS LLM demo stack started → http://127.0.0.1:${ECS_PORT}"
+}
+
+# --------------------------------------------------------------------------- #
 # R: Normal run / development mode
 # --------------------------------------------------------------------------- #
 
@@ -287,6 +326,7 @@ ECS Startup
 Usage:
   ./start_ecs.sh            Interactive menu
   ./start_ecs.sh --demo     Demo mode (scripts/start_ecs_demo.sh --all --skip-heavy)
+  ./start_ecs.sh --llm      LLM demo / low memory (postgres, pgvector, redis, minio, ecs)
   ./start_ecs.sh --run      Normal run / development mode (Uvicorn)
   ./start_ecs.sh --status   Show current basic ECS status (read-only)
   ./start_ecs.sh --help     Show this help
@@ -298,6 +338,7 @@ show_menu() {
 ECS Startup
 
 [D] Demo mode
+[L] LLM Demo / Low Memory
 [R] Normal run / development mode
 [S] Status
 [Q] Quit
@@ -311,6 +352,7 @@ interactive_menu() {
   read -r choice
   case "${choice}" in
     D|d) run_demo ;;
+    L|l) run_llm_demo ;;
     R|r) run_normal ;;
     S|s) run_status ;;
     Q|q) exit 0 ;;
@@ -321,6 +363,7 @@ interactive_menu() {
 # --- Dispatch (interactive + non-interactive call the SAME functions) -------
 case "${1:-}" in
   --demo)   run_demo ;;
+  --llm)    run_llm_demo ;;
   --run)    run_normal ;;
   --status) run_status ;;
   --help|-h) show_help ;;
