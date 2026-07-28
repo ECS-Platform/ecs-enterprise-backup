@@ -1,0 +1,27 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "TCX-003",
+  "control_name": "Tomcat server.xml Present",
+  "duration_ms": 167,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:19:18.575128+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000166",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "Middleware Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "Middleware Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "TCX-003",
+  "query_reference": "find / -name server.xml -path '*conf*' 2>/dev/null | head -5 || echo 'server.xml not found'",
+  "result": [],
+  "row_count": 1,
+  "scheduler_run_id": "COLL-20260722-121607-003",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Tomcat"
+}

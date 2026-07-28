@@ -85,6 +85,15 @@
     if (window.ecsApplyOperationsFilters) window.ecsApplyOperationsFilters();
   }
 
+  function closeUploadWorkflowModal() {
+    // Reuse Bootstrap dismiss path already used by Cancel / btn-close.
+    var el = document.getElementById('uploadWorkflowModal');
+    if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+    var instance = bootstrap.Modal.getInstance(el);
+    if (!instance) instance = bootstrap.Modal.getOrCreateInstance(el);
+    instance.hide();
+  }
+
   document.addEventListener('submit', function(e) {
     var form = e.target;
     if (!form || form.getAttribute('action') !== '/mvp/upload/bulk') return;
@@ -108,6 +117,7 @@
       if (!fd.get('framework')) fd.append('framework', filterFramework());
       if (!fd.get('application')) fd.append('application', filterApplication());
       fetch('/mvp/upload/bulk', { method: 'POST', body: fd }).then(function() {
+        closeUploadWorkflowModal();
         setTimeout(function() {
           var msg = document.getElementById('ecsUploadProgressMsg');
           if (msg) msg.textContent = 'Saved to evidence repository · KPIs and history updated.';

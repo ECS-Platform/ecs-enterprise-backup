@@ -1,0 +1,10 @@
+{
+  "application": "Payments",
+  "control_id": "VAPT-9",
+  "control_name": "External pentest remediation",
+  "environment": "UAT",
+  "framework": "VAPT",
+  "source": "mock_evidence",
+  "status": "collected",
+  "summary": "Mock scheduler evidence for Payments / VAPT"
+}

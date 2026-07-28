@@ -1,0 +1,27 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "APP-002",
+  "control_name": "Secrets Scanning",
+  "duration_ms": 765,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:16:31.234249+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000114",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "AppSec, ASST, DPSC",
+  "frameworks": [
+    "AppSec",
+    "ASST",
+    "DPSC"
+  ],
+  "query_id": "APP-002",
+  "query_reference": "gitleaks detect",
+  "result": [],
+  "row_count": 901216032010,
+  "scheduler_run_id": "COLL-20260722-121607-003",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "GitLeaks"
+}

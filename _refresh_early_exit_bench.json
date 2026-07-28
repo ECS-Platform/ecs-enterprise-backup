@@ -1,0 +1,21 @@
+{
+  "first": {
+    "label": "first",
+    "seconds": 3795.617,
+    "added": 702,
+    "register_called": 702,
+    "skipped": 0,
+    "catalog": 702,
+    "total_profile_seconds": 3795.610859799999
+  },
+  "second": {
+    "label": "second_after_durable",
+    "seconds": 2.711,
+    "added": 0,
+    "register_called": 0,
+    "skipped": 702,
+    "catalog": 702,
+    "total_profile_seconds": 2.7099975000000995
+  },
+  "before_register_calls_expected": 702
+}

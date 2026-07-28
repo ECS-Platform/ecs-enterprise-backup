@@ -1,0 +1,11 @@
+{
+  "collected_at": "2026-07-17T10:00:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "tls_enabled": true,
+  "min_protocol": "TLS1.2",
+  "endpoints_checked": [
+    {"host": "api.demo.bank", "protocol": "TLS1.2", "cipher": "ECDHE-RSA-AES256-GCM-SHA384"},
+    {"host": "portal.demo.bank", "protocol": "TLS1.3", "cipher": "TLS_AES_256_GCM_SHA384"}
+  ]
+}

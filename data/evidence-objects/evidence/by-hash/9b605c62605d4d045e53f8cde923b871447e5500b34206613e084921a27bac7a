@@ -1,0 +1,139 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [
+    "rolname",
+    "rolsuper",
+    "rolcreaterole",
+    "rolcreatedb",
+    "rolcanlogin"
+  ],
+  "control_id": "PGX-004",
+  "control_name": "PostgreSQL User Privileges",
+  "duration_ms": 1,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:17:02.186843+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000119",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "PGX-004",
+  "query_reference": "SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolcanlogin FROM pg_roles;",
+  "result": [
+    [
+      "pg_database_owner",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_read_all_data",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_write_all_data",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_monitor",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_read_all_settings",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_read_all_stats",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_stat_scan_tables",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_read_server_files",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_write_server_files",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_execute_server_program",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_signal_backend",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_checkpoint",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_use_reserved_connections",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "pg_create_subscription",
+      "False",
+      "False",
+      "False",
+      "False"
+    ],
+    [
+      "ecs_user",
+      "True",
+      "True",
+      "True",
+      "True"
+    ]
+  ],
+  "row_count": 15,
+  "scheduler_run_id": "COLL-20260722-121607-003",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "PostgreSQL"
+}

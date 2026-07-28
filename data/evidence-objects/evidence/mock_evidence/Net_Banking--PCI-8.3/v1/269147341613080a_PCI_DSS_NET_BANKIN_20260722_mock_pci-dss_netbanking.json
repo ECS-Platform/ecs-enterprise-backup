@@ -1,0 +1,11 @@
+{
+  "application": "Net Banking",
+  "control_id": "PCI-8.3",
+  "control_name": "MFA for privileged access",
+  "environment": "UAT",
+  "framework": "PCI DSS",
+  "source": "mock_evidence",
+  "status": "collected",
+  "summary": "Mock scheduler evidence for Net Banking / PCI-DSS"
+}
+# changed again

@@ -1,0 +1,8 @@
+{
+  "collected_at": "2026-07-17T10:05:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "audit_enabled": true,
+  "retention_days": 365,
+  "log_targets": ["syslog", "siem-export", "postgres-audit"]
+}

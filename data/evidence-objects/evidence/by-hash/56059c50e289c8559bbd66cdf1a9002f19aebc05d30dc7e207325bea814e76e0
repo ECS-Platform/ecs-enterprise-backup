@@ -1,0 +1,35 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [
+    "start_time",
+    "uptime"
+  ],
+  "control_id": "PGX-011",
+  "control_name": "PostgreSQL Database Uptime",
+  "duration_ms": 0,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:17:06.770748+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000121",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "PGX-011",
+  "query_reference": "SELECT pg_postmaster_start_time() AS start_time, now() - pg_postmaster_start_time() AS uptime;",
+  "result": [
+    [
+      "2026-07-22 05:43:45.164235+00:00",
+      "6:33:21.606517"
+    ]
+  ],
+  "row_count": 1,
+  "scheduler_run_id": "COLL-20260722-121607-003",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "PostgreSQL"
+}

@@ -1,0 +1,33 @@
+{
+  "benchmark_id": "phase1-chatbot-retrieval-quality",
+  "title": "Phase-1 Chatbot Retrieval Quality Baseline",
+  "description": "Hybrid chatbot evaluation (deterministic | preset | rag | no_evidence). Extends benchmarks/config layout without replacing rag_golden_set.json.",
+  "catalogue_path": "benchmarks/config/phase1_chatbot_retrieval_catalogue.json",
+  "runner": "scripts/run_phase1_chatbot_retrieval_benchmark.py",
+  "role": "owner",
+  "user": "phase1-retrieval-validator",
+  "output_dir": "benchmarks/output/phase1_chatbot_retrieval",
+  "entry_point": "hybrid_observe(chatbot_answer routing)",
+  "notes": [
+    "Do not score this catalogue with scripts/run_rag_benchmark.py alone — that script only calls ecs_platform.rag.answer.",
+    "Use scripts/run_phase1_chatbot_retrieval_benchmark.py so preset (@ceq), deterministic, RAG, and refusal paths are exercised.",
+    "Do not require citations to match synthetic EVD-* IDs from rag_golden_set.json.",
+    "Runtime JSON under benchmarks/output/ is gitignored; do not commit result artifacts."
+  ],
+  "scoring": {
+    "primary_metric": "expected_retrieval_path_match",
+    "secondary_metrics": [
+      "application_filter_match",
+      "framework_filter_match",
+      "control_or_query_match",
+      "source_connector_match_when_expected",
+      "no_evidence_or_refusal_correctness",
+      "citation_shape_valid_when_evidence_present",
+      "retrieval_result",
+      "citation_result",
+      "hallucination_result",
+      "latency_ms"
+    ],
+    "skip_unreliable_by_default": true
+  }
+}

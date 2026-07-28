@@ -1,0 +1,26 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "OS-004",
+  "control_name": "User Account Review",
+  "duration_ms": 121,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:21:50.886653+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000283",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "OS Baselining, PCI DSS",
+  "frameworks": [
+    "OS Baselining",
+    "PCI DSS"
+  ],
+  "query_id": "OS-004",
+  "query_reference": "cat /etc/passwd",
+  "result": [],
+  "row_count": 19,
+  "scheduler_run_id": "COLL-20260722-122132-008",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Linux"
+}

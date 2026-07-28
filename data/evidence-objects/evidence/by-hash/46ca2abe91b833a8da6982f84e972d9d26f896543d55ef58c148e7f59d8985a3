@@ -1,0 +1,27 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "PGX-008",
+  "control_name": "PostgreSQL Audit Extension Check",
+  "duration_ms": 1,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:22:30.604149+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000292",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "PGX-008",
+  "query_reference": "SELECT extname FROM pg_extension WHERE extname IN ('pgaudit');",
+  "result": [],
+  "row_count": 0,
+  "scheduler_run_id": "COLL-20260722-122132-008",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "PostgreSQL"
+}

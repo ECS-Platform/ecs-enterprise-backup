@@ -1,0 +1,27 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "NGX-007",
+  "control_name": "NGINX Error Log Configuration",
+  "duration_ms": 4959,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:23:34.267628+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000312",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "Middleware Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "Middleware Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "NGX-007",
+  "query_reference": "grep -R \"error_log\" /etc/nginx /etc/nginx/conf.d 2>/dev/null || true",
+  "result": [],
+  "row_count": 7,
+  "scheduler_run_id": "COLL-20260722-122132-008",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "NGINX"
+}

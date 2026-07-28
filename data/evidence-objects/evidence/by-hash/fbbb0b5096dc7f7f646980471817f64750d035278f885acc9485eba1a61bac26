@@ -1,0 +1,26 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "APP-004",
+  "control_name": "Container Security Scan",
+  "duration_ms": 19928,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:22:19.094011+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000287",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "AppSec, ASST",
+  "frameworks": [
+    "AppSec",
+    "ASST"
+  ],
+  "query_id": "APP-004",
+  "query_reference": "trivy image app:latest",
+  "result": [],
+  "row_count": 1,
+  "scheduler_run_id": "COLL-20260722-122132-008",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Trivy"
+}

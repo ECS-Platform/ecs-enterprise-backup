@@ -1,0 +1,27 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "TCX-006",
+  "control_name": "Tomcat Users Config",
+  "duration_ms": 138,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:19:26.195012+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000169",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "Middleware Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "Middleware Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "TCX-006",
+  "query_reference": "find / -name tomcat-users.xml 2>/dev/null | head -3 || echo 'tomcat-users.xml not found'",
+  "result": [],
+  "row_count": 1,
+  "scheduler_run_id": "COLL-20260722-121607-003",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Tomcat"
+}

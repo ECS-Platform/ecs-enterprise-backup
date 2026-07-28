@@ -1,0 +1,192 @@
+diff --git a/app/main.py b/app/main.py
+index a5a85d5..4239f8e 100644
+--- a/app/main.py
++++ b/app/main.py
+@@ -5,6 +5,9 @@
+ from app import env_bootstrap as _env_bootstrap  # noqa: F401  (side-effect: loads .env)
+ 
+ import os
++import socket
++import threading
++import time
+ from contextlib import asynccontextmanager
+ from urllib.parse import quote
+ 
+@@ -33,6 +36,88 @@ from modules.shared.services.audit_trail import log_event, record_approval, reco
+ from modules.governance.engines.evidence_review import build_evidence_review, review_url, review_url_for_ev
+ from app.routes_mvp import register_mvp_routes
+ from app.evidence_routes import register_evidence_routes
++
++_STARTUP_SEED_LOCK = threading.Lock()
++_STARTUP_SEED_LAUNCHED = False
++_STARTUP_SEED_CONTROLLER_STARTED = False
++
++
++def _run_startup_evidence_seed() -> None:
++    """Background framework-catalog seed — never raises into the event loop."""
++    from modules.shared.services import ecs_logging
++    from ecs_platform.evidence_indexing import suppress_startup_indexing
++
++    try:
++        ecs_logging.info("StartupSeed", "started")
++        with suppress_startup_indexing():
++            added = refresh_repository_from_frameworks(source="startup")
++        ecs_logging.info("StartupSeed", f"completed added={int(added or 0)}")
++    except Exception as exc:  # noqa: BLE001 — keep the server alive
++        ecs_logging.info(
++            "StartupSeed",
++            f"failed error={type(exc).__name__}: {exc}",
++        )
++
++
++def _wait_for_tcp_listen(host: str, port: int, *, timeout_s: float = 30.0) -> bool:
++    """Poll until ``host:port`` accepts TCP (or timeout). Never raises."""
++    deadline = time.monotonic() + float(timeout_s)
++    while time.monotonic() < deadline:
++        try:
++            with socket.create_connection((host, int(port)), timeout=0.2):
++                return True
++        except OSError:
++            time.sleep(0.05)
++    return False
++
++
++def _startup_seed_after_listen(port: int = 8000) -> None:
++    """Detached controller: wait for :8000, then start the catalog seed once.
++
++    Must run only on a daemon thread started *without* joining/awaiting from
++    ``ecs_lifespan``. Uvicorn binds after lifespan ``yield``; waiting for the
++    port on the lifespan coroutine itself would deadlock.
++    """
++    global _STARTUP_SEED_LAUNCHED
++    from modules.shared.services import ecs_logging
++
++    if not _wait_for_tcp_listen("127.0.0.1", int(port)):
++        ecs_logging.info(
++            "StartupSeed",
++            f"readiness timeout port={port} — starting seed anyway",
++        )
++    else:
++        ecs_logging.info("StartupSeed", "readiness confirmed")
++
++    with _STARTUP_SEED_LOCK:
++        if _STARTUP_SEED_LAUNCHED:
++            return
++        _STARTUP_SEED_LAUNCHED = True
++    try:
++        _run_startup_evidence_seed()
++    except Exception as exc:  # noqa: BLE001 — never kill the server process
++        ecs_logging.info(
++            "StartupSeed",
++            f"failed error={type(exc).__name__}: {exc}",
++        )
++
++
++def _schedule_startup_seed_controller(port: int = 8000) -> bool:
++    """Fire-and-forget post-listen seed controller. Never blocks the caller."""
++    global _STARTUP_SEED_CONTROLLER_STARTED
++    with _STARTUP_SEED_LOCK:
++        if _STARTUP_SEED_CONTROLLER_STARTED or _STARTUP_SEED_LAUNCHED:
++            return False
++        _STARTUP_SEED_CONTROLLER_STARTED = True
++    threading.Thread(
++        target=_startup_seed_after_listen,
++        args=(int(port),),
++        name="ecs-startup-seed-controller",
++        daemon=True,
++    ).start()
++    return True
++
++
+ from modules.shared.services.role_permissions import permission_ctx
+ from modules.shared.services.evidence_workflow_engine import (
+     build_workflow_context,
+@@ -104,15 +189,15 @@ async def ecs_lifespan(application: FastAPI):
+     _ecs_log.info("ECSStartup", f"ECS_AUTH_ENABLED={os.environ.get('ECS_AUTH_ENABLED', '')}")
+     _ecs_log.info("ECSStartup",
+                   f".env loaded={ENV_STATUS.get('loaded')} via {ENV_STATUS.get('parser')}")
+-    from ecs_platform.evidence_indexing import suppress_startup_indexing
++    from modules.shared.services import ecs_logging
+ 
+-    with suppress_startup_indexing():
+-        refresh_repository_from_frameworks(source="startup")
++    # Framework-catalog evidence seed is expensive (MinIO custody per catalog row)
++    # and is NOT required for request serving. It must NOT start until after
++    # lifespan yields and :8000 is accepting — see kickoff just before yield.
+     seed_demo_workflow_state()
+     from modules.enterprise_grc.engines.ecs_governance_qa_engine import self_heal_governance
+     self_heal_governance()
+     from modules.operations.engines.predefined_queries_engine import validate_startup
+-    from modules.shared.services import ecs_logging
+ 
+     pq_report = validate_startup()
+     for line in pq_report.get("log_lines", []):
+@@ -179,6 +264,7 @@ async def ecs_lifespan(application: FastAPI):
+             try:
+                 from modules.audit_intelligence.engines import evidence_repository as _ai_repo
+ 
++                ecs_logging.info("ECSPlatform", "Canonical evidence hydration starting")
+                 _n_canonical = _ai_repo.hydrate_from_canonical_repository(force=True)
+                 ecs_logging.info("ECSPlatform",
+                                  f"Canonical evidence hydrated: {_n_canonical} row(s)")
+@@ -287,6 +373,9 @@ async def ecs_lifespan(application: FastAPI):
+ 
+     mark_startup_complete()
+     log_platform_ready(host="127.0.0.1", port=8000)
++    # Fire-and-forget: daemon waits for :8000 after yield; never joined/awaited here.
++    if _schedule_startup_seed_controller(8000):
++        ecs_logging.info("StartupSeed", "scheduled")
+     yield
+     # ---- Graceful shutdown (production hardening) --------------------------- #
+     # Runs on SIGTERM/SIGINT and normal shutdown. Best-effort cleanup that never
+diff --git a/modules/audit_intelligence/engines/evidence_repository.py b/modules/audit_intelligence/engines/evidence_repository.py
+index 9b8daea..8870fce 100644
+--- a/modules/audit_intelligence/engines/evidence_repository.py
++++ b/modules/audit_intelligence/engines/evidence_repository.py
+@@ -511,7 +511,10 @@ def hydrate_from_canonical_repository(*, limit: int = 1000, force: bool = False)
+                 hydrated += 1
+                 continue
+         try:
+-            store_evidence(**kwargs)
++            # Hydration only mirrors already-persisted canonical rows into the
++            # in-memory facade. Re-embedding here (default index=True) would
++            # block ecs_lifespan on Ollama/PGVector for every row before yield.
++            store_evidence(**kwargs, index=False)
+             try:
+                 from ecs_platform.repository.evidence_uid import note_existing_uid
+ 
+diff --git a/modules/operations/engines/evidence_repository.py b/modules/operations/engines/evidence_repository.py
+index 99e4550..9919e28 100644
+--- a/modules/operations/engines/evidence_repository.py
++++ b/modules/operations/engines/evidence_repository.py
+@@ -1297,10 +1297,19 @@ def refresh_repository_from_frameworks(source: str = "scheduler"):
+ 
+     added = 0
+     for row in get_all_evidence_records():
+-        exists = any(r.get("evidence_id") == row["evidence_id"] for r in evidence_repository)
++        # Deterministic content identity for this seed/scheduler refresh path.
++        content = f"{row['framework']}|{row['control']}|{row['evidence_name']}|{source}".encode()
++        file_hash = compute_hash(content)
++        catalog_eid = str(row.get("evidence_id") or "")
++        # Catalog IDs are EVD-{fw}-NNN while register_upload allocates EVD-NNNNN,
++        # so match on content hash as well as the catalog id.
++        exists = any(
++            (catalog_eid and r.get("evidence_id") == catalog_eid)
++            or (file_hash and r.get("sha256") == file_hash)
++            for r in evidence_repository
++        )
+         if exists:
+             continue
+-        content = f"{row['framework']}|{row['control']}|{row['evidence_name']}|{source}".encode()
+         register_upload(
+             filename=row["mock_file"],
+             content=content,
+@@ -1308,6 +1317,8 @@ def refresh_repository_from_frameworks(source: str = "scheduler"):
+             framework=row["framework"],
+             application=row["application_name"],
+             control=row["control"],
++            # Avoid mis-labeling startup seed rows as manual_upload in MinIOTrace.
++            ingestion_path="startup_seed" if source == "startup" else "",
+         )
+         if evidence_repository:
+             evidence_repository[-1]["evidence_status"] = row.get("evidence_status", "Current")

@@ -1,0 +1,27 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "TCX-005",
+  "control_name": "Tomcat Manager App Present",
+  "duration_ms": 201,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:19:23.726085+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000168",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "Middleware Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "Middleware Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "TCX-005",
+  "query_reference": "find / -type d -name manager -path '*webapps*' 2>/dev/null || echo 'manager app not found'",
+  "result": [],
+  "row_count": 1,
+  "scheduler_run_id": "COLL-20260722-121607-003",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Tomcat"
+}

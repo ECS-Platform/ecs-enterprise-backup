@@ -1,0 +1,10 @@
+{
+  "collected_at": "2026-07-17T10:02:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "scanner": "deterministic-mvp",
+  "certificates": [
+    {"host": "api.demo.bank", "expires_in_days": 120, "issuer": "Demo CA"},
+    {"host": "legacy.demo.bank", "expires_in_days": 12, "issuer": "Demo CA"}
+  ]
+}

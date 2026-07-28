@@ -1,0 +1,71 @@
+{
+  "total_seconds": 3799.1589151999997,
+  "counts": {
+    "frameworks": 15,
+    "controls": 305,
+    "catalog_evidences": 702,
+    "rows_seen": 702,
+    "rows_skipped_exists": 0,
+    "rows_register_called": 702,
+    "added": 702,
+    "db_reads": 702,
+    "db_writes": 702,
+    "register_attempts": 702,
+    "register_accepted": 702
+  },
+  "stages": {
+    "catalog_read_parse_in_memory": {
+      "seconds": 0.0003178999995725462,
+      "calls": 1
+    },
+    "exists_check_in_memory": {
+      "seconds": 0.10270990000026359,
+      "calls": 702
+    },
+    "durable_dedup_audit_memory": {
+      "seconds": 0.1379621999731171,
+      "calls": 702
+    },
+    "durable_dedup_sql_persistence": {
+      "seconds": 0.006549899988385732,
+      "calls": 702
+    },
+    "hash_and_dedup_check": {
+      "seconds": 1897.0867689000097,
+      "calls": 702
+    },
+    "fcm_enrichment": {
+      "seconds": 0.20124989996111253,
+      "calls": 702
+    },
+    "custody_object_store": {
+      "seconds": 0.47591039998405904,
+      "calls": 702
+    },
+    "record_build_and_append": {
+      "seconds": 0.012092800005120807,
+      "calls": 702
+    },
+    "audit_mirror_and_canonical_write": {
+      "seconds": 1896.497831700035,
+      "calls": 702
+    },
+    "search_index_hook": {
+      "seconds": 4.661773399997401,
+      "calls": 702
+    },
+    "audit_trail_and_reuse": {
+      "seconds": 0.07794110002396337,
+      "calls": 702
+    },
+    "register_upload_total": {
+      "seconds": 3799.041471700035,
+      "calls": 702
+    },
+    "register_upload_outer": {
+      "seconds": 3799.0477863999804,
+      "calls": 702
+    }
+  },
+  "added": 702
+}

@@ -1,0 +1,26 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "OS-002",
+  "control_name": "SSH Hardening",
+  "duration_ms": 109,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:21:48.112530+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000281",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "OS Baselining, PCI DSS",
+  "frameworks": [
+    "OS Baselining",
+    "PCI DSS"
+  ],
+  "query_id": "OS-002",
+  "query_reference": "uptime",
+  "result": [],
+  "row_count": 1,
+  "scheduler_run_id": "COLL-20260722-122132-008",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Linux"
+}

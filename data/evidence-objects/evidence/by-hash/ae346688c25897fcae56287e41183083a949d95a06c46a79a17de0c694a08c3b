@@ -1,0 +1,27 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "APX-008",
+  "control_name": "Apache Error Log Config",
+  "duration_ms": 106,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:19:16.005935+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000165",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "Middleware Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "Middleware Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "APX-008",
+  "query_reference": "grep -RanEi \"ErrorLog\" /etc/httpd /etc/apache2 /usr/local/apache2/conf 2>/dev/null || true",
+  "result": [],
+  "row_count": 12,
+  "scheduler_run_id": "COLL-20260722-121607-003",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Apache HTTPD"
+}

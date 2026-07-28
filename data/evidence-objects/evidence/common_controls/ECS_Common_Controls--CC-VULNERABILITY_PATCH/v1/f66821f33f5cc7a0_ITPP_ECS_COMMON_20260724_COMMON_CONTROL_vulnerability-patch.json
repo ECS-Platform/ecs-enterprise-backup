@@ -1,0 +1,9 @@
+{
+  "collected_at": "2026-07-17T10:06:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "scanner": "deterministic-mvp",
+  "patch_compliance_pct": 97,
+  "critical_open": 0,
+  "high_open": 2
+}

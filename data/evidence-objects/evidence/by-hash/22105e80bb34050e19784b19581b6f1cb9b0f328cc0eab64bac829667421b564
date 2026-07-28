@@ -1,0 +1,27 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "RH8-006",
+  "control_name": "RHEL 8 SSH PermitRootLogin",
+  "duration_ms": 106,
+  "environment": "local",
+  "executed_at": "2026-07-22T12:18:37.921186+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000151",
+  "execution_mode": "SCHEDULED",
+  "framework_coverage": "OS Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "OS Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "RH8-006",
+  "query_reference": "grep -Ei \"^\\s*PermitRootLogin\" /etc/ssh/sshd_config 2>/dev/null || true",
+  "result": [],
+  "row_count": 1,
+  "scheduler_run_id": "COLL-20260722-121607-003",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Red Hat Enterprise Linux 8.x"
+}
