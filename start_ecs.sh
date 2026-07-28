@@ -3,8 +3,8 @@
 #
 #   ./start_ecs.sh            # interactive menu
 #   ./start_ecs.sh --demo     # demo mode (Docker deps only + local Uvicorn)
-#   ./start_ecs.sh --llm      # LLM demo / low memory (lightweight compose stack only)
-#   ./start_ecs.sh --run      # normal run / development mode (Uvicorn)
+#   ./start_ecs.sh --llm      # LLM demo / low memory (lightweight infra + local Uvicorn)
+#   ./start_ecs.sh --run      # normal run / development mode (core infra + local Uvicorn)
 #   ./start_ecs.sh --status   # basic ECS status (read-only)
 #   ./start_ecs.sh --help     # usage
 #
@@ -13,9 +13,9 @@
 # compose teardown. Only confirmed ECS host processes / the ECS container are
 # ever stopped; unrelated processes are reported, never terminated.
 #
-# Demo mode uses Docker ONLY for infrastructure/demo targets. The ECS FastAPI
-# application always runs locally via uvicorn in this shell (never the compose
-# `ecs` / ecs-enterprise-backup-ecs-1 container).
+# Demo (D), Low Memory (L), and Normal Run (R) use Docker ONLY for infrastructure.
+# The ECS FastAPI application always runs locally via uvicorn in this shell
+# (never the compose `ecs` / ecs-enterprise-backup-ecs-1 container).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
@@ -174,16 +174,26 @@ _stop_docker_ecs() {
 # L: LLM demo / low memory (lightweight compose stack — no PQ/demo targets)
 # --------------------------------------------------------------------------- #
 # Backing services required by ecs for repository, vectors, cache, and objects.
+# The compose `ecs` app container is never started here — local uvicorn owns the app.
 LLM_DEMO_BACKING_SERVICES=(postgres pgvector redis minio)
-LLM_DEMO_ECS_SERVICE=ecs
 
-run_llm_demo() {
-  # Same host-runtime hygiene as demo mode: stop host Uvicorn, never touch unrelated PIDs.
-  _stop_ecs_uvicorn
+# Shared host-app path used by L / R after infrastructure is up (and mirrors
+# Demo mode's post-infra steps). Stops a prior compose `ecs` container, frees
+# :8000 when we own it, then exec's local uvicorn via `_launch_host_uvicorn`.
+_start_local_ecs_app() {
+  _stop_docker_ecs
+
   if _report_port_conflict; then
     exit 1
   fi
 
+  _prepare_host_port_for_uvicorn
+
+  # Foreground local app — exits when uvicorn exits (Ctrl+C clean shutdown).
+  _launch_host_uvicorn --host 0.0.0.0 --port "${ECS_PORT}" --reload
+}
+
+run_llm_demo() {
   if ! command -v docker >/dev/null 2>&1; then
     echo "ERROR: docker not found." >&2
     exit 1
@@ -191,7 +201,8 @@ run_llm_demo() {
 
   echo ""
   echo "LLM Demo / Low Memory — starting lightweight stack only:"
-  printf '  %s\n' "${LLM_DEMO_BACKING_SERVICES[@]}" "${LLM_DEMO_ECS_SERVICE}"
+  printf '  %s\n' "${LLM_DEMO_BACKING_SERVICES[@]}"
+  echo "  ECS app: local uvicorn (compose service 'ecs' is NOT started)"
   echo "  (PQ/demo targets are NOT started: postgres-demo, sonarqube-demo, oracle-demo,"
   echo "   mongodb-demo, mysql-demo, apache/nginx/tomcat demos, rhel/ubuntu demos, aerospike)"
   echo ""
@@ -199,13 +210,12 @@ run_llm_demo() {
   echo "      For LLM / RAG testing, run separately: ollama serve"
   echo ""
 
-  # Backing services first, then ECS without pulling in depends_on demo targets
-  # (ecs declares depends_on postgres-demo, which we intentionally skip).
+  # Backing services only — do not pull in depends_on demo targets or start `ecs`.
   docker compose up -d "${LLM_DEMO_BACKING_SERVICES[@]}"
-  docker compose up -d --no-deps "${LLM_DEMO_ECS_SERVICE}"
 
   echo ""
-  echo "ECS LLM demo stack started → http://127.0.0.1:${ECS_PORT}"
+  echo "Infrastructure ready → launching local ECS uvicorn on http://127.0.0.1:${ECS_PORT}"
+  _start_local_ecs_app
 }
 
 # True only if the ECS Python deps are importable in the chosen interpreter.
@@ -371,22 +381,28 @@ run_demo() {
 # --------------------------------------------------------------------------- #
 # R: Normal run / development mode
 # --------------------------------------------------------------------------- #
-run_normal() {
-  # 1-2. Stop only the Docker ECS container (leave PostgreSQL/Redis/MinIO/demo
-  #      targets/connector containers/volumes untouched).
-  _stop_docker_ecs
+# Core ECS backing services (no heavy connector/demo OS targets). Compose `ecs`
+# is never started — local uvicorn owns the app (same as Demo / Low Memory).
+NORMAL_BACKING_SERVICES=(postgres-demo postgres pgvector redis minio)
 
-  # 6. An unrelated process on :8000 blocks a host run (do not kill it).
-  if _report_port_conflict; then
+run_normal() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "ERROR: docker not found." >&2
     exit 1
   fi
 
-  # 3-5. If ECS already owns :8000, stop it gracefully and restart fresh.
-  _prepare_host_port_for_uvicorn
+  echo ""
+  echo "Normal run / development — starting ECS infrastructure:"
+  printf '  %s\n' "${NORMAL_BACKING_SERVICES[@]}"
+  echo "  ECS app: local uvicorn (compose service 'ecs' is NOT started)"
+  echo ""
 
-  # 7-8. Prefer the venv interpreter's `-m uvicorn`; install deps only if missing.
+  docker compose up -d "${NORMAL_BACKING_SERVICES[@]}"
+
+  echo ""
+  echo "Infrastructure ready → launching local ECS uvicorn on http://127.0.0.1:${ECS_PORT}"
   (sleep 3 && open "http://127.0.0.1:${ECS_PORT}" 2>/dev/null) &
-  _launch_host_uvicorn --reload
+  _start_local_ecs_app
 }
 
 # --------------------------------------------------------------------------- #
@@ -426,15 +442,14 @@ ECS Startup
 Usage:
   ./start_ecs.sh            Interactive menu
   ./start_ecs.sh --demo     Demo mode (Docker deps only + local Uvicorn)
-  ./start_ecs.sh --llm      LLM demo / low memory (postgres, pgvector, redis, minio, ecs)
-  ./start_ecs.sh --run      Normal run / development mode (Uvicorn)
+  ./start_ecs.sh --llm      LLM demo / low memory (postgres, pgvector, redis, minio + local Uvicorn)
+  ./start_ecs.sh --run      Normal run / development mode (core infra + local Uvicorn)
   ./start_ecs.sh --status   Show current basic ECS status (read-only)
   ./start_ecs.sh --help     Show this help
 
-Demo mode starts supporting Docker services (Postgres, PGVector, Redis, MinIO,
-demo targets, etc.) but does NOT start the compose `ecs` application container.
-The FastAPI app runs locally via:
+All modes start Docker infrastructure only and run the FastAPI app locally via:
   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+The compose `ecs` application container is never started by this script.
 EOF
 }
 
