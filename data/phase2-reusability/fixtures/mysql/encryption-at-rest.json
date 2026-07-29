@@ -1,0 +1,1 @@
+{"collector":"phase2_tech_adapter","technology":"mysql","encryption_at_rest":true,"encrypted_datastores_pct":99,"datastores":[{"name":"mysql-primary","tde_enabled":true}]}

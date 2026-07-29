@@ -226,7 +226,17 @@ def collect_common_control_folder(
     user: str = "scheduler",
     run_id: str = "",
     control_def: CommonControlDef | None = None,
+    application_context: dict[str, Any] | None = None,
 ) -> CollectionReceipt:
+    """Collect one CommonControls folder.
+
+    Phase-1: ``application_context`` is None — identity comes from the folder
+    manifest (``ECS Common Controls``).
+
+    Phase-2 reusability: pass ``application_context`` with application /
+    environment / asset_id / technology / evidence_payload from portfolio
+    config + technology adapters. No application-named collector branches.
+    """
     slug = folder.name
     ctrl = control_def or by_slug(slug)
     receipt = CollectionReceipt(
@@ -235,24 +245,49 @@ def collect_common_control_folder(
         control_id=ctrl.control_id if ctrl else f"CC-{slug.upper().replace('-', '_')}",
     )
     receipt.discovered = True
+    ctx = dict(application_context or {})
     try:
         manifest = load_manifest(folder)
         evidence_files = list(manifest.get("evidence_files") or ["evidence.json"])
         primary = folder / evidence_files[0]
-        if not primary.is_file():
-            receipt.error = f"missing evidence file: {evidence_files[0]}"
-            return receipt
-        payload = _load_json(primary)
-        content_bytes = primary.read_bytes()
+        if ctx.get("evidence_payload") is not None:
+            payload = dict(ctx["evidence_payload"])
+            content_bytes = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
+        else:
+            if not primary.is_file():
+                receipt.error = f"missing evidence file: {evidence_files[0]}"
+                return receipt
+            payload = _load_json(primary)
+            content_bytes = primary.read_bytes()
         content_text = json.dumps(payload, indent=2, sort_keys=True)
         vr = validate_evidence(manifest, payload)
         receipt.verdict = vr.verdict
 
-        asset_id = str(manifest.get("application") or "ECS Common Controls")
+        asset_id = str(
+            ctx.get("asset_id")
+            or ctx.get("application")
+            or manifest.get("application")
+            or "ECS Common Controls"
+        )
+        application_label = str(ctx.get("application") or manifest.get("application") or asset_id)
+        environment = str(ctx.get("environment") or manifest.get("environment") or "MVP")
+        technology = str(
+            ctx.get("technology") or manifest.get("technology") or "Common Control"
+        )
         evidence_key = ai_repo.make_evidence_key(asset_id, receipt.control_id)
-        source_item_id = f"common-controls/{slug}/{primary.name}"
+        if ctx:
+            source_item_id = (
+                f"common-controls/{ctx.get('application_id') or application_label}/"
+                f"{slug}/{technology}"
+            )
+            source_url = f"phase2://{application_label}/{technology}/{slug}"
+            phase_tag = "phase2"
+        else:
+            source_item_id = f"common-controls/{slug}/{primary.name}"
+            source_url = f"file://CommonControls/{slug}/{primary.name}"
+            phase_tag = "phase1"
         custody = _resolve_custody(
-            filename=primary.name,
+            filename=primary.name if primary.is_file() else f"{slug}.json",
             content=content_bytes,
             evidence_key=evidence_key,
             source_item_id=source_item_id,
@@ -270,7 +305,7 @@ def collect_common_control_folder(
             fcm_refs = get_common_controls_service().resolve_fcm_references(slug)
         except Exception:  # noqa: BLE001
             fcm_refs = []
-        tags = ("common_control", slug, "phase1", "scheduler")
+        tags = ("common_control", slug, phase_tag, "scheduler")
         meta = {
             "common_control": manifest.get("common_control") or receipt.common_control,
             "common_control_slug": slug,
@@ -289,11 +324,26 @@ def collect_common_control_folder(
             "fcm_framework_ids": list({r.get("framework_id") for r in fcm_refs if r.get("framework_id")}),
             "fcm_reference_count": len(fcm_refs),
             "content_sha256": custody.content_hash,
+            "application": application_label,
+            "environment": environment,
+            "asset_id": asset_id,
+            "technology": technology,
         }
+        if ctx.get("application_id"):
+            meta["application_id"] = str(ctx["application_id"])
+        if ctx.get("cloud"):
+            meta["cloud"] = str(ctx["cloud"])
+        if ctx.get("phase"):
+            meta["phase"] = str(ctx["phase"])
+        filename = (
+            f"COMMON_CONTROL_{slug}_{ctx.get('application_id') or 'shared'}.json"
+            if ctx
+            else f"COMMON_CONTROL_{slug}.json"
+        )
         artifact = ai_repo.store_evidence(
             control_id=receipt.control_id,
             content=content_text,
-            technology=str(manifest.get("technology") or "Common Control"),
+            technology=technology,
             asset_id=asset_id,
             frameworks=frameworks,
             run_id=run_id,
@@ -301,13 +351,13 @@ def collect_common_control_folder(
             control_status=vr.control_status,
             evidence_quality=vr.evidence_quality,
             source="common_controls",
-            filename=f"COMMON_CONTROL_{slug}.json",
+            filename=filename,
             tags=tags,
             evidence_key=evidence_key,
-            environment=str(manifest.get("environment") or "MVP"),
+            environment=environment,
             source_connector="common_controls",
             source_item_id=source_item_id,
-            source_url=f"file://CommonControls/{slug}/{primary.name}",
+            source_url=source_url,
             mime_type="application/json",
             metadata=meta,
             custody_mode=custody.custody_mode,
@@ -322,16 +372,16 @@ def collect_common_control_folder(
         from modules.operations.engines.evidence_repository import register_upload
 
         ops_record = register_upload(
-            filename=f"COMMON_CONTROL_{slug}.json",
+            filename=filename,
             content=content_bytes,
             uploaded_by=user,
             framework=frameworks[0] if frameworks else "Cross-Framework",
-            application=asset_id,
+            application=application_label,
             control=receipt.control_id,
             source_connector="common_controls",
             source_item_id=source_item_id,
-            source_url=f"file://CommonControls/{slug}/{primary.name}",
-            environment=str(manifest.get("environment") or "MVP"),
+            source_url=source_url,
+            environment=environment,
             mime_type="application/json",
             metadata=meta,
             custody_mode=custody.custody_mode,

@@ -1,0 +1,1 @@
+{"collector":"phase2_tech_adapter","technology":"aerospike","encryption_at_rest":true,"encrypted_datastores_pct":97,"datastores":[{"name":"aerospike-ns","encryption":"aes-128"}]}

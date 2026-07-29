@@ -1,0 +1,100 @@
+# Phase-2 application portfolio — application identity is configuration only.
+# Collectors must not hard-code Net Banking / Mobile Banking / Payments logic.
+# Encryption controls reuse Phase-1 CommonControls manifests + validation rules.
+
+phase2_controls:
+  - encryption-at-rest
+  - encryption-in-transit
+
+# When true, every technology in the app stack that appears in the preference
+# list is collected (Mobile Banking multi-tech proof). When false, first match only.
+collect_all_matching_technologies: true
+
+# Preferred technologies per control (order = preference; intersection with app stack).
+control_technology_preference:
+  encryption-at-rest:
+    - aurora_mysql
+    - mysql
+    - postgresql
+    - yugabyte
+    - aerospike
+  encryption-in-transit:
+    - nginx
+    - tomcat
+    - postgresql
+    - mysql
+    - aurora_mysql
+    - yugabyte
+    - aerospike
+
+applications:
+  - id: net_banking
+    display_name: Net Banking
+    environment: UAT
+    cloud: AWS
+    technologies:
+      - aurora_mysql
+      - linux_rhel
+      - nginx
+    assets:
+      - asset_id: netbanking-aurora
+        technology: aurora_mysql
+      - asset_id: netbanking-rhel
+        technology: linux_rhel
+      - asset_id: netbanking-nginx
+        technology: nginx
+
+  - id: mobile_banking
+    display_name: Mobile Banking
+    environment: UAT
+    cloud: GCP
+    technologies:
+      - postgresql
+      - mysql
+      - yugabyte
+      - aerospike
+      - kubernetes
+      - nginx
+    assets:
+      - asset_id: mobile-postgres
+        technology: postgresql
+      - asset_id: mobile-mysql
+        technology: mysql
+      - asset_id: mobile-yugabyte
+        technology: yugabyte
+      - asset_id: mobile-aerospike
+        technology: aerospike
+      - asset_id: mobile-k8s
+        technology: kubernetes
+      - asset_id: mobile-nginx
+        technology: nginx
+
+  - id: payments
+    display_name: Payments
+    environment: UAT
+    cloud: on_prem
+    technologies:
+      - postgresql
+      - linux
+      - tomcat
+    assets:
+      - asset_id: payments-postgres
+        technology: postgresql
+      - asset_id: payments-linux
+        technology: linux
+      - asset_id: payments-tomcat
+        technology: tomcat
+
+  # Config-only onboarding proof: no code changes required to add this app.
+  - id: demo_card_portal
+    display_name: Demo Card Portal
+    environment: UAT
+    cloud: AWS
+    technologies:
+      - postgresql
+      - nginx
+    assets:
+      - asset_id: card-portal-postgres
+        technology: postgresql
+      - asset_id: card-portal-nginx
+        technology: nginx
