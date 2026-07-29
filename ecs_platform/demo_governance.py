@@ -247,7 +247,13 @@ def audit_readiness() -> dict[str, Any]:
     return {"ok": True, "demo": True, "score": score, "band": band,
             "coverage_pct": cov["coverage_pct"], "approval_pct": life["approval_pct"],
             "fresh_pct": fresh_pct, "frameworks": fw["frameworks"], "per_app": _per_app_readiness(),
-            "gaps": cov["gaps"], "expired": life["expired"]}
+            "gaps": cov["gaps"], "expired": life["expired"],
+            "evidence_completeness": {
+                "total_controls": 0, "complete": 0, "partial": 0, "missing": 0,
+                "completeness_pct": 0.0, "controls": [], "ok": False, "demo": True,
+            },
+            "completeness_applications": [], "completeness_frameworks": [],
+            "selected_application": "", "selected_framework": ""}
 
 
 def executive_summary() -> dict[str, Any]:

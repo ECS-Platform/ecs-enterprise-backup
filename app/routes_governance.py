@@ -164,10 +164,17 @@ def register_governance_routes(app, templates):
 
     # ---------------------------------------------------------------- 8. Audit readiness
     @app.get("/mvp/platform/audit-readiness", response_class=HTMLResponse)
-    def gov_audit_readiness(request: Request, role: str = "auditor", user: str = "Auditor", notice: str = ""):
+    def gov_audit_readiness(
+        request: Request,
+        role: str = "auditor",
+        user: str = "Auditor",
+        notice: str = "",
+        application: str = "",
+        framework: str = "",
+    ):
         from ecs_platform.governance import audit_readiness
 
-        data = audit_readiness()
+        data = audit_readiness(application=application, framework=framework)
         ctx = _ctx(request, role, user, "gov_audit_readiness", notice, data=data)
         return templates.TemplateResponse(request=request, name="gov_audit_readiness.html", context=ctx)
 
@@ -309,9 +316,9 @@ def register_governance_routes(app, templates):
         return JSONResponse(framework_coverage())
 
     @app.get("/api/platform/audit-readiness")
-    def api_audit_readiness():
+    def api_audit_readiness(application: str = "", framework: str = ""):
         from ecs_platform.governance import audit_readiness
-        return JSONResponse(audit_readiness())
+        return JSONResponse(audit_readiness(application=application, framework=framework))
 
     @app.get("/api/platform/executive-summary")
     def api_executive_summary():

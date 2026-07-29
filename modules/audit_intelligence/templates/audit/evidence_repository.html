@@ -16,10 +16,8 @@
 <div class="card mb-3"><div class="card-body">
   <form method="get" class="row g-2 align-items-end ai-filter">
     <input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
-    <div class="col-auto"><label class="form-label mb-0">Search</label>
+    <div class="col"><label class="form-label mb-0">Search</label>
       <input name="query" value="{{ sel.query }}" class="form-control form-control-sm" placeholder="control / asset"></div>
-    <div class="col-auto"><label class="form-label mb-0">Technology</label>
-      <input name="technology" value="{{ sel.technology }}" class="form-control form-control-sm"></div>
     <div class="col-auto"><button class="btn btn-sm btn-primary">Search</button></div>
   </form>
 </div></div>

@@ -28,7 +28,7 @@ frameworks:
   control_count: 6
   policy_count: 6
 - id: pci_dss
-  code: PCI
+  code: PCI-DSS
   name: PCI DSS
   display_name: Payment Card Industry Data Security Standard
   category: Regulatory
@@ -44,7 +44,7 @@ frameworks:
   control_count: 6
   policy_count: 6
 - id: csite
-  code: CSI
+  code: C-SITE
   name: C-SITE
   display_name: Cyber Security Incident Tracking & Evaluation
   category: Audit Assessment
@@ -52,7 +52,7 @@ frameworks:
   control_count: 6
   policy_count: 6
 - id: vapt
-  code: VAP
+  code: VAPT
   name: VAPT
   display_name: Vulnerability Assessment & Penetration Testing
   category: Audit Assessment
@@ -60,7 +60,7 @@ frameworks:
   control_count: 6
   policy_count: 6
 - id: os_baseline
-  code: OSB
+  code: OS-BASELINE
   name: OS Baseline
   display_name: Operating System Baseline
   category: Security Baseline
@@ -68,7 +68,7 @@ frameworks:
   control_count: 6
   policy_count: 6
 - id: middleware_baseline
-  code: MWB
+  code: MW-BASELINE
   name: Middleware Baseline
   display_name: Middleware Baseline
   category: Security Baseline
@@ -76,7 +76,7 @@ frameworks:
   control_count: 6
   policy_count: 6
 - id: database_baseline
-  code: DBB
+  code: DB-BASELINE
   name: Database Baseline
   display_name: Database Baseline
   category: Security Baseline
@@ -85,13 +85,17 @@ frameworks:
   policy_count: 6
 aliases:
   PCI: pci_dss
+  PCI-DSS: pci_dss
   PCI DSS: pci_dss
   C-SITE: csite
   CSITE: csite
   OS Baseline: os_baseline
   OS Baselining: os_baseline
+  OS-BASELINE: os_baseline
   Middleware Baseline: middleware_baseline
   Middleware Baselining: middleware_baseline
+  MW-BASELINE: middleware_baseline
   Database Baseline: database_baseline
   DB Baseline: database_baseline
   DB Baselining: database_baseline
+  DB-BASELINE: database_baseline

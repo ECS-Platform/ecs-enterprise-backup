@@ -4,19 +4,24 @@
 <body class="bg-light"><div class="container-fluid"><div class="row">
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
+{% set ec = data.evidence_completeness or {} %}
 <h1 class="ecs-workspace-title h5 mb-1">Audit Readiness</h1>
 <p class="small text-muted mb-2">Composite readiness score = 50% control coverage + 30% approved evidence + 20% evidence freshness. Answers the Audit Head's core question: <em>"If the auditor walked in today, are we ready?"</em></p>
 {% if not data.ok %}<div class="alert alert-warning py-2 px-3 small mb-3"><strong>Evidence repository not reachable.</strong> {{ data.error }}</div>{% endif %}
 
 <div class="row g-2 mb-3 align-items-stretch">
-<div class="col-md-3"><div class="ecs-kpi text-center">
+<div class="col"><div class="ecs-kpi text-center">
 {% set band=data.band %}
 <div class="gauge text-{{ 'success' if band=='Ready' else 'warning' if band=='At Risk' else 'danger' }}">{{ data.score or 0 }}%</div>
 <div class="badge bg-{{ 'success' if band=='Ready' else 'warning' if band=='At Risk' else 'danger' }} mt-1">{{ band }}</div>
 </div></div>
-<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Control Coverage</div><div class="n">{{ data.coverage_pct or 0 }}%</div></div></div>
-<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Approved Evidence</div><div class="n">{{ data.approval_pct or 0 }}%</div></div></div>
-<div class="col-md-3"><div class="ecs-kpi"><div class="text-muted small">Freshness</div><div class="n">{{ data.fresh_pct or 0 }}%</div></div></div>
+<div class="col"><div class="ecs-kpi"><div class="text-muted small">Control Coverage</div><div class="n">{{ data.coverage_pct or 0 }}%</div></div></div>
+<div class="col"><div class="ecs-kpi"><div class="text-muted small">Approved Evidence</div><div class="n">{{ data.approval_pct or 0 }}%</div></div></div>
+<div class="col"><div class="ecs-kpi"><div class="text-muted small">Freshness</div><div class="n">{{ data.fresh_pct or 0 }}%</div></div></div>
+<div class="col"><div class="ecs-kpi"><div class="text-muted small">Evidence Completeness</div>
+<div class="n">{{ ec.completeness_pct or 0 }}%</div>
+<div class="small text-muted">{{ ec.complete or 0 }} / {{ ec.total_controls or 0 }} controls</div>
+</div></div>
 </div>
 <p class="small text-muted">{{ data.gaps or 0 }} open control gaps · {{ data.expired or 0 }} expired evidence items.</p>
 
@@ -43,6 +48,50 @@
 <tr><td class="small">{{ f.framework_code }}</td><td class="text-end small">{{ f.coverage_pct }}%</td><td class="text-end small">{{ f.covered_controls }} / {{ f.expected_controls }}</td></tr>
 {% else %}<tr><td colspan="3" class="text-muted small">No frameworks.</td></tr>{% endfor %}
 </tbody></table>
+
+<h2 class="h6 mt-3">Evidence Completeness</h2>
+<form method="get" class="row g-2 align-items-end mb-3">
+  <input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+  <div class="col-md-4"><label class="form-label small mb-0">Application</label>
+    <select name="application" class="form-select form-select-sm">
+      {% for app in data.completeness_applications or [] %}
+      <option value="{{ app }}" {% if app == data.selected_application %}selected{% endif %}>{{ app }}</option>
+      {% else %}<option value="">No applications</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4"><label class="form-label small mb-0">Framework</label>
+    <select name="framework" class="form-select form-select-sm">
+      {% for fw in data.completeness_frameworks or [] %}
+      <option value="{{ fw.id }}" {% if fw.id == data.selected_framework %}selected{% endif %}>{{ fw.label }}</option>
+      {% else %}<option value="">No frameworks</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+  </div>
+</form>
+{% if ec.error %}<div class="alert alert-warning py-2 px-3 small">{{ ec.error }}</div>{% endif %}
+<div class="row g-2 mb-3">
+  <div class="col"><div class="ecs-kpi"><div class="text-muted small">Total Controls</div><div class="n">{{ ec.total_controls or 0 }}</div></div></div>
+  <div class="col"><div class="ecs-kpi"><div class="text-muted small">Complete</div><div class="n">{{ ec.complete or 0 }}</div></div></div>
+  <div class="col"><div class="ecs-kpi"><div class="text-muted small">Partial</div><div class="n">{{ ec.partial or 0 }}</div></div></div>
+  <div class="col"><div class="ecs-kpi"><div class="text-muted small">Missing</div><div class="n">{{ ec.missing or 0 }}</div></div></div>
+  <div class="col"><div class="ecs-kpi"><div class="text-muted small">Completeness %</div><div class="n">{{ ec.completeness_pct or 0 }}%</div></div></div>
+</div>
+<table class="table table-sm bg-white">
+<thead><tr><th>Control</th><th>Status</th><th>Reason</th></tr></thead>
+<tbody>
+{% for c in ec.controls or [] %}
+<tr>
+  <td class="small"><code>{{ c.control_id }}</code> {{ c.control_title }}</td>
+  <td><span class="badge bg-{{ 'success' if c.status=='COMPLETE' else 'warning' if c.status=='PARTIAL' else 'secondary' }}">{{ c.status }}</span></td>
+  <td class="small text-muted">{{ c.reason }}</td>
+</tr>
+{% else %}
+<tr><td colspan="3" class="text-muted small text-center py-3">Select an application and framework to view completeness.</td></tr>
+{% endfor %}
+</tbody>
+</table>
 </div></div></div>
 {% include "partials/mvp_scripts.html" ignore missing %}
 </body></html>

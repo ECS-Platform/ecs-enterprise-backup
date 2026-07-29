@@ -26,6 +26,52 @@ def _workflow_status(record: dict) -> str:
     return _wf(record)
 
 
+def _fcm_framework_resolve_candidates(framework: str) -> list[str]:
+    """Candidate keys for FCM id/alias resolution (preserves display names)."""
+    raw = str(framework or "").strip()
+    if not raw:
+        return []
+    slug = raw.lower().replace(" ", "_").replace("-", "_")
+    candidates: list[str] = []
+    for key in (raw, slug):
+        if key and key not in candidates:
+            candidates.append(key)
+    # "OS Baselining" → slug os_baselining; FCM id is os_baseline.
+    if slug.endswith("_baselining"):
+        alt = f"{slug[: -len('baselining')]}baseline"
+        if alt not in candidates:
+            candidates.append(alt)
+    return candidates
+
+
+def _resolve_fcm_framework_doc(repo: Any, framework: str) -> tuple[str, dict[str, Any] | None]:
+    """Resolve framework string to (framework_id, doc); empty when unknown."""
+    raw = str(framework or "").strip()
+    if not raw:
+        return "", None
+    for candidate in _fcm_framework_resolve_candidates(raw):
+        fw_id = repo.resolve_framework_id(candidate)
+        doc = repo.get_framework(fw_id)
+        if doc:
+            resolved = str((doc.get("framework") or {}).get("id") or fw_id)
+            return resolved, doc
+    raw_l = raw.lower()
+    slug_l = raw_l.replace(" ", "_").replace("-", "_")
+    for summary in repo.list_framework_summaries():
+        names = {
+            str(summary.get("id") or "").lower(),
+            str(summary.get("code") or "").lower(),
+            str(summary.get("name") or "").lower(),
+            str(summary.get("display_name") or "").lower(),
+        }
+        if raw_l in names or slug_l in names:
+            fw_id = str(summary.get("id") or "")
+            doc = repo.get_framework(fw_id) if fw_id else None
+            if doc:
+                return fw_id, doc
+    return "", None
+
+
 def _enrich_fcm_mappings(meta: dict[str, Any], *, framework: str, control: str) -> dict[str, Any]:
     """Best-effort FCM policy / procedure / evidence-requirement tags."""
     if meta.get("fcm_control_id") or meta.get("policy_refs"):
@@ -38,17 +84,7 @@ def _enrich_fcm_mappings(meta: dict[str, Any], *, framework: str, control: str) 
         )
 
         repo = get_framework_control_repository()
-        fw_id = repo.resolve_framework_id(
-            framework.lower().replace(" ", "_").replace("-", "_")
-        )
-        doc = repo.get_framework(fw_id)
-        if not doc:
-            for summary in repo.list_framework_summaries():
-                name = str(summary.get("name") or summary.get("display_name") or "")
-                if name.lower() == framework.lower():
-                    fw_id = str(summary.get("id") or fw_id)
-                    doc = repo.get_framework(fw_id)
-                    break
+        fw_id, doc = _resolve_fcm_framework_doc(repo, framework)
         if not doc:
             return meta
         controls = doc.get("controls") or []

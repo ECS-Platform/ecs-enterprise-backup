@@ -41,7 +41,13 @@ FRAMEWORK_CONTROL_HINTS: dict[str, dict[str, str]] = {
     "ITPP": {"control_id": "IT-C-03", "control_name": "Backup verification"},
     "C-SITE": {"control_id": "CS-C-03", "control_name": "SOC integration readiness"},
     "OS-Baseline": {"control_id": "OSB-14", "control_name": "CIS hardening baseline"},
-    "DB-Baseline": {"control_id": "DB-C-01", "control_name": "Database access control"},
+    "DB-Baseline": {
+        "control_id": "DBB-C-01",
+        "control_name": "Transparent Data Encryption",
+        "fcm_framework_id": "database_baseline",
+        "fcm_control_id": "DBB-C-01",
+        "fcm_evr_id": "DBB-EVR-012",
+    },
     "VAPT": {"control_id": "VAPT-9", "control_name": "External pentest remediation"},
 }
 
@@ -176,19 +182,21 @@ def ensure_mock_evidence_tree() -> int:
             artifact_path = folder / filename
             hint = FRAMEWORK_CONTROL_HINTS[fw_dir]
             if not manifest_path.exists():
+                manifest_body = {
+                    "application": APP_DISPLAY[app_dir],
+                    "environment": "UAT",
+                    "framework": fw_dir.replace("-", " "),
+                    "control_id": hint["control_id"],
+                    "control_name": hint["control_name"],
+                    "evidence_file": filename,
+                    "source_connector": "mock_evidence",
+                }
+                for _fcm_key in ("fcm_framework_id", "fcm_control_id", "fcm_evr_id"):
+                    _fcm_val = str(hint.get(_fcm_key) or "").strip()
+                    if _fcm_val:
+                        manifest_body[_fcm_key] = _fcm_val
                 manifest_path.write_text(
-                    json.dumps(
-                        {
-                            "application": APP_DISPLAY[app_dir],
-                            "environment": "UAT",
-                            "framework": fw_dir.replace("-", " "),
-                            "control_id": hint["control_id"],
-                            "control_name": hint["control_name"],
-                            "evidence_file": filename,
-                            "source_connector": "mock_evidence",
-                        },
-                        indent=2,
-                    ),
+                    json.dumps(manifest_body, indent=2),
                     encoding="utf-8",
                 )
             if not artifact_path.exists():
@@ -317,6 +325,11 @@ def collect_mock_evidence(
             "content_sha256": content_hash,
             "duplicate": False,
         }
+        # Optional FCM identity — only when present on the manifest (DB Baseline, etc.).
+        for _fcm_key in ("fcm_framework_id", "fcm_control_id", "fcm_evr_id"):
+            _fcm_val = str(manifest.get(_fcm_key) or "").strip()
+            if _fcm_val:
+                meta[_fcm_key] = _fcm_val
         mime = "application/json" if evidence_file.suffix.lower() == ".json" else (
             "text/csv" if evidence_file.suffix.lower() == ".csv" else (
                 "application/pdf" if evidence_file.suffix.lower() == ".pdf" else "text/plain"

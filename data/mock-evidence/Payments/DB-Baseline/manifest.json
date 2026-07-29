@@ -1,9 +1,12 @@
 {
   "application": "Payments",
   "environment": "UAT",
-  "framework": "DB Baseline",
-  "control_id": "DB-C-01",
-  "control_name": "Database access control",
+  "framework": "DB Baselining",
+  "control_id": "DBB-C-01",
+  "control_name": "Transparent Data Encryption",
+  "fcm_framework_id": "database_baseline",
+  "fcm_control_id": "DBB-C-01",
+  "fcm_evr_id": "DBB-EVR-012",
   "evidence_file": "mock_db-baseline_payments.pdf",
   "source_connector": "mock_evidence"
 }

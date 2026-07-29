@@ -764,6 +764,9 @@ def _persist_upload_to_canonical(record: dict, content_text: str, stored) -> Non
         )
         application = str((record.get("application_tags") or [""])[0] or "")
         control = str(record.get("control") or "")
+        # Prefer FCM control id when enrichment populated it; otherwise keep legacy
+        # control string so existing uploads without fcm_control_id behave unchanged.
+        mapped_control = str(meta.get("fcm_control_id") or control or "").strip()
         item = {
             "evidence_uid": evidence_id,
             "source_system": str(record.get("source_connector") or "upload"),
@@ -775,7 +778,7 @@ def _persist_upload_to_canonical(record: dict, content_text: str, stored) -> Non
             "url": str(record.get("object_uri") or record.get("source_url") or ""),
             "application": application,
             "metadata": meta,
-            "control_mapping": [control] if control else [],
+            "control_mapping": [mapped_control] if mapped_control else [],
             "framework_mapping": [fw for fw in (record.get("framework_tags") or []) if fw],
         }
         repo = EvidenceRepository()

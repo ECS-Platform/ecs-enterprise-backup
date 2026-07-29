@@ -179,7 +179,7 @@ class FileFrameworkControlRepository(FrameworkControlRepository):
             rows.append(
                 {
                     "id": fw_id,
-                    "code": fw.get("code") or entry.get("code", ""),
+                    "code": entry.get("code") or fw.get("code") or "",
                     "name": fw.get("name") or entry.get("name", ""),
                     "display_name": fw.get("display_name") or entry.get("display_name", ""),
                     "category": fw.get("category") or entry.get("category", ""),

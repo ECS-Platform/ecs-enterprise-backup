@@ -549,14 +549,207 @@ def set_review_status(evidence_uid: str, status: str, *, reviewer: str = "system
 # --------------------------------------------------------------------------
 # 8. Audit readiness
 # --------------------------------------------------------------------------
-def audit_readiness() -> dict[str, Any]:
-    """Composite readiness = 50% control coverage + 30% approved evidence + 20% freshness."""
+def _clamp_pct(value: float) -> float:
+    """Normalize a percentage for display to the closed interval [0, 100]."""
+    try:
+        return round(max(0.0, min(100.0, float(value))), 1)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _empty_evidence_completeness() -> dict[str, Any]:
+    return {
+        "total_controls": 0,
+        "complete": 0,
+        "partial": 0,
+        "missing": 0,
+        "completeness_pct": 0.0,
+        "controls": [],
+        "application": "",
+        "framework": "",
+        "framework_id": "",
+        "ok": False,
+    }
+
+
+def _completeness_selector_options(
+    coverage_frameworks: list[dict[str, Any]] | None = None,
+) -> tuple[list[str], list[dict[str, str]]]:
+    """Applications + frameworks for Evidence Completeness selectors.
+
+    Frameworks come from FCM (authoritative for completeness) merged with the
+    Audit Readiness coverage list (``control_framework_crosswalk`` / coverage
+    rows) so CIO frameworks such as ISO27001 appear when present there.
+    Display labels prefer FCM ``code`` (acronym); option values stay as FCM ids
+    or coverage ``framework_code`` for ``compute_evidence_completeness``.
+    """
+    apps: list[str] = []
+    frameworks: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+    fcm = None
+    try:
+        from modules.frameworks.repositories.framework_control_repository import (
+            get_framework_control_repository,
+        )
+
+        fcm = get_framework_control_repository()
+        apps = sorted(
+            {
+                str(a.get("application") or "").strip()
+                for a in fcm.list_application_assignments()
+                if str(a.get("application") or "").strip()
+            }
+        )
+        for s in fcm.list_framework_summaries():
+            fw_id = str(s.get("id") or "").strip()
+            if not fw_id or fw_id in seen_ids:
+                continue
+            # Prefer catalog acronym (code); fall back to short name, never long display_name.
+            label = (
+                str(s.get("code") or "").strip()
+                or str(s.get("name") or "").strip()
+                or fw_id
+            )
+            frameworks.append({"id": fw_id, "label": label})
+            seen_ids.add(fw_id)
+            # Also mark resolved aliases so coverage rows do not duplicate.
+            for alias_key in (label, str(s.get("name") or ""), str(s.get("display_name") or "")):
+                key = alias_key.strip()
+                if key:
+                    try:
+                        seen_ids.add(fcm.resolve_framework_id(key))
+                    except Exception:  # noqa: BLE001
+                        pass
+    except Exception:  # noqa: BLE001
+        fcm = None
+
+    for row in coverage_frameworks or []:
+        code = str(row.get("framework_code") or row.get("framework") or "").strip()
+        if not code:
+            continue
+        resolved = code
+        if fcm is not None:
+            try:
+                cand = fcm.resolve_framework_id(code)
+                # resolve_framework_id returns input when unknown — only treat as
+                # FCM hit when get_framework succeeds.
+                if fcm.get_framework(cand):
+                    resolved = cand
+            except Exception:  # noqa: BLE001
+                resolved = code
+        if resolved in seen_ids or code in seen_ids:
+            continue
+        frameworks.append({"id": resolved, "label": code})
+        seen_ids.add(resolved)
+        seen_ids.add(code)
+
+    frameworks.sort(key=lambda r: str(r.get("label") or r.get("id") or "").lower())
+    return apps, frameworks
+
+
+def _attach_evidence_completeness(
+    payload: dict[str, Any],
+    *,
+    application: str = "",
+    framework: str = "",
+) -> dict[str, Any]:
+    """Add Phase 2 evidence_completeness block without changing readiness score."""
+    apps, frameworks = _completeness_selector_options(payload.get("frameworks") or [])
+    # Prefer live evidence apps when FCM assignments are empty.
+    if not apps:
+        apps = [
+            str(a.get("application") or "").strip()
+            for a in (payload.get("per_app") or [])
+            if str(a.get("application") or "").strip()
+        ]
+    if not frameworks:
+        frameworks = [
+            {
+                "id": str(f.get("framework_code") or f.get("framework") or ""),
+                "label": str(f.get("framework_code") or f.get("framework") or ""),
+            }
+            for f in (payload.get("frameworks") or [])
+            if f.get("framework_code") or f.get("framework")
+        ]
+
+    sel_app = (application or "").strip() or (apps[0] if apps else "")
+    sel_fw = (framework or "").strip()
+    if not sel_fw and frameworks:
+        sel_fw = frameworks[0]["id"]
+
+    # Ensure selected id is one of the option values (stable mapping to compute()).
+    option_ids = {str(f.get("id") or "") for f in frameworks}
+    if sel_fw and sel_fw not in option_ids:
+        # Selected acronym/label → matching option id when possible.
+        for f in frameworks:
+            if str(f.get("label") or "") == sel_fw or str(f.get("id") or "") == sel_fw:
+                sel_fw = str(f.get("id") or sel_fw)
+                break
+
+    payload["completeness_applications"] = apps
+    payload["completeness_frameworks"] = frameworks
+    payload["selected_application"] = sel_app
+    payload["selected_framework"] = sel_fw
+
+    empty = _empty_evidence_completeness()
+    empty["application"] = sel_app
+    empty["framework"] = sel_fw
+    if not sel_app or not sel_fw:
+        payload["evidence_completeness"] = empty
+        return payload
+
+    try:
+        from ecs_platform.evidence_completeness import compute_evidence_completeness
+
+        result = compute_evidence_completeness(sel_app, sel_fw)
+    except Exception as exc:  # noqa: BLE001
+        empty["error"] = str(exc)
+        payload["evidence_completeness"] = empty
+        return payload
+
+    if not result.get("ok"):
+        empty["error"] = result.get("error") or "completeness unavailable"
+        empty["application"] = sel_app
+        empty["framework"] = result.get("framework") or sel_fw
+        empty["framework_id"] = result.get("framework_id") or ""
+        payload["evidence_completeness"] = empty
+        return payload
+
+    summary = result.get("summary") or {}
+    payload["evidence_completeness"] = {
+        "ok": True,
+        "total_controls": int(summary.get("total_controls") or 0),
+        "complete": int(summary.get("complete") or 0),
+        "partial": int(summary.get("partial") or 0),
+        "missing": int(summary.get("missing") or 0),
+        "completeness_pct": float(summary.get("completeness_pct") or 0.0),
+        "controls": list(result.get("controls") or []),
+        "application": result.get("application") or sel_app,
+        "framework": result.get("framework") or sel_fw,
+        "framework_id": result.get("framework_id") or sel_fw,
+    }
+    return payload
+
+
+def audit_readiness(
+    application: str = "",
+    framework: str = "",
+) -> dict[str, Any]:
+    """Composite readiness = 50% control coverage + 30% approved evidence + 20% freshness.
+
+    Optionally scopes the Phase 2 ``evidence_completeness`` block to an
+    application × framework. Does not change the readiness score formula.
+    """
     cov = control_coverage()
     life = evidence_lifecycle()
     fw = framework_coverage()
     if not cov.get("ok") or not life.get("ok"):
         from ecs_platform import demo_governance
-        return to_jsonable(demo_governance.audit_readiness())
+
+        demo = to_jsonable(demo_governance.audit_readiness())
+        return _attach_evidence_completeness(
+            demo, application=application, framework=framework
+        )
 
     coverage_pct = cov.get("coverage_pct", 0.0)
     approval_pct = life.get("approval_pct", 0.0)
@@ -585,26 +778,36 @@ def audit_readiness() -> dict[str, Any]:
             app_rows = _rows(cur)
     except Exception:  # noqa: BLE001 - repository down → demo data
         from ecs_platform import demo_governance
-        return to_jsonable(demo_governance.audit_readiness())
+
+        demo = to_jsonable(demo_governance.audit_readiness())
+        return _attach_evidence_completeness(
+            demo, application=application, framework=framework
+        )
 
     catalog_total = cov.get("total_controls", 0) or 1
     per_app = []
     for a in app_rows:
-        c_pct = round(100 * int(a["controls"] or 0) / catalog_total, 1)
+        # Coverage can exceed 100% when an app maps more distinct controls than
+        # the seeded catalog denominator — clamp display percentages to 0–100
+        # while keeping the same 0.6/0.4 weighting formula.
+        c_pct = _clamp_pct(100 * int(a["controls"] or 0) / catalog_total)
         ev = int(a["evidence"] or 0)
         appr = int(a["approved"] or 0)
-        a_pct = round(100 * appr / ev, 1) if ev else 0.0
-        s = round(0.6 * c_pct + 0.4 * a_pct, 1)
+        a_pct = _clamp_pct(100 * appr / ev) if ev else 0.0
+        s = _clamp_pct(0.6 * c_pct + 0.4 * a_pct)
         per_app.append({"application": a["application"], "evidence": ev, "controls": int(a["controls"] or 0),
                         "approved": appr, "coverage_pct": c_pct, "approval_pct": a_pct,
                         "score": s, "band": band(s)})
 
-    return to_jsonable({
+    payload = {
         "ok": True, "score": score, "band": band(score),
         "coverage_pct": coverage_pct, "approval_pct": approval_pct, "fresh_pct": fresh_pct,
         "frameworks": fw.get("frameworks", []), "per_app": per_app,
         "gaps": cov.get("gaps", 0), "expired": life.get("expired", 0),
-    })
+    }
+    return _attach_evidence_completeness(
+        to_jsonable(payload), application=application, framework=framework
+    )
 
 
 # --------------------------------------------------------------------------
