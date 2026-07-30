@@ -1,0 +1,1 @@
+{"collector":"phase2_tech_adapter","technology":"yugabyte","tls_enabled":true,"ssl_enabled":true,"min_protocol":"TLS1.2","tls_protocol":"TLS1.2","certificate_status":"valid","endpoints_checked":[{"host":"yugabyte.db.local","protocol":"TLS1.2"}]}

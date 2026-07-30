@@ -1,0 +1,1 @@
+{"collector":"phase2_tech_adapter","technology":"yugabyte","encryption_at_rest":true,"encrypted_datastores_pct":98,"datastores":[{"name":"yb-tablet","tde_enabled":true}]}

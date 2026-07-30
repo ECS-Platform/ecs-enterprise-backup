@@ -1,0 +1,1 @@
+{"collector":"phase2_tech_adapter","technology":"kubernetes","hardening_score":88,"benchmark":"CIS Kubernetes","checks_passed":40,"checks_failed":5}

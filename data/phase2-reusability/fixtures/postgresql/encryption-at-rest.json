@@ -1,0 +1,1 @@
+{"collector":"phase2_tech_adapter","technology":"postgresql","encryption_at_rest":true,"encrypted_datastores_pct":96,"datastores":[{"name":"pg-primary","tde_enabled":true}]}
