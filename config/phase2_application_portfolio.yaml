@@ -1,10 +1,12 @@
 # Phase-2 application portfolio — application identity is configuration only.
 # Collectors must not hard-code Net Banking / Mobile Banking / Payments logic.
-# Encryption controls reuse Phase-1 CommonControls manifests + validation rules.
+# Controls reuse Phase-1 CommonControls manifests + validation rules.
 
 phase2_controls:
   - encryption-at-rest
   - encryption-in-transit
+  - secure-configuration
+  - identity-privileged-access  # Least Privilege
 
 # When true, every technology in the app stack that appears in the preference
 # list is collected (Mobile Banking multi-tech proof). When false, first match only.
@@ -26,6 +28,17 @@ control_technology_preference:
     - aurora_mysql
     - yugabyte
     - aerospike
+  secure-configuration:
+    - linux_rhel
+    - kubernetes
+    - linux
+  identity-privileged-access:
+    - linux_rhel
+    - linux
+    - postgresql
+    - yugabyte
+    - aurora_mysql
+    - mysql
 
 applications:
   - id: net_banking
