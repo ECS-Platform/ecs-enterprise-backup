@@ -16,6 +16,8 @@ DEFAULT_FIXTURE_ROOT = _REPO_ROOT / "data" / "phase2-reusability" / "fixtures"
 # Canonical evidence fields expected by Phase-1 CommonControls validation rules.
 _AT_REST_FIELDS = ("encryption_at_rest", "encrypted_datastores_pct")
 _IN_TRANSIT_FIELDS = ("tls_enabled", "min_protocol")
+_SECURE_CONFIG_FIELDS = ("hardening_score",)
+_LEAST_PRIVILEGE_FIELDS = ("privileged_accounts_reviewed", "mfa_enabled")
 
 
 def fixture_root() -> Path:
@@ -23,6 +25,14 @@ def fixture_root() -> Path:
 
     override = os.environ.get("ECS_PHASE2_FIXTURE_ROOT", "").strip()
     return Path(override) if override else DEFAULT_FIXTURE_ROOT
+
+
+def fixture_exists(technology: str, control_slug: str) -> bool:
+    tech = str(technology or "").strip()
+    slug = str(control_slug or "").strip()
+    if not tech or not slug:
+        return False
+    return (fixture_root() / tech / f"{slug}.json").is_file()
 
 
 def load_technology_fixture(technology: str, control_slug: str) -> dict[str, Any]:
@@ -65,6 +75,21 @@ def normalize_control_payload(
         out.setdefault("min_protocol", "TLS1.2")
         for key in _IN_TRANSIT_FIELDS:
             out.setdefault(key, False if key == "tls_enabled" else "TLS1.2")
+    elif control_slug == "secure-configuration":
+        if "hardening_score" not in out and out.get("cis_score") is not None:
+            out["hardening_score"] = int(out["cis_score"])
+        out.setdefault("hardening_score", 0)
+        for key in _SECURE_CONFIG_FIELDS:
+            out.setdefault(key, 0)
+    elif control_slug == "identity-privileged-access":
+        if "privileged_accounts_reviewed" not in out and out.get("access_review_complete") is not None:
+            out["privileged_accounts_reviewed"] = bool(out["access_review_complete"])
+        if "mfa_enabled" not in out and out.get("mfa") is not None:
+            out["mfa_enabled"] = bool(out["mfa"])
+        out.setdefault("privileged_accounts_reviewed", False)
+        out.setdefault("mfa_enabled", False)
+        for key in _LEAST_PRIVILEGE_FIELDS:
+            out.setdefault(key, False)
     return out
 
 

@@ -815,6 +815,18 @@ def register_mvp_routes(app, templates):
             )
         )
 
+    @app.get("/api/evidence-dashboard/phase2-leadership")
+    def api_evidence_dashboard_phase2_leadership(application: str = ""):
+        """Leadership roll-up for Phase-2 common-control coverage (extends existing dashboard)."""
+        from modules.operations.engines.phase2_intelligence import build_leadership_aggregation
+        from modules.operations.engines.phase2_reusability import list_application_profiles
+
+        app_ids = None
+        if application.strip():
+            profiles = list_application_profiles()
+            app_ids = [p.id for p in profiles if p.display_name == application or p.id == application]
+        return JSONResponse(build_leadership_aggregation(application_ids=app_ids or None))
+
     @app.get("/api/evidence-dashboard/fcm-drill/{framework_id}/{control_id}")
     def api_evidence_dashboard_fcm_drill(
         framework_id: str,

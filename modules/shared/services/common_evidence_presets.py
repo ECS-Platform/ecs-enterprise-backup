@@ -58,11 +58,41 @@ def _merge_filters(base: dict[str, Any], **ctx: Any) -> dict[str, Any]:
         out["framework"] = str(ctx["framework"]).strip()
     if ctx.get("control_id"):
         out["control_id"] = str(ctx["control_id"]).strip()
+    if ctx.get("technology"):
+        out["technology"] = str(ctx["technology"]).strip()
     if ctx.get("run_id"):
         out["run_id"] = str(ctx["run_id"]).strip()
     if ctx.get("limit"):
         out["limit"] = int(ctx["limit"])
     return out
+
+
+def handle_phase2_evidence_metadata(filters: dict[str, Any], role: str) -> dict[str, Any]:
+    """Expose Phase-2 evidence metadata filterable by application/control/technology."""
+    from modules.operations.engines.phase2_intelligence import list_phase2_evidence
+
+    control_slug = str(filters.get("control_slug") or filters.get("control_id") or "").strip()
+    # Accept CC-* ids by mapping back to slug when possible.
+    if control_slug.startswith("CC-"):
+        from modules.operations.engines.common_controls_catalog import COMMON_CONTROLS
+
+        for ctrl in COMMON_CONTROLS:
+            if ctrl.control_id == control_slug:
+                control_slug = ctrl.slug
+                break
+    rows = list_phase2_evidence(
+        application=str(filters.get("application") or ""),
+        control_slug=control_slug if not control_slug.startswith("CC-") else "",
+        technology=str(filters.get("technology") or ""),
+        limit=int(filters.get("limit") or 25),
+    )
+    return _structured(
+        title="Phase-2 evidence by application/control/technology",
+        rows=rows,
+        filters=filters,
+        citations=[{"evidence_id": r.get("evidence_id"), "application": r.get("application")} for r in rows if r.get("evidence_id")],
+        intent="phase2_evidence_metadata",
+    )
 
 
 def _open_observations(role: str, filters: dict[str, Any]) -> list[dict]:
@@ -421,6 +451,7 @@ PRESET_HANDLERS: dict[str, Any] = {
     "control_without_evidence": handle_controls_without_evidence,
     "common_control_reuse": handle_common_control_reuse,
     "pgvector_indexing_status": handle_pgvector_status,
+    "phase2_evidence_metadata": handle_phase2_evidence_metadata,
 }
 
 
@@ -446,6 +477,7 @@ PRESET_QUERY_CATALOG: list[dict[str, Any]] = [
     {"id": "control_without_evidence", "label": "Controls without evidence", "question": "Show controls without evidence", "group": "Coverage & Gaps", "execution": "deterministic", "handler": "control_without_evidence"},
     {"id": "common_control_reuse", "label": "Reused evidence", "question": "Show evidences reused across frameworks", "group": "Coverage & Gaps", "execution": "deterministic", "handler": "common_control_reuse"},
     {"id": "pgvector_indexing_status", "label": "Not indexed", "question": "Show evidences not indexed in PGVector", "group": "Coverage & Gaps", "execution": "deterministic", "handler": "pgvector_indexing_status"},
+    {"id": "phase2_evidence_by_app_control", "label": "Phase-2 by app/control", "question": "Show Phase-2 evidence for Net Banking encryption-at-rest", "group": "Phase-2 Controls", "execution": "deterministic", "handler": "phase2_evidence_metadata", "requires": ["application"], "defaults": {"application": "Net Banking", "control_slug": "encryption-at-rest", "limit": 25}},
 ]
 
 PRESET_BY_ID = {item["id"]: item for item in PRESET_QUERY_CATALOG}

@@ -194,13 +194,19 @@ def test_evidence_tagged_by_app_env_asset_control():
     assert len(tagged) == sim.collected == sim.combinations
     apps = {(r.get("application_tags") or [""])[0] for r in tagged}
     assert {"Net Banking", "Payments"} <= apps
+    allowed = {
+        "encryption-at-rest",
+        "encryption-in-transit",
+        "secure-configuration",
+        "identity-privileged-access",
+    }
     for rec in tagged:
         meta = rec.get("metadata") or {}
         assert meta.get("application")
         assert meta.get("environment") == "UAT"
         assert meta.get("asset_id")
         assert meta.get("technology")
-        assert meta.get("common_control_slug") in ENCRYPTION_CONTROLS
+        assert meta.get("common_control_slug") in allowed
         assert rec.get("control")
 
 

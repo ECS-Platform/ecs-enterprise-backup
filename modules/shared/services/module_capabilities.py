@@ -258,6 +258,13 @@ def _evidence_dashboard_view(role: str) -> dict:
         common_controls_summary = get_common_controls_service().dashboard_summary()
     except Exception:  # noqa: BLE001
         common_controls_summary = {}
+    phase2_leadership: dict = {}
+    try:
+        from modules.operations.engines.phase2_intelligence import build_leadership_aggregation
+
+        phase2_leadership = build_leadership_aggregation()
+    except Exception:  # noqa: BLE001
+        phase2_leadership = {}
     repo_stats: dict = {}
     try:
         from modules.audit_intelligence.services import audit_repository_service as repo_svc
@@ -310,6 +317,7 @@ def _evidence_dashboard_view(role: str) -> dict:
         "integrity": integrity,
         "fcm_progress": fcm_progress,
         "common_controls": common_controls_summary,
+        "phase2_leadership": phase2_leadership,
         "standard_dataset": build_standard_dataset("evidence_health", role),
         "actions": _actions_for(role, health=True),
         "data_source": data_source,

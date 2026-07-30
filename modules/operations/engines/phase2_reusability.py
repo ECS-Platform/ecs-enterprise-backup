@@ -22,7 +22,7 @@ from modules.operations.engines.common_controls_collector import (
     collect_common_control_folder,
     common_controls_root,
 )
-from modules.operations.engines.phase2_tech_adapters import adapt_control_evidence
+from modules.operations.engines.phase2_tech_adapters import adapt_control_evidence, fixture_exists
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PORTFOLIO = _REPO_ROOT / "config" / "phase2_application_portfolio.yaml"
@@ -140,17 +140,17 @@ def select_technologies_for_control(
     *,
     portfolio: dict[str, Any] | None = None,
 ) -> list[str]:
-    """Return applicable technologies for a control from portfolio ∩ app stack."""
+    """Return applicable technologies for a control from portfolio ∩ app stack ∩ fixtures."""
     data = portfolio or load_application_portfolio()
     prefs = [str(t) for t in ((data.get("control_technology_preference") or {}).get(control_slug) or [])]
     app_techs = set(app.technologies)
-    matched = [t for t in prefs if t in app_techs]
+    matched = [t for t in prefs if t in app_techs and fixture_exists(t, control_slug)]
     if matched:
         if bool(data.get("collect_all_matching_technologies", True)):
             return matched
         return matched[:1]
-    # Fall back to first app technology only when no preference matched.
-    return list(app.technologies[:1])
+    # Fall back only when a fixture exists for an app technology.
+    return [t for t in app.technologies if fixture_exists(t, control_slug)][:1]
 
 
 def _application_context(
