@@ -1,0 +1,16 @@
+{
+  "application": "Mobile Banking",
+  "application_id": "mobile_banking",
+  "asset_id": "mobile-nginx",
+  "collector": "phase2_tech_adapter",
+  "endpoints_checked": [
+    {
+      "host": "edge.nginx",
+      "protocol": "TLS1.2"
+    }
+  ],
+  "environment": "UAT",
+  "min_protocol": "TLS1.2",
+  "technology": "nginx",
+  "tls_enabled": true
+}

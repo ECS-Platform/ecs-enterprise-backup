@@ -1,0 +1,19 @@
+{
+  "application": "Net Banking",
+  "application_id": "net_banking",
+  "asset_id": "netbanking-aurora",
+  "certificate_status": "valid",
+  "collector": "phase2_tech_adapter",
+  "endpoints_checked": [
+    {
+      "host": "aurora_mysql.db.local",
+      "protocol": "TLS1.2"
+    }
+  ],
+  "environment": "UAT",
+  "min_protocol": "TLS1.2",
+  "ssl_enabled": true,
+  "technology": "aurora_mysql",
+  "tls_enabled": true,
+  "tls_protocol": "TLS1.2"
+}

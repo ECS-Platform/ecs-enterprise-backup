@@ -330,9 +330,9 @@ class OllamaProvider(LLMProvider):
         return url.rstrip("/")
 
     def _keep_alive(self) -> str:
-        # Keep the model resident to avoid repeated cold starts. Configurable via
-        # ECS_OLLAMA_KEEP_ALIVE (e.g. "30m", "-1" for forever, "0" to unload).
-        return str(self.provider_cfg.get("keep_alive", self.cfg.get("keep_alive", "30m")))
+        # Unload after each request by default to reduce idle RAM. Configurable via
+        # ECS_OLLAMA_KEEP_ALIVE / llm.keep_alive (e.g. "30m", "-1" forever, "0s" unload).
+        return str(self.provider_cfg.get("keep_alive", self.cfg.get("keep_alive", "0s")))
 
     # ----------------------------------------------------------------- #
     # Generation/context limit resolution (provider owns the decision).

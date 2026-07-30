@@ -122,6 +122,14 @@ def build_context(
     citations = [_citation_meta(c) for c in rag["contexts"]]
     insufficient_evidence = bool(use_rag and wants_evidence and not rag["contexts"])
 
+    # TEMPORARY grounding DEBUG — complete evidence text before prompt fill.
+    try:
+        from modules.audit_intelligence.llm import _grounding_debug as _gdbg
+
+        _gdbg.log_retrieved_evidence_text(list(rag.get("contexts") or []))
+    except Exception:  # noqa: BLE001
+        pass
+
     if include_deterministic and det_block:
         combined_context = det_block + (("\n\n" + rag_block) if rag_block else "")
     else:

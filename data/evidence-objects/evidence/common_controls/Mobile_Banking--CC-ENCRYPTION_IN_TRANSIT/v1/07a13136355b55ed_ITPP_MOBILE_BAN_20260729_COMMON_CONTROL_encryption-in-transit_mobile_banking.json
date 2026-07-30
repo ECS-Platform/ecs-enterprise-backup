@@ -1,0 +1,19 @@
+{
+  "application": "Mobile Banking",
+  "application_id": "mobile_banking",
+  "asset_id": "mobile-mysql",
+  "certificate_status": "valid",
+  "collector": "phase2_tech_adapter",
+  "endpoints_checked": [
+    {
+      "host": "mysql.db.local",
+      "protocol": "TLS1.2"
+    }
+  ],
+  "environment": "UAT",
+  "min_protocol": "TLS1.2",
+  "ssl_enabled": true,
+  "technology": "mysql",
+  "tls_enabled": true,
+  "tls_protocol": "TLS1.2"
+}

@@ -1,0 +1,16 @@
+{
+  "application": "Demo Card Portal",
+  "application_id": "demo_card_portal",
+  "asset_id": "card-portal-nginx",
+  "collector": "phase2_tech_adapter",
+  "endpoints_checked": [
+    {
+      "host": "edge.nginx",
+      "protocol": "TLS1.2"
+    }
+  ],
+  "environment": "UAT",
+  "min_protocol": "TLS1.2",
+  "technology": "nginx",
+  "tls_enabled": true
+}

@@ -91,6 +91,14 @@ def execute(
     input_variables = input_variables or {}
     warnings: list[str] = []
 
+    # TEMPORARY grounding DEBUG — exact user query (no business-logic change).
+    try:
+        from modules.audit_intelligence.llm import _grounding_debug as _gdbg
+
+        _gdbg.log_query(user_query or "")
+    except Exception:  # noqa: BLE001
+        pass
+
     # Best-effort demo physical-evidence seed (idempotent; never blocks answering).
     try:
         from modules.audit_intelligence.engines.llm_usecase_demo_seed import ensure_seeded
@@ -172,6 +180,17 @@ def execute(
     )
     assembled_prompt = ctx["assembled_prompt"]
     system_prompt = ctx["system_prompt"]
+
+    # TEMPORARY grounding DEBUG — exact prompt that will be (or would be) sent.
+    try:
+        from modules.audit_intelligence.llm import _grounding_debug as _gdbg
+
+        _gdbg.log_final_prompt(
+            system_prompt=system_prompt or "",
+            user_prompt=assembled_prompt or "",
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
     # 5. Token estimate + RAM/token-profile compatibility.
     expected_out = _resolve_output_tokens(prompt or {"recommended_model_size": "small"}, profile)
@@ -289,6 +308,14 @@ def execute(
     memory_warnings = [w for w in warnings if "memory" in w.lower() or "swap" in w.lower()]
     profile_memory_note = str(profile.get("memory_warning") or "").strip()
     memory_warning = "; ".join(memory_warnings) or profile_memory_note
+
+    # TEMPORARY grounding DEBUG — raw response after generation / fallback.
+    try:
+        from modules.audit_intelligence.llm import _grounding_debug as _gdbg
+
+        _gdbg.log_llm_response(llm_response or "")
+    except Exception:  # noqa: BLE001
+        pass
 
     evidence_context = {
         "deterministic_result": det,

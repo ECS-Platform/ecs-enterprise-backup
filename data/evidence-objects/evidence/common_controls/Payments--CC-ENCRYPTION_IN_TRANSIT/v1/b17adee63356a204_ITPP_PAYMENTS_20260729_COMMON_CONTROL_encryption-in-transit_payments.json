@@ -1,0 +1,16 @@
+{
+  "application": "Payments",
+  "application_id": "payments",
+  "asset_id": "payments-tomcat",
+  "collector": "phase2_tech_adapter",
+  "endpoints_checked": [
+    {
+      "host": "api.tomcat",
+      "protocol": "TLS1.2"
+    }
+  ],
+  "environment": "UAT",
+  "min_protocol": "TLS1.2",
+  "technology": "tomcat",
+  "tls_enabled": true
+}

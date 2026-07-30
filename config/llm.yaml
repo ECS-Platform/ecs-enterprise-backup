@@ -10,8 +10,9 @@ llm:
   temperature: ${ECS_LLM_TEMPERATURE:-0.1}
   max_output_tokens: ${ECS_LLM_MAX_TOKENS:-2048}
   request_timeout_sec: ${ECS_LLM_TIMEOUT:-180}
-  # Keep local models resident between requests (Ollama). "-1" = forever, "0" = unload.
-  keep_alive: ${ECS_OLLAMA_KEEP_ALIVE:-30m}
+  # Unload local models after each request (Ollama) to reduce idle RAM.
+  # Override with ECS_OLLAMA_KEEP_ALIVE (e.g. "30m", "-1" = forever, "0"/"0s" = unload).
+  keep_alive: ${ECS_OLLAMA_KEEP_ALIVE:-0s}
 
   providers:
     ollama:

@@ -336,6 +336,75 @@ def find_upload_by_canonical_fingerprint(canonical_hash: str) -> dict | None:
     return _find_durable_by_canonical(canonical_hash)
 
 
+def _ops_list_contains(*, sha256: str = "", evidence_id: str = "") -> bool:
+    for rec in evidence_repository:
+        if sha256 and rec.get("sha256") == sha256:
+            return True
+        if evidence_id and rec.get("evidence_id") == evidence_id:
+            return True
+    return False
+
+
+def _materialize_durable_hit_into_ops(
+    existing: dict,
+    *,
+    content_hash: str,
+    uploaded_by: str,
+    framework: str,
+    application: str,
+    control: str,
+    source_connector: str,
+    source_item_id: str,
+    source_url: str,
+    environment: str,
+    mime_type: str,
+    metadata: dict | None,
+    custody_mode: str,
+    source_modified_at: str,
+) -> dict:
+    """Append a session-local ops row for a durable-only SHA hit.
+
+    Durable dedup (AI/SQL/canonical) can find content after ops memory was cleared
+    (tests/restart). Materialize once into ``evidence_repository`` so ops consumers
+    still see the evidence without a second AI/canonical write.
+    """
+    existing_meta = dict(existing.get("metadata") or {})
+    incoming_meta = dict(metadata or {})
+    merged_meta = {**existing_meta, **incoming_meta}
+    row = {
+        "evidence_id": str(existing.get("evidence_id") or "") or _next_id(),
+        "filename": str(existing.get("filename") or incoming_meta.get("filename") or ""),
+        "original_filename": str(existing.get("original_filename") or existing.get("filename") or ""),
+        "framework_tags": list(existing.get("framework_tags") or [])
+        or ([framework] if framework else ["Cross-Framework"]),
+        "application_tags": [application] if application else list(existing.get("application_tags") or ["Net Banking"]),
+        "control": control or str(existing.get("control") or ""),
+        "uploaded_by": uploaded_by,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "integrity": "Valid",
+        "integrity_valid": True,
+        "lifecycle": "Draft",
+        "summary": "",
+        "size_bytes": int(existing.get("size_bytes") or 0),
+        "status": "Uploaded",
+        "source_connector": source_connector or str(existing.get("source_connector") or ""),
+        "source_item_id": source_item_id or str(existing.get("source_item_id") or ""),
+        "source_url": source_url or str(existing.get("source_url") or ""),
+        "environment": environment or str(existing.get("environment") or ""),
+        "mime_type": mime_type or str(existing.get("mime_type") or ""),
+        "metadata": merged_meta,
+        "source_modified_at": source_modified_at,
+        "custody_mode": custody_mode or str(existing.get("custody_mode") or ""),
+        "version": int(existing.get("version") or existing.get("audit_version") or 1),
+        "sha256": content_hash or str(existing.get("sha256") or ""),
+        "object_uri": str(existing.get("object_uri") or ""),
+        "audit_repository_synced": True,
+        "audit_version": int(existing.get("audit_version") or existing.get("version") or 1),
+    }
+    evidence_repository.append(row)
+    return row
+
+
 def register_upload(
     filename: str,
     content: bytes,
@@ -368,6 +437,43 @@ def register_upload(
         if existing is not None:
             if _prof:
                 _prof_add("hash_and_dedup_check", _time.perf_counter() - _t0, register_attempts=1, duplicates_sha=1)
+            eid = str(existing.get("evidence_id") or "")
+            if not _ops_list_contains(sha256=content_hash, evidence_id=eid):
+                # Durable hit only — hydrate ops for this process, keep DUPLICATE
+                # semantics (no second brand-new evidence identity). Mirror into AI
+                # memory so get_latest() works after ops/AI were cleared.
+                materialized = _materialize_durable_hit_into_ops(
+                    existing,
+                    content_hash=content_hash,
+                    uploaded_by=uploaded_by,
+                    framework=framework,
+                    application=application,
+                    control=control,
+                    source_connector=source_connector,
+                    source_item_id=source_item_id,
+                    source_url=source_url,
+                    environment=environment,
+                    mime_type=mime_type,
+                    metadata=meta_in,
+                    custody_mode=custody_mode,
+                    source_modified_at=source_modified_at,
+                )
+                _mirror_to_audit_repository(
+                    materialized, content_bytes, framework, application, control
+                )
+                return {
+                    **materialized,
+                    "status": "DUPLICATE",
+                    "duplicate": True,
+                    "duplicate_kind": "sha256",
+                    "original_evidence_id": materialized.get("evidence_id") or eid,
+                    "embedding_skipped": True,
+                    "search_index": {
+                        "indexed": False,
+                        "reason": "embedding_skipped",
+                        "embedding_skipped": True,
+                    },
+                }
             dup = dict(existing)
             dup["status"] = "DUPLICATE"
             dup["duplicate"] = True
@@ -383,6 +489,43 @@ def register_upload(
         if substantive_hash:
             logical = find_upload_by_canonical_fingerprint(substantive_hash)
             if logical is not None:
+                if _prof:
+                    _prof_add("hash_and_dedup_check", _time.perf_counter() - _t0, register_attempts=1, duplicates_sha=0)
+                eid = str(logical.get("evidence_id") or "")
+                logical_sha = str(logical.get("sha256") or content_hash)
+                if not _ops_list_contains(sha256=logical_sha, evidence_id=eid):
+                    materialized = _materialize_durable_hit_into_ops(
+                        logical,
+                        content_hash=logical_sha or content_hash,
+                        uploaded_by=uploaded_by,
+                        framework=framework,
+                        application=application,
+                        control=control,
+                        source_connector=source_connector,
+                        source_item_id=source_item_id,
+                        source_url=source_url,
+                        environment=environment,
+                        mime_type=mime_type,
+                        metadata=meta_in,
+                        custody_mode=custody_mode,
+                        source_modified_at=source_modified_at,
+                    )
+                    _mirror_to_audit_repository(
+                        materialized, content_bytes, framework, application, control
+                    )
+                    return {
+                        **materialized,
+                        "status": "DUPLICATE",
+                        "duplicate": True,
+                        "duplicate_kind": "canonical",
+                        "original_evidence_id": materialized.get("evidence_id") or eid,
+                        "embedding_skipped": True,
+                        "search_index": {
+                            "indexed": False,
+                            "reason": "embedding_skipped",
+                            "embedding_skipped": True,
+                        },
+                    }
                 dup = dict(logical)
                 dup["status"] = "DUPLICATE"
                 dup["duplicate"] = True
@@ -683,7 +826,9 @@ def _mirror_to_audit_repository(record, content, framework, application, control
             verdict=str(meta.get("validation_verdict") or meta.get("verdict") or ""),
             control_status=str(meta.get("control_status") or ""),
             evidence_quality=evidence_quality,
-            source="manual_upload" if not record.get("source_connector") else "connector",
+            # Prefer connector identity (e.g. common_controls) so collector-sourced
+            # rows keep a stable ``source`` label after the single-write lifecycle.
+            source=str(record.get("source_connector") or "manual_upload"),
             filename=record.get("filename", ""),
             tags=(f"app:{application}", "source:upload",
                   f"mvp_evidence_id:{record.get('evidence_id', '')}"),

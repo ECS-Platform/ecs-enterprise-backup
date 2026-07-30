@@ -1,0 +1,16 @@
+{
+  "application": "Mobile Banking",
+  "application_id": "mobile_banking",
+  "asset_id": "mobile-aerospike",
+  "collector": "phase2_tech_adapter",
+  "datastores": [
+    {
+      "encryption": "aes-128",
+      "name": "aerospike-ns"
+    }
+  ],
+  "encrypted_datastores_pct": 97,
+  "encryption_at_rest": true,
+  "environment": "UAT",
+  "technology": "aerospike"
+}

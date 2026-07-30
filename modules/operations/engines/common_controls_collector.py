@@ -259,7 +259,6 @@ def collect_common_control_folder(
                 return receipt
             payload = _load_json(primary)
             content_bytes = primary.read_bytes()
-        content_text = json.dumps(payload, indent=2, sort_keys=True)
         vr = validate_evidence(manifest, payload)
         receipt.verdict = vr.verdict
 
@@ -274,22 +273,22 @@ def collect_common_control_folder(
         technology = str(
             ctx.get("technology") or manifest.get("technology") or "Common Control"
         )
-        evidence_key = ai_repo.make_evidence_key(asset_id, receipt.control_id)
+        # Custody object key identity (stable); AI evidence_key is set after register_upload
+        # to match _mirror_to_audit_repository (application_label + control_id).
+        custody_evidence_key = ai_repo.make_evidence_key(asset_id, receipt.control_id)
         if ctx:
             source_item_id = (
                 f"common-controls/{ctx.get('application_id') or application_label}/"
                 f"{slug}/{technology}"
             )
             source_url = f"phase2://{application_label}/{technology}/{slug}"
-            phase_tag = "phase2"
         else:
             source_item_id = f"common-controls/{slug}/{primary.name}"
             source_url = f"file://CommonControls/{slug}/{primary.name}"
-            phase_tag = "phase1"
         custody = _resolve_custody(
             filename=primary.name if primary.is_file() else f"{slug}.json",
             content=content_bytes,
-            evidence_key=evidence_key,
+            evidence_key=custody_evidence_key,
             source_item_id=source_item_id,
             version=1,
         )
@@ -305,7 +304,6 @@ def collect_common_control_folder(
             fcm_refs = get_common_controls_service().resolve_fcm_references(slug)
         except Exception:  # noqa: BLE001
             fcm_refs = []
-        tags = ("common_control", slug, phase_tag, "scheduler")
         meta = {
             "common_control": manifest.get("common_control") or receipt.common_control,
             "common_control_slug": slug,
@@ -335,40 +333,17 @@ def collect_common_control_folder(
             meta["cloud"] = str(ctx["cloud"])
         if ctx.get("phase"):
             meta["phase"] = str(ctx["phase"])
+        # Validation fields consumed by register_upload → _mirror_to_audit_repository.
+        meta["control_status"] = vr.control_status
+        meta["evidence_quality"] = vr.evidence_quality
         filename = (
             f"COMMON_CONTROL_{slug}_{ctx.get('application_id') or 'shared'}.json"
             if ctx
             else f"COMMON_CONTROL_{slug}.json"
         )
-        artifact = ai_repo.store_evidence(
-            control_id=receipt.control_id,
-            content=content_text,
-            technology=technology,
-            asset_id=asset_id,
-            frameworks=frameworks,
-            run_id=run_id,
-            verdict=vr.verdict,
-            control_status=vr.control_status,
-            evidence_quality=vr.evidence_quality,
-            source="common_controls",
-            filename=filename,
-            tags=tags,
-            evidence_key=evidence_key,
-            environment=environment,
-            source_connector="common_controls",
-            source_item_id=source_item_id,
-            source_url=source_url,
-            mime_type="application/json",
-            metadata=meta,
-            custody_mode=custody.custody_mode,
-            object_uri=custody.object_uri,
-            content_hash_override=custody.content_hash,
-            size_bytes_override=custody.size_bytes,
-        )
-        receipt.metadata_persisted = artifact is not None
-        receipt.evidence_key = evidence_key
-        receipt.collected = True
-
+        # Single write path: register_upload appends ops, then mirrors once into AI
+        # via _mirror_to_audit_repository. Do NOT call store_evidence first — durable
+        # SHA-256 dedup would treat that artifact as a duplicate and skip the ops append.
         from modules.operations.engines.evidence_repository import register_upload
 
         ops_record = register_upload(
@@ -386,13 +361,19 @@ def collect_common_control_folder(
             metadata=meta,
             custody_mode=custody.custody_mode,
         )
-        if str(ops_record.get("status", "")).upper() == "DUPLICATE":
+        is_duplicate = str(ops_record.get("status", "")).upper() == "DUPLICATE"
+        if is_duplicate:
             meta["duplicate"] = True
             meta["duplicate_kind"] = ops_record.get("duplicate_kind") or "sha256"
-        receipt.metadata_persisted = receipt.metadata_persisted or bool(
+        # Mirror keys AI evidence as make_evidence_key(application, control).
+        receipt.evidence_key = ai_repo.make_evidence_key(application_label, receipt.control_id)
+        receipt.metadata_persisted = bool(
             ops_record.get("audit_repository_synced")
-        )
-        receipt.collected = receipt.collected or receipt.metadata_persisted
+        ) or (not is_duplicate and bool(ops_record.get("evidence_id")))
+        if is_duplicate:
+            # Prior durable row already exists; still count as collected for this run.
+            receipt.metadata_persisted = True
+        receipt.collected = receipt.metadata_persisted or bool(ops_record.get("evidence_id"))
         from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
 
         enroll_collected_evidence(
@@ -406,7 +387,7 @@ def collect_common_control_folder(
                 vr,
                 asset_id=asset_id,
                 owner=str(manifest.get("owner") or "Platform Ops"),
-                evidence_reference=artifact.evidence_id if artifact else evidence_key,
+                evidence_reference=str(ops_record.get("evidence_id") or receipt.evidence_key),
                 control_name=receipt.common_control,
             )
             if observation:

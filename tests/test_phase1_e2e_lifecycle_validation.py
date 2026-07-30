@@ -86,6 +86,14 @@ class _FakeStore(VectorStore):
             if self.chunks[cid].evidence_uid == evidence_uid:
                 del self.chunks[cid]
 
+    def delete_stale_managed_chunks(
+        self,
+        candidate_chunk_ids: set[str],
+        *,
+        managed_doc_kinds: tuple[str, ...] = ("evidence", "governance"),
+    ) -> int:
+        return 0
+
     def _connect(self):
         return self
 

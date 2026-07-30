@@ -1,0 +1,16 @@
+{
+  "application": "Demo Card Portal",
+  "application_id": "demo_card_portal",
+  "asset_id": "card-portal-postgres",
+  "collector": "phase2_tech_adapter",
+  "datastores": [
+    {
+      "name": "pg-primary",
+      "tde_enabled": true
+    }
+  ],
+  "encrypted_datastores_pct": 96,
+  "encryption_at_rest": true,
+  "environment": "UAT",
+  "technology": "postgresql"
+}
