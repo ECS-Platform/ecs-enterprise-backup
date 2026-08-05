@@ -17,6 +17,7 @@ monkeypatched stub. No adapter makes a live call.
 from __future__ import annotations
 
 import os
+import uuid
 
 os.environ.setdefault("DEMO_MODE", "true")
 os.environ.setdefault("ECS_AUTH_ENABLED", "false")
@@ -193,39 +194,52 @@ def test_collect_respects_max_items():
 # access/secret key). Verifies the full chain end-to-end for each: fetch →
 # normalize → evidence repo (SHA-256) → audit-intelligence mirror.
 # SharePoint uses traverse_evidence_metadata (covered separately with a tree mock).
-_REPRESENTATIVE = {
-    "servicenow_cmdb": {"result": [
-        {"sys_id": "SNOW-1", "name": "srv-web-01",
-         "sys_class_name": "cmdb_ci_server", "ip_address": "10.0.0.10"}]},
-    "jira": {"values": [
-        {"key": "OPS", "id": "1", "name": "Operations", "projectTypeKey": "software"}]},
-    "sonarqube": {"components": [{"key": "proj", "name": "Proj", "qualifier": "TRK"}]},
-    "prisma_cloud": {"items": [
-        {"id": "a1", "policy": {"name": "S3 public", "severity": "high"},
-         "status": "open", "resource": {"name": "bucket", "cloudType": "aws"}}]},
-}
+# Payloads are built per-invocation around a unique token: the repository dedupes a
+# stored object by (source_item_id, substantive content hash) REGARDLESS of asset or
+# framework, so a payload identical to one another test already ingested would be
+# folded into that artifact instead of creating a new one. Unique source objects keep
+# this test scoped to exactly the record it created, whatever else ran first.
+def _representative_payload(connector: str, unique: str) -> dict:
+    return {
+        "servicenow_cmdb": {"result": [
+            {"sys_id": f"SNOW-{unique}", "name": f"srv-web-{unique}",
+             "sys_class_name": "cmdb_ci_server", "ip_address": "10.0.0.10"}]},
+        "jira": {"values": [
+            {"key": f"OPS{unique}", "id": unique, "name": f"Operations {unique}",
+             "projectTypeKey": "software"}]},
+        "sonarqube": {"components": [
+            {"key": f"proj-{unique}", "name": f"Proj {unique}", "qualifier": "TRK"}]},
+        "prisma_cloud": {"items": [
+            {"id": f"a-{unique}", "policy": {"name": "S3 public", "severity": "high"},
+             "status": "open", "resource": {"name": "bucket", "cloudType": "aws"}}]},
+    }[connector]
 
 
-@pytest.mark.parametrize("connector,payload", list(_REPRESENTATIVE.items()))
-def test_representative_connector_full_ingestion_chain(connector, payload):
+_REPRESENTATIVE_CONNECTORS = ["servicenow_cmdb", "jira", "sonarqube", "prisma_cloud"]
+
+
+@pytest.mark.parametrize("connector", _REPRESENTATIVE_CONNECTORS)
+def test_representative_connector_full_ingestion_chain(connector):
     from modules.audit_intelligence.engines import evidence_repository as ai_repo
 
-    # Unique framework per run avoids colliding with keys other tests created, so a
-    # brand-new evidence key is added (the repo versions on repeated identical keys).
-    fw = f"UAT-{connector.upper()}"
+    # A unique framework, application AND source object per invocation guarantee this
+    # test only ever sees the artifact it just created, independent of ambient
+    # repository state or test ordering.
+    unique = uuid.uuid4().hex[:8]
+    fw = f"UAT-{connector.upper()}-{unique}"
+    application = f"UAT App {connector} {unique}"
+    payload = _representative_payload(connector, unique)
     keys_before = {a.evidence_key for a in ai_repo.all_latest()}
-    res = ce.collect_evidence(connector, framework=fw, application="Net Banking",
+    res = ce.collect_evidence(connector, framework=fw, application=application,
                               transport=_mock_transport(payload))
     assert res["objects_fetched"] == 1
     assert res["ingested"] == 1
-    # The collected object is present in the audit-intelligence repository.
-    keys_after = {a.evidence_key for a in ai_repo.all_latest()}
-    assert len(keys_after) >= len(keys_before)
+    # Exactly one brand-new evidence key belongs to this invocation.
     new_artifacts = [a for a in ai_repo.all_latest() if a.evidence_key not in keys_before]
     assert len(new_artifacts) == 1
     art = new_artifacts[0]
     assert art.source_connector == connector
-    assert art.asset_id == "Net Banking"
+    assert art.asset_id == application
     assert fw in art.frameworks
     assert len(art.content_hash) == 64
     assert art.version >= 1

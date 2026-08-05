@@ -104,15 +104,30 @@ def display_framework_maturity(framework_stats: list) -> list:
 
 
 def display_application_rows(live_rows: list) -> list:
+    """Present per-application compliance, preferring the real computed value.
+
+    A row with any real coverage (``compliance_pct`` > 0) is shown exactly as
+    computed — no baseline blending, so a genuine 1-8% reads as 1-8% rather than
+    a seeded substitute. Only a row with nothing to show yet (0 or null approved
+    coverage) falls back to the seeded baseline, which is a "no data yet"
+    placeholder rather than a floor over real numbers. Each row records which of
+    the two it got in ``compliance_source`` so callers (e.g. the enterprise
+    data-source marker) can report live vs seeded accurately.
+    """
     enriched = []
     for row in live_rows:
-        baseline = APPLICATION_COMPLIANCE_BASELINE.get(row["application"], 76.0)
-        display = row["compliance_pct"]
-        if display < 15 and row["total"] > 0:
-            display = round(baseline * 0.4 + display * 0.6, 1)
-        elif display == 0:
-            display = baseline
-        enriched.append({**row, "compliance_pct": display, "owner": _owner_for(row["application"])})
+        raw = row.get("compliance_pct")
+        if raw:
+            display, source = raw, "live"
+        else:
+            display = APPLICATION_COMPLIANCE_BASELINE.get(row["application"], 76.0)
+            source = "baseline"
+        enriched.append({
+            **row,
+            "compliance_pct": display,
+            "compliance_source": source,
+            "owner": _owner_for(row["application"]),
+        })
     return enriched
 
 

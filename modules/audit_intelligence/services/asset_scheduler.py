@@ -479,8 +479,26 @@ def dry_run(
 # --------------------------------------------------------------------------- #
 # Optional live execution (delegates to the existing evidence service; opt-in)
 # --------------------------------------------------------------------------- #
+def _validated_receipt(evidence_service, run: dict[str, Any]) -> dict[str, Any]:
+    """Fold the validation engine's output onto a freshly-executed baseline run.
+
+    Re-serializes the run after validation so the receipt's records carry their
+    per-control ``validation`` inline. Best-effort: a validation failure must never
+    lose the collected evidence, so the raw run is returned unchanged on error.
+    """
+    try:
+        val = evidence_service.validate_run(run["run_id"])
+        if not val:
+            return run
+        refreshed = evidence_service.get_run(run["run_id"]) or run
+        return {**refreshed, "validation": val}
+    except Exception:  # noqa: BLE001 - collection result must survive validation errors
+        return run
+
+
 def execute_plan(plan: EvidencePlan, *, executor=None, requested_by: str = "asset_scheduler",
-                 run_connectors: bool = True, connector_transport=None, run_id: str = "") -> list[dict[str, Any]]:
+                 run_connectors: bool = True, connector_transport=None, run_id: str = "",
+                 validate: bool = True) -> list[dict[str, Any]]:
     """Execute a plan's jobs: *baseline* via the evidence service, *connector*
     via the connector executor (opt-in evidence ingestion).
 
@@ -495,6 +513,13 @@ def execute_plan(plan: EvidencePlan, *, executor=None, requested_by: str = "asse
     and the adapter is configured, OR when ``connector_transport`` is injected
     (tests). Set ``run_connectors=False`` to preserve the old baseline-only
     behavior. Each returned item carries a ``kind`` of "baseline" or "connector".
+
+    ``validate`` (default on) chains the deterministic validation engine onto each
+    completed baseline run, so scheduler completion always yields verdicts +
+    quality scores instead of leaving validation to a later on-demand UI/API call.
+    The receipt gains a ``validation`` block (results + compliance summary) and its
+    records carry their per-control validation inline. Set ``validate=False`` to
+    restore the previous collect-only behavior.
     """
     from modules.audit_intelligence.services import evidence_service
 
@@ -506,6 +531,8 @@ def execute_plan(plan: EvidencePlan, *, executor=None, requested_by: str = "asse
                 requested_by=requested_by, executor=executor,
                 control_ids=list(job.control_ids), asset_id=job.asset_id,
             )
+            if validate and isinstance(run, dict) and run.get("run_id"):
+                run = _validated_receipt(evidence_service, run)
             out.append({**run, "kind": "baseline"} if isinstance(run, dict) else run)
         elif job.route == ROUTE_CONNECTOR and run_connectors:
             from modules.audit_intelligence.services import connector_executor

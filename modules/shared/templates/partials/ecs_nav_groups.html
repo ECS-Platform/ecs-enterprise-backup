@@ -13,7 +13,7 @@
 {% set show_phase2_nav = show_phase2_nav|default(false) %}
 
 {# Group open-state (max depth: Group -> Page -> Tab) #}
-{% set ops_open = nav_module in ['predefined_queries','evidence_dashboard','audit_repository','evidence_story','reports'] %}
+{% set ops_open = nav_module in ['predefined_queries','evidence_dashboard','audit_repository','evidence_story','reports','ai_ops_assistant'] %}
 {# Governance and Administration stay expanded by default so relocated links remain visible. #}
 {% set gov_open = true %}
 {% set admin_open = nav_module in ['integrations','evidence_explorer','onboarding','scheduler','connector_test_workbench','audit_llm_workbench','ecs_benchmark'] or true %}
@@ -52,6 +52,7 @@
 <a href="/mvp/audit/repository{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'audit_repository' %} is-active{% endif %}">Evidence Repository</a>
 <a href="/mvp/evidence-story{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'evidence_story' %} is-active{% endif %}">Evidence Reuse</a>
 <a href="/mvp/reports{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'reports' %} is-active{% endif %}">Reports</a>
+<a href="/mvp/ai-ops-assistant{{ q }}" class="ecs-sidebar-btn{% if nav_module == 'ai_ops_assistant' %} is-active{% endif %}">AI Ops Assistant</a>
 </div>
 </div>
 </div>

@@ -339,10 +339,15 @@ class EvidenceRepository:
         with self.connect().cursor() as cur:
             cur.execute(
                 f"SELECT id, evidence_uid, source_system, source_object_id, object_type, title, content, "
-                f"url, application, content_hash, metadata, collected_timestamp "
+                f"url, application, content_hash, metadata, collected_timestamp, "
+                f"(SELECT array_agg(framework_code) FROM evidence_framework_map fm "
+                f" WHERE fm.evidence_id = evidence.id) AS framework_mapping "
                 f"FROM evidence {where} ORDER BY collected_timestamp DESC LIMIT %s", params)
             cols = [c[0] for c in cur.description]
-            return [dict(zip(cols, row)) for row in cur.fetchall()]
+            rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+            for r in rows:
+                r["framework_mapping"] = list(r.get("framework_mapping") or [])
+            return rows
 
     def evidence_for_control(self, control_id: str, limit: int = 100) -> list[dict[str, Any]]:
         with self.connect().cursor() as cur:

@@ -7,6 +7,9 @@
 </div>
 <span class="badge bg-warning text-dark">{{ pending_approvals_queue|length }} pending</span>
 </div>
+{% if analytics is defined and analytics.totals is defined and analytics.totals.submitted is defined and analytics.totals.submitted > pending_approvals_queue|length %}
+<p class="text-muted small mb-0 px-3 pb-2">Showing top {{ pending_approvals_queue|length }} of {{ analytics.totals.submitted }} submitted evidence items awaiting review, sorted by escalation and priority.</p>
+{% endif %}
 
 <div class="ecs-exec-strip mb-3"><div class="ecs-exec-strip-scroll">
 <div class="ecs-exec-kpi ecs-exec-kpi-warning"><span class="ecs-exec-kpi-val">{{ pending_approvals_queue|length }}</span><span class="ecs-exec-kpi-lbl">Awaiting Action</span></div>

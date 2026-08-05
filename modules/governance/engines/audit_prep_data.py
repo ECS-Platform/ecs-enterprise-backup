@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from modules.governance.engines.governance_relational_model import APP_OWNERS, FRAMEWORK_GRAPHS, get_framework_graph
+from modules.shared.services.persona_display import PERSONA_BY_ROLE
 
 BANKING_APPS = [
     "Net Banking", "Mobile Banking", "UPI", "Treasury", "Loan System",
@@ -209,7 +210,9 @@ def _build_trends() -> list[dict]:
 
 
 def _filters_active(filters: dict[str, str] | None) -> bool:
-    return bool(filters and any(v and not str(v).startswith("All ") for v in filters.values()))
+    return bool(filters and any(
+        v and not str(v).startswith("All ") for k, v in filters.items() if not k.startswith("_")
+    ))
 
 
 def _filter_trends(trends: list[dict], filters: dict[str, str] | None) -> list[dict]:
@@ -267,7 +270,7 @@ def _filter_rows(rows: list[dict], filters: dict[str, str] | None) -> list[dict]
     for row in rows:
         ok = True
         for key, val in filters.items():
-            if not val or val.startswith("All "):
+            if key.startswith("_") or not val or val.startswith("All "):
                 continue
             if key == "risk":
                 cell = str(row.get("priority", row.get("risk", row.get("audit_impact", ""))))
@@ -287,10 +290,23 @@ def build_audit_prep_view(role: str = "owner", filters: dict[str, str] | None = 
     """Full audit prep command center view — filter-aware."""
     filters = filters or {}
     filters_on = _filters_active(filters)
+    # The session "user" query param is a generic role label (e.g. "AppOwner"),
+    # not a real seed-data owner name, so it never matches g.get("owner"). Resolve
+    # it to the role's persona display name (persona_display.py) — the same real
+    # name ("R. Sharma" for role=owner, etc.) used everywhere else the app shows
+    # "who is logged in" — so the match is against an actual identity, consistent
+    # with how Upload Missing already scopes by role via role_filter_scope.py.
+    current_user = PERSONA_BY_ROLE.get(role, {}).get("display_name") or str(filters.get("_session_user", "") or "")
     readiness_apps = _build_readiness_by_application()
     readiness_fw = _build_readiness_by_framework()
     gaps = _build_gaps_from_graphs()
     uploads = _build_upload_queue(role)
+    # "My Gaps"/"My Missing Evidence" — scoped to the logged-in user's owner name,
+    # independent of the dropdown filters above (which drive the Overview KPIs and
+    # every other tab). Enterprise-wide totals must stay enterprise-wide; only the
+    # owner-role "My Gaps" tab personalizes to the current session user.
+    my_gaps = [g for g in gaps if current_user and g.get("owner") == current_user]
+    my_uploads = [u for u in uploads if current_user and u.get("owner") == current_user]
     audits = _build_upcoming_audits()
     requests = _build_auditor_requests()
     missing = _build_missing_breakdown()
@@ -377,6 +393,8 @@ def build_audit_prep_view(role: str = "owner", filters: dict[str, str] | None = 
         "missing_control_details": f_missing_details if filters_on else missing["details"],
         "upcoming_audits": active_audits,
         "actionable_gaps": active_gaps,
+        "my_gaps": my_gaps,
+        "my_uploads": my_uploads,
         "upload_queue": f_uploads if filters_on else uploads,
         "missing_evidence_rows": f_uploads if filters_on else uploads,
         "upload_kpis": upload_kpis,
@@ -392,7 +410,7 @@ def build_audit_prep_view(role: str = "owner", filters: dict[str, str] | None = 
         "next_audit_countdown": next_audit,
         "rows": active_gaps,
         "filters_active": filters_on,
-        "active_filter_summary": ", ".join(f"{k}={v}" for k, v in filters.items() if v and not str(v).startswith("All ")) or "All applications & frameworks",
+        "active_filter_summary": ", ".join(f"{k}={v}" for k, v in filters.items() if v and not k.startswith("_") and not str(v).startswith("All ")) or "All applications & frameworks",
         "remediation_progress": [
             {"control": g["control_name"], "framework": g["framework"], "application": g["application"],
              "owner": g["owner"], "progress_pct": max(10, 100 - g.get("sla_days", 0) * 2),

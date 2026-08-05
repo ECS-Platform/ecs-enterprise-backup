@@ -46,27 +46,54 @@ def marker_payload(
     }
 
 
-def enterprise_dashboard_data_source() -> dict[str, Any]:
-    """Enterprise compliance dashboard — blended workflow + demo baselines."""
+def enterprise_dashboard_data_source(application_rows: list | None = None) -> dict[str, Any]:
+    """Enterprise compliance dashboard — blended workflow + demo baselines.
+
+    ``applications.compliance_pct`` is only claimed as live when every application
+    row that actually has mapped controls (``total`` > 0) carries a real computed
+    percentage. Rows with no coverage yet fall back to a seeded baseline
+    (``compliance_source == "baseline"``), so in that case the field is reported as
+    seeded instead of live. An application with zero mapped controls can never be
+    live (there is nothing to compute), so it is excluded from the determination
+    entirely rather than counted as a failure. Passing no evaluable rows keeps the
+    conservative default of reporting it as seeded.
+    """
+    rows = application_rows or []
+    evaluable = [r for r in rows if (r or {}).get("total", 0) > 0]
+    seeded = [r for r in evaluable if (r or {}).get("compliance_source") != "live"]
+    compliance_is_live = bool(evaluable) and not seeded
+
+    live_fields = [
+        "framework_stats.approved",
+        "framework_stats.pending",
+        "completeness.missing",
+        "top_rejected",
+        "open_observations",
+    ]
+    demo_fields = [
+        "enterprise_compliance_pct",
+        "national_score",
+        "framework_maturity_display",
+        "banking_bu_analytics",
+        "audit_readiness_pct",
+    ]
+    note = "National score and BU cards use seeded regional/baseline values."
+    if compliance_is_live:
+        live_fields.insert(3, "applications.compliance_pct")
+    else:
+        demo_fields.insert(0, "applications.compliance_pct")
+        if evaluable:
+            note = (
+                f"{len(seeded)} of {len(evaluable)} application rows with mapped "
+                f"controls have no approved coverage yet and show a seeded "
+                f"baseline. {note}"
+            )
     return marker_payload(
         PARTIAL,
         "analytics_module.enterprise_dashboard",
-        live_fields=[
-            "framework_stats.approved",
-            "framework_stats.pending",
-            "completeness.missing",
-            "applications.compliance_pct",
-            "top_rejected",
-            "open_observations",
-        ],
-        demo_fields=[
-            "enterprise_compliance_pct",
-            "national_score",
-            "framework_maturity_display",
-            "banking_bu_analytics",
-            "audit_readiness_pct",
-        ],
-        note="National score and BU cards use seeded regional/baseline values.",
+        live_fields=live_fields,
+        demo_fields=demo_fields,
+        note=note,
     )
 
 

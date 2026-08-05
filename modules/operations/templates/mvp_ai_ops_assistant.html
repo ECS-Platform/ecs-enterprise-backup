@@ -87,7 +87,7 @@
 {% endfor %}
 </div>
 <small class="text-muted fw-semibold d-block mb-1">Summary drilldowns</small>
-{% for s in module_view.scenarios[:1] %}
+{% for s in module_view.scenarios %}
 <div class="mb-2">
 <div class="small fw-semibold">{{ s.application }}</div>
 {% for mode in module_view.summary_modes %}

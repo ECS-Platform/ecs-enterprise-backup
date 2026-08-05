@@ -138,7 +138,7 @@ def enterprise_dashboard():
         "branch_total": ecs_state.PAN_INDIA_BRANCH_TOTAL,
         "kpis": enterprise_kpis(),
         "approval_history": get_approval_history(8),
-        "data_source": enterprise_dashboard_data_source(),
+        "data_source": enterprise_dashboard_data_source(apps),
     }
 
 

@@ -1,0 +1,110 @@
+{
+  "ok": true,
+  "reuse_summary": {
+    "unique_evidence": 641,
+    "reuse_count": 641,
+    "reuse_factor": 1.0,
+    "frameworks_covered": 17,
+    "frameworks_list": [
+      "ASST",
+      "AppSec",
+      "C SITE",
+      "CSITE",
+      "DB Baselining",
+      "DPSC",
+      "ISG",
+      "ISO27001",
+      "ITDRM",
+      "ITPP",
+      "Nginx Baselining",
+      "OS Baseline",
+      "OS Baselining",
+      "PCI DSS",
+      "RBI Cyber Security",
+      "SOC2",
+      "VAPT"
+    ],
+    "controls_covered": 325,
+    "collections_saved": 0,
+    "effort_saved_hours": 0,
+    "most_reused": [
+      {
+        "evidence_key": "ECS Common Controls::CC-VULNERABILITY_PATCH",
+        "obligations": 1
+      },
+      {
+        "evidence_key": "ECS Common Controls::CC-TIME_SYNCHRONIZATION",
+        "obligations": 1
+      },
+      {
+        "evidence_key": "ECS Common Controls::CC-SECURE_CONFIGURATION",
+        "obligations": 1
+      },
+      {
+        "evidence_key": "ECS Common Controls::CC-NETWORK_SECURITY",
+        "obligations": 1
+      },
+      {
+        "evidence_key": "ECS Common Controls::CC-IDENTITY_PRIVILEGED_ACCESS",
+        "obligations": 1
+      }
+    ]
+  },
+  "filters_applied": {
+    "application": "",
+    "framework": "",
+    "control": "",
+    "technology": "",
+    "status": "",
+    "date_from": "",
+    "date_to": ""
+  },
+  "row_count": 641,
+  "sample_rows": [
+    {
+      "evidence_key": "ECS Common Controls::CC-VULNERABILITY_PATCH",
+      "control_id": "CC-VULNERABILITY_PATCH",
+      "technology": "Common Control",
+      "application": "ECS Common Controls",
+      "framework": "ITPP",
+      "status": "Satisfied",
+      "verdict": "PASS"
+    },
+    {
+      "evidence_key": "ECS Common Controls::CC-TIME_SYNCHRONIZATION",
+      "control_id": "CC-TIME_SYNCHRONIZATION",
+      "technology": "Common Control",
+      "application": "ECS Common Controls",
+      "framework": "ITPP",
+      "status": "Satisfied",
+      "verdict": "PASS"
+    },
+    {
+      "evidence_key": "ECS Common Controls::CC-SECURE_CONFIGURATION",
+      "control_id": "CC-SECURE_CONFIGURATION",
+      "technology": "Common Control",
+      "application": "ECS Common Controls",
+      "framework": "ITPP",
+      "status": "Satisfied",
+      "verdict": "PASS"
+    },
+    {
+      "evidence_key": "ECS Common Controls::CC-NETWORK_SECURITY",
+      "control_id": "CC-NETWORK_SECURITY",
+      "technology": "Common Control",
+      "application": "ECS Common Controls",
+      "framework": "ITPP",
+      "status": "Satisfied",
+      "verdict": "PASS"
+    },
+    {
+      "evidence_key": "ECS Common Controls::CC-IDENTITY_PRIVILEGED_ACCESS",
+      "control_id": "CC-IDENTITY_PRIVILEGED_ACCESS",
+      "technology": "Common Control",
+      "application": "ECS Common Controls",
+      "framework": "ITPP",
+      "status": "Satisfied",
+      "verdict": "PASS"
+    }
+  ]
+}

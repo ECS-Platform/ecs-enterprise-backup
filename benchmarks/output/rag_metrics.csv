@@ -138,3 +138,21 @@ timestamp,request_id,question,model_name,provider,retrieval_mode,retrieved_docum
 2026-07-23T07:28:08.194878+00:00,be075ce5-e5a1-48e8-90b8-1634e59bab01,Explain undocumented control implementation for imaginary system,,,repository,0,0,0,0,0,0,0,0,0,1
 2026-07-23T07:28:45.157600+00:00,7123cd45-0661-42da-93fd-43d375f453d0,Describe PostgreSQL SSL evidence collected for Net Banking,,,repository,1,1,0,0,0,0,0,0,0,44
 2026-07-23T07:28:45.204199+00:00,c663cb59-96b3-4298-84c0-536f532d3eaa,Explain undocumented control implementation for imaginary system,,,repository,0,0,0,0,0,0,0,0,0,1
+2026-08-03T07:32:53.884341+00:00,6b68461a-f28d-4c60-b762-e13842cbe1b8,Show me evidence for encryption at rest,,,repository,0,0,0,0,0,0,8661,0,0,22959
+2026-08-03T07:33:35.962983+00:00,5b269e36-4f77-41ab-85c9-bf85a239bac6,Show me evidence for encryption at rest,qwen3:8b,ollama,repository,0,0,658,371,8,379,3465,0,9643,13348
+2026-08-03T09:45:04.582115+00:00,99c150c4-04fa-4e51-8d6d-1bbf9a9c9420,How many evidences are pending for me?,qwen3:8b,ollama,vector,5,8,1804,863,8,871,2267,0,9523,12322
+2026-08-03T09:45:17.373478+00:00,fffb2b61-851a-48a9-b2da-007c0537bbe4,Show high-risk controls,qwen3:8b,ollama,vector,5,8,1789,859,8,867,3686,0,12217,16273
+2026-08-03T09:45:34.089318+00:00,f6327b59-825f-4330-ac0b-13018f1638b9,Show high-risk controls,qwen3:8b,ollama,vector,5,8,1789,859,8,867,2206,0,9325,11925
+2026-08-03T09:45:46.414350+00:00,105df223-2866-418d-b8e6-45a817bc898b,Show high-risk controls,,,vector,5,8,0,0,0,0,2178,0,0,16323
+2026-08-03T11:13:56.286791+00:00,843ef8fe-1ca3-4a98-8baa-5bc2a92db0f5,Show PCI evidence for Mobile Banking.,qwen3:8b,ollama,vector,8,8,3905,1566,108,1674,4453,0,15860,20711
+2026-08-03T11:15:49.366283+00:00,07b112ff-70ee-4406-bee9-22c415e1ce72,Show PCI evidence for Mobile Banking.,,,vector,8,8,0,0,0,0,2794,0,0,16069
+2026-08-03T11:55:14.891386+00:00,710d760c-dd2b-4a7f-8287-df04e6bb6574,Show PCI evidence for Mobile Banking.,qwen3:8b,ollama,vector,7,8,3698,1478,295,1773,2721,0,26993,30249
+2026-08-04T06:13:08.131956+00:00,150c15af-5a87-4584-8455-25b466e925fb,Give me a summary of Net Banking Evidences,,,vector,7,8,0,0,0,0,3874,0,0,24563
+2026-08-04T06:13:46.392911+00:00,bce55385-565d-43f6-8a3e-489d55c542d4,Show me the Net Banking Evidences,,,vector,8,8,0,0,0,0,4015,0,0,24470
+2026-08-04T06:15:25.019449+00:00,68599f91-31c3-48e0-9b03-8bc7c294e759,Show me the net banking evidences,qwen3:8b,ollama,vector,8,8,3836,1517,294,1811,3762,0,37957,42317
+2026-08-04T07:07:56.432382+00:00,e99119ff-9160-4123-85da-907cbfa9922e,Could you show me the Net Banking Evidences,qwen3:8b,ollama,vector,8,8,3833,1523,306,1829,3401,0,31738,35613
+2026-08-04T07:33:38.557467+00:00,1ecb4299-1bf3-4ad5-8723-2f7a687618c1,What evidence do we have for PCI DSS and CSITE baselining controls?,qwen3:8b,ollama,vector,8,8,3730,1509,226,1735,3370,0,24757,28499
+2026-08-05T04:13:29.550097+00:00,60e844fd-0fb0-436b-9026-bdf147b252e9,How many evidences are pending for me?,,,repository,0,0,0,0,0,0,8191,0,0,21797
+2026-08-05T04:13:51.349632+00:00,951b6201-bcac-48c8-8154-b7a3c8dc3ab6,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,147,1446,10167,0,19694,30213
+2026-08-05T04:14:22.535897+00:00,bebfeef3-4a71-4700-b04b-6d8e5ca84cc8,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,147,1446,3324,0,20485,24065
+2026-08-05T04:14:47.316780+00:00,38f53d33-128e-4398-9bdb-b3b21dfda056,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,147,1446,3721,0,17951,21965

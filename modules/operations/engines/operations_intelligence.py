@@ -31,6 +31,13 @@ APPLICATION_ALIASES = {
     "treasury": "treasury",
     "loan system": "loan_system",
     "loan": "loan_system",
+    "cards": "cards",
+    "card": "cards",
+    "credit card": "cards",
+    "debit card": "cards",
+    "trade finance": "trade_finance",
+    "trade": "trade_finance",
+    "letter of credit": "trade_finance",
 }
 
 OUTAGE_SCENARIOS: dict[str, dict] = {
@@ -224,6 +231,79 @@ OUTAGE_SCENARIOS: dict[str, dict] = {
             "Validate identity provider and session tier health",
             "Review CSITE SOC correlation rules",
             "Escalate ITPP incident SLA governance review",
+        ],
+    },
+    "cards": {
+        "application": "Cards",
+        "status": "DEGRADED",
+        "severity": "HIGH",
+        "customer_impact": "Card authorization delays and intermittent decline spikes at POS and ATM channels.",
+        "impact_level": "MODERATE",
+        "data_compromise": "NOT DETECTED",
+        "eta": "40–60 minutes",
+        "business_units": ["Cards & Acquiring", "Retail Banking"],
+        "impacted_apps": ["Cards", "ATM Switch", "Payments"],
+        "correlated_signals": [
+            "ServiceNow P1 — card authorization switch latency",
+            "PCI DSS TLS cipher exception EXC-2026-027 active",
+            "Prisma IAM finding — cards processing service account",
+            "Jira CARD-1188 remediation backlog",
+        ],
+        "governance_observations": [
+            "PCI DSS — Cardholder Data Encryption review pending",
+            "VAPT — Card switch pen test high finding open",
+            "ITPP — Authorization switch failover drill overdue",
+        ],
+        "technical_causes": [
+            "Card authorization switch latency under transaction surge",
+            "Legacy TLS cipher suite under active TD exception",
+            "Over-privileged service account on cards processing tier",
+        ],
+        "timeline": [
+            ("2026-05-24 09:10 UTC", "Elevated decline rate detected at POS"),
+            ("2026-05-24 09:18 UTC", "ServiceNow P1 opened — cards ops engaged"),
+            ("2026-05-24 09:30 UTC", "Governance correlation — PCI TD exception linked"),
+        ],
+        "recommended_actions": [
+            "Validate card authorization switch capacity and failover",
+            "Review PCI DSS TLS exception renewal timeline",
+            "Confirm Prisma IAM findings closure on processing tier",
+        ],
+    },
+    "trade_finance": {
+        "application": "Trade Finance",
+        "status": "DEGRADED",
+        "severity": "MEDIUM",
+        "customer_impact": "Letter of credit and trade document processing delays for corporate banking clients.",
+        "impact_level": "LOW",
+        "data_compromise": "NOT DETECTED",
+        "eta": "60–90 minutes",
+        "business_units": ["Corporate Banking", "Trade Finance"],
+        "impacted_apps": ["Trade Finance", "Core Banking"],
+        "correlated_signals": [
+            "ServiceNow P2 — trade document workflow queue backlog",
+            "DB Baselining — audit logging gap on trade finance schema",
+            "SWIFT gateway reconciliation delay alert",
+        ],
+        "governance_observations": [
+            "DB Baselining — Audit Logging control observation open",
+            "ITPP — Batch job SLA breach on document workflow",
+            "CSITE — Segregation of duties review pending on trade approvals",
+        ],
+        "technical_causes": [
+            "Trade document workflow queue backlog during batch window",
+            "SWIFT gateway reconciliation job running behind schedule",
+            "Audit logging gap correlated with DB baselining review",
+        ],
+        "timeline": [
+            ("2026-05-24 06:30 UTC", "Batch job SLA breach detected"),
+            ("2026-05-24 06:45 UTC", "ServiceNow P2 opened — trade ops engaged"),
+            ("2026-05-24 07:05 UTC", "Governance correlation — DB baselining gap linked"),
+        ],
+        "recommended_actions": [
+            "Expedite trade document workflow queue processing",
+            "Validate SWIFT gateway reconciliation job health",
+            "Close DB Baselining audit logging observation",
         ],
     },
 }

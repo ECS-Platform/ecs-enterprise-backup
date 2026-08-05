@@ -109,6 +109,19 @@
 
   function filterList(rows, v) { return (rows || []).filter(function(r){ return matchRow(r, v); }); }
 
+  // Every "Showing N (filtered)" summary line used to append "(filtered)"
+  // unconditionally, even with every dropdown left on "All ..." — misleading
+  // since nothing was actually filtered. Compute once per render and suffix
+  // only when a real filter value is set.
+  function hasActiveFilters(v) {
+    if (!v) return false;
+    return Object.keys(v).some(function(k){
+      var val = v[k];
+      return val && String(val).indexOf('All ') !== 0;
+    });
+  }
+  function filteredSuffix(v) { return hasActiveFilters(v) ? ' (filtered).' : '.'; }
+
   function statusBadge(st) {
     var cls = 'secondary';
     if (st === 'Approved') cls = 'success';
@@ -466,7 +479,12 @@
       }, 8);
     }
     else if (mod === 'audit_prep') {
+      // KPIs stay enterprise-wide (they mirror the Overview cards, which are not
+      // personalized). Only the "gaps" TABLE personalizes for the owner role's
+      // "My Gaps" tab — scoped server-side to the logged-in user — while every
+      // other role's gaps tab ("Open Gaps"/"High Risk") stays enterprise-wide.
       var gaps = filterList(rec.gaps, v);
+      var gapsTableRows = filterList((dataset.role === 'owner' && rec.my_gaps) ? rec.my_gaps : rec.gaps, v);
       var audits = filterList(rec.audits, v);
       var requests = filterList(rec.requests, v);
       var apps = filterList(rec.readiness_apps, v);
@@ -480,8 +498,8 @@
         'Below Threshold': apps.filter(function(a){ return a.readiness_pct < 75; }).length,
       });
       var sum = document.getElementById('ecsStdFilterSummary');
-      if (sum) sum.textContent = 'Showing ' + gaps.length + ' gaps · ' + audits.length + ' audits · readiness ' + readiness + '% (filtered).';
-      renderTable('audit-gaps', gaps, function(g) {
+      if (sum) sum.textContent = 'Showing ' + gaps.length + ' gaps · ' + audits.length + ' audits · readiness ' + readiness + '%' + filteredSuffix(v);
+      renderTable('audit-gaps', gapsTableRows, function(g) {
         var slaCls = g.sla === 'Breached' ? 'danger' : (g.sla === 'At Risk' ? 'warning text-dark' : 'success');
         return '<tr data-ecs-filter-row data-filter-framework="' + esc(g.framework) + '" data-filter-application="' + esc(g.application) + '" data-filter-owner="' + esc(g.owner) + '" data-filter-risk="' + esc(g.priority || g.risk) + '" data-filter-status="' + esc(g.status) + '">' +
           '<td><strong>' + esc(g.application) + '</strong></td><td>' + esc(g.framework) + '</td><td><code class="small">' + esc(g.control_id || g.control_name || '') + '</code></td>' +

@@ -30,6 +30,11 @@ def _clean():
     orch.reset_runs()
 
 
+def _framework_row(framework: str) -> dict:
+    """Current dashboard row for one framework (tallies vary with ambient state)."""
+    return next(r for r in dash.framework_readiness()["rows"] if r["framework"] == framework)
+
+
 def test_technology_and_control_coverage():
     tc = dash.technology_coverage()
     assert tc["total_technologies"] >= 1
@@ -40,15 +45,22 @@ def test_technology_and_control_coverage():
 
 
 def test_framework_readiness_uses_repository():
+    # The repository re-hydrates persisted/canonical evidence on read, so absolute
+    # counts depend on ambient state. Assert the DELTA this test causes instead.
+    before = _framework_row("PCI DSS")
     repo.store_evidence(control_id="NGX-003", content="on", technology="NGINX",
                         asset_id="a", frameworks=("PCI DSS",), verdict="PASS")
     repo.store_evidence(control_id="NGX-005", content="off", technology="NGINX",
                         asset_id="a", frameworks=("PCI DSS",), verdict="FAIL")
-    fr = dash.framework_readiness()
-    pci = next(r for r in fr["rows"] if r["framework"] == "PCI DSS")
-    assert pci["evidence_collected"] == 2
-    assert pci["passed"] == 1 and pci["failed"] == 1
-    assert pci["readiness_percent"] == 50.0
+    after = _framework_row("PCI DSS")
+    assert after["evidence_collected"] - before["evidence_collected"] == 2
+    assert after["passed"] - before["passed"] == 1
+    assert after["failed"] - before["failed"] == 1
+    # readiness_percent is derived from the repository's own verdicts, not a constant.
+    items = repo.search(framework="PCI DSS", latest_only=True)
+    assessed = sum(1 for a in items if a.verdict in ("PASS", "FAIL", "WARNING"))
+    assert assessed
+    assert after["readiness_percent"] == round(after["passed"] / assessed * 100, 1)
 
 
 def test_asset_coverage_offline():
@@ -58,13 +70,26 @@ def test_asset_coverage_offline():
 
 
 def test_validation_summary_and_evidence_coverage():
+    # Scoped to the delta this test causes: the repository is process-wide and
+    # lazily hydrates persisted/canonical evidence on read, so absolute totals are
+    # not stable. evidence_coverage() is the read that triggers hydration, so call
+    # it first to let the corpus settle before either baseline is captured.
+    dash.evidence_coverage()
+    vs_before = dash.validation_summary()
+    ec_before = dash.evidence_coverage()
     repo.store_evidence(control_id="C1", content="x", technology="NGINX", asset_id="a", verdict="PASS")
     repo.store_evidence(control_id="C2", content="y", technology="Redis", asset_id="b", verdict="FAIL")
     vs = dash.validation_summary()
-    assert vs["total_evidence"] == 2
-    assert vs["compliance_percent"] == 50.0
     ec = dash.evidence_coverage()
-    assert ec["evidence_keys"] == 2
+    assert vs["total_evidence"] - vs_before["total_evidence"] == 2
+    assert vs["by_verdict"].get("PASS", 0) - vs_before["by_verdict"].get("PASS", 0) == 1
+    assert vs["by_verdict"].get("FAIL", 0) - vs_before["by_verdict"].get("FAIL", 0) == 1
+    assert ec["evidence_keys"] - ec_before["evidence_keys"] == 2
+    # compliance_percent stays a computed function of the verdicts present.
+    passed = vs["by_verdict"].get("PASS", 0)
+    warned = vs["by_verdict"].get("WARNING", 0)
+    assessed = passed + vs["by_verdict"].get("FAIL", 0) + warned
+    assert vs["compliance_percent"] == round(((passed + 0.5 * warned) / assessed) * 100, 1)
 
 
 def test_collection_progress_reads_runs():

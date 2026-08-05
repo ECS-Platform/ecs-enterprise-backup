@@ -67,7 +67,7 @@
 
 {{ workspace_pane('analytics', false) }}
 <div class="ecs-ws-metric-row mb-2">
-<div><strong>Reuse rate</strong> 34.5%</div><div><strong>Groups</strong> {{ module_view.rows|length }}</div>
+<div><strong>Reuse rate</strong> {{ module_view.reuse_rate_pct }}%</div><div><strong>Groups</strong> {{ module_view.rows|length }}</div>
 <div><strong>Avg factor</strong> {{ reuse_metrics.avg_reuse_factor }}x</div><div><strong>Hours saved</strong> {{ reuse_metrics.top_saving_hours }}h</div>
 </div>
 <div class="table-responsive ecs-paginated-wrap">

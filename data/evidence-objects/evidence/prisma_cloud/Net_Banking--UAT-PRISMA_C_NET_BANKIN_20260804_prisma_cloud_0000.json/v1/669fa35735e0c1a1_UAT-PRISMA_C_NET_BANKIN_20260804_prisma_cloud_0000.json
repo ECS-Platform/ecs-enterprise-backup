@@ -1,0 +1,1 @@
+{"alert_id": "a1", "cloud_type": "aws", "policy_name": "S3 public", "resource": "bucket", "severity": "high", "source": "prisma_cloud", "status": "open"}

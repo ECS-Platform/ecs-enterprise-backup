@@ -21,6 +21,7 @@ from modules.shared.utils.data_source_marker import (
     DEMO,
     LIVE,
     PARTIAL,
+    enterprise_dashboard_data_source,
     marker_payload,
 )
 
@@ -49,6 +50,54 @@ def test_enterprise_dashboard_marker_is_partial():
     assert ds["provider"] == "analytics_module.enterprise_dashboard"
     assert ds["demo_fields"]
     assert ds["live_fields"]
+
+
+def test_enterprise_dashboard_marker_live_when_all_evaluable_apps_live():
+    # (a) apps with mapped controls (total > 0), all reporting a real computed
+    # percentage -> compliance_pct is claimed live.
+    rows = [
+        {"application": "Net Banking", "total": 199, "compliance_pct": 2.5, "compliance_source": "live"},
+        {"application": "UPI", "total": 20, "compliance_pct": 10.0, "compliance_source": "live"},
+    ]
+    ds = enterprise_dashboard_data_source(rows)
+    assert "applications.compliance_pct" in ds["live_fields"]
+    assert "applications.compliance_pct" not in ds["demo_fields"]
+
+
+def test_enterprise_dashboard_marker_baseline_when_partially_live():
+    # (b) an app with mapped controls but no approved coverage yet (seeded
+    # baseline) drags the marker to demo/seeded, alongside a fully live app.
+    rows = [
+        {"application": "Net Banking", "total": 199, "compliance_pct": 2.5, "compliance_source": "live"},
+        {"application": "Treasury", "total": 12, "compliance_pct": 88.5, "compliance_source": "baseline"},
+    ]
+    ds = enterprise_dashboard_data_source(rows)
+    assert "applications.compliance_pct" in ds["demo_fields"]
+    assert "applications.compliance_pct" not in ds["live_fields"]
+    assert "1 of 2" in ds["tooltip"]
+
+
+def test_enterprise_dashboard_marker_excludes_zero_control_apps():
+    # (c) an app with zero mapped controls (total == 0) can never be live and must
+    # be excluded from the determination entirely -- not counted as a failure that
+    # drags an otherwise-fully-live set down to seeded.
+    rows = [
+        {"application": "Net Banking", "total": 199, "compliance_pct": 2.5, "compliance_source": "live"},
+        {"application": "UPI", "total": 20, "compliance_pct": 10.0, "compliance_source": "live"},
+        {"application": "Mobile Banking Edge", "total": 0, "compliance_pct": 76.0, "compliance_source": "baseline"},
+    ]
+    ds = enterprise_dashboard_data_source(rows)
+    assert "applications.compliance_pct" in ds["live_fields"]
+    assert "applications.compliance_pct" not in ds["demo_fields"]
+
+    # A set of ONLY zero-control apps has nothing evaluable, so it falls back to
+    # the conservative seeded default rather than being spuriously marked live.
+    only_zero = [
+        {"application": "Mobile Banking Edge", "total": 0, "compliance_pct": 76.0, "compliance_source": "baseline"},
+    ]
+    ds_zero = enterprise_dashboard_data_source(only_zero)
+    assert "applications.compliance_pct" in ds_zero["demo_fields"]
+    assert "applications.compliance_pct" not in ds_zero["live_fields"]
 
 
 def test_pan_india_marker_is_demo():

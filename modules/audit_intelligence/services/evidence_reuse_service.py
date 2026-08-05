@@ -106,17 +106,30 @@ def _satisfied(verdict: str) -> bool:
 # Seeding (fresh process) — uses the REAL repository API only.
 # --------------------------------------------------------------------------- #
 def ensure_seeded() -> int:
-    """If the evidence repository is empty, seed it from the deterministic story
-    evidence using the real repository API. Returns the number seeded.
+    """Seed the deterministic story evidence (DB-001, APP-001, OS-001) into the
+    evidence repository using the real repository API, if any of those three
+    controls are missing. Returns the number seeded.
+
+    Previously this gated on the *entire repository* being empty — but the
+    repository is durably persisted/hydrated across restarts (canonical
+    Postgres store), and real usage (scheduler/common-controls collection,
+    manual uploads) populates it with hundreds of other controls before this
+    page is ever visited. That made the "only seed if totally empty" check
+    almost never fire in a real dev session, so DB-001/APP-001/OS-001 were
+    silently never seeded and every workbench action (filter, reuse, readiness,
+    observations) on those controls returned nothing — even though the page's
+    own "Evidence Generated" narrative section (a separate, always-deterministic
+    data source) showed a matching record. Checking for the *specific* story
+    controls, not overall emptiness, makes seeding reliable regardless of what
+    else is already in the repository.
 
     This does not fabricate a parallel store — it writes genuine
     :class:`EvidenceArtifact` records via ``evidence_repository.store_evidence``
     so every functional action operates on real repository data. Idempotent.
     """
-    if repo.all_latest():
-        return 0
     try:
         from modules.operations.engines.evidence_reuse_story_engine import (
+            STORY_CONTROLS,
             build_evidence_reuse_story,
         )
 
@@ -124,8 +137,14 @@ def ensure_seeded() -> int:
     except Exception:  # noqa: BLE001
         return 0
 
+    existing_control_ids = {a.control_id for a in repo.all_latest()}
+    missing = [e for e in story.get("evidence", [])
+               if e.get("control_id") in STORY_CONTROLS and e.get("control_id") not in existing_control_ids]
+    if not missing:
+        return 0
+
     seeded = 0
-    for e in story.get("evidence", []):
+    for e in missing:
         verdict = VERDICT_PASS if e.get("satisfied") else VERDICT_FAIL
         control_status = "Compliant" if e.get("satisfied") else CONTROL_STATUS_NON_COMPLIANT
         repo.store_evidence(

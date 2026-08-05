@@ -112,6 +112,68 @@ def register_audit_llm_routes(app) -> None:
         )
         return _ok(result=result)
 
+    # ------------------------------------------- evidence-summary narrative
+    # Grounded, LLM-generated narrative over an operations scenario. The model
+    # call itself is NOT reimplemented here — it delegates to
+    # ai_ops_summary_engine.generate_narrative(), which owns the get_provider()
+    # plumbing, the anti-hallucination refusal, and the fail-soft contract.
+    @app.get("/api/audit-llm/narrative/scenarios")
+    @_safe
+    def api_llm_narrative_scenarios():
+        """Scenario + perspective options for the evidence-summary narrative."""
+        from modules.operations.engines.ai_ops_summary_engine import SUMMARY_PAGE_MODES
+        from modules.operations.engines.operations_intelligence import OUTAGE_SCENARIOS
+
+        scenarios = [
+            {
+                "key": key,
+                "application": (data or {}).get("application", key),
+                "severity": (data or {}).get("severity", ""),
+            }
+            for key, data in OUTAGE_SCENARIOS.items()
+        ]
+        return _ok(scenarios=scenarios, modes=list(SUMMARY_PAGE_MODES))
+
+    @app.post("/api/audit-llm/narrative")
+    @_safe
+    def api_llm_narrative(payload: dict[str, Any] = Body(default_factory=dict)):
+        """Generate the grounded evidence-summary narrative for one perspective.
+
+        ``build_summary_page`` supplies the deterministic grounding inputs (rows,
+        recommendations, related applications/frameworks/controls) and
+        ``generate_narrative`` performs the model call. Both are reused as-is, so
+        this endpoint adds no second LLM code path. Never raises: an unreachable
+        or unconfigured provider comes back as ``grounded: false`` with an empty
+        narrative rather than an error.
+        """
+        from modules.operations.engines.ai_ops_summary_engine import (
+            build_summary_page,
+            generate_narrative,
+        )
+
+        mode = str(payload.get("mode") or "executive")
+        scenario = str(payload.get("scenario") or "net_banking")
+        role = str(payload.get("role") or "cio")
+
+        page = build_summary_page(mode, scenario, role)
+        if not page:
+            return _err(f"Unknown perspective: {mode}", status=400)
+
+        result = generate_narrative(page)
+        return _ok(
+            narrative=result,
+            mode=mode,
+            scenario=scenario,
+            grounding={
+                "title": page.get("title", ""),
+                "subtitle": page.get("subtitle", ""),
+                "related_applications": page.get("related_applications", []),
+                "related_frameworks": page.get("related_frameworks", []),
+                "recommendations": page.get("recommendations", []),
+                "row_count": len(page.get("rows") or []),
+            },
+        )
+
     # -------------------------------------------------------------- benchmark
     @app.post("/api/audit-llm/benchmark")
     @_safe

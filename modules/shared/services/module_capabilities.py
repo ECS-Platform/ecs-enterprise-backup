@@ -380,6 +380,7 @@ def _completeness_view(role: str) -> dict:
 def _reuse_view(role: str) -> dict:
     from modules.executive_overview.engines.enterprise_mock_service import build_reuse_mappings
     from modules.shared.utils.standard_filter_engine import build_standard_dataset
+    from modules.audit_intelligence.services import evidence_reuse_service as ers
 
     reuse_data = build_reuse_mappings(120)
     std = build_standard_dataset("reuse", role)
@@ -395,18 +396,32 @@ def _reuse_view(role: str) -> dict:
             bucket["approved"] += 1
         else:
             bucket["pending"] += 1
+
+    # Core reuse metrics (Mapped Controls, Hours Saved, reuse rate) come from
+    # evidence_reuse_service.analyze() — the same real evidence-repository engine
+    # /mvp/evidence-story renders — instead of a second, independent computation
+    # over the mock reuse-mapping rows. "Reuse Groups" and "Pending Approval"
+    # stay sourced from the mock mappings below: they describe the group/approval
+    # workflow rendered in the Overview/Candidates/Workbench tables on this page,
+    # a concept evidence_reuse_service has no equivalent for.
+    real_summary = ers.analyze()["reuse_summary"]
+    reuse_rate_pct = (
+        round(real_summary["collections_saved"] / real_summary["reuse_count"] * 100, 1)
+        if real_summary["reuse_count"] else 0.0
+    )
     return {
         "kpis": [
             {"label": "Reuse Groups", "value": len(candidates), "tone": "primary"},
-            {"label": "Mapped Controls", "value": sum(c["controls_linked"] for c in candidates), "tone": "success"},
+            {"label": "Mapped Controls", "value": real_summary["controls_covered"], "tone": "success"},
             {"label": "Pending Approval", "value": len(pending), "tone": "warning"},
-            {"label": "Hours Saved", "value": REUSE_METRICS["top_saving_hours"], "tone": "teal"},
+            {"label": "Hours Saved", "value": real_summary["effort_saved_hours"], "tone": "teal"},
         ],
         "rows": candidates,
         "pending_rows": pending,
         "candidates": reuse_data["candidates"],
         "workbench": reuse_data["workbench"],
         "framework_breakdown": list(fw_breakdown.values()),
+        "reuse_rate_pct": reuse_rate_pct,
         "standard_dataset": std,
         "actions": _actions_for(role, reuse=True),
     }
@@ -655,7 +670,6 @@ def _audit_prep_view(role: str, filters: dict | None = None) -> dict:
     from modules.shared.utils.standard_filter_engine import build_standard_dataset
 
     view = build_audit_prep_view(role, filters)
-    view["standard_dataset"] = build_standard_dataset("audit_prep", role, filters)
     view["audit_heatmaps"] = build_audit_prep_heatmaps(filters)
     view["actions"] = _actions_for(role, audit_prep=True)
 
@@ -669,6 +683,29 @@ def _audit_prep_view(role: str, filters: dict | None = None) -> dict:
     view["baselining_history"] = ops["baselining_history"]
     view["audit_kpi_drilldowns"] = ops["kpi_drilldowns"]
     view["audit_summary"] = ops["summary"]
+    # Overview's "Upcoming Audits" KPI was computed inside build_audit_prep_view()
+    # from the legacy static 8-item list, before the dynamic ops list above
+    # replaced view["upcoming_audits"] — so the KPI stayed stuck at 8 while the
+    # Upcoming Audits tab/calendar showed the real (much larger) rolling count.
+    # Sync the KPI card to the same list the tab actually renders.
+    for kpi in view.get("kpis", []):
+        if kpi.get("label") == "Upcoming Audits":
+            kpi["value"] = len(ops["upcoming_audits"])
+            break
+    # Built AFTER the overrides above so the client-side filter widget
+    # (standard_filter_client.html, which re-renders on every page load) sees the
+    # same audits/gaps counts as the initial server render — not a stale
+    # pre-override snapshot. NOTE: build_standard_dataset() internally calls
+    # build_audit_prep_view() again from scratch, so its "audits" record still
+    # comes from the legacy static 8-item list, not the dynamic ops list synced
+    # into the "Upcoming Audits" KPI above — re-sync it here too, or the Overview
+    # summary line disagrees with the KPI card it's supposed to mirror.
+    view["standard_dataset"] = build_standard_dataset("audit_prep", role, filters)
+    synced_audits = ops["upcoming_audits"]
+    for a in synced_audits:
+        a.setdefault("risk", "High" if a.get("readiness_pct", 100) < 75 else "Medium")
+        a.setdefault("status", "Scheduled")
+    view["standard_dataset"]["records"]["audits"] = synced_audits
     if view["upcoming_audits"]:
         nxt = next((a for a in view["upcoming_audits"] if a["days_remaining"] >= 0), view["upcoming_audits"][0])
         view["next_audit_countdown"] = {

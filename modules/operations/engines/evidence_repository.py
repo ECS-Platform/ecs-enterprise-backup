@@ -793,6 +793,13 @@ def _mirror_to_audit_repository(record, content, framework, application, control
                 pass
         text = content.decode("utf-8", "ignore") if isinstance(content, (bytes, bytearray)) else str(content or "")
         meta = dict(record.get("metadata") or {})
+        # Explicit override for callers that know an artifact satisfies more than
+        # one framework (e.g. mock_evidence_collector's DB-Baseline/PCI-DSS
+        # overlap) — takes precedence over the single `framework` param and the
+        # catalog-mapping lookup above, which only ever yields one tag for
+        # controls outside the real predefined-query catalog.
+        if meta.get("frameworks"):
+            frameworks = tuple(str(f) for f in meta["frameworks"] if f)
         try:
             from modules.shared.services.evidence_authoritative_reader import _enrich_fcm_mappings
 
@@ -912,6 +919,16 @@ def _persist_upload_to_canonical(record: dict, content_text: str, stored) -> Non
         # Prefer FCM control id when enrichment populated it; otherwise keep legacy
         # control string so existing uploads without fcm_control_id behave unchanged.
         mapped_control = str(meta.get("fcm_control_id") or control or "").strip()
+        # Prefer an explicit multi-framework override (e.g. mock_evidence_collector's
+        # DB-Baseline/PCI-DSS overlap) over the single ops-level framework_tags — that
+        # tag only ever carries one value, so callers that legitimately satisfy more
+        # than one framework would otherwise always collapse to one on canonical write.
+        _frameworks_override = meta.get("frameworks")
+        framework_mapping = (
+            [str(f) for f in _frameworks_override if f]
+            if _frameworks_override
+            else [fw for fw in (record.get("framework_tags") or []) if fw]
+        )
         item = {
             "evidence_uid": evidence_id,
             "source_system": str(record.get("source_connector") or "upload"),
@@ -924,7 +941,7 @@ def _persist_upload_to_canonical(record: dict, content_text: str, stored) -> Non
             "application": application,
             "metadata": meta,
             "control_mapping": [mapped_control] if mapped_control else [],
-            "framework_mapping": [fw for fw in (record.get("framework_tags") or []) if fw],
+            "framework_mapping": framework_mapping,
         }
         repo = EvidenceRepository()
         try:

@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from app.env_bootstrap import demo_mode_enabled
+from modules.audit_intelligence.engines.evidence_validation import validate_record
+from modules.audit_intelligence.models import EvidenceRecord, STATUS_COMPLETED
 from modules.operations.engines.scheduler_progress import SchedulerProgressLog
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -330,6 +332,32 @@ def collect_mock_evidence(
             _fcm_val = str(manifest.get(_fcm_key) or "").strip()
             if _fcm_val:
                 meta[_fcm_key] = _fcm_val
+        # Deterministic verdict (same engine used for real predefined-query
+        # evidence) — without this, verdict/control_status/evidence_quality stay
+        # empty and readiness is structurally stuck at 0% for mock evidence.
+        vr = validate_record(
+            EvidenceRecord(
+                control_id=control_id,
+                technology=str(manifest.get("technology") or framework),
+                status=STATUS_COMPLETED,
+                frameworks=(framework,),
+                asset_id=str(manifest.get("application") or app_label),
+                ok=True,
+                rows_returned=1,
+                output_excerpt=content.decode("utf-8", "ignore")[:2000],
+            ),
+            control={"control_name": meta["control_name"]},
+        )
+        meta["validation_verdict"] = vr.verdict
+        meta["control_status"] = vr.control_status
+        meta["evidence_quality"] = vr.evidence_quality
+        # A minority of controls genuinely satisfy more than one framework (real
+        # banking GRC pattern — not the default): DB Baseline's Transparent Data
+        # Encryption evidence also covers PCI DSS's stored-data encryption
+        # requirement, so it's tagged for both instead of forcing every control
+        # to be multi-framework.
+        if folder.name == "DB-Baseline" and framework != "PCI DSS":
+            meta["frameworks"] = [framework, "PCI DSS"]
         mime = "application/json" if evidence_file.suffix.lower() == ".json" else (
             "text/csv" if evidence_file.suffix.lower() == ".csv" else (
                 "application/pdf" if evidence_file.suffix.lower() == ".pdf" else "text/plain"

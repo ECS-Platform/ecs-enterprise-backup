@@ -30,7 +30,7 @@
 <th>Missing Evidence</th><th>Evidence Type</th><th>Risk</th><th>Observation Severity</th>
 <th>Requested By</th><th>Due Date</th><th>Audit Impact</th><th>Status</th><th>Upload Action</th>
 </tr></thead><tbody>
-{% for r in (missing_evidence_rows|default([], true))[:10] %}
+{% for r in (missing_evidence_rows|default([], true)) %}
 <tr class="{% if r.observation_severity=='Critical' %}table-danger{% elif r.observation_severity=='Major' %}table-warning{% endif %} ecs-upload-data-row"
  data-ecs-filter-row data-filter-framework="{{ r.framework }}" data-filter-application="{{ r.application }}" data-filter-risk="{{ r.risk }}" data-filter-status="{{ r.status }}">
 <td><button type="button" class="btn btn-link btn-sm p-0 ecs-upload-obs-link" data-obs-id="{{ r.observation_id }}"><code>{{ r.observation_id }}</code></button></td>

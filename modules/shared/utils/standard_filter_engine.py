@@ -237,6 +237,14 @@ def _audit_prep_dataset(role: str, filters: dict | None = None) -> dict:
     from modules.governance.engines.audit_prep_data import build_audit_prep_view
 
     view = build_audit_prep_view(role, filters or {})
+    # Reuse the exact same (already filter-aware) lists build_audit_prep_view()
+    # used for its own KPIs/tables — this dataset drives the client-side filter
+    # widget's on-load re-render (standard_filter_client.html), which previously
+    # applied a SECOND, independent apply_role_scope() pass here. That silently
+    # produced a smaller/different-owner subset than the server-rendered KPIs and
+    # tables (e.g. Overview KPI showing the true count while the client JS
+    # overwrote the tab table moments later with a role-generic, non-user-aware
+    # slice) — do not re-scope; the counts must match what was just rendered.
     gaps = view.get("actionable_gaps", view.get("rows", []))
     for g in gaps:
         g.setdefault("framework", g.get("framework", "PCI DSS"))
@@ -249,14 +257,13 @@ def _audit_prep_dataset(role: str, filters: dict | None = None) -> dict:
         a.setdefault("owner", a.get("owner", OWNERS[0]))
         a.setdefault("risk", "High" if a.get("readiness_pct", 100) < 75 else "Medium")
         a.setdefault("status", "Scheduled")
-    gaps = apply_role_scope(gaps, role)
-    audits = apply_role_scope(audits, role)
-    readiness_apps = apply_role_scope(view.get("readiness_by_application", []), role)
+    readiness_apps = view.get("readiness_by_application", [])
     return {
         "module": "audit_prep",
         "role": role,
         "records": {
             "gaps": gaps,
+            "my_gaps": view.get("my_gaps", []),
             "audits": audits,
             "requests": view.get("auditor_requests", []),
             "submissions": view.get("pending_submissions", []),

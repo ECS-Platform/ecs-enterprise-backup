@@ -9,6 +9,75 @@
 </div>
 <a href="/mvp/ai-ops-assistant?role={{ role }}&user={{ user|urlencode }}" class="btn btn-sm btn-outline-secondary">← AI Ops Assistant</a>
 </div>
+<div class="card card-body py-2 small mb-2" id="ecsAiOpsNarrativeCard">
+<strong>AI Narrative <span class="badge bg-secondary" id="ecsAiOpsNarrativeBadge">generating…</span></strong>
+<p class="mb-0 mt-1 fst-italic text-muted" id="ecsAiOpsNarrativeText">Generating AI narrative…</p>
+<button type="button" class="btn btn-sm btn-outline-secondary mt-1 d-none" id="ecsAiOpsNarrativeRetry">Retry</button>
+</div>
+<script>
+(function(){
+  var text = document.getElementById('ecsAiOpsNarrativeText');
+  var badge = document.getElementById('ecsAiOpsNarrativeBadge');
+  var retryBtn = document.getElementById('ecsAiOpsNarrativeRetry');
+  var mode = {{ page.mode|tojson }};
+  var scenario = {{ page.scenario_key|tojson }};
+  var role = {{ role|tojson }};
+  var user = {{ user|tojson }};
+  var NARRATIVE_TIMEOUT_MS = 90000; // client-side cap; backend LLM timeout is separate (config/llm.yaml)
+
+  function setGenerating() {
+    if (badge) { badge.textContent = 'generating…'; badge.className = 'badge bg-secondary'; }
+    if (text) { text.textContent = 'Generating AI narrative…'; text.classList.add('fst-italic', 'text-muted'); }
+    if (retryBtn) retryBtn.classList.add('d-none');
+  }
+
+  function setError(message) {
+    if (badge) { badge.textContent = 'unavailable'; badge.className = 'badge bg-warning text-dark'; }
+    if (text) { text.textContent = message; text.classList.add('fst-italic', 'text-muted'); }
+    if (retryBtn) retryBtn.classList.remove('d-none');
+  }
+
+  function setNarrative(data) {
+    if (badge) {
+      badge.textContent = data.grounded ? (data.model || 'AI-generated') : 'fallback';
+      badge.className = data.grounded ? 'badge bg-primary' : 'badge bg-secondary';
+    }
+    if (text) { text.textContent = data.narrative; text.classList.remove('fst-italic', 'text-muted'); }
+    if (retryBtn) retryBtn.classList.add('d-none');
+  }
+
+  function requestNarrative() {
+    setGenerating();
+    var hasAbort = typeof AbortController !== 'undefined';
+    var controller = hasAbort ? new AbortController() : null;
+    var timer = setTimeout(function(){ if (controller) controller.abort(); }, NARRATIVE_TIMEOUT_MS);
+    var fd = new FormData();
+    fd.append('mode', mode);
+    fd.append('scenario', scenario);
+    fd.append('role', role);
+    fd.append('user', user);
+    fetch('/mvp/api/ai-ops-summary-narrative', { method: 'POST', body: fd, signal: controller ? controller.signal : undefined })
+      .then(function(r){
+        clearTimeout(timer);
+        if (!r.ok) { throw new Error('http_' + r.status); }
+        return r.json();
+      })
+      .then(function(data){
+        if (!data || !data.ok) { setError('AI narrative unavailable — the request did not complete.'); return; }
+        if (!data.narrative) { setError('AI narrative unavailable — ' + (data.detail || 'the model returned no content') + '.'); return; }
+        setNarrative(data);
+      })
+      .catch(function(err){
+        clearTimeout(timer);
+        if (err && err.name === 'AbortError') { setError('AI narrative timed out. The model may still be starting up — retry in a moment.'); return; }
+        setError('AI narrative request failed. Retry, or check that the LLM service is reachable.');
+      });
+  }
+
+  if (retryBtn) retryBtn.addEventListener('click', requestNarrative);
+  requestNarrative();
+})();
+</script>
 {% if page.recommendations %}
 <div class="alert alert-light border small mb-2"><strong>Recommendations:</strong>
 <ul class="mb-0 ps-3">{% for r in page.recommendations %}<li>{{ r }}</li>{% endfor %}</ul></div>

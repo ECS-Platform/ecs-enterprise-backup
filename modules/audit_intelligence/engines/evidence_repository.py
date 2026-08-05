@@ -252,10 +252,22 @@ def _canonical_row_to_kwargs(row: dict[str, Any]) -> dict[str, Any]:
     except Exception:  # noqa: BLE001 - mapping optional
         pass
 
-    frameworks: tuple[str, ...] = ()
-    fw = meta.get("framework")
-    if fw:
-        frameworks = (fw,) if isinstance(fw, str) else tuple(fw)
+    # Union both sources so no framework is lost regardless of which one is
+    # fuller: evidence_framework_map (join table, authoritative/relational —
+    # via search_evidence()'s framework_mapping) and the JSONB metadata's own
+    # "frameworks"/"framework" keys (single source pre-dating the join-table
+    # write fix in _persist_upload_to_canonical).
+    frameworks_list: list[str] = []
+    for fw in (row.get("framework_mapping") or []):
+        if fw and str(fw) not in frameworks_list:
+            frameworks_list.append(str(fw))
+    meta_fw = meta.get("frameworks") or meta.get("framework")
+    if meta_fw:
+        meta_fw_list = [meta_fw] if isinstance(meta_fw, str) else list(meta_fw)
+        for fw in meta_fw_list:
+            if fw and str(fw) not in frameworks_list:
+                frameworks_list.append(str(fw))
+    frameworks: tuple[str, ...] = tuple(frameworks_list)
 
     source_system = row.get("source_system") or ""
     evidence_uid = row.get("evidence_uid") or ""
@@ -268,6 +280,13 @@ def _canonical_row_to_kwargs(row: dict[str, Any]) -> dict[str, Any]:
         technology=technology,
         asset_id=application,
         frameworks=frameworks,
+        # Hydration previously omitted these three entirely, so every restart
+        # silently reset verdict/control_status/evidence_quality to empty/0.0
+        # even though they were already durably stored in the metadata JSONB
+        # column (written by _persist_upload_to_canonical). Read them back.
+        verdict=str(meta.get("validation_verdict") or meta.get("verdict") or ""),
+        control_status=str(meta.get("control_status") or ""),
+        evidence_quality=float(meta.get("evidence_quality") or 0.0),
         source="connector" if source_system else "",
         filename=filename,
         evidence_id=evidence_uid,

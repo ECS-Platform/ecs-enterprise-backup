@@ -1,0 +1,22 @@
+{
+  "ok": false,
+  "grounded": false,
+  "mode": "error",
+  "answer": "RAG error: LLM request failed: HTTP Error 500: Internal Server Error",
+  "rbac": {
+    "allowed": true,
+    "reason": "",
+    "scope_filter": {},
+    "rbac_role": "cio"
+  },
+  "hints": {
+    "application": null,
+    "framework": "PCI-DSS",
+    "status": null,
+    "source_system": null
+  },
+  "retrieval_mode": "vector",
+  "request_id": "07b112ff-70ee-4406-bee9-22c415e1ce72",
+  "keyword_answer": "ECS tracks 20 applications and 738 evidence records. Readiness 20.0% (Not Ready), control coverage 0.0%, framework coverage 0.0%.",
+  "citation_count": 8
+}

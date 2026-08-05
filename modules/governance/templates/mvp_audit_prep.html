@@ -246,25 +246,31 @@
 
 {% if mv.owner_delays %}
 <div class="ecs-audit-section-title">Owners delaying readiness</div>
-<table class="table table-sm table-bordered bg-white mb-2"><thead><tr><th>Owner</th><th>Open Gaps</th><th>Overdue Requests</th><th>SLA Breaches</th><th>Applications</th></tr></thead>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Owner</th><th>Open Gaps</th><th>Overdue Requests</th><th>SLA Breaches</th><th>Applications</th></tr></thead>
 <tbody>{% for o in mv.owner_delays %}
 <tr data-ecs-filter-row data-filter-owner="{{ o.owner }}"><td><strong>{{ o.owner }}</strong></td><td>{{ o.open_gaps }}</td><td>{{ o.overdue_requests }}</td><td>{{ o.sla_breaches }}</td><td class="small">{{ o.applications }}</td></tr>
 {% endfor %}</tbody></table>
+</div>
 {% endif %}
 
 <div class="ecs-audit-section-title">Critical blockers</div>
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-2"><thead><tr><th>Application</th><th>Framework</th><th>Control</th><th>Gap</th><th>Owner</th><th>Audit Impact</th></tr></thead>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Application</th><th>Framework</th><th>Control</th><th>Gap</th><th>Owner</th><th>Audit Impact</th></tr></thead>
 <tbody>{% for b in mv.critical_blockers %}
 <tr class="table-danger" data-ecs-filter-row data-filter-framework="{{ b.framework }}" data-filter-application="{{ b.application }}" data-filter-owner="{{ b.owner }}" data-filter-risk="{{ b.priority }}">
 <td>{{ b.application }}</td><td>{{ b.framework }}</td><td><code>{{ b.control_id }}</code></td><td class="small">{{ b.gap_description|truncate(45, True, '') }}</td><td>{{ b.owner }}</td><td>{{ b.audit_impact }}</td></tr>
 {% endfor %}</tbody></table>
+</div>
 
 <div class="ecs-audit-section-title">Top contributors to poor readiness</div>
-<table class="table table-sm table-bordered bg-white mb-2"><thead><tr><th>Application</th><th>Framework</th><th>Readiness</th><th>Owner</th><th>Contributing factors</th></tr></thead>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Application</th><th>Framework</th><th>Readiness</th><th>Owner</th><th>Contributing factors</th></tr></thead>
 <tbody>{% for c in mv.poor_readiness_contributors %}
 <tr data-ecs-filter-row data-filter-application="{{ c.application }}" data-filter-framework="{{ c.framework }}" data-filter-owner="{{ c.owner }}">
 <td>{{ c.application }}</td><td>{{ c.framework }}</td><td>{{ c.readiness_pct }}%</td><td>{{ c.owner }}</td><td class="small">{{ c.summary }}</td></tr>
 {% endfor %}</tbody></table>
+</div>
 
 <div class="ecs-audit-section-title">Evidence freshness risk</div>
 <div class="ecs-ws-metric-row mb-1">
@@ -293,21 +299,25 @@
 </div>
 
 <div class="ecs-audit-section-title">Auditor request backlog ({{ mv.auditor_requests|length }})</div>
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-2"><thead><tr><th>Request</th><th>Application</th><th>Framework</th><th>Control</th><th>Auditor</th><th>Due</th><th>Owner</th></tr></thead>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr><th>Request</th><th>Application</th><th>Framework</th><th>Control</th><th>Auditor</th><th>Due</th><th>Owner</th></tr></thead>
 <tbody>{% for p in mv.auditor_requests[:6] %}
 <tr data-ecs-filter-row data-filter-framework="{{ p.framework }}" data-filter-application="{{ p.application }}" data-filter-owner="{{ p.owner }}">
 <td class="small">{{ p.request|truncate(40, True, '') }}</td><td>{{ p.application }}</td><td>{{ p.framework }}</td>
 <td><code>{{ p.linked_control }}</code></td><td>{{ p.auditor }}</td><td>{{ p.due }}</td><td>{{ p.owner }}</td></tr>
 {% endfor %}</tbody></table>
+</div>
 
 {% if mv.overdue_gaps %}
 <div class="ecs-audit-section-title">High-risk overdue gaps</div>
-<table class="table table-sm table-bordered bg-white mb-2"><thead><tr><th>Application</th><th>Framework</th><th>Control</th><th>Owner</th><th>SLA</th><th>Days Left</th><th>Audit Dependency</th></tr></thead>
+<div class="table-responsive ecs-paginated-wrap mb-2">
+<table class="table table-sm table-bordered bg-white mb-0"><thead><tr><th>Application</th><th>Framework</th><th>Control</th><th>Owner</th><th>SLA</th><th>Days Left</th><th>Audit Dependency</th></tr></thead>
 <tbody>{% for g in mv.overdue_gaps %}
 <tr class="table-danger" data-ecs-filter-row data-filter-framework="{{ g.framework }}" data-filter-application="{{ g.application }}" data-filter-owner="{{ g.owner }}">
 <td>{{ g.application }}</td><td>{{ g.framework }}</td><td><code>{{ g.control_id }}</code></td><td>{{ g.owner }}</td>
 <td>{{ g.sla }}</td><td>{{ g.days_remaining }}d</td><td class="small">{{ g.audit_dependency|truncate(35, True, '') }}</td></tr>
 {% endfor %}</tbody></table>
+</div>
 {% endif %}
 
 <div class="d-flex flex-wrap gap-1 mt-1">
@@ -320,12 +330,16 @@
 
 {# ── MY GAPS / HIGH RISK / OPEN GAPS ── #}
 {% if workspace.tabs|selectattr('id','equalto','gaps')|list %}
+{% set gaps_tab_rows = mv.my_gaps if role == 'owner' else mv.actionable_gaps %}
 {{ workspace_pane('gaps', false) }}
-<p class="small text-muted mb-1">Actionable gaps only — mapped to application, control, evidence, and audit dependency</p>
+<p class="small text-muted mb-1">{% if role == 'owner' %}Gaps assigned to you ({{ user }}) — mapped to application, control, evidence, and audit dependency{% else %}Actionable gaps only — mapped to application, control, evidence, and audit dependency{% endif %}</p>
+{% if role == 'owner' and not gaps_tab_rows %}
+<p class="small text-muted mb-2">No open gaps are currently assigned to you.</p>
+{% endif %}
 <div class="table-responsive ecs-paginated-wrap">
 <table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0" data-ecs-std-table="audit-gaps">
 <thead><tr><th>Application</th><th>Framework</th><th>Control ID</th><th>Gap Description</th><th>Evidence Missing</th><th>SLA</th><th>Owner</th><th>Days Left</th><th>Audit Impact</th><th>Priority</th><th>Actions</th></tr></thead>
-<tbody>{% for g in mv.actionable_gaps %}
+<tbody>{% for g in gaps_tab_rows %}
 <tr class="{% if g.priority == 'Critical' %}table-danger{% elif g.priority == 'High' %}table-warning{% endif %}"
  data-ecs-filter-row data-filter-framework="{{ g.framework }}" data-filter-application="{{ g.application }}" data-filter-owner="{{ g.owner }}" data-filter-risk="{{ g.priority }}" data-filter-status="{{ g.status }}">
 <td><strong>{{ g.application }}</strong></td><td>{{ g.framework }}</td><td><code>{{ g.control_id }}</code></td>

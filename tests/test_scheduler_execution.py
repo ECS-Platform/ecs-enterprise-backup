@@ -154,6 +154,62 @@ def test_classic_execute_plan_unchanged():
 
 
 # --------------------------------------------------------------------------- #
+# Post-scheduler validation chaining
+# --------------------------------------------------------------------------- #
+def _signal_exec(signal):
+    """Executor whose evidence carries an explicit enabled/disabled signal."""
+    def _exec(*a, **k):
+        return {"ok": True, "rows_returned": 1, "output": signal,
+                "output_excerpt": signal}
+    return _exec
+
+
+def test_scheduler_completion_chains_validation():
+    """A completed baseline run carries its validation without a second call."""
+    plan = sch.EvidencePlan(jobs=[_job("db1", "Oracle")])
+    out = sch.execute_plan(plan, executor=_signal_exec("ssl = on; encryption enabled"),
+                           run_connectors=False)
+    receipt = out[0]
+    assert "validation" in receipt, "scheduler completion did not chain validation"
+    compliance = receipt["validation"]["compliance"]
+    # Verdict + quality score are computed, not hardcoded.
+    assert compliance["compliance_percent"] == 100.0
+    assert 0.0 < compliance["evidence_quality_score"] <= 1.0
+    # Each record carries its per-control validation inline.
+    assert receipt["records"] and all(r["validation"] for r in receipt["records"])
+
+
+def test_chained_validation_verdicts_follow_the_evidence():
+    """Same control, opposite evidence -> opposite verdict (not a fixed value)."""
+    plan = sch.EvidencePlan(jobs=[_job("db1", "Oracle")])
+    good = sch.execute_plan(plan, executor=_signal_exec("ssl = on; encryption enabled"),
+                            run_connectors=False)[0]
+    bad = sch.execute_plan(plan, executor=_signal_exec("ssl = off; encryption disabled"),
+                           run_connectors=False)[0]
+    assert good["validation"]["compliance"]["compliance_percent"] == 100.0
+    assert bad["validation"]["compliance"]["compliance_percent"] == 0.0
+    assert good["validation"]["compliance"]["by_verdict"].get("PASS")
+    assert bad["validation"]["compliance"]["by_verdict"].get("FAIL")
+
+
+def test_validation_chaining_can_be_disabled():
+    """validate=False restores the previous collect-only receipt."""
+    plan = sch.EvidencePlan(jobs=[_job("db1", "Oracle")])
+    out = sch.execute_plan(plan, executor=_ok_exec, run_connectors=False, validate=False)
+    assert "validation" not in out[0]
+
+
+def test_parallel_execution_inherits_validation():
+    """The priority/DLQ path reuses execute_plan, so it chains validation too."""
+    plan = sch.EvidencePlan(jobs=[_job("db1", "Oracle")])
+    res = se.execute_parallel(plan, executor=_signal_exec("ssl = on"),
+                              run_connectors=False, record_history=False)
+    receipt = res["results"][0]["receipt"]
+    assert "validation" in receipt
+    assert receipt["validation"]["compliance"]["assessed"] >= 1
+
+
+# --------------------------------------------------------------------------- #
 # REST endpoints
 # --------------------------------------------------------------------------- #
 def test_api_queue():

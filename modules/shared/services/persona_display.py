@@ -105,7 +105,7 @@ PERSONA_TABS: dict[str, list[dict[str, str]]] = {
     "cio": [
         {"id": "tab-overview", "label": "Overview"},
         {"id": "tab-approvals", "label": "Approvals"},
-        {"id": "tab-escalations", "label": "Escalations"},
+        {"id": "tab-escalations", "label": "Escalations & SLA Breach Review"},
         {"id": "tab-analytics", "label": "Analytics"},
     ],
     "vertical_head": [

@@ -293,13 +293,20 @@ def apply_request_reupload(
 
 
 def compute_upload_kpis(rows: list[dict]) -> dict:
+    # `rows` is already the exact list rendered in the Upload Missing table (see
+    # get_all_missing_evidence(), which excludes Uploaded/Approved/Closed) — so
+    # "Total Missing" must equal len(rows), not a further-narrowed subset, or the
+    # KPI silently disagrees with the table it's supposed to summarize. The other
+    # KPIs (critical/overdue/pending/etc.) are legitimately narrower breakdowns
+    # of that same set and additionally exclude items already "Submitted for
+    # Review" (no longer actionable for the uploader).
     open_rows = [r for r in rows if r.get("status") not in ("Uploaded", "Approved", "Closed", "Submitted for Review")]
     overdue = [r for r in open_rows if r.get("status") == "Overdue" or r.get("due_date", "") < "2026-05-24"]
     critical = [r for r in open_rows if r.get("observation_severity") == "Critical" or r.get("risk") == "Critical"]
     pending = [r for r in open_rows if r.get("status") in ("Pending Upload", "Awaiting App Owner")]
     apps_blocked = len({r["application"] for r in critical})
     return {
-        "total_missing": len(open_rows),
+        "total_missing": len(rows),
         "critical_missing": len(critical),
         "uploads_pending": len(pending),
         "overdue_uploads": len(overdue),

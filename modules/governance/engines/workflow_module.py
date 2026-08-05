@@ -530,6 +530,23 @@ def build_pending_approvals_queue(role: str, limit: int = 30) -> list[dict]:
     return [_enrich_queue_item(i) for i in items[:limit]]
 
 
+def _count_sla_breaches() -> int:
+    """Submitted controls aging past the 14-day SLA — same source/threshold as the
+    "SLA Breach Review" rows build_leadership_queue() surfaces on the Escalations tab,
+    so the Overview KPI and the tab table agree."""
+    count = 0
+    for key in list(ecs_state.submitted_controls.keys()):
+        framework, control = key.split("::", 1)
+        ctrl = _catalog_ctrl(framework, control)
+        if not ctrl:
+            continue
+        ev = ctrl["evidences"][0]
+        item = _queue_item(framework, ctrl, ev)
+        if item and item.get("aging_days", 0) > 14:
+            count += 1
+    return count
+
+
 def work_queue_summary() -> dict:
     owner_q = build_owner_work_queue(limit=500)
     auditor_q = build_auditor_review_queue(limit=500)
@@ -541,6 +558,7 @@ def work_queue_summary() -> dict:
         "escalated": len(ecs_state.escalated_controls),
         "clarifications": len(ecs_state.clarification_controls),
         "rejected": len(ecs_state.rejected_controls),
+        "sla_breach": _count_sla_breaches(),
     }
 
 

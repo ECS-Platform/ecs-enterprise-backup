@@ -673,7 +673,10 @@ def _assemble_prompt(question: str, facts: list[str], evidence: list[dict[str, A
         parts.append("ECS GOVERNANCE FACTS (computed from the live repository):\n" + "\n".join(f"- {f}" for f in facts))
     blocks = []
     for i, e in enumerate(evidence, start=1):
-        fws = ", ".join(f"{fw} {e['framework_refs'][fw]}" for fw in e["frameworks"]) or "none"
+        fws = ", ".join(
+            f"{fw} ({e['framework_refs'][fw]})" if e["framework_refs"].get(fw) and e["framework_refs"][fw] != fw else fw
+            for fw in e["frameworks"]
+        ) or "none"
         blocks.append(
             f"[E{i}] uid={e['evidence_uid']} source={e['source_system']} type={e['object_type']} "
             f"app={e['application']} collected={e['collected_timestamp']} status={e['review_status']}\n"

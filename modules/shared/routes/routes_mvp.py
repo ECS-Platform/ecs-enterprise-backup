@@ -76,6 +76,33 @@ def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_m
     return ctx
 
 
+def _fire_narrative_warmup() -> None:
+    """Best-effort, non-blocking ping to load qwen3:8b before the narrative AJAX call arrives.
+
+    Fired from the AI Ops summary page route, a beat ahead of the page's own
+    narrative fetch (the page's JS still has to render/parse/execute first). With
+    keep_alive=0s (config/llm.yaml) the model unloads after every call including
+    this one, so every page load — not just the first — benefits from firing this:
+    it overlaps the model-load latency with page render instead of the narrative
+    request paying for it cold. Runs in a daemon thread and swallows all errors —
+    same fail-soft contract as generate_narrative() itself — never blocks or
+    breaks page render.
+    """
+
+    def _warm():
+        try:
+            from ecs_platform.llm_engine.provider import get_provider
+
+            provider = get_provider()
+            if provider.configured() and hasattr(provider, "warm"):
+                provider.warm()
+        except Exception:  # noqa: BLE001 - fail soft; this is a pure optimization
+            pass
+
+    import threading
+    threading.Thread(target=_warm, daemon=True, name="ai-ops-narrative-warmup").start()
+
+
 def _module_redirect(module: str, role: str, user: str, notice: str) -> RedirectResponse:
     paths = {
         "scheduler": "/mvp/scheduler",
@@ -385,9 +412,31 @@ def register_mvp_routes(app, templates):
         page = build_summary_page(mode, scenario, role)
         if not page:
             return RedirectResponse(url=f"/mvp/ai-ops-assistant?role={role}&user={user}", status_code=303)
+        _fire_narrative_warmup()
         ctx = _base_ctx(role, user, page_module="ai_ops_assistant")
         ctx["page"] = page
         return templates.TemplateResponse(request, "mvp_ai_ops_summary.html", ctx)
+
+    @app.post("/mvp/api/ai-ops-summary-narrative")
+    def mvp_ai_ops_summary_narrative(
+        mode: str = Form(...), scenario: str = Form("net_banking"),
+        role: str = Form("cio"), user: str = Form("cio@bank.com"),
+    ):
+        # Secondary AJAX call fired after the deterministic summary shell has
+        # already rendered — qwen3:8b is a 5-10s cold call, so this must never sit
+        # on the page's critical path. See ai_ops_summary_engine.generate_narrative
+        # for the fail-soft contract (never raises, never blocks the page; retries
+        # a cold model load internally before giving up).
+        from modules.operations.engines.ai_ops_summary_engine import build_summary_page, generate_narrative
+
+        page = build_summary_page(mode, scenario, role)
+        if not page:
+            return JSONResponse({"ok": False, "error": "invalid scenario or mode"}, status_code=400)
+        try:
+            result = generate_narrative(page)
+        except Exception as exc:  # noqa: BLE001 - belt-and-suspenders: this route must never 500
+            result = {"ok": True, "grounded": False, "narrative": "", "source": "fallback", "detail": str(exc)}
+        return JSONResponse(result)
 
     @app.get("/api/module-kpi/drill")
     def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: str = ""):
@@ -1763,6 +1812,11 @@ def register_mvp_routes(app, templates):
             "risk": risk_filter,
             "status": status_filter,
             "owner": owner_filter,
+            # Internal-only key (ignored by the generic dropdown-filter matching in
+            # audit_prep_data.py — keys starting with "_" are skipped there): scopes
+            # the "My Gaps" tab to the current session user without affecting the
+            # Overview KPIs or any other tab, which stay enterprise-wide.
+            "_session_user": user,
         }
         ctx = _base_ctx(role, user, response, notice, page_module="audit_prep", analytics_filters=filters)
         ctx["prep"] = audit_preparation_checklist()

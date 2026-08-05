@@ -31,6 +31,7 @@ details.ers-dd[open] > summary { border-bottom:1px solid #e2e8f0; }
 {% include "partials/mvp_sidebar.html" %}
 <div class="col-md-10 ecs-workspace-main">
 {% set s = story %}
+{% set q = '?role=' ~ role ~ '&user=' ~ user %}
 
 <div class="ers-wrap">
 <h1 class="ecs-workspace-title h5 mb-1">Evidence Reuse &amp; Observation Lifecycle</h1>
@@ -38,6 +39,7 @@ details.ers-dd[open] > summary { border-bottom:1px solid #e2e8f0; }
 <div class="ers-flow">
 <span>Predefined Query</span><span class="arr">→</span><span>Evidence</span><span class="arr">→</span><span>Reuse</span><span class="arr">→</span><span>Audit Readiness</span><span class="arr">→</span><span>Observation Created</span><span class="arr">→</span><span>Observation Closed</span>
 </div>
+<div class="mb-2"><a href="/mvp/reuse{{ q }}" class="btn btn-sm btn-outline-secondary">View Cross-App Reuse Dashboard →</a></div>
 
 {# ==================== FUNCTIONAL WORKBENCH (server-side) ==================== #}
 <div class="ers-section" id="ers-live" style="border-color:#0f766e;">
