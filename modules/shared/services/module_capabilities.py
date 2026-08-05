@@ -427,17 +427,63 @@ def _reuse_view(role: str) -> dict:
     }
 
 
+def _real_observation_rows() -> list[dict]:
+    """Live scheduler-generated observations, shaped like the lifecycle demo rows.
+
+    Sourced from ``observation_generation``'s in-memory store (real
+    validation-failure observations raised by the scheduler / common-controls
+    collector) so they actually show up in the Lifecycle Observations tab
+    instead of being invisible next to the synthetic seeded dataset.
+    """
+    from modules.audit_intelligence.engines import observation_generation as obs_gen
+
+    stage_by_status = {
+        "draft": "Open",
+        "submitted": "Assigned",
+        "approved": "Under Review",
+        "remediated": "Pending Validation",
+        "closed": "Closed",
+        "rejected": "Reopened",
+    }
+    rows: list[dict] = []
+    for o in obs_gen.list_observations():
+        open_days = 0
+        try:
+            created = datetime.fromisoformat(o.created_at)
+            open_days = max(0, (datetime.now(timezone.utc) - created).days)
+        except Exception:  # noqa: BLE001
+            pass
+        rows.append({
+            "chain_id": f"LIVE-{o.observation_id}",
+            "observation_id": o.observation_id,
+            "framework": ", ".join(o.frameworks) if o.frameworks else "—",
+            "application": o.asset_id or "—",
+            "control_id": o.control_id,
+            "observation": f"[Live] {o.observation}",
+            "severity": o.severity.title() if isinstance(o.severity, str) else o.severity,
+            "stage": stage_by_status.get(str(o.status).lower(), "Open"),
+            "open_since": o.created_at[:10] if o.created_at else "",
+            "open_days": open_days,
+            "owner": o.owner or "Platform Ops",
+            "sla": "Breached" if open_days > 60 else ("At Risk" if open_days > 30 else "On Track"),
+            "live": True,
+        })
+    return rows
+
+
 def _lifecycle_view(role: str) -> dict:
     from modules.governance.engines.governance_lifecycle_engine import build_lifecycle_dashboard, build_lifecycle_dataset
 
     dash = build_lifecycle_dashboard(role=role)
     dataset = build_lifecycle_dataset(role)
+    live_observations = _real_observation_rows()
+    observations = live_observations + dash["observations"]
     return {
         "kpis": dash["kpis"],
         "lifecycle_dataset": dataset,
         "controls": dash["controls"],
         "evidence_rows": dash["evidence"],
-        "observations": dash["observations"],
+        "observations": observations,
         "remediations": dash["remediations"],
         "audits": dash["audits"],
         "exceptions": dash["exceptions"],

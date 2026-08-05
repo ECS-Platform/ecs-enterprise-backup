@@ -69,6 +69,16 @@ def _invalidate_dashboard_cache() -> None:
         dashboard_service.invalidate_dashboard_cache()
     except Exception:  # noqa: BLE001 - cache invalidation must never raise
         pass
+    try:
+        from modules.shared.services.module_capabilities import invalidate_module_capability_cache
+
+        # The Lifecycle module view merges these live observations into its
+        # Observations tab (see module_capabilities._real_observation_rows) —
+        # without this, a scheduler-generated observation never surfaces once
+        # that module view has been cached once for a role.
+        invalidate_module_capability_cache("lifecycle")
+    except Exception:  # noqa: BLE001 - cache invalidation must never raise
+        pass
 
 
 # --------------------------------------------------------------------------- #

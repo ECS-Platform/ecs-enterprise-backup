@@ -130,3 +130,39 @@ def test_manifest_predefined_query_ids_match_catalog():
         manifest = cc.load_manifest(cc.common_controls_root() / control.slug)
         manifest_ids = set(manifest.get("predefined_query_ids") or [])
         assert manifest_ids == set(control.predefined_query_ids)
+
+
+def test_fetched_evidence_workflow_status_distinguishes_pass_fail():
+    """Certificate Management (designed to fail) must not show the same generic
+    'Uploaded' workflow status as a passing common control in the Fetched
+    Evidence tab — it must show a distinct FAIL/observation status."""
+    from modules.shared.services import evidence_workflow_engine as ewf
+
+    ewf.ecs_state.uploaded_evidence_enrollments.clear()
+    run = cc.collect_all_common_controls(user="scheduler", run_id="CC-WF-STATUS")
+
+    cert = next(r for r in run.receipts if r.slug == "certificate-management")
+    passing = next(r for r in run.receipts if r.verdict == VERDICT_PASS)
+
+    rows = sm._scheduler_fetched_evidence(run_id="CC-WF-STATUS")
+    cert_row = next(r for r in rows if r["control"] == cert.control_id)
+    pass_row = next(r for r in rows if r["control"] == passing.control_id)
+
+    assert cert_row["workflow_status"] != "Uploaded"
+    assert "fail" in cert_row["workflow_status"].lower()
+    assert cert_row["workflow_status"] != pass_row["workflow_status"]
+
+
+def test_scheduler_observation_appears_in_lifecycle_module_view():
+    """A scheduler-generated observation must be visible on the /mvp/lifecycle
+    Observations tab, not just in the in-memory observation store."""
+    from modules.shared.services import module_capabilities as mc
+
+    mc.invalidate_module_capability_cache("lifecycle")
+    run = cc.collect_all_common_controls(user="scheduler", run_id="CC-LIFECYCLE-VIS")
+    cert = next(r for r in run.receipts if r.slug == "certificate-management")
+    assert cert.observation_id
+
+    view = mc.get_module_capability("lifecycle", role="app_owner")
+    live_ids = {o["observation_id"] for o in view["observations"] if o.get("live")}
+    assert cert.observation_id in live_ids

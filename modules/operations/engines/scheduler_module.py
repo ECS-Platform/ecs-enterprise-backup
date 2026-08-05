@@ -837,6 +837,14 @@ def _artifact_row(art) -> dict:
             source_connector = source_connector or str(ops.get("source_connector") or "")
     except Exception:  # noqa: BLE001
         pass
+    try:
+        from modules.shared.services.evidence_workflow_engine import get_enrollment
+
+        enrollment = get_enrollment(evidence_id=evidence_id)
+        if enrollment and enrollment.get("workflow_status"):
+            workflow_status = str(enrollment["workflow_status"])
+    except Exception:  # noqa: BLE001
+        pass
     return _enrich_fetched_evidence_row(
         evidence_id=evidence_id,
         collected_at=str(getattr(art, "collected_at", "") or ""),
@@ -958,6 +966,15 @@ def _scheduler_fetched_evidence(limit: int = 200, *, run_id: str = "") -> list[d
                 continue
             if want and rid != want:
                 continue
+            row_workflow_status = str((meta.get("workflow_status") or rec.get("status") or "Uploaded"))
+            try:
+                from modules.shared.services.evidence_workflow_engine import get_enrollment
+
+                enrollment = get_enrollment(evidence_id=eid)
+                if enrollment and enrollment.get("workflow_status"):
+                    row_workflow_status = str(enrollment["workflow_status"])
+            except Exception:  # noqa: BLE001
+                pass
             rows.append(
                 _enrich_fetched_evidence_row(
                     evidence_id=eid,
@@ -970,7 +987,7 @@ def _scheduler_fetched_evidence(limit: int = 200, *, run_id: str = "") -> list[d
                     framework=str((rec.get("framework_tags") or [""])[0]),
                     control=str(rec.get("control") or ""),
                     run_id=rid,
-                    workflow_status=str((meta.get("workflow_status") or rec.get("status") or "Uploaded")),
+                    workflow_status=row_workflow_status,
                     sha256=str(rec.get("sha256") or ""),
                     version=int(rec.get("version") or 1),
                     duplicate=str(rec.get("status", "")).upper() == "DUPLICATE",

@@ -529,8 +529,15 @@ def enroll_persisted_evidence(
     sha256 = str(upload.get("sha256") or (upload.get("metadata") or {}).get("content_sha256") or "")
     custody_mode = str(upload.get("custody_mode") or "")
     now = _ts()
+    verdict = str((upload.get("metadata") or {}).get("validation_verdict") or "").upper()
+    if verdict == "FAIL":
+        enrolled_workflow_status = "Validation Failed — Pending App Owner Review"
+    elif verdict == "WARNING":
+        enrolled_workflow_status = "Validation Warning — Pending App Owner Review"
+    else:
+        enrolled_workflow_status = "Pending App Owner Review"
     upload.update({
-        "workflow_status": "Pending App Owner Review",
+        "workflow_status": enrolled_workflow_status,
         "validation_status": "Pending Review",
         "lifecycle": "Draft",
         "status": "Pending App Owner Review",
@@ -544,6 +551,9 @@ def enroll_persisted_evidence(
         if upload.get("application_tags")
         else str((artifact or {}).get("application") or "Net Banking"),
     })
+    meta = dict(upload.get("metadata") or {})
+    meta["workflow_status"] = enrolled_workflow_status
+    upload["metadata"] = meta
     enrollment = {
         "key": key,
         "framework": target["framework"],
@@ -559,6 +569,7 @@ def enroll_persisted_evidence(
         "object_key": object_key,
         "sha256": sha256,
         "status": "Pending App Owner Review",
+        "workflow_status": enrolled_workflow_status,
         "uploaded_at": upload.get("uploaded_at") or now,
         "uploaded_by": upload.get("uploaded_by") or "",
         "artifact_preview": (artifact or {}).get("result") or [],
