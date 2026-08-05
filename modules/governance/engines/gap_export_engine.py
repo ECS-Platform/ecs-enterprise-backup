@@ -128,7 +128,8 @@ def _gap_detail_rows(matrix: list[dict], time_range: str) -> list[dict]:
     for i, r in enumerate(matrix):
         if r["readiness_pct"] >= 88 and r["failed_controls"] == 0 and r["stale_evidence"] == 0:
             continue
-        cid = CONTROL_IDS.get(r["framework"], [f"{PREFIX.get(r['framework'], 'C')}-01"])[i % 3]
+        ids = CONTROL_IDS.get(r["framework"]) or [f"{PREFIX.get(r['framework'], 'C')}-01"]
+        cid = ids[i % len(ids)]
         oid = f"OBS-{PREFIX.get(r['framework'], 'GAP')}-{1000 + i}"
         if oid in seen:
             continue
