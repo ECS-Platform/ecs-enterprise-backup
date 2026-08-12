@@ -1,0 +1,782 @@
+[
+  {
+    "id": "GAP-A-01",
+    "tier": "A",
+    "description": "Single missing field, one unambiguous connector source.",
+    "evidence_id": "EVID-cc30f2b9ae232741",
+    "evidence": {
+      "evidence_id": "EVID-cc30f2b9ae232741",
+      "control_id": "AGAP-001",
+      "application": "Net Banking",
+      "framework": "PCI DSS",
+      "missing_field": "cmdb_asset_record",
+      "present_fields": {
+        "control_id": "AGAP-001",
+        "application": "Net Banking",
+        "framework": "PCI DSS",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "servicenow_cmdb"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "servicenow_cmdb",
+        "params": {
+          "mode": "dry-run"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-A-02",
+    "tier": "A",
+    "description": "Single missing field, one unambiguous connector source.",
+    "evidence_id": "EVID-eee8e79aa623d24d",
+    "evidence": {
+      "evidence_id": "EVID-eee8e79aa623d24d",
+      "control_id": "AGAP-002",
+      "application": "Mobile Banking",
+      "framework": "DPSC",
+      "missing_field": "grc_control_mapping",
+      "present_fields": {
+        "control_id": "AGAP-002",
+        "application": "Mobile Banking",
+        "framework": "DPSC",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "archer"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "archer",
+        "params": {
+          "mode": "dry-run"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-A-03",
+    "tier": "A",
+    "description": "Single missing field, one unambiguous connector source.",
+    "evidence_id": "EVID-6a98d4b9bff074c4",
+    "evidence": {
+      "evidence_id": "EVID-6a98d4b9bff074c4",
+      "control_id": "AGAP-003",
+      "application": "Mobile Banking Edge",
+      "framework": "OS Baselining",
+      "missing_field": "sast_scan_result",
+      "present_fields": {
+        "control_id": "AGAP-003",
+        "application": "Mobile Banking Edge",
+        "framework": "OS Baselining",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "checkmarx"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "checkmarx",
+        "params": {
+          "mode": "dry-run"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-A-04",
+    "tier": "A",
+    "description": "Single missing field, one unambiguous connector source.",
+    "evidence_id": "EVID-757d9b188ebf0431",
+    "evidence": {
+      "evidence_id": "EVID-757d9b188ebf0431",
+      "control_id": "AGAP-004",
+      "application": "Internet Banking",
+      "framework": "AppSec",
+      "missing_field": "code_quality_report",
+      "present_fields": {
+        "control_id": "AGAP-004",
+        "application": "Internet Banking",
+        "framework": "AppSec",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "sonarqube"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "sonarqube",
+        "params": {
+          "mode": "dry-run"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-A-05",
+    "tier": "A",
+    "description": "Single missing field, one unambiguous connector source.",
+    "evidence_id": "EVID-84948eb7b75b84d4",
+    "evidence": {
+      "evidence_id": "EVID-84948eb7b75b84d4",
+      "control_id": "AGAP-005",
+      "application": "Retail Banking",
+      "framework": "VAPT",
+      "missing_field": "file_integrity_report",
+      "present_fields": {
+        "control_id": "AGAP-005",
+        "application": "Retail Banking",
+        "framework": "VAPT",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "tripwire"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "tripwire",
+        "params": {
+          "mode": "dry-run"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-A-06",
+    "tier": "A",
+    "description": "Single missing field, one unambiguous connector source.",
+    "evidence_id": "EVID-d42271832541e1b3",
+    "evidence": {
+      "evidence_id": "EVID-d42271832541e1b3",
+      "control_id": "AGAP-006",
+      "application": "Core Banking",
+      "framework": "ITPP",
+      "missing_field": "mailbox_retention_record",
+      "present_fields": {
+        "control_id": "AGAP-006",
+        "application": "Core Banking",
+        "framework": "ITPP",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "outlook_graph"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "outlook_graph",
+        "params": {
+          "mode": "dry-run"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-B-01",
+    "tier": "B",
+    "description": "Wrong format / stale evidence: first fetch fails, retry with different params succeeds.",
+    "evidence_id": "EVID-89fb735997484a95",
+    "evidence": {
+      "evidence_id": "EVID-89fb735997484a95",
+      "control_id": "BGAP-001",
+      "application": "Net Banking",
+      "framework": "PCI DSS",
+      "missing_field": "cmdb_asset_record",
+      "present_fields": {
+        "control_id": "BGAP-001",
+        "application": "Net Banking",
+        "framework": "PCI DSS",
+        "status": "collected",
+        "cmdb_asset_record": {
+          "value": "stale-or-wrong-format",
+          "stale": true
+        }
+      }
+    },
+    "connector_candidates": [
+      "servicenow_cmdb"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "servicenow_cmdb",
+        "params": {
+          "mode": "dry-run",
+          "format": "legacy"
+        },
+        "result": "fail",
+        "reason": "stale_or_wrong_format"
+      },
+      {
+        "attempt": 2,
+        "connector": "servicenow_cmdb",
+        "params": {
+          "mode": "dry-run",
+          "format": "current"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-B-02",
+    "tier": "B",
+    "description": "Wrong format / stale evidence: first fetch fails, retry with different params succeeds.",
+    "evidence_id": "EVID-f6bb577871ddd9c9",
+    "evidence": {
+      "evidence_id": "EVID-f6bb577871ddd9c9",
+      "control_id": "BGAP-002",
+      "application": "Mobile Banking",
+      "framework": "DPSC",
+      "missing_field": "grc_control_mapping",
+      "present_fields": {
+        "control_id": "BGAP-002",
+        "application": "Mobile Banking",
+        "framework": "DPSC",
+        "status": "collected",
+        "grc_control_mapping": {
+          "value": "stale-or-wrong-format",
+          "stale": true
+        }
+      }
+    },
+    "connector_candidates": [
+      "archer"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "archer",
+        "params": {
+          "mode": "dry-run",
+          "format": "legacy"
+        },
+        "result": "fail",
+        "reason": "stale_or_wrong_format"
+      },
+      {
+        "attempt": 2,
+        "connector": "archer",
+        "params": {
+          "mode": "dry-run",
+          "format": "current"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-B-03",
+    "tier": "B",
+    "description": "Wrong format / stale evidence: first fetch fails, retry with different params succeeds.",
+    "evidence_id": "EVID-7748a04e87d37e92",
+    "evidence": {
+      "evidence_id": "EVID-7748a04e87d37e92",
+      "control_id": "BGAP-003",
+      "application": "Mobile Banking Edge",
+      "framework": "OS Baselining",
+      "missing_field": "sast_scan_result",
+      "present_fields": {
+        "control_id": "BGAP-003",
+        "application": "Mobile Banking Edge",
+        "framework": "OS Baselining",
+        "status": "collected",
+        "sast_scan_result": {
+          "value": "stale-or-wrong-format",
+          "stale": true
+        }
+      }
+    },
+    "connector_candidates": [
+      "checkmarx"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "checkmarx",
+        "params": {
+          "mode": "dry-run",
+          "format": "legacy"
+        },
+        "result": "fail",
+        "reason": "stale_or_wrong_format"
+      },
+      {
+        "attempt": 2,
+        "connector": "checkmarx",
+        "params": {
+          "mode": "dry-run",
+          "format": "current"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-B-04",
+    "tier": "B",
+    "description": "Wrong format / stale evidence: first fetch fails, retry with different params succeeds.",
+    "evidence_id": "EVID-c0e5f33ea96d231e",
+    "evidence": {
+      "evidence_id": "EVID-c0e5f33ea96d231e",
+      "control_id": "BGAP-004",
+      "application": "Internet Banking",
+      "framework": "AppSec",
+      "missing_field": "code_quality_report",
+      "present_fields": {
+        "control_id": "BGAP-004",
+        "application": "Internet Banking",
+        "framework": "AppSec",
+        "status": "collected",
+        "code_quality_report": {
+          "value": "stale-or-wrong-format",
+          "stale": true
+        }
+      }
+    },
+    "connector_candidates": [
+      "sonarqube"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "sonarqube",
+        "params": {
+          "mode": "dry-run",
+          "format": "legacy"
+        },
+        "result": "fail",
+        "reason": "stale_or_wrong_format"
+      },
+      {
+        "attempt": 2,
+        "connector": "sonarqube",
+        "params": {
+          "mode": "dry-run",
+          "format": "current"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-B-05",
+    "tier": "B",
+    "description": "Wrong format / stale evidence: first fetch fails, retry with different params succeeds.",
+    "evidence_id": "EVID-bebe3264fe14aafc",
+    "evidence": {
+      "evidence_id": "EVID-bebe3264fe14aafc",
+      "control_id": "BGAP-005",
+      "application": "Retail Banking",
+      "framework": "VAPT",
+      "missing_field": "file_integrity_report",
+      "present_fields": {
+        "control_id": "BGAP-005",
+        "application": "Retail Banking",
+        "framework": "VAPT",
+        "status": "collected",
+        "file_integrity_report": {
+          "value": "stale-or-wrong-format",
+          "stale": true
+        }
+      }
+    },
+    "connector_candidates": [
+      "tripwire"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "tripwire",
+        "params": {
+          "mode": "dry-run",
+          "format": "legacy"
+        },
+        "result": "fail",
+        "reason": "stale_or_wrong_format"
+      },
+      {
+        "attempt": 2,
+        "connector": "tripwire",
+        "params": {
+          "mode": "dry-run",
+          "format": "current"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-B-06",
+    "tier": "B",
+    "description": "Wrong format / stale evidence: first fetch fails, retry with different params succeeds.",
+    "evidence_id": "EVID-eeafa75bc5decd60",
+    "evidence": {
+      "evidence_id": "EVID-eeafa75bc5decd60",
+      "control_id": "BGAP-006",
+      "application": "Core Banking",
+      "framework": "ITPP",
+      "missing_field": "mailbox_retention_record",
+      "present_fields": {
+        "control_id": "BGAP-006",
+        "application": "Core Banking",
+        "framework": "ITPP",
+        "status": "collected",
+        "mailbox_retention_record": {
+          "value": "stale-or-wrong-format",
+          "stale": true
+        }
+      }
+    },
+    "connector_candidates": [
+      "outlook_graph"
+    ],
+    "fetch_attempts": [
+      {
+        "attempt": 1,
+        "connector": "outlook_graph",
+        "params": {
+          "mode": "dry-run",
+          "format": "legacy"
+        },
+        "result": "fail",
+        "reason": "stale_or_wrong_format"
+      },
+      {
+        "attempt": 2,
+        "connector": "outlook_graph",
+        "params": {
+          "mode": "dry-run",
+          "format": "current"
+        },
+        "result": "success"
+      }
+    ],
+    "expected_outcome_category": "resolved"
+  },
+  {
+    "id": "GAP-C-01",
+    "tier": "C",
+    "description": "Missing field, multiple plausible connector sources, no clear winner.",
+    "evidence_id": "EVID-b8faf557bb599641",
+    "evidence": {
+      "evidence_id": "EVID-b8faf557bb599641",
+      "control_id": "CGAP-001",
+      "application": "Net Banking",
+      "framework": "PCI DSS",
+      "missing_field": "vuln_scan_report",
+      "present_fields": {
+        "control_id": "CGAP-001",
+        "application": "Net Banking",
+        "framework": "PCI DSS",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "nessus",
+      "qualys",
+      "aws_connector",
+      "gcp_connector",
+      "azure_connector",
+      "prisma_cloud"
+    ],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-C-02",
+    "tier": "C",
+    "description": "Missing field, multiple plausible connector sources, no clear winner.",
+    "evidence_id": "EVID-520316203d23d58a",
+    "evidence": {
+      "evidence_id": "EVID-520316203d23d58a",
+      "control_id": "CGAP-002",
+      "application": "Mobile Banking",
+      "framework": "DPSC",
+      "missing_field": "ci_build_evidence",
+      "present_fields": {
+        "control_id": "CGAP-002",
+        "application": "Mobile Banking",
+        "framework": "DPSC",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "github",
+      "jenkins",
+      "azure_devops"
+    ],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-C-03",
+    "tier": "C",
+    "description": "Missing field, multiple plausible connector sources, no clear winner.",
+    "evidence_id": "EVID-5ab346243e5277b4",
+    "evidence": {
+      "evidence_id": "EVID-5ab346243e5277b4",
+      "control_id": "CGAP-003",
+      "application": "Mobile Banking Edge",
+      "framework": "OS Baselining",
+      "missing_field": "policy_document",
+      "present_fields": {
+        "control_id": "CGAP-003",
+        "application": "Mobile Banking Edge",
+        "framework": "OS Baselining",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "sharepoint_graph",
+      "confluence",
+      "jira"
+    ],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-C-04",
+    "tier": "C",
+    "description": "Missing field, multiple plausible connector sources, no clear winner.",
+    "evidence_id": "EVID-cae38cc360d548fb",
+    "evidence": {
+      "evidence_id": "EVID-cae38cc360d548fb",
+      "control_id": "CGAP-004",
+      "application": "Internet Banking",
+      "framework": "AppSec",
+      "missing_field": "vuln_scan_report",
+      "present_fields": {
+        "control_id": "CGAP-004",
+        "application": "Internet Banking",
+        "framework": "AppSec",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "nessus",
+      "qualys",
+      "aws_connector",
+      "gcp_connector",
+      "azure_connector",
+      "prisma_cloud"
+    ],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-C-05",
+    "tier": "C",
+    "description": "Missing field, multiple plausible connector sources, no clear winner.",
+    "evidence_id": "EVID-84e58432d0286eb3",
+    "evidence": {
+      "evidence_id": "EVID-84e58432d0286eb3",
+      "control_id": "CGAP-005",
+      "application": "Retail Banking",
+      "framework": "VAPT",
+      "missing_field": "ci_build_evidence",
+      "present_fields": {
+        "control_id": "CGAP-005",
+        "application": "Retail Banking",
+        "framework": "VAPT",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "github",
+      "jenkins",
+      "azure_devops"
+    ],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-C-06",
+    "tier": "C",
+    "description": "Missing field, multiple plausible connector sources, no clear winner.",
+    "evidence_id": "EVID-e47a415d27785db5",
+    "evidence": {
+      "evidence_id": "EVID-e47a415d27785db5",
+      "control_id": "CGAP-006",
+      "application": "Core Banking",
+      "framework": "ITPP",
+      "missing_field": "policy_document",
+      "present_fields": {
+        "control_id": "CGAP-006",
+        "application": "Core Banking",
+        "framework": "ITPP",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [
+      "sharepoint_graph",
+      "confluence",
+      "jira"
+    ],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-D-01",
+    "tier": "D",
+    "description": "Missing field, no connector has it.",
+    "evidence_id": "EVID-9fa2e2eda57ccaa1",
+    "evidence": {
+      "evidence_id": "EVID-9fa2e2eda57ccaa1",
+      "control_id": "DGAP-001",
+      "application": "Net Banking",
+      "framework": "PCI DSS",
+      "missing_field": "backup_restore_test_log",
+      "present_fields": {
+        "control_id": "DGAP-001",
+        "application": "Net Banking",
+        "framework": "PCI DSS",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-D-02",
+    "tier": "D",
+    "description": "Missing field, no connector has it.",
+    "evidence_id": "EVID-d562ac092e8f97d3",
+    "evidence": {
+      "evidence_id": "EVID-d562ac092e8f97d3",
+      "control_id": "DGAP-002",
+      "application": "Mobile Banking",
+      "framework": "DPSC",
+      "missing_field": "access_review_certification",
+      "present_fields": {
+        "control_id": "DGAP-002",
+        "application": "Mobile Banking",
+        "framework": "DPSC",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-D-03",
+    "tier": "D",
+    "description": "Missing field, no connector has it.",
+    "evidence_id": "EVID-a38ab02d044483a9",
+    "evidence": {
+      "evidence_id": "EVID-a38ab02d044483a9",
+      "control_id": "DGAP-003",
+      "application": "Mobile Banking Edge",
+      "framework": "OS Baselining",
+      "missing_field": "patch_compliance_matrix",
+      "present_fields": {
+        "control_id": "DGAP-003",
+        "application": "Mobile Banking Edge",
+        "framework": "OS Baselining",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-D-04",
+    "tier": "D",
+    "description": "Missing field, no connector has it.",
+    "evidence_id": "EVID-6c99dc2128f9c621",
+    "evidence": {
+      "evidence_id": "EVID-6c99dc2128f9c621",
+      "control_id": "DGAP-004",
+      "application": "Internet Banking",
+      "framework": "AppSec",
+      "missing_field": "tde_attestation_report",
+      "present_fields": {
+        "control_id": "DGAP-004",
+        "application": "Internet Banking",
+        "framework": "AppSec",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-D-05",
+    "tier": "D",
+    "description": "Missing field, no connector has it.",
+    "evidence_id": "EVID-cba572c4de39911c",
+    "evidence": {
+      "evidence_id": "EVID-cba572c4de39911c",
+      "control_id": "DGAP-005",
+      "application": "Retail Banking",
+      "framework": "VAPT",
+      "missing_field": "siem_use_case_export",
+      "present_fields": {
+        "control_id": "DGAP-005",
+        "application": "Retail Banking",
+        "framework": "VAPT",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  },
+  {
+    "id": "GAP-D-06",
+    "tier": "D",
+    "description": "Missing field, no connector has it.",
+    "evidence_id": "EVID-3f2a7a61e0f7b2b9",
+    "evidence": {
+      "evidence_id": "EVID-3f2a7a61e0f7b2b9",
+      "control_id": "DGAP-006",
+      "application": "Core Banking",
+      "framework": "ITPP",
+      "missing_field": "firewall_rule_export",
+      "present_fields": {
+        "control_id": "DGAP-006",
+        "application": "Core Banking",
+        "framework": "ITPP",
+        "status": "collected"
+      }
+    },
+    "connector_candidates": [],
+    "fetch_attempts": [],
+    "expected_outcome_category": "escalated"
+  }
+]

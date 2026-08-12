@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
 from typing import Any
@@ -125,6 +126,17 @@ class LLMProvider(ABC):
                 else:
                     raw = resp.read()
                 return json.loads(raw.decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            # str(HTTPError) is just "HTTP Error <code>: <reason>" — it drops the
+            # response body, which is where a backend (e.g. Ollama) puts the actual
+            # failure detail (crash text, stack trace, etc). Callers that pattern-match
+            # on LLMError's message need that detail, so read it back onto the message.
+            try:
+                detail = exc.read().decode("utf-8", errors="replace").strip()
+            except Exception:  # noqa: BLE001 - body may already be consumed/closed
+                detail = ""
+            suffix = f" - {detail}" if detail else ""
+            raise LLMError(f"LLM request failed: {exc}{suffix}") from exc
         except Exception as exc:  # noqa: BLE001
             raise LLMError(f"LLM request failed: {exc}") from exc
 

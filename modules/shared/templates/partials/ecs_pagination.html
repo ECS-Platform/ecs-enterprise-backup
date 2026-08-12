@@ -44,7 +44,14 @@
   }
 
   function collectGroups(tbody) {
-    var rows = Array.from(tbody.querySelectorAll('tr'));
+    // Rows hidden by a live client-side search filter (see .ecs-search-hidden)
+    // are excluded from pagination entirely, not just visually — otherwise
+    // filtered-out rows still occupy page slots and the count/page total lie.
+    // Scoped to this dedicated class (not Bootstrap's d-none) so pagination
+    // behavior is unaffected for any table that hides rows for other reasons.
+    var rows = Array.from(tbody.querySelectorAll('tr')).filter(function(r){
+      return !r.classList.contains('ecs-search-hidden');
+    });
     if (!rows.length) return [];
     var grouped = rows.some(function(r){ return r.dataset.ecsPageGroup; });
     if (!grouped) return rows.map(function(r){ return { rows: [r], key: String(rows.indexOf(r)) }; });

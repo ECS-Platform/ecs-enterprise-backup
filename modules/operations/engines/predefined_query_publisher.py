@@ -360,7 +360,43 @@ def publish_predefined_query_evidence(
             canonical_hash=canonical_hash,
             record=existing,
         )
-        return _duplicate_receipt(existing, reason=reason, duplicate_kind=duplicate_kind)
+        # Dedup skips a fresh publish, but the Evidence tab reads this
+        # in-process store — without this, a duplicate run reports SUCCESS
+        # while the tab still shows "no evidence" for this control.
+        dup_evidence = prepare_evidence_record(
+            control_id=control_id,
+            result=json.dumps(artifact),
+            user=user,
+            framework_coverage=control.get("framework_coverage") or "",
+        )
+        dup_canonical_id = str(existing.get("evidence_id") or "").strip()
+        if dup_canonical_id:
+            dup_evidence.evidence_id = dup_canonical_id
+        store_predefined_evidence(dup_evidence)
+        receipt = _duplicate_receipt(existing, reason=reason, duplicate_kind=duplicate_kind)
+        # The success path always returns framework/control_name/workflow_key
+        # (callers like the evidence-review workflow and resubmission rely on
+        # them being present) — mirror that here so a durable-dedup hit doesn't
+        # KeyError downstream just because it skipped a fresh publish.
+        from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
+
+        enrollment = None
+        try:
+            enrollment = enroll_collected_evidence(existing, source_type="predefined_query")
+        except Exception:  # noqa: BLE001 - dedup receipt must never fail on this
+            enrollment = None
+        if enrollment:
+            receipt.update({
+                "workflow_key": enrollment["key"],
+                "framework": enrollment["framework"],
+                "control_name": enrollment["control_name"],
+                "evidence_version": enrollment.get("evidence_version", receipt["evidence_version"]),
+                "workflow_status": enrollment.get("status", receipt["workflow_status"]),
+            })
+        else:
+            receipt.setdefault("framework", primary_fw)
+            receipt.setdefault("control_name", control.get("control_name") or control_id)
+        return receipt
 
     object_key = artifact_object_key(
         application=ctx["application"],

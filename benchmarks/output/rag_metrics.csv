@@ -156,3 +156,17 @@ timestamp,request_id,question,model_name,provider,retrieval_mode,retrieved_docum
 2026-08-05T04:13:51.349632+00:00,951b6201-bcac-48c8-8154-b7a3c8dc3ab6,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,147,1446,10167,0,19694,30213
 2026-08-05T04:14:22.535897+00:00,bebfeef3-4a71-4700-b04b-6d8e5ca84cc8,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,147,1446,3324,0,20485,24065
 2026-08-05T04:14:47.316780+00:00,38f53d33-128e-4398-9bdb-b3b21dfda056,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,147,1446,3721,0,17951,21965
+2026-08-05T04:25:23.425888+00:00,9ce13ffe-7634-4fc9-aca6-397dbbf6da60,How many controls are implemented,qwen3:8b,ollama,vector,7,8,2993,1200,96,1296,3412,0,14907,18554
+2026-08-05T04:26:25.030018+00:00,885b5c39-83d8-4509-8915-fa81b512a842,Describe PostgreSQL SSL evidence collected for Net Banking,,,repository,1,1,0,0,0,0,0,0,0,272
+2026-08-05T04:26:25.376917+00:00,84142edc-a446-4204-9c75-52bfe6af075c,Explain undocumented control implementation for imaginary system,,,repository,0,0,0,0,0,0,0,0,0,22
+2026-08-05T05:01:48.529816+00:00,c9ab6a24-6a91-4bb6-972f-42c087a9747e,How many evidences are pending for me?,qwen3:8b,ollama,vector,8,8,5053,1891,8,1899,3388,0,10761,14544
+2026-08-05T05:02:04.017162+00:00,7ca90272-dd41-4ef8-a98a-430fec4755e9,Show high-risk controls,,,vector,8,8,0,0,0,0,3779,0,0,24635
+2026-08-05T05:02:29.449850+00:00,3810df61-0083-4ccd-ad5a-9d48422804c7,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,147,1446,3672,0,18855,22768
+2026-08-05T05:02:52.948970+00:00,09e3e348-b01d-4283-959f-75960108d68b,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,147,1446,3621,0,19197,23156
+2026-08-05T05:05:00.314116+00:00,8bbdd967-4616-465c-b421-435fae7f6fc1,How many controls are implemented,,,vector,7,8,0,0,0,0,3317,0,0,22293
+2026-08-05T05:05:54.887867+00:00,88ac019f-ef7e-4253-9318-b67fd6c29e6c,Describe PostgreSQL SSL evidence collected for Net Banking,,,repository,1,1,0,0,0,0,0,0,0,296
+2026-08-05T05:05:55.210624+00:00,2d3ac84e-e25f-4c1c-a97c-ebaa5d22d368,Explain undocumented control implementation for imaginary system,,,repository,0,0,0,0,0,0,0,0,0,10
+2026-08-05T05:30:07.840302+00:00,35be659e-cda8-4ddb-b164-59d98e65c889,How many evidences are pending for me?,,,vector,8,8,0,0,0,0,3507,0,0,23395
+2026-08-05T05:30:31.655118+00:00,edfd2445-358b-434d-b60c-5edaebe8e64a,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,128,1427,3436,0,17011,20659
+2026-08-05T05:30:52.741522+00:00,b0436fdd-d0f5-4563-bf38-1d6f83a8a190,Show high-risk controls,,,vector,8,8,0,0,0,0,3366,0,0,22684
+2026-08-05T05:31:15.806805+00:00,6cb7570e-e055-41a1-a2d0-8aa0aebaa299,Show high-risk controls,,,vector,8,8,0,0,0,0,3413,0,0,21477

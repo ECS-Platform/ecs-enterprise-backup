@@ -90,7 +90,37 @@ def get_latest_evidence_for_control(control_id: str) -> dict[str, Any] | None:
     for row in _predefined_evidence_store:
         if row.get("control_id") == control_id:
             return row
-    return None
+    return _latest_evidence_from_durable_repository(control_id)
+
+
+def _latest_evidence_from_durable_repository(control_id: str) -> dict[str, Any] | None:
+    """Fallback for evidence that landed in Postgres but never touched this
+    process's in-memory store — e.g. a dedup hit (publish short-circuits before
+    ``store_predefined_evidence``) or evidence written before a process restart.
+    """
+    if not control_id:
+        return None
+    try:
+        from ecs_platform.repository.repository import EvidenceRepository
+
+        repo = EvidenceRepository()
+        try:
+            rows = repo.evidence_for_control(control_id, limit=1)
+        finally:
+            repo.close()
+    except Exception:  # noqa: BLE001
+        return None
+    if not rows:
+        return None
+    row = rows[0]
+    return {
+        "evidence_id": row.get("evidence_uid", ""),
+        "control_id": control_id,
+        "result": "",
+        "timestamp": "",
+        "user": "",
+        "framework_coverage": "",
+    }
 
 
 def get_predefined_evidence_store(limit: int = 50) -> list[dict[str, Any]]:

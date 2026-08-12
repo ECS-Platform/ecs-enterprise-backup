@@ -578,6 +578,13 @@ def enroll_persisted_evidence(
     for stale_id, stale in list(ecs_state.uploaded_evidence_enrollments.items()):
         if isinstance(stale, dict) and stale.get("key") == key and stale.get("evidence_id") not in ("", evidence_id):
             ecs_state.uploaded_evidence_enrollments.pop(stale.get("evidence_id"), None)
+    # A cancelled draft belongs to the evidence version it was raised against.
+    # build_enrolled_owner_queue_items() skips any key in cancelled_drafts, so
+    # without this one Cancel on an earlier collection hides EVERY later version
+    # of that control from the owner queue — permanently, even though this
+    # enrollment is "Pending App Owner Review" and carries a new evidence id.
+    # The submit routes already clear it the same way (/evidence/review/submit).
+    ecs_state.cancelled_drafts.discard(key)
     ecs_state.uploaded_evidence_enrollments[evidence_id] = enrollment
     ecs_state.uploaded_evidence_enrollments[key] = enrollment
     return enrollment

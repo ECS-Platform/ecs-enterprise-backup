@@ -1,0 +1,31 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [
+    "build"
+  ],
+  "control_id": "ASX-001",
+  "control_name": "Aerospike Server Version",
+  "duration_ms": 12,
+  "environment": "local",
+  "executed_at": "2026-08-09T07:05:54.170312+00:00",
+  "executed_by": "R. Sharma (App Owner)",
+  "execution_id": "EXEC-1",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "ASX-001",
+  "query_reference": "asinfo -v \"build\"",
+  "result": [
+    [
+      "8.1.0.2"
+    ]
+  ],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Aerospike"
+}

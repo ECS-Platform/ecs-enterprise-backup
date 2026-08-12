@@ -887,7 +887,7 @@ def dashboard(
 
     # Phase 2 Step 3: scope-filter the owner work queue to the principal's assigned
     # applications (flag-gated; pass-through when off or for enterprise roles).
-    owner_queue = build_owner_work_queue() if role == "owner" else []
+    owner_queue = build_owner_work_queue(limit=500) if role == "owner" else []
     owner_queue = apply_scope(request, owner_queue, fallback_role=role)
     ctx = {
         "frameworks": frameworks.keys(),
