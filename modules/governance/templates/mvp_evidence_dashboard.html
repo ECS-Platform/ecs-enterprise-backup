@@ -131,37 +131,12 @@
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('collection', false) }}
+{# Evidence collection runs live on their own page (/mvp/audit/runs), which owns
+   the run table, the start-a-run form and the per-control detail modal. This tab
+   only points there — it renders no collection data of its own. #}
 <h6 class="ecs-edash-section-title">Collection Status</h6>
-<div class="ecs-sched-summary mb-2">
-{% set ys = coll.yesterday_summary|default({}) %}
-<div class="ecs-sched-card"><strong>{{ ys.applications_scanned|default(0) }}</strong><span>Apps Scanned</span></div>
-<div class="ecs-sched-card"><strong>{{ ys.evidence_collected|default(0) }}</strong><span>Evidence Ingested</span></div>
-<div class="ecs-sched-card"><strong>{{ ys.controls_auto_validated|default(0) }}</strong><span>Auto-Validated</span></div>
-<div class="ecs-sched-card"><strong>{{ ys.failed_collections|default(0) }}</strong><span>Failures</span></div>
-</div>
-<div class="table-responsive ecs-paginated-wrap mb-2">
-<table class="table table-sm table-bordered bg-white ecs-paginated-table mb-0"><thead><tr>
-<th>Run / Job</th><th>Application</th><th>Framework</th><th>Status</th><th>Evidence</th><th>When</th>
-</tr></thead><tbody>
-{% set history = coll.execution_history|default([]) %}
-{% set jobs = coll.rows|default([]) %}
-{% for h in history %}
-{% if loop.index <= 12 %}
-<tr><td><code class="small">{{ h.run_id|default(h.job_id|default('—')) }}</code></td><td>{{ h.application|default('—') }}</td>
-<td>{{ h.framework|default('—') }}</td><td>{{ h.status|default(h.health|default('—')) }}</td>
-<td>{{ h.evidence_collected|default(h.evidence_count|default('—')) }}</td><td class="small">{{ h.completed_at|default(h.last_run|default('—')) }}</td></tr>
-{% endif %}
-{% else %}
-{% for j in jobs %}
-{% if loop.index <= 12 %}
-<tr><td><code class="small">{{ j.job_id|default('—') }}</code></td><td>{{ j.application|default('—') }}</td>
-<td>{{ j.framework|default('—') }}</td><td>{{ j.status|default(j.health|default('—')) }}</td>
-<td>{{ j.records|default(j.evidence_collected|default('—')) }}</td><td class="small">{{ j.last_run|default('—') }}</td></tr>
-{% endif %}
-{% endfor %}
-{% endfor %}
-</tbody></table></div>
-<p class="small text-muted mb-0">Full scheduler: <a href="/mvp/scheduler?role={{ role|urlencode }}&user={{ user|urlencode }}">Evidence Collection Engine</a></p>
+<p class="mb-2">Evidence collection runs are managed on the Evidence Runs page.</p>
+<a class="btn btn-sm btn-primary" href="/mvp/audit/runs?role={{ role|urlencode }}&user={{ user|urlencode }}">Go to Evidence Runs &rarr;</a>
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('health', false) }}

@@ -288,6 +288,25 @@ def _synthesize_from_control(framework: str, ctrl_row: dict, evidence_id: str) -
     return ctrl, catalog_ev
 
 
+def _enrolled_control_id(framework: str, control: str, evidence_id: str = "") -> str:
+    """Real control_id carried on the workflow enrollment, "" when not enrolled.
+
+    /approve resolves the control_id exactly this way before closing observations
+    (app/main.py). The review page must feed observation_id_for() the SAME input,
+    otherwise an enrolled (non-catalog) predefined-query control gets one observation
+    id synthesized from its NAME here and a different one built from its control_id on
+    approval — leaving an "Open" observation that approval never closes.
+    """
+    try:
+        from modules.shared.services.evidence_workflow_engine import get_enrollment
+
+        key = ecs_state.control_key(framework, control) if control else ""
+        enrollment = get_enrollment(evidence_id=evidence_id or "", key=key)
+        return str((enrollment or {}).get("control_id") or (enrollment or {}).get("query_id") or "")
+    except Exception:  # noqa: BLE001 - enrollment lookup must never break review
+        return ""
+
+
 def _synthesize_evidence(framework: str, evidence_id: str, control: str) -> tuple[dict, dict]:
     """Guaranteed fallback — ECS demo always has reviewable evidence."""
     fw = resolve_framework_name(framework)
@@ -298,6 +317,9 @@ def _synthesize_evidence(framework: str, evidence_id: str, control: str) -> tupl
     cname = control if control and not cid else resolve_control_name(fw, cid, control)
     if not cname:
         cname = control or "Governance Control Attestation"
+    # Enrolled controls own the authoritative control_id; prefer it over anything
+    # derived from the control name so this fallback agrees with /approve.
+    cid = _enrolled_control_id(fw, cname, evidence_id) or cid
     if not evidence_id:
         prefix = {"PCI DSS": "PCI", "DPSC": "DPSC", "AppSec": "AS", "VAPT": "VP", "CSITE": "CS", "ITPP": "IT"}.get(fw, "EVD")
         slug = (cid or cname[:10]).replace(" ", "-").replace(".", "")[:12]
@@ -575,22 +597,28 @@ def build_evidence_review(
     from modules.operations.engines.resubmission import can_resubmit_to_auditor, get_stage, stage_label
     from modules.shared.services.evidence_workflow_engine import can_close_observation, observation_id_for, resolve_state
 
-    wf_visual = resolve_state(key, framework=framework, control=control, control_id=ctrl.get("control_id", ""))
+    # Same control_id resolution /approve performs before close_observations_for_control:
+    # enrollment first (predefined-query / non-catalog controls), catalog row otherwise.
+    resolved_control_id = _enrolled_control_id(
+        resolve_framework_name(framework), control, ev.get("evidence_id", "") or evidence_id
+    ) or ctrl.get("control_id", "")
+
+    wf_visual = resolve_state(key, framework=framework, control=control, control_id=resolved_control_id)
     obs_id = wf_visual.get("observation_id") or ev.get("observation_id") or observation_id_for(
-        resolve_framework_name(framework), control, ctrl.get("control_id", "")
+        resolve_framework_name(framework), control, resolved_control_id
     )
     obs_closed = obs_id in ecs_state.closed_observations or ev.get("observation_status") == "Closed"
 
     return {
         "framework": framework,
         "control": control,
-        "control_id": ctrl.get("control_id", ""),
+        "control_id": resolved_control_id,
         "control_description": control_desc,
         "evidence": ev,
         "evidence_id": ev["evidence_id"],
         "metadata": {
             "framework": resolve_framework_name(framework),
-            "control_id": ctrl.get("control_id", ""),
+            "control_id": resolved_control_id,
             "control_description": control_desc,
             "evidence_name": ev.get("evidence_name", ""),
             "evidence_id": ev.get("evidence_id", ""),

@@ -13,9 +13,10 @@ Packs, Validation Results.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
-from fastapi import Request
-from fastapi.responses import HTMLResponse
+from fastapi import Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from modules.audit_intelligence.services import asset_service, mapping_service
 from modules.audit_intelligence.services import audit_repository_service as repo_svc
@@ -88,9 +89,48 @@ def register_audit_ui_routes(app, templates) -> None:
     def ui_runs(request: Request, role: str = "owner", user: str = "User", run_id: str = ""):
         ctx = _base_ctx(role, user, "audit_runs")
         ctx["runs"] = evidence_service.list_runs()
-        ctx["selected_run"] = evidence_service.get_run(run_id) if run_id else None
+        # validate_run() must run first: it mutates the live run's records in place
+        # (evidence_service.py) to fold in each control's verdict. get_run() only
+        # returns a snapshot, so calling it first would capture records before the
+        # verdict is written and every VERDICT cell would render empty.
         ctx["selected_validation"] = evidence_service.validate_run(run_id) if run_id else None
+        ctx["selected_run"] = evidence_service.get_run(run_id) if run_id else None
+        ctx["scope_frameworks"] = mapping_service.frameworks()
+        ctx["scope_technologies"] = mapping_service.technologies()
+        ctx["scope_controls"] = mapping_service.controls()
         return render(request, "audit/evidence_runs.html", ctx)
+
+    @app.post("/mvp/audit/runs")
+    def ui_start_run(
+        role: str = Form("owner"),
+        user: str = Form("User"),
+        scope_kind: str = Form(...),
+        scope_value: str = Form(""),
+        return_to: str = Form("audit_runs"),
+    ):
+        """Start a run from the Evidence Runs panel, then POST-redirect-GET.
+
+        Mirrors the ``/mvp/scheduler/pause|resume`` pattern: plain form fields in,
+        303 back to the page so a refresh cannot re-submit the run. The JSON API
+        (``POST /api/audit/runs``) stays the machine-facing path.
+
+        ``return_to`` is a fixed key, not a URL, so the caller can never steer the
+        redirect off-site; unknown values fall back to the Evidence Runs page.
+        """
+        evidence_service.start_run(
+            scope_kind=scope_kind,
+            scope_value=scope_value,
+            requested_by=user or "ui",
+        )
+        targets = {
+            "audit_runs": "/mvp/audit/runs",
+            "evidence_dashboard": "/mvp/evidence-dashboard",
+        }
+        base = targets.get(return_to, targets["audit_runs"])
+        url = f"{base}?role={quote(role)}&user={quote(user)}"
+        if return_to == "evidence_dashboard":
+            url += "&tab=collection"
+        return RedirectResponse(url=url, status_code=303)
 
     # ---------------------------------------------------------- Evidence Repository
     @app.get("/mvp/audit/repository", response_class=HTMLResponse)

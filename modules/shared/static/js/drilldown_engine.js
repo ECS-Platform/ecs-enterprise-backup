@@ -377,9 +377,12 @@
       label || metric);
   };
 
+  // [data-ecs-no-drill] is the generic opt-out: pages whose tables/KPIs carry real
+  // per-record data of their own must not be auto-wired to the generated universal
+  // drill, which fabricates rows and would show content unrelated to the record.
   var SKIP = '[data-ecs-framework-kpi],[data-ecs-framework-wf-drill],[data-ecs-framework-row-drill],' +
     '[data-ecs-module-kpi],[data-grc-drill],[data-ecs-demo-kpi],[data-aisdlc-drill],[data-ct-drill],' +
-    '[data-wf-action],[data-aisdlc-drill]';
+    '[data-wf-action],[data-aisdlc-drill],[data-ecs-no-drill]';
 
   function bindExplicit() {
     document.addEventListener('click', function (e) {
@@ -485,6 +488,7 @@
     document.querySelectorAll('.ecs-paginated-table tbody tr, .ecs-table-modern tbody tr, .ecs-compact-table tbody tr, .aisdlc-table tbody tr').forEach(function (tr, idx) {
       if (tr.hasAttribute('data-ecs-universal-row') || tr.hasAttribute('data-ecs-framework-row-drill') ||
           tr.hasAttribute('data-wf-id') || tr.querySelector('th')) return;
+      if (tr.closest('[data-ecs-no-drill]')) return;
       if (tr.cells.length < 2) return;
       var rowId = (tr.cells[0].textContent || '').trim().split('\n')[0].slice(0, 80) || ('row-' + idx);
       tr.classList.add('ecs-drill-row-clickable');

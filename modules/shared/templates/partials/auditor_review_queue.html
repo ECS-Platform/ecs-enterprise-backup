@@ -1,3 +1,4 @@
+<style>.ecs-search-hidden { display: none !important; }</style>
 <div class="ecs-section-card mb-4">
 <div class="ecs-section-card-header">
 <div>
@@ -11,8 +12,12 @@
 <div class="alert alert-info py-2 mb-3">{{ notice }}</div>
 {% endif %}
 
+<div class="mb-2">
+<input type="search" id="ecsAuditorQueueSearch" class="form-control form-control-sm" style="max-width: 360px;" placeholder="Search framework, application, control, or evidence…" aria-label="Search pending auditor reviews">
+</div>
+
 <div class="table-responsive ecs-paginated-wrap ecs-table-wrap">
-<table class="table ecs-table-modern ecs-paginated-table mb-0 ecs-workflow-table">
+<table id="ecsAuditorReviewQueueTable" class="table ecs-table-modern ecs-paginated-table mb-0 ecs-workflow-table">
 <thead>
 <tr>
 <th>Framework</th>
@@ -100,3 +105,82 @@
 </table>
 </div>
 </div>
+
+<script>
+(function(){
+  var input = document.getElementById('ecsAuditorQueueSearch');
+  var table = document.getElementById('ecsAuditorReviewQueueTable');
+  if (!input || !table) return;
+
+  var STORAGE_KEY = 'ecs_pg_' + table.id;
+  var NO_MATCH_ID = 'ecsAuditorQueueNoMatchRow';
+  var COLSPAN = table.tHead ? table.tHead.rows[0].cells.length : 10;
+
+  function resetPageToOne() {
+    try {
+      var raw = sessionStorage.getItem(STORAGE_KEY);
+      var prefs = raw ? JSON.parse(raw) : {};
+      prefs.page = 1;
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    } catch (e) {}
+  }
+
+  function rowMatches(row, q) {
+    // Only the first 4 columns are searchable: Framework, Application,
+    // Control, Evidence (name + filename).
+    var cells = row.cells;
+    if (!cells || cells.length < 4) return false;
+    var haystack = (cells[0].textContent + ' ' + cells[1].textContent + ' ' +
+      cells[2].textContent + ' ' + cells[3].textContent).toLowerCase();
+    return haystack.indexOf(q) !== -1;
+  }
+
+  function applyFilter() {
+    var q = input.value.trim().toLowerCase();
+    var tbody = table.tBodies[0];
+    if (!tbody) return;
+    var dataRows = Array.prototype.filter.call(tbody.rows, function(row){
+      return row.id !== NO_MATCH_ID && row.cells.length >= 4;
+    });
+    var anyVisible = false;
+    dataRows.forEach(function(row) {
+      var match = !q || rowMatches(row, q);
+      row.classList.toggle('ecs-search-hidden', !match);
+      if (match) anyVisible = true;
+    });
+
+    // Removed from the DOM entirely (not just hidden) when not needed — the
+    // pagination engine counts every <tr> it doesn't recognize as
+    // search-hidden, so a merely `display:none`'d row would still occupy a
+    // page slot and could resurface if its "page" happens to be the active one.
+    var existingNoMatchRow = document.getElementById(NO_MATCH_ID);
+    if (existingNoMatchRow) existingNoMatchRow.remove();
+    if (q && !anyVisible && dataRows.length) {
+      var noMatchRow = document.createElement('tr');
+      noMatchRow.id = NO_MATCH_ID;
+      noMatchRow.innerHTML = '<td colspan="' + COLSPAN + '" class="text-center text-muted py-4">No submissions match "<span></span>".</td>';
+      noMatchRow.querySelector('span').textContent = input.value.trim();
+      tbody.appendChild(noMatchRow);
+    }
+
+    // Clear any inline display:none the pagination engine left on rows from
+    // a prior page — if the new filtered set is small enough to skip
+    // re-pagination (<=5 rows), nothing else would ever reset it, and a
+    // genuine match could stay invisible from an old page-2+ state.
+    dataRows.forEach(function(row) { row.style.display = ''; });
+
+    resetPageToOne();
+    if (window.ecsRefreshPagination) {
+      delete table.dataset.ecsPaginationInit;
+      // The pagination bar is inserted as a sibling AFTER the table's
+      // .ecs-paginated-wrap container (not nested inside it), and tags itself
+      // with data-ecs-pagination-for="<table id>" — that's the reliable handle.
+      var bar = document.querySelector('.ecs-pagination-bar[data-ecs-pagination-for="' + table.id + '"]');
+      if (bar) bar.remove();
+      window.ecsRefreshPagination();
+    }
+  }
+
+  input.addEventListener('input', applyFilter);
+})();
+</script>

@@ -1,0 +1,258 @@
+{# ---------------------------------------------------------------------------
+   Evidence Runs panel — single source of truth for the run UI.
+
+   Consumed by BOTH:
+     * audit/evidence_runs.html            (standalone page, audit shell)
+     * mvp_evidence_dashboard.html         (Evidence Dashboard -> Collection tab)
+
+   Every value rendered here comes from the audit_intelligence evidence-run
+   system (evidence_service.list_runs / get_run / validate_run). There is no
+   seeded or generated data in this panel.
+
+   Context expected:
+     runs, selected_run, selected_validation,
+     scope_frameworks, scope_technologies, scope_controls, role, user
+   Optional:
+     runs_url       base path for run links      (default /mvp/audit/runs)
+     runs_extra_qs  extra query string to append (default '')
+--------------------------------------------------------------------------- #}
+{% set _base = runs_url|default('/mvp/audit/runs') %}
+{% set _qs = runs_extra_qs|default('') %}
+<style>
+/* Self-contained: this panel renders inside the audit shell AND the evidence
+   dashboard, which do not share a stylesheet. Values match audit/_shell.html. */
+.ai-runs-panel .ai-table td,.ai-runs-panel .ai-table th{font-size:.8rem;vertical-align:middle;}
+.ai-runs-panel .ai-chip{display:inline-block;font-size:.68rem;font-weight:600;padding:.1rem .5rem;border-radius:999px;
+  background:#e2e8f0;color:#475569;}
+/* Run/record status chips use the raw first word (Completed, Failed, ...);
+   verdict chips are lowercased (pass, fail, warning, not <- "NOT APPLICABLE"). */
+.ai-runs-panel .ai-chip-Completed,.ai-runs-panel .ai-chip-pass{background:#dcfce7;color:#166534;}
+.ai-runs-panel .ai-chip-Failed,.ai-runs-panel .ai-chip-fail{background:#fee2e2;color:#991b1b;}
+.ai-runs-panel .ai-chip-Partially,.ai-runs-panel .ai-chip-Retry,.ai-runs-panel .ai-chip-warning{background:#fef3c7;color:#92400e;}
+.ai-runs-panel .ai-chip-Running{background:#e0f2fe;color:#075985;}
+.ai-runs-panel .ai-meter-lbl{font-size:.7rem;color:#64748b;}
+.ai-runs-table{table-layout:fixed;}
+.ai-runs-table td,.ai-runs-table th{white-space:normal;word-break:normal;overflow-wrap:break-word;}
+.ai-runs-table td.ai-run-id{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ai-run-detail-title{white-space:normal;word-break:normal;overflow-wrap:break-word;}
+tr.ai-rec-row{cursor:pointer;}
+</style>
+<div class="ai-runs-panel row g-3">
+  <div class="col-lg-{% if selected_run %}6{% else %}12{% endif %}">
+    <div class="card"><div class="card-body">
+      <h2 class="h6">Runs</h2>
+      {% if runs %}
+      <div style="overflow-x:auto;">
+      <table class="table table-sm table-hover ai-table ai-runs-table mb-0" data-ecs-no-drill>
+      <colgroup><col style="width:34%"><col style="width:32%"><col style="width:19%"><col style="width:15%"></colgroup>
+      <thead><tr>
+        <th>Run</th><th>Scope</th><th>Status</th><th class="text-end">Completed</th></tr></thead>
+      <tbody>
+      {% for r in runs %}
+        <tr><td class="ai-run-id"><a href="{{ _base }}?role={{ role|urlencode }}&user={{ user|urlencode }}{{ _qs }}&run_id={{ r.run_id|urlencode }}" title="{{ r.run_id }}">{{ r.run_id }}</a></td>
+        <td>{{ r.scope_kind }}:{{ r.scope_value }}</td>
+        <td><span class="ai-chip ai-chip-{{ r.status.split(' ')[0] }}">{{ r.status }}</span></td>
+        <td class="text-end">{{ r.summary.completed }}/{{ r.summary.total }}</td></tr>
+      {% endfor %}
+      </tbody></table>
+      </div>
+      {% else %}<div class="ai-meter-lbl">No evidence collection runs recorded yet. Start one below.</div>{% endif %}
+      <hr class="my-3">
+      <h3 class="h6">Start a run</h3>
+      <form method="post" action="/mvp/audit/runs" class="row g-2 align-items-end ai-filter">
+        <input type="hidden" name="role" value="{{ role }}"><input type="hidden" name="user" value="{{ user }}">
+        <input type="hidden" name="return_to" value="{{ return_to|default('audit_runs') }}">
+        <div class="col-auto"><label class="form-label mb-0">Scope</label>
+          <select name="scope_kind" id="runScopeKind" class="form-select form-select-sm" required>
+            <option value="">— select scope —</option>
+            {% for k in ['framework', 'technology', 'control', 'asset', 'application', 'environment', 'all'] %}
+            <option value="{{ k }}">{{ k }}</option>
+            {% endfor %}
+          </select></div>
+        <div class="col-auto" id="runScopeValueWrap"><label class="form-label mb-0">Scope value</label>
+          <select class="form-select form-select-sm" data-scope-kinds="" disabled>
+            <option value="">— select a scope first —</option>
+          </select>
+          <select name="scope_value" class="form-select form-select-sm d-none" data-scope-kinds="framework" disabled>
+            <option value="">— select framework —</option>
+            {% for f in scope_frameworks %}<option value="{{ f.name }}">{{ f.name }}</option>{% endfor %}
+          </select>
+          <select name="scope_value" class="form-select form-select-sm d-none" data-scope-kinds="technology asset" disabled>
+            <option value="">— select technology —</option>
+            {% for t in scope_technologies %}<option value="{{ t.name }}">{{ t.name }}</option>{% endfor %}
+          </select>
+          <select name="scope_value" class="form-select form-select-sm d-none" data-scope-kinds="control" disabled>
+            <option value="">— select control —</option>
+            {% for c in scope_controls %}<option value="{{ c.control_id }}">{{ c.control_id }} — {{ c.control_name }}</option>{% endfor %}
+          </select>
+          <input type="text" class="form-control form-control-sm d-none" data-scope-kinds="application environment all" placeholder="not required for this scope" disabled></div>
+        <div class="col-auto"><button class="btn btn-sm btn-primary">Start run</button></div>
+      </form>
+      <div class="ai-meter-lbl mt-2">Scope value options depend on the selected scope: framework name, technology name
+        (also used for <code>asset</code> scope), or control ID. Not required for <code>all</code>, <code>application</code>,
+        or <code>environment</code>, which cover every control.</div>
+      <script>
+      (function(){
+        if (window.__ecsAuditRunFormBound) return;
+        window.__ecsAuditRunFormBound = true;
+        var kindSel = document.getElementById('runScopeKind');
+        var wrap = document.getElementById('runScopeValueWrap');
+        if (!kindSel || !wrap) return;
+        var valueFields = wrap.querySelectorAll('[data-scope-kinds]');
+        function sync() {
+          var kind = kindSel.value;
+          valueFields.forEach(function(el){
+            var kinds = (el.getAttribute('data-scope-kinds') || '').split(' ');
+            var active = kinds.indexOf(kind) >= 0;
+            el.classList.toggle('d-none', !active);
+            el.disabled = !active;
+            if (!active) el.value = '';
+          });
+        }
+        kindSel.addEventListener('change', sync);
+        sync();
+      })();
+      </script>
+    </div></div>
+  </div>
+  {% if selected_run %}
+  <div class="col-lg-6">
+    <div class="card"><div class="card-body">
+      <h2 class="h6 ai-run-detail-title">{{ selected_run.run_id }}</h2>
+      <div class="ai-meter-lbl mb-2">{{ selected_run.scope_kind }}:{{ selected_run.scope_value }} ·
+        <span class="ai-chip ai-chip-{{ selected_run.status.split(' ')[0] }}">{{ selected_run.status }}</span>
+        {% if selected_validation %} · compliance {{ selected_validation.compliance.compliance_percent }}%{% endif %}</div>
+      <div style="overflow-x:auto;">
+      <table class="table table-sm table-hover ai-table ai-runs-table mb-0" data-ecs-no-drill>
+      <colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>
+      <thead><tr>
+        <th>Control</th><th>Status</th><th>Verdict</th></tr></thead>
+      <tbody>
+      {% for rec in selected_run.records %}
+        <tr class="ai-rec-row" title="Click for this control's detail" data-ai-rec='{{ {
+          "run_id": selected_run.run_id,
+          "scope": selected_run.scope_kind ~ ":" ~ selected_run.scope_value,
+          "control_id": rec.control_id,
+          "technology": rec.technology,
+          "asset_id": rec.asset_id,
+          "frameworks": rec.frameworks,
+          "status": rec.status,
+          "ok": rec.ok,
+          "error_type": rec.error_type,
+          "message": rec.message,
+          "rows_returned": rec.rows_returned,
+          "duration_ms": rec.duration_ms,
+          "attempts": rec.attempts,
+          "executable": rec.executable,
+          "evidence_id": rec.evidence_id,
+          "evidence_filename": rec.evidence_filename,
+          "output_excerpt": rec.output_excerpt,
+          "validation": rec.validation
+        } | tojson }}'>
+        <td>{{ rec.control_id }}</td>
+        <td><span class="ai-chip ai-chip-{{ rec.status.split(' ')[0] }}">{{ rec.status }}</span></td>
+        <td>{% if rec.validation %}<span class="ai-chip ai-chip-{{ rec.validation.verdict.split(' ')[0] | lower }}">{{ rec.validation.verdict }}</span>{% else %}—{% endif %}</td></tr>
+      {% endfor %}
+      </tbody></table>
+      </div>
+    </div></div>
+  </div>
+
+  {# Per-record detail modal. Rendered from the run's own records, so it always
+     reflects THIS control in THIS run. Rows are marked data-ecs-no-drill so the
+     shared universal drill engine, which fabricates generic rows, never claims
+     the click. #}
+  <div class="modal fade" id="aiRecModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+      <div class="modal-header py-2"><h6 class="modal-title" id="aiRecTitle">Control detail</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body small" id="aiRecBody"></div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button></div>
+    </div></div>
+  </div>
+  <script>
+  (function(){
+    if (window.__ecsAuditRecModalBound) return;
+    window.__ecsAuditRecModalBound = true;
+    var modalEl = document.getElementById('aiRecModal');
+    if (!modalEl || typeof bootstrap === 'undefined') return;
+    var modal = new bootstrap.Modal(modalEl);
+    var titleEl = document.getElementById('aiRecTitle');
+    var bodyEl = document.getElementById('aiRecBody');
+
+    function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function row(k, v){ return '<dt class="col-sm-4 text-muted fw-normal">' + esc(k) + '</dt><dd class="col-sm-8">' + v + '</dd>'; }
+    function txt(v, dash){ var s = (v === 0 || v) ? String(v) : ''; return s.trim() ? esc(s) : '<span class="text-muted">' + (dash || '—') + '</span>'; }
+    // Status chips key off the raw first word; verdict chips off the lowercased
+    // one — matching the CSS above and the server-rendered tables.
+    function chip(v){ return v ? '<span class="ai-chip ai-chip-' + esc(String(v).split(' ')[0]) + '">' + esc(v) + '</span>' : txt(''); }
+    function vchip(v){ return v ? '<span class="ai-chip ai-chip-' + esc(String(v).split(' ')[0].toLowerCase()) + '">' + esc(v) + '</span>' : txt(''); }
+
+    function render(d){
+      var val = d.validation || null;
+      var h = '<dl class="row mb-2">';
+      h += row('Control', '<strong>' + txt(d.control_id) + '</strong>');
+      h += row('Run', txt(d.run_id) + ' · ' + txt(d.scope));
+      h += row('Technology', txt(d.technology));
+      if (d.asset_id) h += row('Asset', txt(d.asset_id));
+      if (d.frameworks && d.frameworks.length) h += row('Frameworks', esc(d.frameworks.join(', ')));
+      h += '</dl><hr class="my-2"><div class="fw-semibold mb-1">Collection status</div><dl class="row mb-2">';
+      h += row('Status', chip(d.status));
+      // The real reason this record has the status it has — not a generic blurb.
+      h += row('Why', txt(d.message, d.ok ? 'Collected without error.' : 'No message recorded.'));
+      if (d.error_type) h += row('Error type', txt(d.error_type));
+      h += row('Rows returned', txt(d.rows_returned));
+      h += row('Duration', d.duration_ms || d.duration_ms === 0 ? esc(d.duration_ms) + ' ms' : txt(''));
+      h += row('Attempts', txt(d.attempts));
+      if (!d.executable) h += row('Executable', '<span class="text-muted">No runnable query for this control/technology.</span>');
+      h += '</dl><hr class="my-2"><div class="fw-semibold mb-1">Validation verdict</div>';
+      if (!val) {
+        h += '<p class="text-muted mb-2">This control was not validated in this run.</p>';
+      } else {
+        h += '<dl class="row mb-2">';
+        h += row('Verdict', vchip(val.verdict));
+        h += row('Control status', txt(val.control_status));
+        h += row('Why', txt(val.rationale, 'No rationale recorded.'));
+        h += row('Rule applied', txt(val.rule_id));
+        h += row('Evidence quality', (val.evidence_quality || val.evidence_quality === 0)
+          ? esc(Math.round(val.evidence_quality * 100)) + '%' : txt(''));
+        h += '</dl>';
+      }
+      h += '<hr class="my-2"><div class="fw-semibold mb-1">Evidence used for this control</div>';
+      if (d.evidence_id || d.evidence_filename) {
+        h += '<dl class="row mb-2">';
+        h += row('Evidence ID', txt(d.evidence_id));
+        h += row('File', txt(d.evidence_filename));
+        h += '</dl>';
+        if (d.output_excerpt) {
+          h += '<div class="text-muted mb-1">Captured output (excerpt)</div>' +
+               '<pre class="mb-0 p-2" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;' +
+               'white-space:pre-wrap;word-break:break-word;font-size:.72rem;max-height:220px;overflow:auto;">' +
+               esc(d.output_excerpt) + '</pre>';
+        }
+      } else {
+        h += '<p class="text-muted mb-0">No evidence artifact was produced for this control in this run.</p>';
+      }
+      return h;
+    }
+
+    document.addEventListener('click', function(e){
+      var tr = e.target.closest('tr.ai-rec-row');
+      if (!tr) return;
+      if (e.target.closest('a, button')) return;
+      var raw = tr.getAttribute('data-ai-rec');
+      if (!raw) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var d;
+      try { d = JSON.parse(raw); }
+      catch (err) { if (window.console) console.error('[audit-runs] bad record payload', err); return; }
+      titleEl.textContent = (d.control_id || 'Control') + ' — ' + (d.run_id || '');
+      bodyEl.innerHTML = render(d);
+      modal.show();
+    }, true);
+  })();
+  </script>
+  {% endif %}
+</div>

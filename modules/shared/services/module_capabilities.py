@@ -237,6 +237,93 @@ def _health_view(role: str) -> dict:
     return view
 
 
+def evidence_collection_view(role: str) -> dict:
+    """Real evidence-collection state for the Evidence Dashboard -> Collection tab.
+
+    Source of truth is the audit_intelligence evidence-run system
+    (``evidence_service.list_runs / get_run / validate_run``) — the same engine
+    behind ``/mvp/audit/runs``. Deliberately contains **no** seeded, generated or
+    mock data: with no runs executed the aggregates are legitimately zero rather
+    than being padded with fabricated jobs.
+
+    Note this is separate from ``_scheduler_view``, which still backs the
+    standalone ``/mvp/scheduler`` page and its own (mock) operations dataset.
+    """
+    from modules.audit_intelligence.services import evidence_service, mapping_service
+
+    try:
+        runs = evidence_service.list_runs()
+    except Exception:  # noqa: BLE001 - dashboard must never fail on run state
+        runs = []
+
+    runs_completed = runs_partial = runs_failed = runs_other = 0
+    controls_total = controls_collected = 0
+    for r in runs:
+        status = str(r.get("status") or "")
+        if status.startswith("Completed"):
+            runs_completed += 1
+        elif status.startswith("Partial"):
+            runs_partial += 1
+        elif status.startswith("Failed"):
+            runs_failed += 1
+        else:
+            runs_other += 1
+        summary = r.get("summary") or {}
+        controls_total += int(summary.get("total") or 0)
+        controls_collected += int(summary.get("completed") or 0)
+
+    # Real PASS/FAIL/WARNING/NOT APPLICABLE breakdown, aggregated across runs.
+    verdicts = {"passed": 0, "failed": 0, "warning": 0, "not_applicable": 0}
+    assessed = 0
+    validated_controls = 0
+    for r in runs:
+        try:
+            val = evidence_service.validate_run(r.get("run_id") or "")
+        except Exception:  # noqa: BLE001
+            val = None
+        if not val:
+            continue
+        comp = val.get("compliance") or {}
+        for key in verdicts:
+            verdicts[key] += int(comp.get(key) or 0)
+        assessed += int(comp.get("assessed") or 0)
+        validated_controls += int(comp.get("total") or 0)
+
+    compliance_percent = (
+        round((verdicts["passed"] + 0.5 * verdicts["warning"]) / assessed * 100, 1)
+        if assessed else 0.0
+    )
+
+    scope_frameworks = scope_technologies = scope_controls = []
+    try:
+        scope_frameworks = mapping_service.frameworks()
+        scope_technologies = mapping_service.technologies()
+        scope_controls = mapping_service.controls()
+    except Exception:  # noqa: BLE001
+        pass
+
+    return {
+        "runs": runs,
+        "totals": {
+            "runs_total": len(runs),
+            "runs_completed": runs_completed,
+            "runs_partial": runs_partial,
+            "runs_failed": runs_failed,
+            "runs_other": runs_other,
+            "controls_total": controls_total,
+            "controls_collected": controls_collected,
+            "validated_controls": validated_controls,
+            "assessed": assessed,
+            "compliance_percent": compliance_percent,
+            **verdicts,
+        },
+        "scope_frameworks": scope_frameworks,
+        "scope_technologies": scope_technologies,
+        "scope_controls": scope_controls,
+        "data_source": "REAL",
+    }
+
+
 def _evidence_dashboard_view(role: str) -> dict:
     from modules.governance.engines.evidence_health_engine import build_evidence_health_view
     from modules.governance.engines.evidence_approval_engine import build_evidence_approval_view
@@ -248,7 +335,12 @@ def _evidence_dashboard_view(role: str) -> dict:
     analytics = ecs_state.build_evidence_analytics()
     totals = analytics.get("totals", {})
     health = build_evidence_health_view(role)
-    collection = _scheduler_view(role)
+    # Real evidence-run state. Previously _scheduler_view(role), whose numbers came
+    # from operations_mock_data.generate_scheduler_jobs() (fabricated SCH-JOB rows).
+    # The Collection tab no longer renders any of this — it just links to
+    # /mvp/audit/runs. The only remaining consumer is the "Failed Collections"
+    # overview KPI below, which stays on real run state rather than mock jobs.
+    collection = evidence_collection_view(role)
     integrity = get_health_dashboard()
     fcm_service = get_framework_control_master_service()
     fcm_progress = fcm_service.build_evidence_dashboard_progress(role=role)
@@ -291,8 +383,8 @@ def _evidence_dashboard_view(role: str) -> dict:
          "tooltip": "Share of repository artefacts passing hash integrity checks."},
         {"label": "Health Issues", "value": len(health.get("rows", [])), "tone": "warning",
          "tooltip": "Scoped evidence health records with open issues."},
-        {"label": "Failed Collections", "value": collection.get("yesterday_summary", {}).get("failed_collections", 0), "tone": "danger",
-         "tooltip": "Scheduler jobs in failed/partial state from operations dataset."},
+        {"label": "Failed Collections", "value": collection.get("totals", {}).get("runs_failed", 0), "tone": "danger",
+         "tooltip": "Evidence collection runs in Failed state (audit_intelligence run system)."},
     ]
 
     approval = None

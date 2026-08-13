@@ -170,3 +170,4 @@ timestamp,request_id,question,model_name,provider,retrieval_mode,retrieved_docum
 2026-08-05T05:30:31.655118+00:00,edfd2445-358b-434d-b60c-5edaebe8e64a,Show high-risk controls,qwen3:8b,ollama,vector,8,8,3104,1299,128,1427,3436,0,17011,20659
 2026-08-05T05:30:52.741522+00:00,b0436fdd-d0f5-4563-bf38-1d6f83a8a190,Show high-risk controls,,,vector,8,8,0,0,0,0,3366,0,0,22684
 2026-08-05T05:31:15.806805+00:00,6cb7570e-e055-41a1-a2d0-8aa0aebaa299,Show high-risk controls,,,vector,8,8,0,0,0,0,3413,0,0,21477
+2026-08-13T11:20:57.885723+00:00,a822ad45-2003-4a57-85d9-4a249930df73,tell me about the pci dss evidences,qwen3:8b,ollama,vector,8,8,4041,1637,126,1763,3364,0,19196,23004

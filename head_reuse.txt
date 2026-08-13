@@ -1,0 +1,145 @@
+FF.FFFFFFF.FF...
+================================== FAILURES ===================================
+______________ test_records_reads_real_repository_with_integrity ______________
+
+    def test_records_reads_real_repository_with_integrity():
+        _seed_pass()
+        out = ers.records(seed_if_empty=False)
+>       assert out["count"] == 1
+E       assert 734 == 1
+
+tests\test_evidence_reuse_lifecycle.py:67: AssertionError
+____________________________ test_records_filters _____________________________
+
+    def test_records_filters():
+        _seed_pass(control_id="DB-010")
+        _seed_fail(control_id="DB-011")
+>       assert ers.records(seed_if_empty=False, status="FAIL")["count"] == 1
+E       assert 2 == 1
+
+tests\test_evidence_reuse_lifecycle.py:79: AssertionError
+___________________ test_reuse_analysis_counts_obligations ____________________
+
+    def test_reuse_analysis_counts_obligations():
+        _seed_pass(control_id="DB-010", frameworks=("PCI DSS", "RBI Cyber Security", "DPSC"))
+        out = ers.analyze(seed_if_empty=False)
+        s = out["reuse_summary"]
+>       assert s["unique_evidence"] == 1
+E       assert 734 == 1
+
+tests\test_evidence_reuse_lifecycle.py:99: AssertionError
+________________________ test_completeness_flags_gaps _________________________
+
+    def test_completeness_flags_gaps():
+        _seed_pass(control_id="DB-010", frameworks=("PCI DSS",))
+        _seed_fail(control_id="DB-011", frameworks=("PCI DSS",))
+        comp = ers.validate_completeness(seed_if_empty=False)
+>       assert comp["total_controls"] == 2
+E       assert 477 == 2
+
+tests\test_evidence_reuse_lifecycle.py:114: AssertionError
+__________________________ test_readiness_percentage __________________________
+
+    def test_readiness_percentage():
+        _seed_pass(control_id="DB-010", frameworks=("PCI DSS",))
+        r = ers.readiness(seed_if_empty=False)
+>       assert r["readiness_pct"] == 100.0
+E       assert 3.2 == 100.0
+
+tests\test_evidence_reuse_lifecycle.py:125: AssertionError
+___________ test_generate_observations_uses_real_engine_and_dedupes ___________
+
+    def test_generate_observations_uses_real_engine_and_dedupes():
+        _seed_fail(control_id="DB-011", frameworks=("PCI DSS",))
+        first = ers.generate_observations(seed_if_empty=False)
+        assert first["created_count"] >= 1
+        # The observation exists in the real observation store.
+        assert len(obs.list_observations()) == first["created_count"]
+        # Re-running does not duplicate.
+        second = ers.generate_observations(seed_if_empty=False)
+>       assert second["created_count"] == 0
+E       assert 1 == 0
+
+tests\test_evidence_reuse_lifecycle.py:140: AssertionError
+______________ test_generate_observations_none_when_all_covered _______________
+
+    def test_generate_observations_none_when_all_covered():
+        _seed_pass(control_id="DB-010", frameworks=("PCI DSS",))
+        out = ers.generate_observations(seed_if_empty=False)
+>       assert out["created_count"] == 0
+E       assert 459 == 0
+
+tests\test_evidence_reuse_lifecycle.py:147: AssertionError
+______________ test_closure_marks_ready_not_closed_with_approval ______________
+
+    def test_closure_marks_ready_not_closed_with_approval():
+        # Fail -> observation, then remediate with passing evidence (new version).
+        _seed_fail(control_id="DB-011", frameworks=("PCI DSS",))
+        ers.generate_observations(seed_if_empty=False)
+        _seed_pass(control_id="DB-011", frameworks=("PCI DSS",))  # newer version passes
+    
+        res = ers.check_closure(require_approval=True, seed_if_empty=False)
+        assert res["ready_count"] >= 1
+        assert res["closed_count"] == 0  # maker-checker: NOT auto-closed
+        o = obs.list_observations()[0]
+>       assert o.status == OBS_STATUS_SUBMITTED  # advanced but awaiting approval
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'Draft' == 'Submitted'
+E         
+E         - Submitted
+E         + Draft
+
+tests\test_evidence_reuse_lifecycle.py:164: AssertionError
+____________________ test_closure_closes_without_approval _____________________
+
+    def test_closure_closes_without_approval():
+        _seed_fail(control_id="DB-011", frameworks=("PCI DSS",))
+        ers.generate_observations(seed_if_empty=False)
+        _seed_pass(control_id="DB-011", frameworks=("PCI DSS",))
+    
+        res = ers.check_closure(require_approval=False, seed_if_empty=False)
+        assert res["closed_count"] >= 1
+        o = obs.list_observations()[0]
+>       assert o.status == OBS_STATUS_CLOSED
+E       AssertionError: assert 'Draft' == 'Closed'
+E         
+E         - Closed
+E         + Draft
+
+tests\test_evidence_reuse_lifecycle.py:177: AssertionError
+______________________________ test_api_records _______________________________
+
+    def test_api_records():
+        _seed_pass()
+        r = client.get("/api/evidence-reuse/records?status=PASS")
+        assert r.status_code == 200
+>       assert r.json()["count"] == 1
+E       assert 27 == 1
+
+tests\test_evidence_reuse_lifecycle.py:195: AssertionError
+______________________________ test_api_analyze _______________________________
+
+    def test_api_analyze():
+        _seed_pass(frameworks=("PCI DSS", "DPSC"))
+        r = client.post("/api/evidence-reuse/analyze")
+        assert r.status_code == 200
+>       assert r.json()["reuse_summary"]["reuse_factor"] == 2.0
+E       assert 1.09 == 2.0
+
+tests\test_evidence_reuse_lifecycle.py:202: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_evidence_reuse_lifecycle.py::test_records_reads_real_repository_with_integrity
+FAILED tests/test_evidence_reuse_lifecycle.py::test_records_filters - assert ...
+FAILED tests/test_evidence_reuse_lifecycle.py::test_reuse_analysis_counts_obligations
+FAILED tests/test_evidence_reuse_lifecycle.py::test_completeness_flags_gaps
+FAILED tests/test_evidence_reuse_lifecycle.py::test_readiness_percentage - as...
+FAILED tests/test_evidence_reuse_lifecycle.py::test_generate_observations_uses_real_engine_and_dedupes
+FAILED tests/test_evidence_reuse_lifecycle.py::test_generate_observations_none_when_all_covered
+FAILED tests/test_evidence_reuse_lifecycle.py::test_closure_marks_ready_not_closed_with_approval
+FAILED tests/test_evidence_reuse_lifecycle.py::test_closure_closes_without_approval
+FAILED tests/test_evidence_reuse_lifecycle.py::test_api_records - assert 27 == 1
+FAILED tests/test_evidence_reuse_lifecycle.py::test_api_analyze - assert 1.09...
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+C:\Users\vinay\AppData\Local\Programs\Python\Python314\Lib\difflib.py:379: KeyboardInterrupt
+(to show a full traceback on KeyboardInterrupt use --full-trace)
+11 failed, 5 passed in 918.84s (0:15:18)
