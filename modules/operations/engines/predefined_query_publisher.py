@@ -174,9 +174,53 @@ def canonical_fingerprint_hash(fingerprint: dict[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def resolve_control_title(control_id: str, *, metadata: dict[str, Any] | None = None) -> str:
+    """Human-readable control title for a predefined-query control id.
+
+    Evidence published before ``control_name`` was written onto the upload
+    metadata carries no title at all, so anything reading that record back later
+    falls back to the raw id and renders "ASX-001 ASX-001". The predefined-query
+    catalog is authoritative and independent of when the evidence was published,
+    so resolve against it whenever the record has no better title of its own.
+    """
+    cid = str(control_id or "").strip()
+    meta = dict(metadata or {})
+    stored = str(meta.get("control_name") or "").strip()
+    if stored and stored != cid:
+        return stored
+    try:
+        from modules.audit_intelligence.engines import technology_control_mapping as tcm
+
+        ref = tcm.get_control(cid)
+        if ref and ref.control_name:
+            return ref.control_name
+    except Exception:  # noqa: BLE001 - title resolution must never break dedup
+        pass
+    return str(meta.get("technology_control_name") or "").strip() or stored or cid
+
+
 def _duplicate_receipt(existing: dict, *, reason: str, duplicate_kind: str) -> dict[str, Any]:
+    from modules.frameworks.engines.framework_catalog import resolve_framework_name
+
     meta = dict(existing.get("metadata") or {})
     search_index = dict(existing.get("search_index") or {})
+    # Mirror _control_payload_from_upload/resolve_upload_workflow_target exactly so
+    # the workflow_key computed here is the same key workflow enrollment registers.
+    control_id = str(
+        existing.get("control") or meta.get("control_id") or meta.get("query_id") or "CTRL-001"
+    )
+    framework_tags = list(existing.get("framework_tags") or [])
+    framework = resolve_framework_name(
+        framework_tags[0]
+        if framework_tags
+        else str(meta.get("framework") or existing.get("framework") or "") or "Cross-Framework"
+    )
+    control_name = resolve_control_title(control_id, metadata=meta)
+    # Write the resolved title back onto the record: enrollment reads control_name
+    # off this same metadata, so repairing it here keeps a pre-fix record's receipt
+    # and its queue row on one key instead of two.
+    meta["control_name"] = control_name
+    existing["metadata"] = meta
     return {
         "status": "DUPLICATE",
         "duplicate": True,
@@ -193,6 +237,12 @@ def _duplicate_receipt(existing: dict, *, reason: str, duplicate_kind: str) -> d
         "filename": existing.get("filename", ""),
         "custody_mode": existing.get("custody_mode", ""),
         "workflow_status": existing.get("workflow_status") or existing.get("status") or "",
+        # Always present, on every branch — the success path guarantees these and
+        # callers (evidence review, resubmission) read them without a .get().
+        "framework": framework,
+        "control_name": control_name,
+        "control_id": control_id,
+        "workflow_key": ecs_state.control_key(framework, control_name),
         "evidence_persisted": False,
         "embedding_skipped": True,
         "search_index": {
@@ -373,29 +423,22 @@ def publish_predefined_query_evidence(
         if dup_canonical_id:
             dup_evidence.evidence_id = dup_canonical_id
         store_predefined_evidence(dup_evidence)
+        # _duplicate_receipt now resolves framework/control_name/workflow_key itself
+        # (and repairs `existing`'s metadata), so this call still enrolls the
+        # deduplicated evidence into the owner queue but no longer has to backfill
+        # the receipt — it only refreshes what enrollment alone knows.
         receipt = _duplicate_receipt(existing, reason=reason, duplicate_kind=duplicate_kind)
-        # The success path always returns framework/control_name/workflow_key
-        # (callers like the evidence-review workflow and resubmission rely on
-        # them being present) — mirror that here so a durable-dedup hit doesn't
-        # KeyError downstream just because it skipped a fresh publish.
         from modules.shared.services.evidence_workflow_engine import enroll_collected_evidence
 
-        enrollment = None
         try:
             enrollment = enroll_collected_evidence(existing, source_type="predefined_query")
         except Exception:  # noqa: BLE001 - dedup receipt must never fail on this
             enrollment = None
         if enrollment:
-            receipt.update({
-                "workflow_key": enrollment["key"],
-                "framework": enrollment["framework"],
-                "control_name": enrollment["control_name"],
-                "evidence_version": enrollment.get("evidence_version", receipt["evidence_version"]),
-                "workflow_status": enrollment.get("status", receipt["workflow_status"]),
-            })
-        else:
-            receipt.setdefault("framework", primary_fw)
-            receipt.setdefault("control_name", control.get("control_name") or control_id)
+            receipt["evidence_version"] = enrollment.get(
+                "evidence_version", receipt["evidence_version"]
+            )
+            receipt["workflow_status"] = enrollment.get("status", receipt["workflow_status"])
         return receipt
 
     object_key = artifact_object_key(
@@ -419,6 +462,13 @@ def publish_predefined_query_evidence(
         "collection_source": "predefined_query",
         "source_name": f"Predefined Query {control_id}",
         "query_id": control_id,
+        # Workflow enrollment reads control_name off the upload metadata
+        # (_control_payload_from_upload); without it the owner queue falls back
+        # to the control id and the row renders as "ASX-001 ASX-001". Resolve
+        # through the catalog so a caller that omits control_name still lands a
+        # title here rather than seeding another id-only record.
+        "control_name": control.get("control_name")
+        or resolve_control_title(control_id),
         "technology": technology,
         "object_key": object_key,
         "content_sha256": content_hash,

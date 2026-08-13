@@ -151,7 +151,11 @@ def role_dashboard_metrics(role: str) -> dict:
     wq = work_queue_summary()
     pending_approvals = t["submitted"]
     if role == "auditor":
-        auditor_q = len(build_auditor_review_queue())
+        # Same explicit limit as the owner branch below. The auditor queue is 76
+        # today so the default of 80 has not truncated yet, but this tile renders
+        # on the same screen as the queue's own count — pin the limit before the
+        # backlog crosses 80 and the two silently disagree.
+        auditor_q = len(build_auditor_review_queue(limit=500))
         return {
             "title": "Auditor Queue",
             "show_strip": True,
@@ -160,7 +164,10 @@ def role_dashboard_metrics(role: str) -> dict:
             "summary": "",
         }
     if role == "owner":
-        owner_q = len(build_owner_work_queue())
+        # Explicit limit (matches app/main.py's /dashboard call): the default of 80
+        # under-reports against the real 325+ backlog, and this tile renders on the
+        # same screen as the queue's own "N open" badge — they must not disagree.
+        owner_q = len(build_owner_work_queue(limit=500))
         try:
             apps_owned = len(ecs_state.onboarded_applications)
         except Exception:

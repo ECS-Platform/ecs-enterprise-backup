@@ -898,7 +898,10 @@ def dashboard(
         "notice": notice,
         "rejected_controls": rejected_controls,
         "owner_work_queue": owner_queue,
-        "auditor_review_queue": build_auditor_review_queue() if role == "auditor" else [],
+        # Explicit limit mirrors the owner queue above (and demo_metrics'
+        # role_dashboard_metrics): the default of 80 would truncate this queue
+        # while the summary tile counts the untruncated set.
+        "auditor_review_queue": build_auditor_review_queue(limit=500) if role == "auditor" else [],
         "closed_observations_queue": build_closed_observations_queue() if role == "auditor" else [],
         "work_queue_summary": work_queue_summary(),
     }

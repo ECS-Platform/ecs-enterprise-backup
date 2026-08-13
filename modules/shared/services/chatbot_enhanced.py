@@ -267,7 +267,10 @@ def try_enhanced_answer(query: str, role: str = "owner", user: str = "User") -> 
     if ("app owner" in q or "my pending" in q or "my actions" in q) and (
         "pending" in q or "action" in q or "queue" in q or "task" in q
     ):
-        owner_q = build_owner_work_queue()
+        # Explicit limit like the sibling handler below: the default of 80 truncates
+        # the real 325+ backlog, so both the count and the action-type breakdown
+        # would silently disagree with the Pending Actions queue on screen.
+        owner_q = build_owner_work_queue(limit=500)
         types: dict[str, int] = {}
         for item in owner_q:
             types[item["action_type"]] = types.get(item["action_type"], 0) + 1

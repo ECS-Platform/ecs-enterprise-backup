@@ -58,6 +58,10 @@
 <div class="tab-content ecs-persona-tab-content">
 
 <div class="tab-pane fade show active ecs-persona-tab-pane" id="tab-overview" role="tabpanel">
+{# UC4: surface the "Application Owner Summary" strip that role_dashboard_metrics
+   has always populated for role=='owner' but that this dashboard never rendered.
+   Owner-only on purpose — the auditor path is left exactly as it was. #}
+{% if role == 'owner' %}{% include "partials/role_metrics_strip.html" %}{% endif %}
 {% if evidence_workflow is defined %}{{ workflow_counter_strip(evidence_workflow.summary, enterprise_drill=true) }}{% endif %}
 {% if evidence_workflow is defined %}{{ workflow_analytics_cards(evidence_workflow.analytics, enterprise_drill=true) }}{% endif %}
 {{ zone_open('top') }}
