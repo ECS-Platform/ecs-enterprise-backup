@@ -95,7 +95,13 @@ def drill_row(
     framework: str = "",
 ) -> dict[str, Any]:
     body = drill_universal_row(page, row_type, row_id, role=role, framework=framework)
-    return _attach_trace(body, metric=row_type, page=page, label=row_id, count=len(body.get("rows", [])), framework=framework, role=role)
+    # The trace seed is derived from (metric, page, framework, count). Passing the
+    # bare row_type made every row on a page seed identically, so each record's
+    # modal showed the same formula, readiness and contributors. Fold the row
+    # identity into the metric so the trace varies per record. ``label`` still
+    # drives the displayed metric name, so headings are unchanged.
+    trace_metric = f"{row_type}:{row_id}" if row_id else row_type
+    return _attach_trace(body, metric=trace_metric, page=page, label=row_id, count=len(body.get("rows", [])), framework=framework, role=role)
 
 
 def drill_chart(

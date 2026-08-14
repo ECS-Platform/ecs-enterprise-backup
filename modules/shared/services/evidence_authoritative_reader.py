@@ -289,6 +289,11 @@ def collect_authoritative_evidence_rows(*, latest_only: bool = True) -> list[dic
             "mime_type",
             "source_url",
             "source_connector",
+            # Ops upload records carry framework_tags/application_tags but never a
+            # flat ``tags`` list — that only exists on the audit artifact. Without
+            # this the merged row drops tags entirely and the repository detail
+            # modal renders an empty Tags field for every manual/bulk upload.
+            "tags",
         ):
             if not merged.get(key) and art_row.get(key):
                 merged[key] = art_row[key]

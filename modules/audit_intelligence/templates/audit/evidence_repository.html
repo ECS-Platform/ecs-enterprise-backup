@@ -85,7 +85,20 @@
 
   function formatValue(value) {
     if (value === null || value === undefined || value === "") return "—";
+    if (Array.isArray(value)) {
+      if (!value.length) return "—";
+      // Tag/framework lists are short strings — render them readably instead of
+      // as a raw JSON block.
+      if (value.every(function (v) { return typeof v !== "object"; })) {
+        return value.map(function (v) {
+          return "<span class=\"badge bg-light text-dark border me-1\">" + esc(v) + "</span>";
+        }).join("");
+      }
+      return "<pre class=\"mb-0 small text-wrap\">" +
+        esc(JSON.stringify(value, null, 2)) + "</pre>";
+    }
     if (typeof value === "object") {
+      if (!Object.keys(value).length) return "—";
       return "<pre class=\"mb-0 small text-wrap\">" +
         esc(JSON.stringify(value, null, 2)) + "</pre>";
     }
@@ -186,7 +199,14 @@
       html += detailRow("Checksum / SHA256", checksum);
       html += detailRow("Collected", collected);
       html += detailRow("Verdict", first(latest, ["verdict"]));
-      html += detailRow("Tags", first(latest, ["tags"]));
+      html += detailRow("Tags", first(latest, ["tags"]) || first(metadata, ["tags"]));
+      // Control-mapping metadata written by _enrich_fcm_mappings at upload time.
+      // Surfaced as first-class rows so the mapping is legible without reading
+      // the raw metadata blob below.
+      html += detailRow("FCM control", first(metadata, ["fcm_control_id"]));
+      html += detailRow("Policy refs", first(metadata, ["policy_refs"]));
+      html += detailRow("Procedure IDs", first(metadata, ["procedure_ids"]));
+      html += detailRow("Evidence requirement IDs", first(metadata, ["evidence_requirement_ids"]));
       html += detailRow("Metadata", metadata);
 
       html += "</table></div>";

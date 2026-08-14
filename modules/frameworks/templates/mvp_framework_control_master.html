@@ -81,7 +81,12 @@
 <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#fcm-procedures" type="button">Procedures ({{ sel.stats.procedure_count }})</button></li>
 <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#fcm-evidence" type="button">Evidence ({{ sel.stats.evidence_requirement_count }})</button></li>
 </ul>
-<div class="tab-content">
+{# data-ecs-no-drill: these tables carry real catalogue records with their own
+   per-control Detail action. Without the opt-out, ecs_pagination adds
+   .ecs-paginated-table once a table passes 5 rows, drilldown_engine.js then
+   auto-wires every row/badge to the generated universal drill, and every click
+   opens the same fabricated modal. #}
+<div class="tab-content" data-ecs-no-drill>
 <div class="tab-pane fade show active" id="fcm-policies">
 <div class="table-responsive">
 <table class="table table-sm table-hover mb-0">
@@ -151,7 +156,7 @@
 {% if fcm.search_query and fcm.search_results %}
 <div class="card shadow-sm mt-2">
 <div class="card-header py-2"><strong class="small">Search Results — "{{ fcm.search_query }}" ({{ fcm.search_results|length }})</strong></div>
-<div class="card-body py-2">
+<div class="card-body py-2" data-ecs-no-drill>
 <div class="table-responsive">
 <table class="table table-sm mb-0">
 <thead><tr><th>Framework</th><th>Control</th><th>Domain</th></tr></thead>
@@ -181,6 +186,12 @@
     btn.addEventListener('click', function () {
       var fw = btn.getAttribute('data-fw');
       var control = btn.getAttribute('data-control');
+      // The detail card renders below the tab table, so on a long catalogue the
+      // update lands off-screen and the button reads as unresponsive. Reveal it
+      // immediately with a pending state, then scroll it into view.
+      body.innerHTML = '<p class="small text-muted mb-0">Loading ' + esc(control) + '…</p>';
+      detail.classList.remove('d-none');
+      detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       fetch('/api/framework-control-master/controls/' + encodeURIComponent(fw) + '/' + encodeURIComponent(control))
         .then(function (r) { return r.json(); })
         .then(function (payload) {
@@ -196,6 +207,13 @@
             '<p class="small">' + esc(c.description) + '</p>' +
             '<p class="small"><strong>Procedures</strong></p><ul class="small">' + procs + '</ul>' +
             '<p class="small"><strong>Evidence Requirements</strong></p><ul class="small">' + evs + '</ul>';
+          detail.classList.remove('d-none');
+        })
+        .catch(function () {
+          // Without this the request failing left the card stuck on its previous
+          // content with no signal to the user.
+          body.innerHTML = '<p class="text-danger small mb-0">Could not load detail for ' +
+            esc(control) + '. Please retry.</p>';
           detail.classList.remove('d-none');
         });
     });

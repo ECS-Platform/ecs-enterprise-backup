@@ -33,7 +33,12 @@ details.ers-dd[open] > summary { border-bottom:1px solid #e2e8f0; }
 {% set s = story %}
 {% set q = '?role=' ~ role ~ '&user=' ~ user %}
 
-<div class="ers-wrap">
+{# data-ecs-no-drill: every table on this page is real server-side data (live
+   workbench results, evidence, reuse rows, readiness, observations). Once
+   ecs_pagination promotes a table past 5 rows, drilldown_engine.js auto-wires
+   its rows to the generated universal drill, which fabricates records unrelated
+   to the row clicked. Opt out for the whole page. #}
+<div class="ers-wrap" data-ecs-no-drill>
 <h1 class="ecs-workspace-title h5 mb-1">Evidence Reuse &amp; Observation Lifecycle</h1>
 <p class="small text-muted mb-2">The complete ECS value chain for the three working controls — DB-001, APP-001, OS-001.</p>
 <div class="ers-flow">
