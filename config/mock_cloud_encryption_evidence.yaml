@@ -1,0 +1,42 @@
+# Mock cloud-control-plane encryption-at-rest evidence (CloudKMS technology).
+#
+# EAR truth for cloud-managed databases (AWS RDS/Aurora KMS, GCP Cloud SQL /
+# persistent-disk CMEK) is not SQL-queryable the way Oracle TDE wallet status
+# is — it lives in the cloud provider's control plane. No live AWS/GCP
+# connector exists in this prototype ("mock config/evidence; no live bank
+# connectivity" per the onboarding use-case spec), so each control_id below
+# returns a fixed, deterministic mock value instead — consumed by
+# modules.operations.engines.predefined_queries_engine.run_cloud_kms_query.
+#
+# One control_id per (cloud provider, technology) combination used by the
+# EAR/EIT demo fixtures — never per application — so this file stays a
+# reusable evidence source, not an app-specific one.
+
+controls:
+  CLE-AWS-AURORA-EAR:
+    provider: AWS
+    resource_type: RDS/Aurora MySQL cluster
+    field: encryption_at_rest_enabled
+    value: true
+    note: "Mock: StorageEncrypted=true, KMS key configured on the Aurora cluster."
+
+  CLE-GCP-POSTGRESQL-EAR:
+    provider: GCP
+    resource_type: Cloud SQL for PostgreSQL instance
+    field: encryption_at_rest_enabled
+    value: true
+    note: "Mock: CMEK disk encryption enabled on the Cloud SQL instance."
+
+  CLE-GCP-YUGABYTE-EAR:
+    provider: GCP
+    resource_type: Persistent disk (self-managed YugabyteDB)
+    field: encryption_at_rest_enabled
+    value: true
+    note: "Mock: Persistent-disk CMEK encryption enabled for the YugabyteDB nodes."
+
+  CLE-GCP-MYSQL-EAR:
+    provider: GCP
+    resource_type: Cloud SQL for MySQL instance
+    field: encryption_at_rest_enabled
+    value: false
+    note: "Mock: Disk encryption uses the Google-managed default key, not CMEK — flagged as not implemented for this control's expectation."

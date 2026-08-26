@@ -1,0 +1,552 @@
+# Common-Control rule pack — config-driven, technology-agnostic.
+#
+# Consumed by modules.operations.engines.common_control_rule_engine. Every rule
+# is: control (slug) + technology (canonical predefined-query technology label)
+# + predefined_query_id (an EXISTING, already-executable Phase-1 predefined
+# query — see config/predefined_query_phase1_registry.yaml) + evidence_field +
+# operator + expected_value + aggregation.
+#
+# No application, bank, or framework name appears anywhere below — this file
+# only maps technologies to controls via evidence fields. Framework relevance
+# is resolved separately through modules.frameworks.services.common_controls_service
+# (FCM domain mapping), so a control implemented here is automatically visible
+# to every framework whose FCM catalogue references its match_domains.
+#
+# A technology with NO rule for a given control is intentionally left out —
+# the engine reports that combination as NOT_APPLICABLE rather than fabricating
+# a rule against a field the query never returns.
+
+version: "2026.1"
+description: >
+  Phase-1 Common Control rule pack — Encryption in Transit, Encryption at Rest,
+  Privileged Access, Password Policy, Audit Logging, Secure Configuration
+  (DB/OS/Middleware baseline), and Patch Compliance, expressed purely over
+  existing predefined-query evidence fields.
+
+defaults:
+  operator: equals
+  aggregation: all
+  severity: medium
+
+# Display name + FCM domain keywords for every control slug used below.
+# Slugs that already exist in the frozen Phase-1 CommonControls catalogue
+# (modules.operations.engines.common_controls_catalog.COMMON_CONTROLS) reuse
+# that catalogue's control_id/name/match_domains instead — this block only
+# supplies the ones the frozen catalogue doesn't carry (e.g. password-policy),
+# so the rule engine never has to guess or hardcode FCM domain keywords.
+controls:
+  password-policy:
+    control_id: CC-PASSWORD_POLICY
+    name: Password Policy
+    match_domains: ["Authentication"]
+
+rules:
+  # ------------------------------------------------------------------ #
+  # Encryption in Transit
+  # ------------------------------------------------------------------ #
+  - id: EIT-PG-SSL
+    control: encryption-in-transit
+    technology: PostgreSQL
+    predefined_query_id: PGX-001
+    evidence_field: ssl
+    operator: equals
+    expected_value: "on"
+    severity: high
+    description: PostgreSQL SSL must be enabled
+
+  - id: EIT-YB-SSL
+    control: encryption-in-transit
+    technology: YugabyteDB
+    predefined_query_id: YBX-008
+    evidence_field: ssl
+    operator: equals
+    expected_value: "on"
+    severity: high
+    description: YugabyteDB (YSQL) SSL must be enabled
+
+  - id: EIT-MYSQL-HAVE-SSL
+    control: encryption-in-transit
+    technology: Aurora MySQL
+    predefined_query_id: MYX-001
+    evidence_field: have_ssl
+    operator: equals
+    expected_value: "YES"
+    severity: high
+    description: Aurora MySQL SSL support must be available
+
+  - id: EIT-MYSQL-REQUIRE-SECURE-TRANSPORT
+    control: encryption-in-transit
+    technology: Aurora MySQL
+    predefined_query_id: MYX-002
+    evidence_field: require_secure_transport
+    operator: equals
+    expected_value: "ON"
+    severity: high
+    description: Aurora MySQL must require secure transport for all connections
+
+  - id: EIT-NGINX-TLS-PROTOCOL
+    control: encryption-in-transit
+    technology: NGINX
+    predefined_query_id: NGX-003
+    evidence_field: output
+    operator: contains
+    expected_value: ["tlsv1.2", "tlsv1.3"]
+    severity: high
+    description: NGINX must offer TLS 1.2 or higher
+
+  - id: EIT-NGINX-NO-WEAK-CIPHERS
+    control: encryption-in-transit
+    technology: NGINX
+    predefined_query_id: NGX-004
+    evidence_field: output
+    operator: not_contains
+    expected_value: ["null", "rc4", "3des", "!eexport", "md5"]
+    severity: medium
+    description: NGINX cipher suite must not include known-weak ciphers
+
+  # MySQL (GCP Cloud SQL for MySQL) — a distinct canonical technology from
+  # Aurora MySQL (AWS-only), so it never shares a verdict with an Aurora
+  # asset. Reuses the EXISTING Aurora MySQL predefined queries (MYX-001/002)
+  # — the query is technology-agnostic MySQL wire protocol, only the rule's
+  # own ``technology`` (used for asset matching, not execution dispatch)
+  # differs.
+  - id: EIT-MYSQL-GENERIC-HAVE-SSL
+    control: encryption-in-transit
+    technology: MySQL
+    predefined_query_id: MYX-001
+    evidence_field: have_ssl
+    operator: equals
+    expected_value: "YES"
+    severity: high
+    description: MySQL (Cloud SQL) SSL support must be available
+
+  - id: EIT-MYSQL-GENERIC-REQUIRE-SECURE-TRANSPORT
+    control: encryption-in-transit
+    technology: MySQL
+    predefined_query_id: MYX-002
+    evidence_field: require_secure_transport
+    operator: equals
+    expected_value: "ON"
+    severity: high
+    description: MySQL (Cloud SQL) must require secure transport for all connections
+
+  # ------------------------------------------------------------------ #
+  # Encryption at Rest
+  #
+  # PostgreSQL/MySQL/Aurora MySQL/YugabyteDB have no queryable TDE-equivalent
+  # PQ (unlike Oracle's wallet/tablespace status) — for cloud-managed
+  # databases, at-rest truth genuinely lives in the cloud provider's control
+  # plane (AWS KMS/RDS StorageEncrypted, GCP CMEK), not a SQL surface. The
+  # CLE-* predefined queries below are a dedicated, permanently-mock
+  # CloudKMS evidence source for exactly that signal (see
+  # modules.operations.engines.predefined_queries_engine.run_cloud_kms_query
+  # and config/mock_cloud_encryption_evidence.yaml) — normalized to the same
+  # equals/expected_value shape as every other rule here, never a hard-coded
+  # verdict.
+  # ------------------------------------------------------------------ #
+  - id: EAR-CLOUD-AURORA-MYSQL
+    control: encryption-at-rest
+    technology: Aurora MySQL
+    predefined_query_id: CLE-AWS-AURORA-EAR
+    evidence_field: encryption_at_rest_enabled
+    operator: equals
+    expected_value: "true"
+    parse: rows
+    severity: critical
+    description: AWS RDS/Aurora MySQL storage-level (KMS) encryption must be enabled
+
+  - id: EAR-CLOUD-POSTGRESQL
+    control: encryption-at-rest
+    technology: PostgreSQL
+    predefined_query_id: CLE-GCP-POSTGRESQL-EAR
+    evidence_field: encryption_at_rest_enabled
+    operator: equals
+    expected_value: "true"
+    parse: rows
+    severity: critical
+    description: GCP Cloud SQL for PostgreSQL disk (CMEK) encryption must be enabled
+
+  - id: EAR-CLOUD-YUGABYTE
+    control: encryption-at-rest
+    technology: YugabyteDB
+    predefined_query_id: CLE-GCP-YUGABYTE-EAR
+    evidence_field: encryption_at_rest_enabled
+    operator: equals
+    expected_value: "true"
+    parse: rows
+    severity: critical
+    description: GCP persistent-disk (CMEK) encryption for self-managed YugabyteDB must be enabled
+
+  - id: EAR-CLOUD-MYSQL
+    control: encryption-at-rest
+    technology: MySQL
+    predefined_query_id: CLE-GCP-MYSQL-EAR
+    evidence_field: encryption_at_rest_enabled
+    operator: equals
+    expected_value: "true"
+    parse: rows
+    severity: critical
+    description: GCP Cloud SQL for MySQL disk (CMEK) encryption must be enabled
+
+  - id: EAR-ORACLE-WALLET-STATUS
+    control: encryption-at-rest
+    technology: Oracle
+    predefined_query_id: DB-004
+    evidence_field: status
+    operator: equals
+    expected_value: "OPEN"
+    severity: critical
+    description: Oracle TDE wallet must be open
+
+  - id: EAR-ORACLE-TABLESPACE-ENCRYPTED
+    control: encryption-at-rest
+    technology: Oracle
+    predefined_query_id: ORX-009
+    evidence_field: encrypted
+    operator: equals
+    expected_value: "YES"
+    aggregation: all
+    severity: critical
+    description: Every Oracle tablespace must be encrypted
+
+  # ------------------------------------------------------------------ #
+  # Password Policy
+  # (PostgreSQL/YugabyteDB expose a queryable hashing-scheme setting;
+  #  Aurora MySQL/MySQL expose per-account authentication plugin via the
+  #  EXISTING MYX-005 (Aurora MySQL Users) query — reused here, not a new PQ;
+  #  Oracle has no Phase-1 PQ for password complexity/expiry — see gap report.)
+  # ------------------------------------------------------------------ #
+  - id: PWD-PG-ENCRYPTION-SCHEME
+    control: password-policy
+    technology: PostgreSQL
+    predefined_query_id: PGX-002
+    evidence_field: password_encryption
+    operator: equals
+    expected_value: "scram-sha-256"
+    severity: high
+    description: PostgreSQL must hash passwords with SCRAM-SHA-256 (not MD5)
+
+  - id: PWD-YB-ENCRYPTION-SCHEME
+    control: password-policy
+    technology: YugabyteDB
+    predefined_query_id: YBX-008
+    evidence_field: password_encryption
+    operator: equals
+    expected_value: "scram-sha-256"
+    severity: high
+    description: YugabyteDB must hash passwords with SCRAM-SHA-256 (not MD5)
+
+  - id: PWD-MYSQL-AUTH-PLUGIN
+    control: password-policy
+    technology: Aurora MySQL
+    predefined_query_id: MYX-005
+    evidence_field: plugin
+    operator: not_equals
+    expected_value: "mysql_native_password"
+    aggregation: all
+    severity: high
+    description: Aurora MySQL accounts must not use the legacy mysql_native_password authentication plugin (weak hashing)
+
+  - id: PWD-MYSQL-GENERIC-AUTH-PLUGIN
+    control: password-policy
+    technology: MySQL
+    predefined_query_id: MYX-005
+    evidence_field: plugin
+    operator: not_equals
+    expected_value: "mysql_native_password"
+    aggregation: all
+    severity: high
+    description: MySQL (Cloud SQL) accounts must not use the legacy mysql_native_password authentication plugin (weak hashing)
+
+  # ------------------------------------------------------------------ #
+  # Privileged Access
+  # ------------------------------------------------------------------ #
+  - id: PRIV-PG-ROLE-REVIEW
+    control: identity-privileged-access
+    technology: PostgreSQL
+    predefined_query_id: PGX-004
+    evidence_field: row_count
+    operator: gte
+    expected_value: 1
+    severity: medium
+    description: PostgreSQL role/privilege inventory must be retrievable for review
+
+  - id: PRIV-YB-ROLE-REVIEW
+    control: identity-privileged-access
+    technology: YugabyteDB
+    predefined_query_id: YBX-004
+    evidence_field: row_count
+    operator: gte
+    expected_value: 1
+    severity: medium
+    description: YugabyteDB role/privilege inventory must be retrievable for review
+
+  - id: PRIV-MYSQL-GRANTS-REVIEW
+    control: identity-privileged-access
+    technology: Aurora MySQL
+    predefined_query_id: MYX-009
+    evidence_field: row_count
+    operator: gte
+    expected_value: 1
+    severity: medium
+    description: Aurora MySQL grants summary must be retrievable for review
+
+  - id: PRIV-ORACLE-ACCOUNT-STATUS
+    control: identity-privileged-access
+    technology: Oracle
+    predefined_query_id: ORX-006
+    evidence_field: account_status
+    operator: not_equals
+    expected_value: "EXPIRED"
+    aggregation: all
+    severity: high
+    description: No privileged Oracle account (SYS/SYSTEM) may be left EXPIRED / unreviewed
+
+  - id: PRIV-LINUX-SUDOERS-NO-NOPASSWD
+    control: identity-privileged-access
+    technology: Linux
+    predefined_query_id: LNX-007
+    evidence_field: output
+    operator: not_contains
+    expected_value: "nopasswd"
+    severity: high
+    description: sudoers must not grant password-less privilege escalation
+
+  - id: PRIV-LINUX-LOCAL-USER-INVENTORY
+    control: identity-privileged-access
+    technology: Linux
+    predefined_query_id: LNX-008
+    evidence_field: line_count
+    operator: gte
+    expected_value: 1
+    severity: low
+    description: Linux local-account inventory must be retrievable for review
+
+  # ------------------------------------------------------------------ #
+  # Audit Logging
+  # ------------------------------------------------------------------ #
+  - id: AUDIT-PG-EXTENSION
+    control: audit-logging
+    technology: PostgreSQL
+    predefined_query_id: PGX-008
+    evidence_field: row_count
+    operator: gte
+    expected_value: 1
+    severity: high
+    description: pgaudit extension must be installed
+
+  - id: AUDIT-PG-LOG-CONNECTIONS
+    control: audit-logging
+    technology: PostgreSQL
+    predefined_query_id: PGX-013
+    evidence_field: log_connections
+    operator: equals
+    expected_value: "on"
+    severity: medium
+    description: PostgreSQL must log connection events
+
+  - id: AUDIT-PG-LOG-STATEMENT
+    control: audit-logging
+    technology: PostgreSQL
+    predefined_query_id: PGX-013
+    evidence_field: log_statement
+    operator: not_equals
+    expected_value: "none"
+    severity: medium
+    description: PostgreSQL statement logging must not be disabled
+
+  - id: AUDIT-YB-LOG-CONNECTIONS
+    control: audit-logging
+    technology: YugabyteDB
+    predefined_query_id: YBX-011
+    evidence_field: log_connections
+    operator: equals
+    expected_value: "on"
+    severity: medium
+    description: YugabyteDB must log connection events
+
+  - id: AUDIT-MYSQL-BINLOG
+    control: audit-logging
+    technology: Aurora MySQL
+    predefined_query_id: MYX-003
+    evidence_field: log_bin
+    operator: equals
+    expected_value: "ON"
+    severity: medium
+    description: Aurora MySQL binary logging must be enabled
+
+  - id: AUDIT-MYSQL-SERVER-AUDIT
+    control: audit-logging
+    technology: Aurora MySQL
+    predefined_query_id: MYX-004
+    evidence_field: server_audit_logging
+    operator: equals
+    expected_value: "ON"
+    severity: high
+    description: Aurora MySQL server_audit plugin logging must be enabled
+
+  - id: AUDIT-ORACLE-TRAIL
+    control: audit-logging
+    technology: Oracle
+    predefined_query_id: ORX-004
+    evidence_field: audit_trail
+    operator: not_equals
+    expected_value: "NONE"
+    severity: high
+    description: Oracle audit_trail must not be disabled
+
+  - id: AUDIT-RH8-AUDITD
+    control: audit-logging
+    technology: Red Hat Enterprise Linux 8.x
+    predefined_query_id: RH8-005
+    evidence_field: output
+    operator: contains
+    expected_value: "active"
+    severity: high
+    description: RHEL 8 auditd service must be active
+
+  - id: AUDIT-RH9-AUDITD
+    control: audit-logging
+    technology: Red Hat Enterprise Linux 9.x
+    predefined_query_id: RH9-005
+    evidence_field: output
+    operator: contains
+    expected_value: "active"
+    severity: high
+    description: RHEL 9 auditd service must be active
+
+  - id: AUDIT-NGINX-ACCESS-LOG
+    control: audit-logging
+    technology: NGINX
+    predefined_query_id: NGX-006
+    evidence_field: output
+    operator: contains
+    expected_value: "access_log"
+    severity: low
+    description: NGINX access logging must be configured
+
+  # ------------------------------------------------------------------ #
+  # Secure Configuration — DB / OS / Middleware Baseline
+  # ------------------------------------------------------------------ #
+  - id: BASELINE-LINUX-NO-ROOT-SSH
+    control: secure-configuration
+    technology: Linux
+    predefined_query_id: LNX-005
+    evidence_field: output
+    operator: contains
+    expected_value: "permitrootlogin no"
+    severity: high
+    description: SSH root login must be disabled
+
+  - id: BASELINE-LINUX-NO-PASSWORD-AUTH
+    control: secure-configuration
+    technology: Linux
+    predefined_query_id: LNX-006
+    evidence_field: output
+    operator: contains
+    expected_value: "passwordauthentication no"
+    severity: medium
+    description: SSH password authentication must be disabled in favour of keys
+
+  - id: BASELINE-RH8-NO-ROOT-SSH
+    control: secure-configuration
+    technology: Red Hat Enterprise Linux 8.x
+    predefined_query_id: RH8-006
+    evidence_field: output
+    operator: contains
+    expected_value: "permitrootlogin no"
+    severity: high
+    description: RHEL 8 SSH root login must be disabled
+
+  - id: BASELINE-RH8-NO-PASSWORD-AUTH
+    control: secure-configuration
+    technology: Red Hat Enterprise Linux 8.x
+    predefined_query_id: RH8-007
+    evidence_field: output
+    operator: contains
+    expected_value: "passwordauthentication no"
+    severity: medium
+    description: RHEL 8 SSH password authentication must be disabled
+
+  - id: BASELINE-RH8-FIREWALLD
+    control: secure-configuration
+    technology: Red Hat Enterprise Linux 8.x
+    predefined_query_id: RH8-004
+    evidence_field: output
+    operator: contains
+    expected_value: "active"
+    severity: medium
+    description: RHEL 8 firewalld must be active
+
+  - id: BASELINE-RH9-NO-ROOT-SSH
+    control: secure-configuration
+    technology: Red Hat Enterprise Linux 9.x
+    predefined_query_id: RH9-006
+    evidence_field: output
+    operator: contains
+    expected_value: "permitrootlogin no"
+    severity: high
+    description: RHEL 9 SSH root login must be disabled
+
+  - id: BASELINE-RH9-NO-PASSWORD-AUTH
+    control: secure-configuration
+    technology: Red Hat Enterprise Linux 9.x
+    predefined_query_id: RH9-007
+    evidence_field: output
+    operator: contains
+    expected_value: "passwordauthentication no"
+    severity: medium
+    description: RHEL 9 SSH password authentication must be disabled
+
+  - id: BASELINE-RH9-FIREWALLD
+    control: secure-configuration
+    technology: Red Hat Enterprise Linux 9.x
+    predefined_query_id: RH9-004
+    evidence_field: output
+    operator: contains
+    expected_value: "active"
+    severity: medium
+    description: RHEL 9 firewalld must be active
+
+  - id: BASELINE-NGINX-SERVER-TOKENS
+    control: secure-configuration
+    technology: NGINX
+    predefined_query_id: NGX-005
+    evidence_field: output
+    operator: contains
+    expected_value: "server_tokens off"
+    severity: low
+    description: NGINX must not disclose version info via server_tokens
+
+  - id: BASELINE-TOMCAT-NO-DEFAULT-CREDENTIAL
+    control: secure-configuration
+    technology: Tomcat
+    predefined_query_id: MW-003
+    evidence_field: output
+    operator: not_contains
+    expected_value: 'password="tomcat"'
+    severity: critical
+    description: Tomcat must not ship with the default admin/tomcat credential
+
+  # ------------------------------------------------------------------ #
+  # Patch Compliance (executable Phase-1 PQs only)
+  # ------------------------------------------------------------------ #
+  - id: PATCH-LINUX-PENDING-UPDATES
+    control: vulnerability-patch
+    technology: Linux
+    predefined_query_id: OS-001
+    evidence_field: line_count
+    operator: lte
+    expected_value: 1
+    severity: high
+    description: No security-relevant packages should be pending update
+
+  - id: PATCH-RH8-SECURITY-UPDATES-TRACKED
+    control: vulnerability-patch
+    technology: Red Hat Enterprise Linux 8.x
+    predefined_query_id: RH8-008
+    evidence_field: line_count
+    operator: gte
+    expected_value: 1
+    severity: medium
+    description: RHEL 8 installed security-update history must be retrievable
