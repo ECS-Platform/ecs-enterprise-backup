@@ -8,20 +8,31 @@
 {% from "partials/mvp_workspace_macros.html" import workspace_exec_strip, workspace_filters, workspace_tab_nav, workspace_pane, workspace_pane_end %}
 {% from "partials/mvp_module_actions.html" import module_action %}
 {{ workspace_exec_strip(module_view) }}
+<div id="ecsOnboardFilterBarWrap">
 {{ workspace_filters(workspace, role, user) }}
 <p class="small text-muted mb-2" id="ecsOpsFilterSummary">Loading filtered onboarding data…</p>
+</div>
 {{ workspace_tab_nav(workspace) }}
+<script>
+(function(){
+  function syncOnboardFilterBar() {
+    var wrap = document.getElementById('ecsOnboardFilterBarWrap');
+    var overview = document.querySelector('.ecs-workspace-pane[data-workspace-pane="overview"]');
+    if (!wrap) return;
+    wrap.style.display = (overview && overview.classList.contains('is-active')) ? 'none' : '';
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    syncOnboardFilterBar();
+    document.querySelectorAll('.ecs-workspace-tab, .ecs-workspace-tab-select').forEach(function(el) {
+      el.addEventListener('click', syncOnboardFilterBar);
+      el.addEventListener('change', syncOnboardFilterBar);
+    });
+  });
+})();
+</script>
 
 {{ workspace_pane('overview', true) }}
 {% include "partials/onboarding_simulator.html" %}
-<div class="ecs-ws-metric-row mb-2">{% for stage in module_view.stages %}<span class="ecs-timeline-badge">{{ stage }}</span>{% endfor %}</div>
-{% if module_view.pipelines|default([])|length %}
-<h6 class="small text-muted text-uppercase mb-1">Recent Onboarding Summary</h6>
-<div class="ecs-ws-metric-row">
-<span><strong>{{ module_view.pipelines[0].controls_onboarded }}</strong> controls onboarded</span>
-<span><strong>{{ module_view.pipelines[0].evidence_sources }}</strong> evidence sources</span>
-<span><strong>{{ module_view.pipelines[0].compliance_readiness_pct }}%</strong> readiness</span>
-</div>{% endif %}
 {{ workspace_pane_end() }}
 
 {{ workspace_pane('applications', false) }}

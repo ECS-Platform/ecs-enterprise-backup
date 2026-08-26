@@ -82,11 +82,27 @@
 </div>
 <div class="col-md-3 col-lg-2">
 <label class="form-label ecs-ws-filter-lbl mb-0">Database Technology</label>
-<input type="text" name="database_technology" class="form-control form-control-sm" placeholder="Oracle / PostgreSQL">
+<input type="text" name="database_technology" class="form-control form-control-sm"
+  list="ecsOnboardDbTechSuggestions" placeholder="e.g. PostgreSQL">
+<datalist id="ecsOnboardDbTechSuggestions">
+{% for tech in module_view.database_technology_suggestions|default([]) %}
+<option value="{{ tech }}">
+{% endfor %}
+</datalist>
 </div>
 <div class="col-md-3 col-lg-2">
 <label class="form-label ecs-ws-filter-lbl mb-0">Middleware Technology</label>
 <input type="text" name="middleware_technology" class="form-control form-control-sm" placeholder="WebLogic / Tomcat">
+</div>
+<div class="col-md-3 col-lg-2">
+<label class="form-label ecs-ws-filter-lbl mb-0">OS / Linux Technology</label>
+<input type="text" name="os_technology" class="form-control form-control-sm"
+  list="ecsOnboardOsTechSuggestions" placeholder="e.g. RHEL 8">
+<datalist id="ecsOnboardOsTechSuggestions">
+{% for tech in module_view.os_technology_suggestions|default([]) %}
+<option value="{{ tech }}">
+{% endfor %}
+</datalist>
 </div>
 <div class="col-md-3 col-lg-2">
 <label class="form-label ecs-ws-filter-lbl mb-0">Object Storage Location</label>
@@ -98,40 +114,10 @@
 </div>
 <div class="col-12 d-flex align-items-end gap-2 flex-wrap mt-1">
 <button type="button" class="btn btn-primary btn-sm" id="ecsOnboardStartBtn">Start Application Onboarding</button>
-<button type="button" class="btn btn-outline-secondary btn-sm" data-onboard-wizard>Wizard</button>
 </div>
 </div>
 <p class="small text-muted mb-0 mt-2">Uses existing ECS onboarding simulator and repositories. CMDB/object-storage steps are labeled <em>simulated</em> unless ServiceNow CMDB is configured — no live bank network scan.</p>
 </form>
-</div></div>
-
-{# Application Onboarder scheduler — reuses onboarding engine batch runner #}
-{% set ob = module_view.onboarder|default({}) %}
-{% set obs = ob.summary|default({}) %}
-<div class="card shadow-sm mb-3" id="ecsOnboarderScheduler">
-<div class="card-body py-3">
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-<div>
-<h6 class="text-uppercase text-muted small mb-1">Run Application Onboarder</h6>
-<p class="small text-muted mb-0" id="ecsOnboarderDisclaimer">{{ ob.disclaimer|default('Deterministic demo queue.') }}</p>
-</div>
-<button type="button" class="btn btn-outline-primary btn-sm" id="ecsOnboarderRunBtn">Run Application Onboarder</button>
-</div>
-<div class="row g-2 mb-2 text-center">
-<div class="col"><div class="border rounded p-2"><div class="small text-muted">Total</div><div class="fw-bold" id="ecsObTotal">{{ obs.total_applications|default('—') }}</div></div></div>
-<div class="col"><div class="border rounded p-2"><div class="small text-muted">Completed</div><div class="fw-bold text-success" id="ecsObCompleted">{{ obs.completed|default('—') }}</div></div></div>
-<div class="col"><div class="border rounded p-2"><div class="small text-muted">Running</div><div class="fw-bold text-primary" id="ecsObRunning">{{ obs.running|default('—') }}</div></div></div>
-<div class="col"><div class="border rounded p-2"><div class="small text-muted">Failed</div><div class="fw-bold text-danger" id="ecsObFailed">{{ obs.failed|default('—') }}</div></div></div>
-<div class="col"><div class="border rounded p-2"><div class="small text-muted">Remaining</div><div class="fw-bold" id="ecsObRemaining">{{ obs.remaining|default('—') }}</div></div></div>
-</div>
-<div class="table-responsive ecs-fit-view">
-<table class="table table-sm table-bordered ecs-compact-table mb-0"><thead><tr>
-<th>Application</th><th>Status</th><th>Progress</th><th>Stage</th><th>Owner</th>
-</tr></thead><tbody id="ecsOnboarderAppBody">
-{% for a in ob.applications|default([]) %}
-<tr><td><strong>{{ a.application }}</strong></td><td>{{ a.status }}</td><td>{{ a.progress_pct }}%</td><td class="small">{{ a.stage }}</td><td class="small">{{ a.owner }}</td></tr>
-{% endfor %}
-</tbody></table></div>
 </div></div>
 
 <script type="application/json" id="ecsOnboardProgressSteps">{{ module_view.progress_steps|default([])|tojson }}</script>
@@ -174,10 +160,19 @@
 <button type="button" class="btn btn-outline-primary btn-sm" id="ecsOnboardExportBtn">Export Onboarding Package</button>
 <button type="button" class="btn btn-outline-secondary btn-sm" id="ecsOnboardEvidenceBtn">Trigger Evidence Collection</button>
 <button type="button" class="btn btn-outline-secondary btn-sm" id="ecsOnboardScanBtn">Schedule Baseline Scan</button>
+<button type="button" class="btn btn-outline-secondary btn-sm" id="ecsOnboardRecheckBtn">
+<span class="ecs-onboard-spinner me-1 d-none" id="ecsOnboardRecheckSpinner" aria-hidden="true"></span><span id="ecsOnboardRecheckLabel">Re-run Control Check</span>
+</button>
 </div>
 </div>
+<p class="small text-muted mb-2" id="ecsOnboardRecheckStatus"></p>
 
 <div class="row g-2 mb-3" id="ecsOnboardKpiRow"></div>
+
+<div class="card shadow-sm mb-3 d-none" id="ecsOnboardCceVerdictsCard">
+<div class="card-header py-2"><strong class="small">Common Control Engine Verdicts</strong></div>
+<ul class="list-group list-group-flush small" id="ecsOnboardCceVerdictsList"></ul>
+</div>
 
 <div class="card shadow-sm mb-3">
 <div class="card-header py-2"><strong class="small">Framework Onboarding Analysis</strong></div>
@@ -193,10 +188,10 @@
 <div class="row g-2 mb-3">
 <div class="col-lg-7">
 <div class="card shadow-sm h-100">
-<div class="card-header py-2"><strong class="small">Discovered Controls</strong></div>
+<div class="card-header py-2"><strong class="small">Framework Controls</strong></div>
 <div class="table-responsive ecs-fit-view" style="max-height:280px;overflow-y:auto">
-<table class="table table-sm table-bordered ecs-fit-table ecs-compact-table mb-0">
-<thead><tr><th>Control</th><th>Framework</th><th>State</th><th>Evidence</th><th>Source</th></tr></thead>
+<table class="table table-sm table-bordered ecs-fit-table ecs-compact-table ecs-skip-exec-table mb-0">
+<thead><tr><th style="width:190px">Control</th><th style="width:140px">Framework</th><th style="width:120px">State</th><th style="width:100px">Evidence</th><th style="width:160px">Integration</th></tr></thead>
 <tbody id="ecsOnboardControlsTable"></tbody>
 </table>
 </div></div></div>
@@ -204,14 +199,6 @@
 <div class="card shadow-sm mb-2">
 <div class="card-header py-2"><strong class="small">Evidence Source Registration</strong></div>
 <ul class="list-group list-group-flush small" id="ecsOnboardSourcesList"></ul>
-</div>
-<div class="card shadow-sm mb-2">
-<div class="card-header py-2"><strong class="small">Immediate Onboarding Gaps</strong></div>
-<ul class="list-group list-group-flush small" id="ecsOnboardGapsList"></ul>
-</div>
-<div class="card shadow-sm ecs-onboard-copilot">
-<div class="card-header py-2"><strong class="small">AI Copilot Insights</strong></div>
-<div class="card-body py-2 small" id="ecsOnboardCopilot"></div>
 </div>
 </div>
 </div>
@@ -242,6 +229,7 @@
   var stepModes = [];
   var STEP_MS = 750;
   var lastResult = null;
+  var lastPayload = null;
   var workflowModal = null;
   var renderedFw = {};
   var elapsedTimer = null;
@@ -310,6 +298,70 @@
     result.framework_results.forEach(function(_, i) { renderFrameworkScan(result, i); });
   }
 
+  var CC_VERDICT_BADGE = {
+    IMPLEMENTED: 'success', NOT_IMPLEMENTED: 'danger', PARTIAL: 'warning text-dark',
+    UNKNOWN: 'secondary', NOT_APPLICABLE: 'primary'
+  };
+
+  function escAttr(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  function renderKpiRow(kpis, ce) {
+    var kpiDefs = [
+      ['Frameworks', kpis.frameworks_onboarded, 'primary'],
+      ['Controls Discovered', kpis.controls_discovered, 'info'],
+      ['Implemented', kpis.controls_implemented, 'success'],
+      ['Missing', kpis.controls_missing, 'warning'],
+      ['Failed Validations', kpis.failed_validations, 'danger'],
+      ['Reusable Mappings', kpis.reusable_evidence_mappings, 'secondary'],
+      ['Readiness Score', kpis.readiness_score + '%', 'primary'],
+      ['CC Implemented', (ce && ce.implemented || []).length, 'success'],
+      ['CC Partial', (ce && ce.partial || []).length, 'warning'],
+      ['CC Not Implemented', (ce && ce.not_implemented || []).length, 'danger'],
+      ['CC Unknown', (ce && ce.unknown || []).length, 'secondary'],
+      ['CC Not Applicable', (ce && ce.not_applicable || []).length, 'primary']
+    ];
+    document.getElementById('ecsOnboardKpiRow').innerHTML = kpiDefs.map(function(k) {
+      return '<div class="col-6 col-md-4 col-lg"><div class="ecs-onboard-kpi ecs-onboard-kpi-' + k[2] + '">' +
+        '<div class="ecs-onboard-kpi-val">' + k[1] + '</div><div class="ecs-onboard-kpi-lbl">' + k[0] + '</div></div></div>';
+    }).join('');
+  }
+
+  function renderCceVerdicts(ce) {
+    var card = document.getElementById('ecsOnboardCceVerdictsCard');
+    var list = document.getElementById('ecsOnboardCceVerdictsList');
+    if (!card || !list) return;
+    if (!ce || !ce.ok) {
+      card.classList.add('d-none');
+      return;
+    }
+    card.classList.remove('d-none');
+    if (!ce.assets || !ce.assets.length) {
+      list.innerHTML = '<li class="list-group-item small text-muted py-2">No recognized technology submitted — reusable Common Controls not evaluated.</li>';
+      return;
+    }
+    list.innerHTML = (ce.controls || []).map(function(c) {
+      var badge = CC_VERDICT_BADGE[c.verdict] || 'secondary';
+      return '<li class="list-group-item d-flex justify-content-between align-items-center py-1">' +
+        '<code class="small">' + (c.control_id || c.control) + '</code>' +
+        '<span class="small">→ <span class="badge bg-' + badge + '">' + c.verdict + '</span></span></li>';
+    }).join('') || '<li class="list-group-item small text-muted py-2">No controls evaluated.</li>';
+  }
+
+  function renderFrameworkControls(frameworkControls) {
+    var rows = (frameworkControls || []).slice(0, 24).map(function(c) {
+      var stCls = c.implementation_state.indexOf('Fail') >= 0 ? 'danger' : (c.implementation_state === 'Implemented' ? 'success' : 'warning text-dark');
+      return '<tr><td><code class="small">' + c.control_id + '</code><br>' +
+        '<span class="text-muted small" style="display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom" title="' + escAttr(c.control_name) + '">' + c.control_name + '</span></td>' +
+        '<td>' + c.framework + '</td><td><span class="badge bg-' + stCls + ' me-2">' + c.implementation_state + '</span></td>' +
+        '<td>' + c.evidence_availability + '</td><td class="small">' + c.integration_source + '</td></tr>';
+    });
+
+    document.getElementById('ecsOnboardControlsTable').innerHTML = rows.join('') ||
+      '<tr><td colspan="5" class="text-muted small text-center py-2">No controls discovered.</td></tr>';
+  }
+
   function renderResults(result) {
     lastResult = result;
     try { sessionStorage.setItem('ecsOnboardLastResult', JSON.stringify(result)); } catch (e) {}
@@ -323,20 +375,8 @@
     document.getElementById('ecsOnboardResultsSubtitle').textContent =
       meta.business_unit + ' · ' + meta.owner + ' · ' + meta.environment + ' · ' + meta.criticality + ' criticality · ' + result.overall_readiness + '% overall readiness';
 
-    var kpis = result.kpis || {};
-    var kpiDefs = [
-      ['Frameworks', kpis.frameworks_onboarded, 'primary'],
-      ['Controls Discovered', kpis.controls_discovered, 'info'],
-      ['Implemented', kpis.controls_implemented, 'success'],
-      ['Missing', kpis.controls_missing, 'warning'],
-      ['Failed Validations', kpis.failed_validations, 'danger'],
-      ['Reusable Mappings', kpis.reusable_evidence_mappings, 'secondary'],
-      ['Readiness Score', kpis.readiness_score + '%', 'primary']
-    ];
-    document.getElementById('ecsOnboardKpiRow').innerHTML = kpiDefs.map(function(k) {
-      return '<div class="col-6 col-md-4 col-lg"><div class="ecs-onboard-kpi ecs-onboard-kpi-' + k[2] + '">' +
-        '<div class="ecs-onboard-kpi-val">' + k[1] + '</div><div class="ecs-onboard-kpi-lbl">' + k[0] + '</div></div></div>';
-    }).join('');
+    renderKpiRow(result.kpis || {}, result.control_evaluation);
+    renderCceVerdicts(result.control_evaluation);
 
     document.getElementById('ecsOnboardFrameworkTable').innerHTML = (result.framework_results || []).map(function(f) {
       return '<tr><td><strong>' + f.framework + '</strong></td><td>' + f.applicable_controls + '</td><td>' + f.implemented + '</td>' +
@@ -344,35 +384,12 @@
         '<td><span class="badge bg-' + (f.risk === 'High' ? 'danger' : f.risk === 'Medium' ? 'warning text-dark' : 'success') + '">' + f.risk + '</span></td></tr>';
     }).join('');
 
-    document.getElementById('ecsOnboardControlsTable').innerHTML = (result.discovered_controls || []).slice(0, 24).map(function(c) {
-      var stCls = c.implementation_state.indexOf('Fail') >= 0 ? 'danger' : (c.implementation_state === 'Implemented' ? 'success' : 'warning text-dark');
-      return '<tr><td><code class="small">' + c.control_id + '</code><br><span class="text-muted">' + c.control_name + '</span></td>' +
-        '<td>' + c.framework + '</td><td><span class="badge bg-' + stCls + '">' + c.implementation_state + '</span></td>' +
-        '<td>' + c.evidence_availability + '</td><td class="small">' + c.integration_source + '</td></tr>';
-    }).join('');
+    renderFrameworkControls(result.discovered_controls);
 
     document.getElementById('ecsOnboardSourcesList').innerHTML = (result.evidence_sources || []).map(function(s) {
       var badge = s.status === 'Synced successfully' ? 'success' : (s.status === 'Partially synced' ? 'warning text-dark' : 'danger');
       return '<li class="list-group-item d-flex justify-content-between py-1"><span>' + s.source + '</span><span class="badge bg-' + badge + '">' + s.status + '</span></li>';
     }).join('');
-
-    document.getElementById('ecsOnboardGapsList').innerHTML = (result.remediation_gaps || []).map(function(g) {
-      return '<li class="list-group-item py-1">' + g + '</li>';
-    }).join('');
-
-    var cop = result.copilot_insights || {};
-    var copHtml = '<p class="mb-2"><strong>' + (cop.headline || '') + '</strong></p>';
-    if (cop.risks && cop.risks.length) {
-      copHtml += '<p class="mb-1 text-muted">Highest risks:</p><ul class="mb-2 ps-3">';
-      cop.risks.forEach(function(r) { copHtml += '<li>' + r + '</li>'; });
-      copHtml += '</ul>';
-    }
-    if (cop.recommendations && cop.recommendations.length) {
-      copHtml += '<p class="mb-1 text-muted">Recommendations:</p><ul class="mb-0 ps-3">';
-      cop.recommendations.forEach(function(r) { copHtml += '<li>' + r + '</li>'; });
-      copHtml += '</ul>';
-    }
-    document.getElementById('ecsOnboardCopilot').innerHTML = copHtml;
 
     document.getElementById('ecsOnboardRegisterApp').value = meta.application_name || '';
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -381,6 +398,8 @@
   function runWorkflow(payload) {
     var modal = ensureModal();
     if (!modal) return;
+    lastPayload = payload;
+    try { sessionStorage.setItem('ecsOnboardLastPayload', JSON.stringify(payload)); } catch (e) {}
     renderedFw = {};
     workflowStart = Date.now();
     if (elapsedTimer) clearInterval(elapsedTimer);
@@ -486,41 +505,47 @@
     window.location.href = '/mvp/scheduler?role={{ role }}&user={{ user|urlencode }}&notice=' + encodeURIComponent('Baseline scan scheduled for ' + (lastResult?.metadata?.application_name || 'application'));
   });
 
-  try {
-    var cached = sessionStorage.getItem('ecsOnboardLastResult');
-    if (cached) renderResults(JSON.parse(cached));
-  } catch (e) {}
-
-  function renderOnboarderDashboard(dash) {
-    if (!dash || !dash.summary) return;
-    var s = dash.summary;
-    var el;
-    el = document.getElementById('ecsObTotal'); if (el) el.textContent = s.total_applications;
-    el = document.getElementById('ecsObCompleted'); if (el) el.textContent = s.completed;
-    el = document.getElementById('ecsObRunning'); if (el) el.textContent = s.running;
-    el = document.getElementById('ecsObFailed'); if (el) el.textContent = s.failed;
-    el = document.getElementById('ecsObRemaining'); if (el) el.textContent = s.remaining;
-    el = document.getElementById('ecsOnboarderDisclaimer'); if (el && dash.disclaimer) el.textContent = dash.disclaimer;
-    var body = document.getElementById('ecsOnboarderAppBody');
-    if (body && dash.applications) {
-      body.innerHTML = dash.applications.map(function(a) {
-        return '<tr><td><strong>' + a.application + '</strong></td><td>' + a.status + '</td><td>' + a.progress_pct + '%</td><td class="small">' + a.stage + '</td><td class="small">' + a.owner + '</td></tr>';
-      }).join('');
-    }
-  }
-
-  document.getElementById('ecsOnboarderRunBtn')?.addEventListener('click', function() {
-    var btn = document.getElementById('ecsOnboarderRunBtn');
-    if (btn) btn.disabled = true;
+  document.getElementById('ecsOnboardRecheckBtn')?.addEventListener('click', function() {
+    var btn = document.getElementById('ecsOnboardRecheckBtn');
+    var spinner = document.getElementById('ecsOnboardRecheckSpinner');
+    var label = document.getElementById('ecsOnboardRecheckLabel');
+    var status = document.getElementById('ecsOnboardRecheckStatus');
+    if (!lastPayload || !lastResult) return;
+    btn.disabled = true;
+    if (spinner) spinner.classList.remove('d-none');
+    if (label) label.textContent = 'Checking…';
+    if (status) status.textContent = 'Re-running reusable Common Control evaluation…';
     fetch('/api/onboarding/simulate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ action: 'run_onboarder', role: {{ role|tojson }}, user: {{ user|tojson }} })
+      body: JSON.stringify(Object.assign({}, lastPayload, { action: 'control_evaluation' }))
     }).then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.dashboard) renderOnboarderDashboard(res.dashboard);
-        if (btn) btn.disabled = false;
-      }).catch(function() { if (btn) btn.disabled = false; });
+      .then(function(ce) {
+        btn.disabled = false;
+        if (spinner) spinner.classList.add('d-none');
+        if (label) label.textContent = 'Re-run Control Check';
+        lastResult.control_evaluation = ce;
+        try { sessionStorage.setItem('ecsOnboardLastResult', JSON.stringify(lastResult)); } catch (e) {}
+        renderKpiRow(lastResult.kpis || {}, ce);
+        renderCceVerdicts(ce);
+        if (status) {
+          status.textContent = ce.ok
+            ? 'Completed ' + new Date().toLocaleTimeString() + ' — ' + ce.coverage_pct + '% coverage across ' + (ce.controls || []).length + ' control(s).'
+            : 'Evaluation failed: ' + (ce.error || 'unknown error');
+        }
+      }).catch(function(err) {
+        btn.disabled = false;
+        if (spinner) spinner.classList.add('d-none');
+        if (label) label.textContent = 'Re-run Control Check';
+        if (status) status.textContent = 'Evaluation request failed: ' + err;
+      });
   });
+
+  try {
+    var cached = sessionStorage.getItem('ecsOnboardLastResult');
+    if (cached) renderResults(JSON.parse(cached));
+    var cachedPayload = sessionStorage.getItem('ecsOnboardLastPayload');
+    if (cachedPayload) lastPayload = JSON.parse(cachedPayload);
+  } catch (e) {}
 })();
 </script>
