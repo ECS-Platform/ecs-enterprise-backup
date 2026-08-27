@@ -153,11 +153,19 @@ def build_summary(role: str) -> dict:
     rejected = len([k for k, v in ecs_state.rejected_controls.items() if not v.get("internal")])
     escalated = len(ecs_state.escalated_controls)
     drafts = len(ecs_state.owner_drafts)
-    reupload = len([
+    # Control keys in a "re-upload required" state. Both the explicit
+    # request-reupload flow (clarification_controls) and the auditor Reject flow
+    # (rejected_controls — the state build_enrolled_owner_queue_items() renders as
+    # RE-UPLOAD REQUIRED) count; a key present in both is counted once.
+    reupload_keys = {
         k for k, v in ecs_state.clarification_controls.items()
         if v.get("type") == "reupload_requested"
-    ])
-    reupload += len([
+    }
+    reupload_keys |= {
+        k for k, v in ecs_state.rejected_controls.items()
+        if not v.get("internal")
+    }
+    reupload = len(reupload_keys) + len([
         rec for rec in ecs_state.missing_evidence_registry.values()
         if rec.get("status") == "Re-upload Requested by Auditor"
     ])

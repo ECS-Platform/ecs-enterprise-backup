@@ -26,7 +26,7 @@ ORX = [f"ORX-0{i:02d}" for i in range(1, 15)]  # ORX-001..014
 NGX = [f"NGX-00{i}" for i in range(1, 9)]       # NGX-001..008
 LNX = [f"LNX-00{i}" for i in range(1, 9)]       # LNX-001..008
 RH8 = [f"RH8-00{i}" for i in range(1, 9)]       # RH8-001..008
-RH9 = [f"RH9-00{i}" for i in range(1, 9)]       # RH9-001..008
+RH9 = [f"RH9-00{i}" for i in range(1, 10)]      # RH9-001..009
 
 ORACLE = "Oracle"
 NGINX = "NGINX"
@@ -47,7 +47,7 @@ def test_infra_catalog_counts():
     assert len(by_tech[NGINX]) == 8
     assert len(by_tech[LINUX]) == 8
     assert len(by_tech[RHEL8]) == 8
-    assert len(by_tech[RHEL9]) == 8
+    assert len(by_tech[RHEL9]) == 9  # +RH9-009 pending-security-errata check
 
 
 @pytest.mark.parametrize("ids", [ORX, NGX, LNX, RH8, RH9])
@@ -214,7 +214,7 @@ def test_technology_filter_options_include_infra():
     ("Oracle", "ORX", 14),
     ("NGINX", "NGX", 8),
     ("Red Hat Enterprise Linux 8.x", "RH8", 8),
-    ("Red Hat Enterprise Linux 9.x", "RH9", 8),
+    ("Red Hat Enterprise Linux 9.x", "RH9", 9),
 ])
 def test_technology_filter_narrows_to_infra(tech, prefix, count):
     dash = engine.get_predefined_queries_dashboard(technology=tech, per_page=500)

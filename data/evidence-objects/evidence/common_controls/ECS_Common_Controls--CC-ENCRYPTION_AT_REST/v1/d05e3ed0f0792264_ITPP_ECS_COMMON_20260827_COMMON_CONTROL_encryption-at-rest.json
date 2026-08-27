@@ -1,0 +1,11 @@
+{
+  "collected_at": "2026-07-17T10:01:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "encryption_at_rest": true,
+  "encrypted_datastores_pct": 100,
+  "datastores": [
+    {"name": "postgres-primary", "tde_enabled": true},
+    {"name": "object-store", "sse_enabled": true}
+  ]
+}

@@ -29,6 +29,11 @@ services:
       ECS_YB_USER: ${ECS_YB_USER:-yugabyte}
       ECS_YB_PASSWORD: ${ECS_YB_PASSWORD:-yugabyte}
       ECS_MYSQL_HOST: ${ECS_MYSQL_HOST:-mysql-demo}
+      ECS_ORACLE_HOST: oracle-demo
+      ECS_ORACLE_PORT: "1521"
+      ECS_ORACLE_SERVICE_NAME: FREEPDB1
+      ECS_ORACLE_USER: ecs_user
+      ECS_ORACLE_PASSWORD: ecs_password
       ECS_MYSQL_PORT: ${ECS_MYSQL_PORT:-3306}
       ECS_MYSQL_DATABASE: ${ECS_MYSQL_DATABASE:-ecs_demo}
       ECS_MYSQL_USER: ${ECS_MYSQL_USER:-ecs_user}
@@ -141,6 +146,25 @@ services:
       POSTGRES_DB: ecs_demo
       POSTGRES_USER: ecs_user
       POSTGRES_PASSWORD: ecs_password
+    # TLS: the wrapper entrypoint copies the bind-mounted cert/key into a
+    # postgres-owned path with 0600 on the key, then starts postgres with ssl=on.
+    # Generate the self-signed pair once (see demo-data/postgres-ssl/README):
+    #   openssl req -new -x509 -days 3650 -nodes \
+    #     -keyout demo-data/postgres-ssl/certs/server.key \
+    #     -out    demo-data/postgres-ssl/certs/server.crt \
+    #     -subj "/CN=postgres-demo"
+    volumes:
+      - ./demo-data/postgres-ssl/certs:/certs:ro
+      - ./demo-data/postgres-ssl/ssl-entrypoint.sh:/usr/local/bin/ssl-entrypoint.sh:ro
+    entrypoint: ["bash", "/usr/local/bin/ssl-entrypoint.sh"]
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/var/lib/postgresql/ssl/server.crt
+      - -c
+      - ssl_key_file=/var/lib/postgresql/ssl/server.key
     ports:
       - "5432:5432"
     restart: unless-stopped
@@ -229,6 +253,12 @@ services:
       ORACLE_PASSWORD: ecs_oracle_password
       APP_USER: ecs_user
       APP_USER_PASSWORD: ecs_password
+    # One-time init: grant SELECT ANY DICTIONARY to the app user so the ECS
+    # predefined-query Oracle connector can read V$ / DBA_ views (ORX-* queries).
+    # Only runs on a FRESH volume; for an already-initialised container apply the
+    # grant manually (see demo-data/oracle-init/01_grant_dictionary.sql header).
+    volumes:
+      - ./demo-data/oracle-init:/container-entrypoint-initdb.d:ro
     profiles: ["oracle-demo"]
     restart: unless-stopped
 

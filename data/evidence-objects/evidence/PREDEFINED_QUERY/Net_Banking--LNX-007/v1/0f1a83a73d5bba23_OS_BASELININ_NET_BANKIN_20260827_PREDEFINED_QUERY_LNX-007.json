@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "LNX-007",
+  "control_name": "Linux Sudoers Configuration",
+  "duration_ms": 201,
+  "environment": "local",
+  "executed_at": "2026-08-27T10:56:11.929771+00:00",
+  "executed_by": "api",
+  "execution_id": "PQ-EXEC-000008",
+  "framework_coverage": "OS Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "OS Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "LNX-007",
+  "query_reference": "grep -R \"ALL=\" /etc/sudoers /etc/sudoers.d 2>/dev/null || true",
+  "result": [],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Linux"
+}

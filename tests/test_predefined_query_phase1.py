@@ -28,16 +28,16 @@ def _controls():
     return engine.get_all_controls()
 
 
-def test_full_catalog_loads_208_unique_ids():
+def test_full_catalog_loads_all_unique_ids():
     controls = _controls()
-    assert len(controls) == 208
+    assert len(controls) == 213  # +1: RH9-009 (RHEL 9 pending security errata)
     ids = [c["control_id"] for c in controls]
     assert len(ids) == len(set(ids))
 
 
 def test_phase1_filter_only_approved_technologies():
     selected = phase1.phase1_selected_ids()
-    assert 70 <= len(selected) <= 100
+    assert 70 <= len(selected) <= 130
     techs = {c.get("technology") for c in _controls() if c["control_id"] in selected}
     assert techs <= phase1.phase1_technologies()
     assert not techs & phase1.deferred_technologies()
@@ -119,11 +119,15 @@ def test_framework_mappings_retained_for_phase1_controls():
         assert ctrl.get("frameworks") or ctrl.get("framework_coverage")
 
 
-def test_deferred_controls_are_not_executed():
-    deferred_id = "MSX-001"
-    res = engine.run_predefined_query(deferred_id, "tester")
+def test_non_live_controls_are_not_executed():
+    # The former "Phase-1 MVP high-value subset" execution gate has been removed;
+    # execution is now governed solely by LIVE_CONTROL_IDS + connector/dependency/
+    # target checks. A control that is not live-executable is still blocked, now
+    # with error_type "unsupported_control" (never "deferred_control").
+    res = engine.run_predefined_query("MSX-001", "tester")
     assert res["ok"] is False
-    assert res.get("error_type") == "deferred_control"
+    assert res.get("error_type") != "deferred_control"
+    assert res.get("error_type") == "unsupported_control"
 
 
 def test_dry_run_performs_no_remote_changes(monkeypatch):

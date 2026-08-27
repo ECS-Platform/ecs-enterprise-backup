@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "RH8-008",
+  "control_name": "RHEL 8 Installed Security Updates",
+  "duration_ms": 4905,
+  "environment": "local",
+  "executed_at": "2026-08-27T07:28:24.847568+00:00",
+  "executed_by": "test_user",
+  "execution_id": "PQ-EXEC-000001",
+  "framework_coverage": "OS Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "OS Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "RH8-008",
+  "query_reference": "dnf updateinfo list security installed 2>/dev/null || yum updateinfo list security installed 2>/dev/null || true",
+  "result": [],
+  "row_count": 6,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Red Hat Enterprise Linux 8.x"
+}

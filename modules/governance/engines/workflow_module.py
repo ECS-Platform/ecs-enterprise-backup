@@ -79,6 +79,28 @@ def aging_days_from(ts: str, fallback: int = 12) -> int:
     return max(0, delta.days)
 
 
+def _queue_ts_epoch(item: dict) -> float:
+    """Sort key: epoch seconds for a queue item's ``submitted_timestamp``.
+
+    Handles both the ``YYYY-MM-DD HH:MM:SS UTC`` stamps the catalog/workflow
+    layer writes and the ISO-8601 ``uploaded_at`` stamps ``register_upload``
+    writes for enrolled (predefined-query / connector) evidence. Unknown or
+    missing values sort oldest (``0.0``).
+    """
+    raw = str(item.get("submitted_timestamp") or "").strip()
+    if not raw or raw == "—":
+        return 0.0
+    parsed = _parse_ts(raw)
+    if parsed is None:
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError:
+            return 0.0
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed.timestamp()
+
+
 def _due_date_from_expiry(expiry: str) -> str:
     return expiry if expiry else "2026-06-30"
 
@@ -355,7 +377,8 @@ def build_owner_work_queue(limit: int = 80) -> list[dict]:
             seen_keys.add(extra["key"])
             items.append(extra)
 
-    items.sort(key=lambda x: (PRIORITY_ORDER.get(x["priority"], 9), -x["aging_days"]))
+    # Most recently persisted / enrolled first; priority + aging only break ties.
+    items.sort(key=lambda x: (-_queue_ts_epoch(x), PRIORITY_ORDER.get(x["priority"], 9), -x["aging_days"]))
     return [_enrich_queue_item(i) for i in items[:limit]]
 
 
@@ -392,8 +415,10 @@ def build_auditor_review_queue(limit: int = 80) -> list[dict]:
                     row["auditor_comments"] = info.get("reason", row["auditor_comments"])
                     break
 
+    # Most recently submitted first; escalation + priority + aging only break ties.
     items.sort(
         key=lambda x: (
+            -_queue_ts_epoch(x),
             0 if x.get("escalated") else 1,
             PRIORITY_ORDER.get(x["priority"], 9),
             -x["aging_days"],

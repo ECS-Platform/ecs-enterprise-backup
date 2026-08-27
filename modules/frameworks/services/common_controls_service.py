@@ -17,6 +17,60 @@ from modules.operations.engines.common_controls_catalog import (
 )
 
 
+def resolve_fcm_references_for_domains(
+    *,
+    control_id: str,
+    slug: str,
+    name: str,
+    match_domains: tuple[str, ...] | list[str],
+    framework_ids: tuple[str, ...] = FCM_FRAMEWORK_IDS,
+) -> list[dict[str, Any]]:
+    """Resolve FCM policy/control/procedure/evidence-requirement refs for any
+    control by its domain keywords — the shared mechanism behind
+    :meth:`CommonControlsService.resolve_fcm_references`.
+
+    Factored out so a control that is not part of the frozen Phase-1
+    ``COMMON_CONTROLS`` catalogue (e.g. one defined only in the generic
+    Common-Control rule pack) can reuse the exact same FCM domain-matching
+    logic without duplicating it.
+    """
+    repo = get_framework_control_repository()
+    refs: list[dict[str, Any]] = []
+    domains = {d.lower() for d in match_domains}
+    if not domains:
+        return refs
+    for fw_id in framework_ids:
+        doc = repo.get_framework(fw_id) or {}
+        fw = doc.get("framework") or {}
+        fw_name = str(fw.get("name") or fw.get("display_name") or fw_id)
+        for control in doc.get("controls") or []:
+            domain = str(control.get("domain") or "")
+            if domain.lower() not in domains and not any(d in domain.lower() for d in domains):
+                continue
+            refs.append(
+                {
+                    "common_control_id": control_id,
+                    "common_control_slug": slug,
+                    "common_control_name": name,
+                    "framework_id": fw_id,
+                    "framework_name": fw_name,
+                    "policy_refs": list(control.get("policy_refs") or []),
+                    "control_id": control.get("id"),
+                    "control_title": control.get("title"),
+                    "domain": domain,
+                    "procedure_ids": [
+                        p.get("id") for p in (control.get("procedures") or []) if p.get("id")
+                    ],
+                    "evidence_requirement_ids": [
+                        e.get("id")
+                        for e in (control.get("evidence_requirements") or [])
+                        if e.get("id")
+                    ],
+                }
+            )
+    return refs
+
+
 class CommonControlsService:
     def list_controls(self) -> dict[str, Any]:
         return {
@@ -41,41 +95,12 @@ class CommonControlsService:
         ctrl = by_slug(slug)
         if ctrl is None:
             return []
-        repo = get_framework_control_repository()
-        refs: list[dict[str, Any]] = []
-        domains = {d.lower() for d in ctrl.match_domains}
-        for fw_id in FCM_FRAMEWORK_IDS:
-            doc = repo.get_framework(fw_id) or {}
-            fw = doc.get("framework") or {}
-            fw_name = str(fw.get("name") or fw.get("display_name") or fw_id)
-            for control in doc.get("controls") or []:
-                domain = str(control.get("domain") or "")
-                if domain.lower() not in domains and not any(
-                    d in domain.lower() for d in domains
-                ):
-                    continue
-                refs.append(
-                    {
-                        "common_control_id": ctrl.control_id,
-                        "common_control_slug": ctrl.slug,
-                        "common_control_name": ctrl.name,
-                        "framework_id": fw_id,
-                        "framework_name": fw_name,
-                        "policy_refs": list(control.get("policy_refs") or []),
-                        "control_id": control.get("id"),
-                        "control_title": control.get("title"),
-                        "domain": domain,
-                        "procedure_ids": [
-                            p.get("id") for p in (control.get("procedures") or []) if p.get("id")
-                        ],
-                        "evidence_requirement_ids": [
-                            e.get("id")
-                            for e in (control.get("evidence_requirements") or [])
-                            if e.get("id")
-                        ],
-                    }
-                )
-        return refs
+        return resolve_fcm_references_for_domains(
+            control_id=ctrl.control_id,
+            slug=ctrl.slug,
+            name=ctrl.name,
+            match_domains=ctrl.match_domains,
+        )
 
     def controls_for_framework(self, framework_id: str) -> list[dict[str, Any]]:
         fw_key = (framework_id or "").strip().lower()

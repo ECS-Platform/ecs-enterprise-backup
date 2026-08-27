@@ -32,6 +32,9 @@ _TARGET_KEY_BY_TECH: dict[str, str] = {
     "Kubernetes": "kubernetes",
     "OpenShift": "openshift",
     "Aerospike": "aerospike",
+    "Redis": "redis",
+    "SQL Server": "sqlserver",
+    "MongoDB": "mongodb",
 }
 
 
@@ -114,6 +117,10 @@ def _non_empty(value: Any) -> bool:
 
 def has_configured_target(technology: str) -> bool:
     """True when the active environment exposes a usable target for the technology."""
+    if technology == "CloudKMS":
+        # No cloud control-plane target exists to configure — evidence is a
+        # static, deterministic mock (see technology_connectors.CloudKMS).
+        return True
     spec = technology_connector_spec(technology)
     target_key = spec.get("target_key") or _TARGET_KEY_BY_TECH.get(technology, "")
     if not target_key:
@@ -142,16 +149,8 @@ def has_configured_target(technology: str) -> bool:
         return demo.is_dir()
 
     if technology in ("Linux", "Red Hat Enterprise Linux 8.x", "Red Hat Enterprise Linux 9.x",
-                      "NGINX", "Apache HTTPD", "Tomcat"):
+                      "NGINX", "Apache HTTPD", "Tomcat", "Aerospike"):
         return _non_empty(block.get("container"))
-
-    if technology == "Aerospike":
-        import os
-
-        # Demo mode uses deterministic synthetic output without a live node.
-        if str(os.environ.get("DEMO_MODE", "")).strip().lower() in {"1", "true", "yes", "on"}:
-            return True
-        return _non_empty(block.get("container")) or _non_empty(block.get("host"))
 
     if technology in ("SonarQube", "Trivy"):
         return _non_empty(block.get("base_url")) or _non_empty(block.get("image"))

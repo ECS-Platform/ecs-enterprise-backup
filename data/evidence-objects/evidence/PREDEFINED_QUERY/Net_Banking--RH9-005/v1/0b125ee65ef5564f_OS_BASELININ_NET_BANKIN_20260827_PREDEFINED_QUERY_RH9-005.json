@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "RH9-005",
+  "control_name": "RHEL 9 Auditd Status",
+  "duration_ms": 112,
+  "environment": "local",
+  "executed_at": "2026-08-27T07:29:23.348287+00:00",
+  "executed_by": "test_user",
+  "execution_id": "PQ-EXEC-000001",
+  "framework_coverage": "OS Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "OS Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "RH9-005",
+  "query_reference": "systemctl is-active auditd 2>/dev/null || true",
+  "result": [],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Red Hat Enterprise Linux 9.x"
+}

@@ -1,0 +1,10 @@
+{
+  "application": "Net Banking",
+  "control_id": "OSB-14",
+  "control_name": "CIS hardening baseline",
+  "environment": "UAT",
+  "framework": "OS Baseline",
+  "source": "mock_evidence",
+  "status": "collected",
+  "summary": "Mock scheduler evidence for Net Banking / OS-Baseline"
+}

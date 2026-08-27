@@ -1,0 +1,33 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [
+    "name",
+    "value"
+  ],
+  "control_id": "CLE-AWS-AURORA-EAR",
+  "control_name": "AWS Aurora MySQL Storage Encryption",
+  "duration_ms": 1,
+  "environment": "local",
+  "executed_at": "2026-08-25T05:57:32.798289+00:00",
+  "executed_by": "api",
+  "execution_id": "PQ-EXEC-000003",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "CLE-AWS-AURORA-EAR",
+  "query_reference": "aws rds describe-db-clusters --query 'DBClusters[].StorageEncrypted'",
+  "result": [
+    [
+      "encryption_at_rest_enabled",
+      "true"
+    ]
+  ],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "CloudKMS"
+}

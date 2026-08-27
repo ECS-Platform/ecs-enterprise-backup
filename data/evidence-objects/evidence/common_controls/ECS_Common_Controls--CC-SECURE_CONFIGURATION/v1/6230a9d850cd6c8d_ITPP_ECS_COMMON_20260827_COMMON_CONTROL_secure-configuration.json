@@ -1,0 +1,9 @@
+{
+  "collected_at": "2026-07-17T10:04:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "hardening_score": 92,
+  "benchmark": "CIS Level 2",
+  "checks_passed": 46,
+  "checks_failed": 4
+}

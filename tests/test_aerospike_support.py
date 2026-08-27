@@ -210,6 +210,71 @@ def test_run_query_unknown_aerospike_control_is_safe():
     assert r["error_type"] in ("missing_control", "unsupported_control")
 
 
+# --------------------------------------------------------------------------- #
+# 7b. A persisted Aerospike run produces evidence + review-workflow enrollment
+#     IDENTICALLY to a working DB technology (PGX-001) — same repository, same
+#     App Owner / Auditor queues, same source_connector. No parallel mechanism.
+# --------------------------------------------------------------------------- #
+def test_aerospike_persisted_run_matches_working_technology(monkeypatch):
+    monkeypatch.setenv("DEMO_MODE", "true")
+    from app import ecs_state
+    from modules.governance.engines import workflow_module as wf
+    from modules.operations.engines import evidence_repository as ops_repo
+    from modules.operations.engines.predefined_query_evidence import (
+        get_latest_evidence_for_control,
+    )
+    from modules.shared.services import evidence_workflow_engine as ewf
+
+    e = _engine()
+
+    for state in (
+        ecs_state.submitted_controls, ecs_state.uploaded_evidence_enrollments,
+        ecs_state.predefined_query_fingerprint_index, ecs_state.predefined_query_content_index,
+    ):
+        state.clear()
+    ops_repo.evidence_repository.clear()
+
+    pgx = e.run_predefined_query("PGX-001", "tester", persist=True)
+    asx = e.run_predefined_query("ASX-001", "tester", persist=True)
+
+    assert asx["ok"] is True and asx["evidence_persisted"] is True
+    assert asx["evidence_id"]
+
+    asx_enr = ewf.get_enrollment(evidence_id=asx["evidence_id"])
+    pgx_enr = ewf.get_enrollment(evidence_id=pgx["evidence_id"])
+    # Same enrollment shape as the working technology (casing-agnostic).
+    assert asx_enr["source_connector"] == pgx_enr["source_connector"]
+    assert asx_enr["source_connector"].lower() == "predefined_query"
+    assert asx_enr["query_id"] == "ASX-001"
+    assert asx_enr["object_key"] and asx_enr["sha256"]
+    assert set(pgx_enr) == set(asx_enr)  # identical enrollment record shape
+
+    # App Owner evidence view + pending-review queue.
+    owner_items = wf.build_owner_work_queue(limit=500)
+    assert any(i["evidence_id"] == asx["evidence_id"] for i in owner_items)
+    assert get_latest_evidence_for_control("ASX-001") is not None
+
+    # After App Owner submits (existing review workflow), it reaches the Auditor
+    # pending-review queue — same route the working technologies use.
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    resp = TestClient(app).post(
+        "/evidence/review/submit",
+        data={
+            "framework_name": asx_enr["framework"],
+            "control_name": asx_enr["control_name"],
+            "evidence_id": asx["evidence_id"],
+            "role": "owner",
+            "user": "App Owner",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    auditor_items = wf.build_auditor_review_queue(limit=500)
+    assert any(i["evidence_id"] == asx["evidence_id"] for i in auditor_items)
+
+
 def test_aerospike_connector_config_defaults(monkeypatch):
     # Config resolves safe local defaults without any container.
     for v in ("AEROSPIKE_HOST", "AEROSPIKE_PORT", "AEROSPIKE_NAMESPACE"):

@@ -1,0 +1,33 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [
+    "name",
+    "value"
+  ],
+  "control_id": "CLE-GCP-POSTGRESQL-EAR",
+  "control_name": "GCP Cloud SQL PostgreSQL Disk Encryption",
+  "duration_ms": 1,
+  "environment": "local",
+  "executed_at": "2026-08-24T11:52:35.400987+00:00",
+  "executed_by": "AppOwner",
+  "execution_id": "PQ-EXEC-000018",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "CLE-GCP-POSTGRESQL-EAR",
+  "query_reference": "gcloud sql instances describe --format='value(diskEncryptionConfiguration)'",
+  "result": [
+    [
+      "encryption_at_rest_enabled",
+      "true"
+    ]
+  ],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "CloudKMS"
+}

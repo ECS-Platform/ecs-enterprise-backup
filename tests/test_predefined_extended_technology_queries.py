@@ -45,7 +45,7 @@ PRIOR_IDS = (
     + [f"NGX-00{i}" for i in range(1, 9)]
     + [f"LNX-00{i}" for i in range(1, 9)]
     + [f"RH8-00{i}" for i in range(1, 9)]
-    + [f"RH9-00{i}" for i in range(1, 9)]
+    + [f"RH9-00{i}" for i in range(1, 10)]
 )
 
 
@@ -93,9 +93,10 @@ def test_no_duplicate_ids():
 
 def test_total_is_208():
     rep = engine.load_predefined_queries(force=True)
-    # 37 Excel + 171 supplementary (150 prior + 21 DB evidence-gap additions:
-    # PGX +5, YBX +3, MYX +4, ORX +4, MSX +3, MGX +2).
-    assert rep["controls_loaded"] == 208
+    # 37 Excel + 176 supplementary (150 prior + 21 DB evidence-gap additions:
+    # PGX +5, YBX +3, MYX +4, ORX +4, MSX +3, MGX +2 + 4 CloudKMS CLE controls
+    # + RH9-009 RHEL 9 pending-security-errata check).
+    assert rep["controls_loaded"] == 213
 
 
 def test_prior_controls_intact():

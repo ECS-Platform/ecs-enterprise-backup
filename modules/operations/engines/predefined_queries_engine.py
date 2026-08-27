@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -181,18 +182,13 @@ ALLOWED_MONGODB_COMMANDS: frozenset[str] = frozenset(
     (e["query"] or "").strip() for e in _MONGODB_QUERIES
 )
 
-# Phase-1 selected controls only — full 208-control catalogue remains loaded but
-# non-selected / deferred controls are not live-executable.
-def _phase1_live_ids() -> frozenset[str]:
-    try:
-        from modules.operations.engines.predefined_query_phase1_registry import phase1_selected_ids
-
-        return phase1_selected_ids()
-    except Exception:  # noqa: BLE001
-        return frozenset({"DB-001", "DB-002", "DB-003", "OS-001", "OS-002", "APP-001", "APP-002"})
-
-
-LIVE_CONTROL_IDS: frozenset[str] = _phase1_live_ids()
+# Capability allow-list — control_ids whose connector + query wiring exists for
+# live execution. This is the single allow-list that governs live execution;
+# the former Phase-1 MVP subset execution gate has been removed.
+LIVE_CONTROL_IDS: frozenset[str] = frozenset(
+    {"DB-001", "DB-002", "DB-003", "DB-004", "OS-001", "OS-002", "APP-001", "APP-002",
+     "APPSEC-001", "APPSEC-002"}
+) | set(_SUPPLEMENTARY_QUERY_BY_ID)
 
 SONAR_CONTROL_MODES: dict[str, str] = {
     "APP-001": "projects",
@@ -290,7 +286,7 @@ _IMPLEMENTED_CONNECTOR_TECH: frozenset[str] = frozenset(
     {"PostgreSQL", "YugabyteDB", "Aurora MySQL", "Oracle", "SQL Server", "MongoDB",
      "Linux", "NGINX", RHEL8_TECH, RHEL9_TECH,
      "Redis", "Apache HTTPD", "Tomcat", "Kubernetes", "OpenShift", "Aerospike",
-     "SonarQube", "Trivy", "GitLeaks"}
+     "SonarQube", "Trivy", "GitLeaks", "CloudKMS"}
 )
 # Technologies whose connector classes exist but are not yet runnable
 # (SSHConnector raises NotImplementedError).
@@ -342,10 +338,10 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
     """Single source of truth for a control's *truthful* execution status.
 
     Returns ``{"executable": bool, "status": str, "reason": str}`` where status
-    is one of: Manual, Deferred, Unsupported Technology, Connector Missing,
+    is one of: Manual, Unsupported Technology, Connector Missing,
     Configuration Required, Dependency Missing, Ready. "Ready" is returned ONLY
-    when the control is genuinely executable (Phase-1 selected + implemented
-    connector + dependency present + configured target + allow-list wired).
+    when the control is genuinely executable (implemented connector + dependency
+    present + configured target + allow-list wired).
     """
     if not control.get("predefined"):
         return {"executable": False, "status": "Manual",
@@ -353,21 +349,10 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
 
     try:
         from modules.operations.engines.predefined_query_phase1_registry import (
-            defer_reason as phase1_defer_reason,
             has_configured_target,
-            is_phase1_deferred,
         )
     except Exception:  # noqa: BLE001
-        is_phase1_deferred = lambda c: False  # type: ignore[assignment,misc]
-        phase1_defer_reason = lambda c: ""  # type: ignore[assignment,misc]
         has_configured_target = lambda t: True  # type: ignore[assignment,misc]
-
-    if is_phase1_deferred(control):
-        return {
-            "executable": False,
-            "status": "Deferred",
-            "reason": phase1_defer_reason(control) or "Deferred from Phase-1 MVP subset",
-        }
 
     technology = control.get("technology") or ""
     if not technology or technology == "Unknown":
@@ -380,7 +365,7 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
 
     if control.get("control_id") not in LIVE_CONTROL_IDS:
         return {"executable": False, "status": "Configuration Required",
-                "reason": f"The {technology} connector exists but this control is not in the Phase-1 selected set."}
+                "reason": f"The {technology} connector exists but this control is not in the live-execution allow-list (LIVE_CONTROL_IDS)."}
 
     if not _dependency_available(technology):
         _driver_map = {
@@ -403,7 +388,7 @@ def assess_execution_capability(control: dict[str, Any]) -> dict[str, Any]:
         }
 
     return {"executable": True, "status": "Ready",
-            "reason": f"{technology} connector is available and this Phase-1 control is enabled for live execution."}
+            "reason": f"{technology} connector is available and this control is enabled for live execution."}
 
 
 def _derive_status(control: dict[str, Any]) -> str:
@@ -1425,6 +1410,58 @@ def run_aerospike_query(control_id: str, user: str) -> dict[str, Any]:
     return {"ok": False, "error": err, "error_type": "connection_error"}
 
 
+def run_cloud_kms_query(control_id: str, user: str) -> dict[str, Any]:
+    """Execute a CloudKMS (cloud-control-plane encryption-at-rest) control.
+
+    No live AWS/GCP connector exists in this prototype — cloud-managed-storage
+    encryption truth lives in the provider's control plane, not a SQL/shell
+    surface this platform can reach yet. Always returns deterministic mock
+    evidence from ``config/mock_cloud_encryption_evidence.yaml``, the same
+    demo-first pattern :func:`run_aerospike_query` uses when its target is
+    unavailable — never a live call, never a crash.
+    """
+    control = get_control_by_id(control_id)
+    if not control:
+        return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
+    if control.get("technology") != "CloudKMS":
+        return {"ok": False, "error": f"This control is not a CloudKMS control ({control.get('technology')})",
+                "error_type": "unsupported_technology"}
+
+    from modules.operations.engines.connector_common import complete_connector_execution
+    from modules.operations.engines.query_connectors import ConnectorResult
+
+    mock = _cloud_encryption_mock_entry(control_id)
+    if mock is None:
+        return {"ok": False, "error": f"No mock evidence configured for {control_id}",
+                "error_type": "missing_query"}
+
+    field = str(mock.get("field") or "encryption_at_rest_enabled")
+    value = "true" if mock.get("value") else "false"
+    output = f"name | value\n-----\n{field} | {value}"
+    result = ConnectorResult(success=True, output=output, duration_ms=1,
+                             metadata={"rows_returned": 1, "mode": "demo"})
+    return complete_connector_execution(control, user, "CloudKMS", control.get("query") or "", result)
+
+
+@lru_cache(maxsize=1)
+def _cloud_encryption_mock_catalog() -> dict[str, Any]:
+    import yaml
+
+    path = _repo_root() / "config" / "mock_cloud_encryption_evidence.yaml"
+    if not path.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001
+        return {}
+    return data.get("controls") or {} if isinstance(data, dict) else {}
+
+
+def _cloud_encryption_mock_entry(control_id: str) -> dict[str, Any] | None:
+    entry = _cloud_encryption_mock_catalog().get(control_id)
+    return dict(entry) if isinstance(entry, dict) else None
+
+
 def get_phase1_controls(*, executable_only: bool = False) -> list[dict[str, Any]]:
     """Return Phase-1 selected controls from the loaded catalogue."""
     rows = [c for c in get_all_controls() if c.get("phase1_selected")]
@@ -1457,17 +1494,10 @@ def _run_predefined_query_impl(control_id: str, user: str) -> dict[str, Any]:
     control = get_control_by_id(control_id)
     if not control:
         return {"ok": False, "error": "Control not found", "error_type": "missing_control"}
-    try:
-        from modules.operations.engines.predefined_query_phase1_registry import is_phase1_deferred
-
-        if is_phase1_deferred(control):
-            return {
-                "ok": False,
-                "error": control.get("defer_reason") or "Control deferred from Phase-1 MVP execution",
-                "error_type": "deferred_control",
-            }
-    except Exception:  # noqa: BLE001
-        pass
+    # NOTE: the former "Phase-1 MVP high-value subset" execution gate
+    # (is_phase1_deferred short-circuit) has been removed. Execution capability is
+    # now governed solely by LIVE_CONTROL_IDS + the connector/dependency/target
+    # checks in assess_execution_capability (via is_live_execution_enabled).
     if not is_live_execution_enabled(control):
         return {
             "ok": False,
@@ -1493,6 +1523,9 @@ def _run_predefined_query_impl(control_id: str, user: str) -> dict[str, Any]:
 
     if technology == "MongoDB":
         return run_mongodb_query(control_id, user)
+
+    if technology == "CloudKMS":
+        return run_cloud_kms_query(control_id, user)
 
     query = (control.get("query") or "").strip()
 

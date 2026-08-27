@@ -9,6 +9,18 @@ from modules.operations.engines.predefined_query_audit import record_execution_a
 from modules.operations.engines.query_connectors import ConnectorResult
 
 
+#: Sentinel a curated shell command prints (on stdout, exit 0) when the tool a
+#: control depends on is not present on the target — e.g. ``getenforce`` on a
+#: container image without SELinux userspace. It is an explicit "cannot assert"
+#: signal, deliberately distinct from an empty result or a genuine failure.
+TOOL_ABSENT_MARKER = "TOOL_ABSENT:"
+
+
+def _looks_tool_absent(output: Any) -> bool:
+    text = str(output or "").strip()
+    return text.upper().startswith(TOOL_ABSENT_MARKER)
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -32,6 +44,23 @@ def build_execution_result(
     ok = status.lower() == "success"
     error_message = "" if ok else (connect_error or getattr(result, "error_message", "") or "Execution failed")
     error_code = "" if ok else str(meta.get("error_type") or "execution_failure")
+    # `validation_result` is a COMPLIANCE verdict, not an execution-status echo.
+    # A command that merely ran (exit 0) is NOT a control PASS — only a real
+    # classification/comparison, surfaced by a connector via
+    # ``metadata["validation_result"]``, may set PASS/FAIL. Absent that, a
+    # successful run is reported as "EXECUTED" (evidence collected, verdict
+    # deferred to the Common-Control rule engine). Absent that on a failed run
+    # it stays "FAIL" (the run itself failed). Handled-tool-absent shell results
+    # (see predefined_query_normalizer TOOL_ABSENT handling) report "UNKNOWN".
+    classified = str(meta.get("validation_result") or "").strip().upper()
+    if classified in {"PASS", "FAIL", "UNKNOWN", "EXECUTED"}:
+        validation_result = classified
+    elif not ok:
+        validation_result = "FAIL"
+    elif _looks_tool_absent(getattr(result, "output", "")):
+        validation_result = "UNKNOWN"
+    else:
+        validation_result = "EXECUTED"
     return {
         "execution_id": execution_id,
         "control_id": control.get("control_id") or "",
@@ -43,7 +72,7 @@ def build_execution_result(
         "status": status,
         "raw_output_reference": evidence_id or meta.get("raw_output_reference") or "",
         "parsed_values": parsed_values or meta.get("parsed_values") or {},
-        "validation_result": meta.get("validation_result") or ("PASS" if ok else "FAIL"),
+        "validation_result": validation_result,
         "error_code": error_code,
         "error_message": error_message,
     }

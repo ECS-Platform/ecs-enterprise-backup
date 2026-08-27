@@ -33,6 +33,9 @@ _CONF_BOOST = 0.05         # corroborating secondary signal
 #: Order matters: more specific patterns first (e.g. yugabyte before generic pg).
 _TEXT_RULES: list[tuple[str, str]] = [
     (r"yugabyte|yugabytedb|\bysql\b", "YugabyteDB"),
+    # Cloud SQL for MySQL (GCP) is a distinct managed offering from AWS
+    # Aurora — must precede the generic "mysql" pattern below.
+    (r"cloud.?sql.*mysql|gcp.*mysql", "MySQL"),
     (r"aurora|mariadb|percona|mysql", "Aurora MySQL"),
     (r"postgres|postgresql|pgvector|pgbouncer", "PostgreSQL"),
     (r"oracle|oracledb|ords|orcl", "Oracle"),

@@ -330,6 +330,12 @@ predefined_query_targets:
   tomcat:
     container:   "${ECS_TOMCAT_CONTAINER:-tomcat-demo}"
     timeout_sec: "${ECS_TOMCAT_TIMEOUT_SECONDS:-30}"
+  aerospike:
+    container:   "${ECS_AEROSPIKE_CONTAINER:-ecs-aerospike}"
+    host:        "${AEROSPIKE_HOST:-localhost}"
+    port:        "${AEROSPIKE_PORT:-13000}"
+    namespace:   "${AEROSPIKE_NAMESPACE:-test}"
+    timeout_sec: "${ECS_AEROSPIKE_TIMEOUT_SECONDS:-30}"
   sqlserver:
     host:        "${ECS_SQLSERVER_HOST:-localhost}"
     port:        "${ECS_SQLSERVER_PORT:-1433}"

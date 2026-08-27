@@ -873,6 +873,8 @@ def _trends_view(role: str, filters: dict | None = None) -> dict:
 def _onboarding_view(role: str) -> dict:
     from modules.operations.engines.onboarding_engine import (
         ALL_FRAMEWORKS,
+        DATABASE_TECHNOLOGY_SUGGESTIONS,
+        OS_TECHNOLOGY_SUGGESTIONS,
         WORKFLOW_STEPS,
         build_application_onboarder_dashboard,
         recent_onboarding_suggestions,
@@ -902,15 +904,18 @@ def _onboarding_view(role: str) -> dict:
         })
     post_metrics = build_post_onboarding_metrics(rows[:20])
     challenges = build_onboarding_challenges(rows[:20])
-    accepting = [m for m in post_metrics if m.get("accepting_evidence")]
     suggestions = recent_onboarding_suggestions(ecs_state.onboarded_applications)
+    in_progress_count = len([r for r in rows if r["status"] == "In Progress"])
+    failed_stalled_count = len([r for r in rows if r["status"] == "Failed Discovery"])
+    avg_readiness_pct = (
+        f"{round(sum(r['readiness_pct'] for r in rows) / len(rows), 1)}%" if rows else "—"
+    )
     return {
         "kpis": [
             {"label": "Applications", "value": len(rows), "tone": "primary"},
-            {"label": "Accepting Evidence", "value": len(accepting), "tone": "success"},
-            {"label": "Observation Closures", "value": sum(m["observation_closures_count"] for m in post_metrics), "tone": "info"},
-            {"label": "Avg Compliance Adherence", "value": f"{round(sum(m['audit_compliance_adherence_pct'] for m in post_metrics) / max(len(post_metrics), 1), 1)}%", "tone": "primary"},
-            {"label": "Failed / Stalled", "value": len(challenges), "tone": "danger"},
+            {"label": "In Progress", "value": in_progress_count, "tone": "info"},
+            {"label": "Avg Readiness", "value": avg_readiness_pct, "tone": "primary"},
+            {"label": "Failed / Stalled", "value": failed_stalled_count, "tone": "danger"},
         ],
         "operations_dataset": ops,
         "rows": rows,
@@ -919,6 +924,8 @@ def _onboarding_view(role: str) -> dict:
         "onboarding_challenges": challenges,
         "stages": ["Initial Setup", "Framework Mapping", "Owner Assignment", "Registration Complete"],
         "onboarding_apps": suggestions,
+        "database_technology_suggestions": DATABASE_TECHNOLOGY_SUGGESTIONS,
+        "os_technology_suggestions": OS_TECHNOLOGY_SUGGESTIONS,
         "onboarding_frameworks": ALL_FRAMEWORKS,
         "progress_steps": WORKFLOW_STEPS,
         "onboarder": build_application_onboarder_dashboard(),

@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "NGX-003",
+  "control_name": "NGINX TLS Protocol Configuration",
+  "duration_ms": 913,
+  "environment": "local",
+  "executed_at": "2026-08-27T10:57:57.146146+00:00",
+  "executed_by": "api",
+  "execution_id": "PQ-EXEC-000014",
+  "framework_coverage": "Middleware Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "Middleware Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "NGX-003",
+  "query_reference": "grep -R \"ssl_protocols\" /etc/nginx /etc/nginx/conf.d 2>/dev/null || true",
+  "result": [],
+  "row_count": 4,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "NGINX"
+}

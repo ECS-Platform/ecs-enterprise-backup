@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "LNX-005",
+  "control_name": "Linux SSH Root Login Setting",
+  "duration_ms": 200,
+  "environment": "local",
+  "executed_at": "2026-08-27T10:56:44.968112+00:00",
+  "executed_by": "api",
+  "execution_id": "PQ-EXEC-000010",
+  "framework_coverage": "OS Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "OS Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "LNX-005",
+  "query_reference": "grep -Ei \"^\\s*PermitRootLogin\" /etc/ssh/sshd_config 2>/dev/null || true",
+  "result": [],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Linux"
+}

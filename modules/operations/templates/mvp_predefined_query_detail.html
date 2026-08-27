@@ -117,10 +117,17 @@
 <h6 class="small text-muted text-uppercase mb-2">Latest Execution Result</h6>
 {% if exec %}
 <div class="mb-2">
-{% if exec.status == 'Success' %}
-<span class="badge bg-success">PASS</span>
+{# Execution-status badge only. Command-ran ≠ control-PASS: the compliance
+   verdict (PASS/FAIL) comes from the Common-Control rule engine, shown on the
+   control-evaluation surface — not from "the query executed". #}
+{% if exec.status == 'Success' and exec.result and 'TOOL_ABSENT' in exec.result %}
+<span class="badge bg-warning text-dark">NOT IMPLEMENTED</span>
+<span class="text-muted small ms-2">Required tooling absent on target — control cannot be asserted here.</span>
+{% elif exec.status == 'Success' %}
+<span class="badge bg-secondary">EXECUTED</span>
+<span class="text-muted small ms-2">Evidence collected — compliance verdict is derived by the rule engine.</span>
 {% else %}
-<span class="badge bg-danger">FAIL</span>
+<span class="badge bg-danger">EXECUTION FAILED</span>
 {% endif %}
 <span class="text-muted small ms-2">{{ exec.execution_time }}</span>
 </div>

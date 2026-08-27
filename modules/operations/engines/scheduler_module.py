@@ -1217,6 +1217,18 @@ def _mock_evidence_collection_enabled() -> bool:
     ).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _reusable_common_control_evaluation_enabled() -> bool:
+    """Gate for the generic rule-engine re-evaluation of onboarded (Phase-2
+    portfolio) applications. Defaults OFF — unlike the older common-controls
+    and predefined-query collectors above, this is new, additive behavior;
+    keeping it opt-in means existing scheduler runs/tests are byte-for-byte
+    unchanged unless an operator explicitly turns it on.
+    """
+    return str(os.environ.get("ECS_REUSABLE_COMMON_CONTROL_SCHEDULER_ENABLED", "false")).strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
 def collect_scheduled_predefined_queries(
     *,
     user: str = "scheduler",
@@ -1730,6 +1742,37 @@ def run_scheduler_collection(
     )
     pgvector_detail = source_totals.get("pgvector_detail") or _aggregate_pgvector_counts(source_breakdown)
 
+    reusable_cc_result: dict = {}
+    reusable_cc_evaluated = 0
+    if _reusable_common_control_evaluation_enabled():
+        try:
+            from modules.operations.engines.common_control_onboarding import onboard_application
+            from modules.operations.engines.phase2_reusability import list_application_profiles
+
+            progress.append("reusable common controls", "Running")
+            per_app: list[dict] = []
+            for profile in list_application_profiles():
+                rpt = onboard_application(profile.id, user=user or "scheduler", persist=True)
+                per_app.append(
+                    {
+                        "application_id": profile.id,
+                        "ok": bool(rpt.get("ok")),
+                        "coverage_pct": rpt.get("coverage_pct", 0),
+                        "controls_evaluated": len(rpt.get("controls", [])),
+                        "connectivity_pending": len(rpt.get("connectivity_pending", [])),
+                    }
+                )
+                reusable_cc_evaluated += len(rpt.get("controls", []))
+            reusable_cc_result = {"applications": per_app, "controls_evaluated": reusable_cc_evaluated}
+            progress.append(
+                "reusable common controls",
+                "Completed",
+                detail=f"applications={len(per_app)} controls_evaluated={reusable_cc_evaluated}",
+            )
+        except Exception as exc:  # noqa: BLE001 - never break the run for this additive step
+            reusable_cc_result = {"error": "reusable_common_control_evaluation_failed", "detail": str(exc)}
+            progress.append("reusable common controls", "Failed", detail=str(exc))
+
     merged_counts = _merge_run_summary(mock_summary, cc_result, pq_result)
     connector_ingested = sum(int(r.get("ingested", 0) or 0) for r in job_results)
     summary = _coerce_run_summary(
@@ -1759,6 +1802,7 @@ def run_scheduler_collection(
                 "ECS_PREDEFINED_QUERY_SCHEDULER_ENABLED": pq_enabled,
                 "ECS_COMMON_CONTROLS_COLLECTION_ENABLED": _common_controls_collection_enabled(),
                 "ECS_MOCK_EVIDENCE_COLLECTION_ENABLED": _mock_evidence_collection_enabled(),
+                "ECS_REUSABLE_COMMON_CONTROL_SCHEDULER_ENABLED": _reusable_common_control_evaluation_enabled(),
             },
         },
         run_id=run_id,
@@ -1829,6 +1873,8 @@ def run_scheduler_collection(
         "common_controls_observations": cc_observations,
         "predefined_queries": pq_result,
         "predefined_queries_persisted": pq_persisted,
+        "reusable_common_controls": reusable_cc_result,
+        "reusable_common_controls_evaluated": reusable_cc_evaluated,
         "progress": progress.to_list(),
         "summary": summary,
         "mock_evidence": mock_summary,

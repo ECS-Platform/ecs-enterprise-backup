@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "NGX-005",
+  "control_name": "NGINX Server Tokens Disabled",
+  "duration_ms": 921,
+  "environment": "local",
+  "executed_at": "2026-08-27T10:58:31.906628+00:00",
+  "executed_by": "api",
+  "execution_id": "PQ-EXEC-000016",
+  "framework_coverage": "Middleware Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "Middleware Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "NGX-005",
+  "query_reference": "grep -R \"server_tokens\" /etc/nginx /etc/nginx/conf.d 2>/dev/null || true",
+  "result": [],
+  "row_count": 2,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "NGINX"
+}

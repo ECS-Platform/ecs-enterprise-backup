@@ -8,6 +8,7 @@ technologies:
   - PostgreSQL
   - YugabyteDB
   - Aurora MySQL
+  - CloudKMS
   - Oracle
   - Linux
   - Red Hat Enterprise Linux 8.x
@@ -50,6 +51,16 @@ technology_connectors:
     execution_mode: sql
     target_key: oracle
     target_required: true
+  CloudKMS:
+    # No live AWS/GCP control-plane connector exists yet (see gap report) — this
+    # is a permanently-mock, demo-only evidence source for cloud-managed-storage
+    # encryption-at-rest, analogous to how Aerospike falls back to deterministic
+    # demo output when its tools/target are unavailable. Never contacts a real
+    # cloud account. target_required is false because there is no target to
+    # configure — the mock evidence is static per control_id.
+    connector: cloud_kms_mock
+    execution_mode: cloud_metadata
+    target_required: false
   Linux:
     connector: linux_connector
     execution_mode: shell
@@ -109,9 +120,15 @@ technology_connectors:
     connector: aerospike_connector
     execution_mode: shell
     target_key: aerospike
-    target_required: true
 
 selected_control_ids:
+  - CLE-AWS-AURORA-EAR
+  - CLE-GCP-POSTGRESQL-EAR
+  - CLE-GCP-YUGABYTE-EAR
+  - CLE-GCP-MYSQL-EAR
+  - APP-001
+  - APP-002
+  - APP-004
   - ASX-001
   - ASX-002
   - ASX-003
@@ -132,9 +149,6 @@ selected_control_ids:
   - ASX-018
   - ASX-019
   - ASX-020
-  - APP-001
-  - APP-002
-  - APP-004
   - APX-004
   - APX-005
   - APX-006
@@ -215,6 +229,7 @@ selected_control_ids:
   - RH9-006
   - RH9-007
   - RH9-008
+  - RH9-009
   - TCX-003
   - TCX-004
   - TCX-005

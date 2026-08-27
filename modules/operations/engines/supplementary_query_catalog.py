@@ -286,8 +286,10 @@ NGINX_QUERIES: list[dict[str, Any]] = [
                  "grep -R \"error_log\" /etc/nginx /etc/nginx/conf.d 2>/dev/null || true", _NGINX,
                  "Shows error_log configuration.", _FW_MW, "Middleware command output"),
     _infra_entry("NGX-008", "NGINX Enabled Sites",
-                 "find /etc/nginx/sites-enabled /etc/nginx/conf.d -maxdepth 2 -type f 2>/dev/null", _NGINX,
+                 "find /etc/nginx/sites-enabled /etc/nginx/conf.d -maxdepth 2 -type f 2>/dev/null || true", _NGINX,
                  "Lists enabled site/config files.", _FW_MW, "Middleware command output"),
+    _infra_entry("MW-001", "TLS Configuration", "nginx -T 2>&1", _NGINX,
+                 "Full NGINX config dump for TLS review.", _FW_MW, "Middleware command output"),
 ]
 
 
@@ -322,34 +324,135 @@ LINUX_QUERIES: list[dict[str, Any]] = [
 
 
 # ---------------------------------------------------------------------------
+# Shared RHEL command builders
+# ---------------------------------------------------------------------------
+# Explicit "the tool this check needs is not on this target" sentinel. A curated
+# command prints ``TOOL_ABSENT: <what>`` on stdout (exit 0) instead of silently
+# emitting nothing, so the normalizer can score UNKNOWN / NOT_EXECUTABLE rather
+# than let an empty string fall through to a spurious PASS or a misleading FAIL.
+_TOOL_ABSENT = "TOOL_ABSENT:"
+
+
+def _SSHD_EFFECTIVE_DIRECTIVE(directive: str) -> str:
+    """Shell one-liner: resolve the effective value of an sshd_config directive.
+
+    Reads /etc/ssh/sshd_config first, then /etc/ssh/sshd_config.d/*.conf in
+    sorted order (RHEL 9 default ``Include`` layout), keeps only uncommented
+    ``<directive> <value>`` lines, and emits the lower-cased value of the LAST
+    match (so a later drop-in that downgrades the value is what gets scored).
+
+    When NO sshd config exists at all (no main file and no drop-ins — e.g. an
+    image without openssh-server), emits ``TOOL_ABSENT: /etc/ssh/sshd_config``
+    so the result scores UNKNOWN, not a false FAIL. When config exists but the
+    directive is simply absent, emits nothing (sshd's built-in default applies —
+    scored against ``expected_value`` as before).
+    """
+    return (
+        "if [ ! -f /etc/ssh/sshd_config ] && ! ls /etc/ssh/sshd_config.d/*.conf >/dev/null 2>&1; then "
+        f"echo \"{_TOOL_ABSENT} /etc/ssh/sshd_config\"; else "
+        "{ cat /etc/ssh/sshd_config 2>/dev/null; "
+        "for f in $(ls /etc/ssh/sshd_config.d/*.conf 2>/dev/null | sort); do cat \"$f\" 2>/dev/null; done; } "
+        f"| grep -Ei '^[[:space:]]*{directive}[[:space:]]+' "
+        "| tail -n1 | awk '{print tolower($2)}'; fi || true"
+    )
+
+
+def _SYSTEMD_SERVICE_ACTIVE(service: str) -> str:
+    """``systemctl is-active <service>`` with an explicit tool-absent guard.
+
+    Emits ``TOOL_ABSENT: systemctl (<service>)`` when systemd is not the init
+    system on the target (no ``/run/systemd/system``) or ``systemctl`` is not
+    installed — the check genuinely cannot be performed, so it must score
+    UNKNOWN, not a green PASS. When systemd IS present, emits the bare
+    ``active`` | ``inactive`` | ``failed`` | ``unknown`` token exactly as before
+    (``|| true`` keeps a non-zero "inactive" exit from becoming query_failure).
+    """
+    return (
+        "if ! command -v systemctl >/dev/null 2>&1 || [ ! -d /run/systemd/system ]; then "
+        f"echo \"{_TOOL_ABSENT} systemctl ({service})\"; else "
+        f"systemctl is-active {service} 2>/dev/null || true; fi"
+    )
+
+
+#: Pending (not-yet-applied) security errata. Empty output = fully patched for
+#: security. Uses the ``--available`` view (never ``check-update``, whose exit
+#: code 100 the shell connector would misread as a failure). ``|| true`` guards
+#: the non-dnf/non-yum case.
+_DNF_PENDING_SECURITY = (
+    "dnf -q updateinfo list security --available 2>/dev/null || "
+    "yum -q updateinfo list security available 2>/dev/null || true"
+)
+
+#: SELinux effective mode, lower-cased (enforcing | permissive | disabled).
+#: `getenforce` is authoritative; falls back to `sestatus`'s "Current mode:"
+#: line. When NEITHER tool is installed (no SELinux userspace on the image),
+#: emits ``TOOL_ABSENT: getenforce/sestatus`` -> scored UNKNOWN, not a false
+#: PASS/FAIL. The rule (equals "enforcing") is unchanged.
+_SELINUX_MODE = (
+    "if ! command -v getenforce >/dev/null 2>&1 && ! command -v sestatus >/dev/null 2>&1; then "
+    f"echo \"{_TOOL_ABSENT} getenforce/sestatus\"; else "
+    "( getenforce 2>/dev/null || sestatus 2>/dev/null | sed -n 's/^Current mode: *//p' ) "
+    "| tr 'A-Z' 'a-z' | tr -d '[:space:]'; fi || true"
+)
+
+#: Real system-wide crypto policy NAME, verbatim from ``update-crypto-policies
+#: --show`` (e.g. "DEFAULT", "FUTURE", "LEGACY", "DEFAULT:SHA1", "FIPS"). The
+#: PASS/FAIL decision is made by the rule engine, which classifies this string
+#: (not-weak AND recognised-base = pass); the stored evidence keeps the real
+#: policy name so an auditor sees WHICH policy, not a collapsed verdict word.
+#: ``TOOL_ABSENT`` when update-crypto-policies is not installed.
+_CRYPTO_POLICY_SHOW = (
+    "if command -v update-crypto-policies >/dev/null 2>&1; then "
+    "update-crypto-policies --show 2>/dev/null; else "
+    f"echo \"{_TOOL_ABSENT} update-crypto-policies\"; fi || true"
+)
+
+#: Real FIPS-mode status line, human-readable. Prefers the authoritative kernel
+#: flag /proc/sys/crypto/fips_enabled (1 = enabled), falls back to
+#: ``fips-mode-setup --check``. Emits a full sentence ("FIPS mode is enabled
+#: (kernel fips_enabled=1)." / "FIPS mode is disabled ..."). The rule engine
+#: derives PASS/FAIL by testing for "enabled"; the stored evidence shows the
+#: real state and its source. ``TOOL_ABSENT`` only when neither source exists.
+_FIPS_MODE_STATUS = (
+    "if [ -r /proc/sys/crypto/fips_enabled ]; then "
+    "v=$(cat /proc/sys/crypto/fips_enabled 2>/dev/null); "
+    "if [ \"$v\" = \"1\" ]; then echo \"FIPS mode is enabled (kernel fips_enabled=1).\"; "
+    "else echo \"FIPS mode is disabled (kernel fips_enabled=$v).\"; fi; "
+    "elif command -v fips-mode-setup >/dev/null 2>&1; then "
+    "s=$(fips-mode-setup --check 2>/dev/null | grep -io 'FIPS mode is enabled\\|FIPS mode is disabled' | head -n1); "
+    "if [ -n \"$s\" ]; then echo \"$s.\"; "
+    "else echo \"FIPS mode is disabled (fips-mode-setup: not configured / indeterminate).\"; fi; "
+    f"else echo \"{_TOOL_ABSENT} fips-mode-setup\"; fi || true"
+)
+
+
+# ---------------------------------------------------------------------------
 # Red Hat Enterprise Linux 8.x supplementary checks
 # ---------------------------------------------------------------------------
 _RHEL8 = "Red Hat Enterprise Linux 8.x"
 RHEL8_QUERIES: list[dict[str, Any]] = [
     _os_entry("RH8-001", "RHEL 8 Version Check", "cat /etc/redhat-release", _RHEL8,
               "Reports the RHEL release string."),
-    _os_entry("RH8-002", "RHEL 8 Crypto Policy",
-              "update-crypto-policies --show 2>/dev/null || true", _RHEL8,
-              "Reports the system-wide crypto policy."),
-    _os_entry("RH8-003", "RHEL 8 SELinux Status",
-              "getenforce 2>/dev/null || sestatus 2>/dev/null || true", _RHEL8,
-              "Reports SELinux enforcement status."),
+    _os_entry("RH8-002", "RHEL 8 Crypto Policy", _CRYPTO_POLICY_SHOW, _RHEL8,
+              "Reports the real system-wide crypto policy name (e.g. DEFAULT, FUTURE, LEGACY). "
+              "PASS/FAIL is derived by the rule engine (not-weak AND recognised-base)."),
+    _os_entry("RH8-003", "RHEL 8 SELinux Status", _SELINUX_MODE, _RHEL8,
+              "Reports the effective SELinux mode, lower-cased (enforcing | permissive | disabled); "
+              "TOOL_ABSENT when no SELinux userspace is installed."),
     _os_entry("RH8-004", "RHEL 8 Firewalld Status",
-              "systemctl is-active firewalld 2>/dev/null || true", _RHEL8,
-              "Reports firewalld active status."),
+              _SYSTEMD_SERVICE_ACTIVE("firewalld"), _RHEL8,
+              "Reports firewalld active status (active | inactive | ...); TOOL_ABSENT when systemd is not the init system."),
     _os_entry("RH8-005", "RHEL 8 Auditd Status",
-              "systemctl is-active auditd 2>/dev/null || true", _RHEL8,
-              "Reports auditd active status."),
-    _os_entry("RH8-006", "RHEL 8 SSH PermitRootLogin",
-              "grep -Ei \"^\\s*PermitRootLogin\" /etc/ssh/sshd_config 2>/dev/null || true", _RHEL8,
-              "Shows the PermitRootLogin sshd setting."),
-    _os_entry("RH8-007", "RHEL 8 Password Authentication",
-              "grep -Ei \"^\\s*PasswordAuthentication\" /etc/ssh/sshd_config 2>/dev/null || true", _RHEL8,
-              "Shows the PasswordAuthentication sshd setting."),
-    _os_entry("RH8-008", "RHEL 8 Installed Security Updates",
-              "dnf updateinfo list security installed 2>/dev/null || "
-              "yum updateinfo list security installed 2>/dev/null || true", _RHEL8,
-              "Lists installed security updates."),
+              _SYSTEMD_SERVICE_ACTIVE("auditd"), _RHEL8,
+              "Reports auditd active status (active | inactive | ...); TOOL_ABSENT when systemd is not the init system."),
+    _os_entry("RH8-006", "RHEL 8 SSH PermitRootLogin", _SSHD_EFFECTIVE_DIRECTIVE("PermitRootLogin"), _RHEL8,
+              "Resolves the effective PermitRootLogin value across sshd_config + sshd_config.d/*.conf "
+              "(main file first, then sorted drop-ins; last match wins)."),
+    _os_entry("RH8-007", "RHEL 8 Password Authentication", _SSHD_EFFECTIVE_DIRECTIVE("PasswordAuthentication"), _RHEL8,
+              "Resolves the effective PasswordAuthentication value across sshd_config + sshd_config.d/*.conf "
+              "(main file first, then sorted drop-ins; last match wins)."),
+    _os_entry("RH8-008", "RHEL 8 Pending Security Updates", _DNF_PENDING_SECURITY, _RHEL8,
+              "Lists security errata not yet applied (no output = fully patched for security)."),
 ]
 
 
@@ -360,27 +463,29 @@ _RHEL9 = "Red Hat Enterprise Linux 9.x"
 RHEL9_QUERIES: list[dict[str, Any]] = [
     _os_entry("RH9-001", "RHEL 9 Version Check", "cat /etc/redhat-release", _RHEL9,
               "Reports the RHEL release string."),
-    _os_entry("RH9-002", "RHEL 9 Crypto Policy",
-              "update-crypto-policies --show 2>/dev/null || true", _RHEL9,
-              "Reports the system-wide crypto policy."),
-    _os_entry("RH9-003", "RHEL 9 SELinux Status",
-              "getenforce 2>/dev/null || sestatus 2>/dev/null || true", _RHEL9,
-              "Reports SELinux enforcement status."),
+    _os_entry("RH9-002", "RHEL 9 Crypto Policy", _CRYPTO_POLICY_SHOW, _RHEL9,
+              "Reports the real system-wide crypto policy name (e.g. DEFAULT, FUTURE, LEGACY). "
+              "PASS/FAIL is derived by the rule engine (not-weak AND recognised-base)."),
+    _os_entry("RH9-003", "RHEL 9 SELinux Status", _SELINUX_MODE, _RHEL9,
+              "Reports the effective SELinux mode, lower-cased (enforcing | permissive | disabled); "
+              "TOOL_ABSENT when no SELinux userspace is installed."),
     _os_entry("RH9-004", "RHEL 9 Firewalld Status",
-              "systemctl is-active firewalld 2>/dev/null || true", _RHEL9,
-              "Reports firewalld active status."),
+              _SYSTEMD_SERVICE_ACTIVE("firewalld"), _RHEL9,
+              "Reports firewalld active status (active | inactive | ...); TOOL_ABSENT when systemd is not the init system."),
     _os_entry("RH9-005", "RHEL 9 Auditd Status",
-              "systemctl is-active auditd 2>/dev/null || true", _RHEL9,
-              "Reports auditd active status."),
-    _os_entry("RH9-006", "RHEL 9 SSH PermitRootLogin",
-              "grep -Ei \"^\\s*PermitRootLogin\" /etc/ssh/sshd_config 2>/dev/null || true", _RHEL9,
-              "Shows the PermitRootLogin sshd setting."),
-    _os_entry("RH9-007", "RHEL 9 Password Authentication",
-              "grep -Ei \"^\\s*PasswordAuthentication\" /etc/ssh/sshd_config 2>/dev/null || true", _RHEL9,
-              "Shows the PasswordAuthentication sshd setting."),
-    _os_entry("RH9-008", "RHEL 9 FIPS Mode",
-              "fips-mode-setup --check 2>/dev/null || cat /proc/sys/crypto/fips_enabled 2>/dev/null || true", _RHEL9,
-              "Reports FIPS mode status."),
+              _SYSTEMD_SERVICE_ACTIVE("auditd"), _RHEL9,
+              "Reports auditd active status (active | inactive | ...); TOOL_ABSENT when systemd is not the init system."),
+    _os_entry("RH9-006", "RHEL 9 SSH PermitRootLogin", _SSHD_EFFECTIVE_DIRECTIVE("PermitRootLogin"), _RHEL9,
+              "Resolves the effective PermitRootLogin value across sshd_config + sshd_config.d/*.conf "
+              "(main file first, then sorted drop-ins; last match wins)."),
+    _os_entry("RH9-007", "RHEL 9 Password Authentication", _SSHD_EFFECTIVE_DIRECTIVE("PasswordAuthentication"), _RHEL9,
+              "Resolves the effective PasswordAuthentication value across sshd_config + sshd_config.d/*.conf "
+              "(main file first, then sorted drop-ins; last match wins)."),
+    _os_entry("RH9-008", "RHEL 9 FIPS Mode", _FIPS_MODE_STATUS, _RHEL9,
+              "Reports the real FIPS-mode status line and its source (kernel fips_enabled / fips-mode-setup). "
+              "PASS only when the line says 'enabled'; 'disabled' (incl. indeterminate) is a real FAIL."),
+    _os_entry("RH9-009", "RHEL 9 Pending Security Updates", _DNF_PENDING_SECURITY, _RHEL9,
+              "Lists security errata not yet applied (no output = fully patched for security)."),
 ]
 
 
@@ -701,6 +806,37 @@ KUBERNETES_QUERIES: list[dict[str, Any]] = [
 
 
 # ---------------------------------------------------------------------------
+# CloudKMS (cloud-control-plane encryption-at-rest — permanently mock, no
+# live AWS/GCP connector exists yet; see run_cloud_kms_query and
+# config/mock_cloud_encryption_evidence.yaml). One control per
+# (provider, technology) combination — never per application.
+# ---------------------------------------------------------------------------
+_CLOUDKMS = "CloudKMS"
+_FW_CLOUDKMS = "DB Baselining, ISO27001, RBI Cyber Security"
+
+
+def _cloudkms_entry(cid: str, name: str, command: str, desc: str) -> dict[str, Any]:
+    return _ext_entry(cid, name, command, _CLOUDKMS, desc, framework=_FW_CLOUDKMS,
+                      evidence="Cloud control-plane encryption metadata (mock)", category="Encryption")
+
+
+CLOUD_KMS_QUERIES: list[dict[str, Any]] = [
+    _cloudkms_entry("CLE-AWS-AURORA-EAR", "AWS Aurora MySQL Storage Encryption",
+                    "aws rds describe-db-clusters --query 'DBClusters[].StorageEncrypted'",
+                    "Reports whether the Aurora MySQL cluster's storage is KMS-encrypted at rest."),
+    _cloudkms_entry("CLE-GCP-POSTGRESQL-EAR", "GCP Cloud SQL PostgreSQL Disk Encryption",
+                    "gcloud sql instances describe --format='value(diskEncryptionConfiguration)'",
+                    "Reports whether the Cloud SQL for PostgreSQL instance disk uses CMEK encryption."),
+    _cloudkms_entry("CLE-GCP-YUGABYTE-EAR", "GCP Persistent Disk Encryption (YugabyteDB)",
+                    "gcloud compute disks describe --format='value(diskEncryptionKey)'",
+                    "Reports whether the persistent disks backing self-managed YugabyteDB use CMEK encryption."),
+    _cloudkms_entry("CLE-GCP-MYSQL-EAR", "GCP Cloud SQL MySQL Disk Encryption",
+                    "gcloud sql instances describe --format='value(diskEncryptionConfiguration)'",
+                    "Reports whether the Cloud SQL for MySQL instance disk uses CMEK encryption."),
+]
+
+
+# ---------------------------------------------------------------------------
 # OpenShift (oc via OpenShiftConnector)
 # ---------------------------------------------------------------------------
 _OCP = "OpenShift"
@@ -736,7 +872,9 @@ _SHELL_CATALOG = (
     + REDIS_QUERIES + APACHE_QUERIES + TOMCAT_QUERIES
     + KUBERNETES_QUERIES + OPENSHIFT_QUERIES + AEROSPIKE_QUERIES
 )
-_ALL_CATALOG = _DB_CATALOG + _SHELL_CATALOG
+#: Cloud-control-plane technologies use their own (permanently mock) executor.
+_CLOUD_CATALOG = CLOUD_KMS_QUERIES
+_ALL_CATALOG = _DB_CATALOG + _SHELL_CATALOG + _CLOUD_CATALOG
 
 
 def supplementary_controls() -> list[dict[str, Any]]:

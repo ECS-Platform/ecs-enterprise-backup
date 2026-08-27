@@ -66,16 +66,29 @@ def resolve_execution_context(control: dict[str, Any]) -> dict[str, str]:
     return {"application": application, "environment": environment, "asset_id": asset_id}
 
 
+_SEPARATOR_LINE_RE = re.compile(r"^-+$")
+
+
 def _parse_tabular_output(output: str) -> tuple[list[str], list[list[Any]]]:
+    """Parse the ``col | col`` / ``---`` / ``val | val`` shape connectors emit.
+
+    The header/separator/rows layout comes from each SQL connector's
+    ``_format_result`` (``" | ".join(columns)`` then a dash rule then one row
+    per line). A single-column result (e.g. ``SHOW ssl;``) has no ``" | "`` in
+    its header, so the dash-separator line — not the pipe — is what identifies
+    tabular output; that keeps 1-column and N-column results parsing the same
+    way instead of silently dropping single-value queries.
+    """
     lines = [ln.rstrip() for ln in (output or "").splitlines() if ln.strip()]
-    if len(lines) < 2 or " | " not in lines[0]:
+    if len(lines) < 2 or not _SEPARATOR_LINE_RE.match(lines[1]):
         return [], []
-    columns = [c.strip() for c in lines[0].split(" | ")]
+    columns = [c.strip() for c in lines[0].split(" | ")] if " | " in lines[0] else [lines[0].strip()]
     rows: list[list[Any]] = []
     for line in lines[2:]:
-        if " | " not in line:
-            continue
-        rows.append([cell.strip() for cell in line.split(" | ")])
+        if " | " in line:
+            rows.append([cell.strip() for cell in line.split(" | ")])
+        else:
+            rows.append([line.strip()])
     return columns, rows
 
 

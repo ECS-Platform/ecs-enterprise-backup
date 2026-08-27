@@ -20,7 +20,7 @@ from modules.operations.engines.evidence_repository import (
     get_health_dashboard,
     get_reuse_graph,
     get_summaries,
-    publish_evidence,
+    register_upload,
     upload_tracker,
 )
 from modules.operations.engines.integrations_module import get_integration_dashboard, simulate_sync
@@ -53,6 +53,21 @@ def _safe_count(value) -> int:
     return int(float(m.group(0))) if m else 0
 
 
+def _run_onboarding_control_evaluation(payload: dict) -> dict:
+    """Real, deterministic reusable Common-Control evaluation for the onboarding intake.
+
+    Additive to the existing (mock, hash-seeded) ``simulate_onboarding`` framework
+    scan — never allowed to block onboarding completion, so any failure here
+    degrades to an explicit ``ok: False`` note rather than propagating.
+    """
+    try:
+        from modules.operations.engines.common_control_onboarding import onboard_from_intake_payload
+
+        return onboard_from_intake_payload(payload if isinstance(payload, dict) else {})
+    except Exception as exc:  # noqa: BLE001 - onboarding must always complete
+        return {"ok": False, "error": f"Control evaluation unavailable: {exc}", "assets": []}
+
+
 def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_module: str = "", analytics_filters: dict | None = None):
     ctx = {
         "frameworks": ecs_state.frameworks.keys(),
@@ -74,33 +89,6 @@ def _base_ctx(role: str, user: str, response: str = "", notice: str = "", page_m
     except Exception:  # noqa: BLE001
         ctx["demo_mode"] = False
     return ctx
-
-
-def _fire_narrative_warmup() -> None:
-    """Best-effort, non-blocking ping to load qwen3:8b before the narrative AJAX call arrives.
-
-    Fired from the AI Ops summary page route, a beat ahead of the page's own
-    narrative fetch (the page's JS still has to render/parse/execute first). With
-    keep_alive=0s (config/llm.yaml) the model unloads after every call including
-    this one, so every page load — not just the first — benefits from firing this:
-    it overlaps the model-load latency with page render instead of the narrative
-    request paying for it cold. Runs in a daemon thread and swallows all errors —
-    same fail-soft contract as generate_narrative() itself — never blocks or
-    breaks page render.
-    """
-
-    def _warm():
-        try:
-            from ecs_platform.llm_engine.provider import get_provider
-
-            provider = get_provider()
-            if provider.configured() and hasattr(provider, "warm"):
-                provider.warm()
-        except Exception:  # noqa: BLE001 - fail soft; this is a pure optimization
-            pass
-
-    import threading
-    threading.Thread(target=_warm, daemon=True, name="ai-ops-narrative-warmup").start()
 
 
 def _module_redirect(module: str, role: str, user: str, notice: str) -> RedirectResponse:
@@ -306,13 +294,16 @@ def register_mvp_routes(app, templates):
         role: str = Form("owner"),
         user: str = Form("User"),
         return_to: str = Form("detail"),
-        # Phase-1 Run Query always persists evidence (JSON → SHA-256 → PG → MinIO → index).
-        # Opt out only with an explicit persist=false form field (preview/debug).
         persist: str = Form("true"),
     ):
         from modules.operations.engines.predefined_queries_engine import run_predefined_query
 
-        persist_flag = str(persist or "").strip().lower() in {"1", "true", "yes", "on"}
+        # A successful demo "Run Query" persists a JSON evidence artifact and
+        # enrols it into the App Owner -> Auditor review workflow (same path the
+        # scheduler / onboarding collection use). Persist unless the caller
+        # explicitly opts out (?persist=false) — the earlier default silently
+        # dropped every UI-triggered run so no evidence record was ever created.
+        persist_flag = str(persist or "").strip().lower() not in {"0", "false", "no", "off"}
         try:
             outcome = run_predefined_query(control_id, user, persist=persist_flag)
         except Exception as exc:  # noqa: BLE001 — never surface a 500 / stack trace to the demo
@@ -412,31 +403,9 @@ def register_mvp_routes(app, templates):
         page = build_summary_page(mode, scenario, role)
         if not page:
             return RedirectResponse(url=f"/mvp/ai-ops-assistant?role={role}&user={user}", status_code=303)
-        _fire_narrative_warmup()
         ctx = _base_ctx(role, user, page_module="ai_ops_assistant")
         ctx["page"] = page
         return templates.TemplateResponse(request, "mvp_ai_ops_summary.html", ctx)
-
-    @app.post("/mvp/api/ai-ops-summary-narrative")
-    def mvp_ai_ops_summary_narrative(
-        mode: str = Form(...), scenario: str = Form("net_banking"),
-        role: str = Form("cio"), user: str = Form("cio@bank.com"),
-    ):
-        # Secondary AJAX call fired after the deterministic summary shell has
-        # already rendered — qwen3:8b is a 5-10s cold call, so this must never sit
-        # on the page's critical path. See ai_ops_summary_engine.generate_narrative
-        # for the fail-soft contract (never raises, never blocks the page; retries
-        # a cold model load internally before giving up).
-        from modules.operations.engines.ai_ops_summary_engine import build_summary_page, generate_narrative
-
-        page = build_summary_page(mode, scenario, role)
-        if not page:
-            return JSONResponse({"ok": False, "error": "invalid scenario or mode"}, status_code=400)
-        try:
-            result = generate_narrative(page)
-        except Exception as exc:  # noqa: BLE001 - belt-and-suspenders: this route must never 500
-            result = {"ok": True, "grounded": False, "narrative": "", "source": "fallback", "detail": str(exc)}
-        return JSONResponse(result)
 
     @app.get("/api/module-kpi/drill")
     def api_module_kpi_drill(module: str = "", metric: str = "", role: str = "cio", count: str = ""):
@@ -596,30 +565,12 @@ def register_mvp_routes(app, templates):
         if not evidence_id:
             return HTMLResponse("<p>Missing evidence_id.</p>", status_code=400)
 
-        requested_id = str(evidence_id).strip()
-        resolved_id = requested_id
-        auth_row = None
-        try:
-            from modules.shared.services.evidence_authoritative_reader import (
-                get_authoritative_evidence,
-            )
-
-            auth_row = get_authoritative_evidence(requested_id)
-            if auth_row and auth_row.get("evidence_id"):
-                resolved_id = str(auth_row.get("evidence_id"))
-        except Exception:
-            auth_row = None
-
-        def _ids_match(candidate) -> bool:
-            value = str(candidate or "")
-            return value == requested_id or value == resolved_id
-
         artifact = None
         try:
             from modules.audit_intelligence.services.persistence import get_persistence
 
             for art in get_persistence().list_all_evidence_versions():
-                if _ids_match(getattr(art, "evidence_id", "")):
+                if getattr(art, "evidence_id", "") == evidence_id:
                     artifact = art
                     break
         except Exception:
@@ -629,7 +580,7 @@ def register_mvp_routes(app, templates):
                 from modules.audit_intelligence.engines import evidence_repository as ai_repo
 
                 for art in ai_repo.all_artifacts():
-                    if _ids_match(getattr(art, "evidence_id", "")):
+                    if getattr(art, "evidence_id", "") == evidence_id:
                         artifact = art
                         break
             except Exception:
@@ -639,57 +590,38 @@ def register_mvp_routes(app, templates):
                 from modules.operations.engines import evidence_repository as ops_repo
 
                 ops_rec = next(
-                    (
-                        r for r in ops_repo.evidence_repository
-                        if _ids_match(r.get("evidence_id", ""))
-                        or _ids_match(r.get("display_evidence_id", ""))
-                        or _ids_match((r.get("metadata") or {}).get("display_evidence_id", ""))
-                    ),
+                    (r for r in ops_repo.evidence_repository if str(r.get("evidence_id", "")) == evidence_id),
                     None,
                 )
             except Exception:
                 ops_rec = None
-            if ops_rec is None and auth_row is not None:
-                ops_rec = auth_row
             if ops_rec is not None:
                 meta = dict(ops_rec.get("metadata") or {})
-                framework = str(
-                    (ops_rec.get("framework_tags") or [ops_rec.get("framework") or ""])[0]
-                    if isinstance(ops_rec.get("framework_tags"), list)
-                    else (ops_rec.get("framework") or "")
-                )
-                eid = str(ops_rec.get("evidence_id") or resolved_id or requested_id)
+                framework = str((ops_rec.get("framework_tags") or [""])[0])
                 if str(format).strip().lower() == "json":
                     return JSONResponse({
                         "ok": True,
-                        "evidence_id": eid,
-                        "display_evidence_id": str(
-                            ops_rec.get("display_evidence_id") or meta.get("display_evidence_id") or ""
-                        ),
-                        "evidence_name": str(ops_rec.get("filename") or eid),
+                        "evidence_id": evidence_id,
+                        "evidence_name": str(ops_rec.get("filename") or evidence_id),
                         "source": str(ops_rec.get("source_connector") or "mock_evidence"),
                         "source_connector": str(ops_rec.get("source_connector") or "mock_evidence"),
-                        "application": str(
-                            (ops_rec.get("application_tags") or [ops_rec.get("application") or ""])[0]
-                            if isinstance(ops_rec.get("application_tags"), list)
-                            else (ops_rec.get("application") or "")
-                        ),
+                        "application": str((ops_rec.get("application_tags") or [""])[0]),
                         "environment": str(meta.get("environment") or ops_rec.get("environment") or ""),
                         "framework": framework,
-                        "control": str(ops_rec.get("control") or ops_rec.get("control_id") or ""),
-                        "control_id": str(ops_rec.get("control_id") or ops_rec.get("control") or ""),
+                        "control": str(ops_rec.get("control") or ""),
+                        "control_id": str(ops_rec.get("control") or ""),
                         "custody_mode": str(ops_rec.get("custody_mode") or ""),
                         "mime_type": str(ops_rec.get("mime_type") or ""),
-                        "collected_at": str(ops_rec.get("uploaded_at") or ops_rec.get("collected_at") or ""),
+                        "collected_at": str(ops_rec.get("uploaded_at") or ""),
                         "run_id": str(meta.get("scheduler_run_id") or ""),
                         "sha256": str(ops_rec.get("sha256") or ""),
                         "duplicate_state": "duplicate" if str(ops_rec.get("status", "")).upper() == "DUPLICATE" else "accepted",
-                        "version": int(ops_rec.get("version") or ops_rec.get("audit_version") or 1),
-                        "workflow_status": str(ops_rec.get("workflow_status") or ops_rec.get("status") or "Uploaded"),
+                        "version": int(ops_rec.get("version") or 1),
+                        "workflow_status": str(ops_rec.get("status") or "Uploaded"),
                         "pgvector_status": "indexed" if (ops_rec.get("search_index") or {}).get("indexed") else "not_indexed",
                         "object_uri": str(ops_rec.get("object_uri") or ""),
-                        "object_key": str(meta.get("object_key") or ops_rec.get("object_uri") or ops_rec.get("object_key") or ""),
-                        "object_reference": str(meta.get("object_key") or ops_rec.get("object_uri") or ops_rec.get("object_reference") or ""),
+                        "object_key": str(meta.get("object_key") or ops_rec.get("object_uri") or ""),
+                        "object_reference": str(meta.get("object_key") or ops_rec.get("object_uri") or ""),
                         "content_text": str(ops_rec.get("summary") or meta),
                         "metadata": meta,
                     })
@@ -735,11 +667,7 @@ def register_mvp_routes(app, templates):
                 from modules.operations.engines import evidence_repository as ops_repo
 
                 rec = next(
-                    (
-                        r for r in ops_repo.evidence_repository
-                        if str(r.get("evidence_id", "")) in {requested_id, resolved_id}
-                        or str(r.get("display_evidence_id", "")) in {requested_id, resolved_id}
-                    ),
+                    (r for r in ops_repo.evidence_repository if str(r.get("evidence_id", "")) == evidence_id),
                     None,
                 )
                 if rec:
@@ -857,7 +785,7 @@ def register_mvp_routes(app, templates):
         count = 0
         for f in files:
             content = await f.read()
-            publish_evidence(f.filename, content, user, framework, application)
+            register_upload(f.filename, content, user, framework, application)
             count += 1
         notice = quote(f"Bulk upload complete: {count} file(s) with metadata tags applied.")
         return RedirectResponse(url=f"/mvp/upload?role={role}&user={user}&notice={notice}", status_code=303)
@@ -1008,6 +936,14 @@ def register_mvp_routes(app, templates):
     def mvp_onboarding(request: Request, role: str = "cio", user: str = "CIO", response: str = "", notice: str = ""):
         ctx = _base_ctx(role, user, response, notice, page_module="onboarding")
         ctx["onboarded"] = ecs_state.onboarded_applications
+        try:
+            from modules.operations.engines.phase2_reusability import list_application_profiles
+
+            ctx["reusable_applications"] = [
+                {"id": p.id, "display_name": p.display_name} for p in list_application_profiles()
+            ]
+        except Exception:  # noqa: BLE001 - the refresh widget just stays empty
+            ctx["reusable_applications"] = []
         return templates.TemplateResponse(request, "mvp_onboarding.html", ctx)
 
     @app.post("/mvp/onboarding")
@@ -1041,7 +977,10 @@ def register_mvp_routes(app, templates):
             body = build_application_onboarder_dashboard()
             body["ok"] = True
             return JSONResponse(body)
+        if action == "control_evaluation":
+            return JSONResponse(_run_onboarding_control_evaluation(payload))
         result = simulate_onboarding(payload)
+        result["control_evaluation"] = _run_onboarding_control_evaluation(payload)
         return JSONResponse(result)
 
     @app.post("/api/onboarding/export")
@@ -1582,6 +1521,24 @@ def register_mvp_routes(app, templates):
         refs = get_common_controls_service().controls_for_framework(framework_id)
         return JSONResponse({"ok": True, "framework_id": framework_id, "controls": refs, "count": len(refs)})
 
+    @app.post("/api/control-evaluation")
+    async def api_control_evaluation(request: Request):
+        """Generic deterministic Common-Control evaluation.
+
+        Body: ``application_id`` (required), optional ``control`` (slug or
+        list of slugs), optional ``asset_id``, optional ``user``, optional
+        ``persist`` (bool). Evaluates existing predefined queries against the
+        config-driven rule pack and returns per-control verdicts, rule-level
+        expected/actual evidence, and FCM framework mappings. Never persists
+        evidence unless ``persist: true`` is explicitly passed.
+        """
+        from modules.operations.services.control_evaluation_service import evaluate_control_request
+
+        body = await request.json()
+        payload = evaluate_control_request(body if isinstance(body, dict) else {})
+        status = 200 if payload.get("ok") else 400
+        return JSONResponse(payload, status_code=status)
+
     @app.get("/mvp/lifecycle", response_class=HTMLResponse)
     def mvp_lifecycle(request: Request, role: str = "owner", user: str = "User", response: str = ""):
         ctx = _base_ctx(role, user, response, page_module="lifecycle")
@@ -1812,11 +1769,6 @@ def register_mvp_routes(app, templates):
             "risk": risk_filter,
             "status": status_filter,
             "owner": owner_filter,
-            # Internal-only key (ignored by the generic dropdown-filter matching in
-            # audit_prep_data.py — keys starting with "_" are skipped there): scopes
-            # the "My Gaps" tab to the current session user without affecting the
-            # Overview KPIs or any other tab, which stay enterprise-wide.
-            "_session_user": user,
         }
         ctx = _base_ctx(role, user, response, notice, page_module="audit_prep", analytics_filters=filters)
         ctx["prep"] = audit_preparation_checklist()

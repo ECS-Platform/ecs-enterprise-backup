@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "LNX-008",
+  "control_name": "Linux Local Users",
+  "duration_ms": 200,
+  "environment": "local",
+  "executed_at": "2026-08-27T10:56:28.476379+00:00",
+  "executed_by": "api",
+  "execution_id": "PQ-EXEC-000009",
+  "framework_coverage": "OS Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "OS Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "LNX-008",
+  "query_reference": "cut -d: -f1,3,7 /etc/passwd",
+  "result": [],
+  "row_count": 19,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Linux"
+}

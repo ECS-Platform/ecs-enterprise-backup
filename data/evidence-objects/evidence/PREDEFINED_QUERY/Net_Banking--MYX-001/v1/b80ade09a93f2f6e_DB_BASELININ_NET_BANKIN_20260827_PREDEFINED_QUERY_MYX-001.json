@@ -1,0 +1,33 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [
+    "Variable_name",
+    "Value"
+  ],
+  "control_id": "MYX-001",
+  "control_name": "Aurora MySQL SSL Status",
+  "duration_ms": 1,
+  "environment": "local",
+  "executed_at": "2026-08-27T10:53:17.042598+00:00",
+  "executed_by": "demo",
+  "execution_id": "PQ-EXEC-000083",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "MYX-001",
+  "query_reference": "SHOW VARIABLES LIKE 'have_ssl';",
+  "result": [
+    [
+      "have_ssl",
+      "YES"
+    ]
+  ],
+  "row_count": 3,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Aurora MySQL"
+}

@@ -1,0 +1,32 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [
+    "ssl"
+  ],
+  "control_id": "PGX-001",
+  "control_name": "PostgreSQL SSL Enabled",
+  "duration_ms": 0,
+  "environment": "local",
+  "executed_at": "2026-08-27T06:18:34.566817+00:00",
+  "executed_by": "tester",
+  "execution_id": "PQ-EXEC-000011",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "PGX-001",
+  "query_reference": "SHOW ssl;",
+  "result": [
+    [
+      "off"
+    ]
+  ],
+  "row_count": 1,
+  "scheduler_run_id": "COLL-20260827-061834-002",
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "PostgreSQL"
+}

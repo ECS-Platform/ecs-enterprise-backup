@@ -1,0 +1,33 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [
+    "name",
+    "value"
+  ],
+  "control_id": "CLE-GCP-YUGABYTE-EAR",
+  "control_name": "GCP Persistent Disk Encryption (YugabyteDB)",
+  "duration_ms": 1,
+  "environment": "local",
+  "executed_at": "2026-08-24T11:11:05.151867+00:00",
+  "executed_by": "AppOwner",
+  "execution_id": "PQ-EXEC-000029",
+  "framework_coverage": "DB Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "DB Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "CLE-GCP-YUGABYTE-EAR",
+  "query_reference": "gcloud compute disks describe --format='value(diskEncryptionKey)'",
+  "result": [
+    [
+      "encryption_at_rest_enabled",
+      "true"
+    ]
+  ],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "CloudKMS"
+}

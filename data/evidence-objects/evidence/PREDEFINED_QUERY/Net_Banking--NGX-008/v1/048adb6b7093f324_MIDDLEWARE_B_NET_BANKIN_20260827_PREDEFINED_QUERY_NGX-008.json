@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "NGX-008",
+  "control_name": "NGINX Enabled Sites",
+  "duration_ms": 149,
+  "environment": "local",
+  "executed_at": "2026-08-27T08:51:32.771645+00:00",
+  "executed_by": "test_user",
+  "execution_id": "PQ-EXEC-000001",
+  "framework_coverage": "Middleware Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "Middleware Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "NGX-008",
+  "query_reference": "find /etc/nginx/sites-enabled /etc/nginx/conf.d -maxdepth 2 -type f 2>/dev/null || true",
+  "result": [],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "NGINX"
+}

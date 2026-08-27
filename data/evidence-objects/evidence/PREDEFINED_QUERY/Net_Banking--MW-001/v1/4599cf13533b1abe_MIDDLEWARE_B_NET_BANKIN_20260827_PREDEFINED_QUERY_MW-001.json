@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "MW-001",
+  "control_name": "TLS Configuration",
+  "duration_ms": 119,
+  "environment": "local",
+  "executed_at": "2026-08-27T09:16:36.256512+00:00",
+  "executed_by": "test_user",
+  "execution_id": "PQ-EXEC-000001",
+  "framework_coverage": "Middleware Baselining, PCI DSS, DPSC",
+  "frameworks": [
+    "Middleware Baselining",
+    "PCI DSS",
+    "DPSC"
+  ],
+  "query_id": "MW-001",
+  "query_reference": "nginx -T",
+  "result": [],
+  "row_count": 134,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "NGINX"
+}

@@ -1,0 +1,26 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "OS-001",
+  "control_name": "Patch Compliance",
+  "duration_ms": 201,
+  "environment": "local",
+  "executed_at": "2026-08-27T10:57:18.036385+00:00",
+  "executed_by": "api",
+  "execution_id": "PQ-EXEC-000012",
+  "framework_coverage": "OS Baselining, PCI DSS, DPSC, VAPT",
+  "frameworks": [
+    "OS Baselining",
+    "PCI DSS",
+    "DPSC",
+    "VAPT"
+  ],
+  "query_id": "OS-001",
+  "query_reference": "hostname",
+  "result": [],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Linux"
+}

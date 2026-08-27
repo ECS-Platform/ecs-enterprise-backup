@@ -1,0 +1,25 @@
+{
+  "application": "Net Banking",
+  "asset_id": "Net Banking",
+  "columns": [],
+  "control_id": "RH9-003",
+  "control_name": "RHEL 9 SELinux Status",
+  "duration_ms": 94,
+  "environment": "local",
+  "executed_at": "2026-08-27T07:28:54.547739+00:00",
+  "executed_by": "test_user",
+  "execution_id": "PQ-EXEC-000001",
+  "framework_coverage": "OS Baselining, ISO27001, RBI Cyber Security",
+  "frameworks": [
+    "OS Baselining",
+    "ISO27001",
+    "RBI Cyber Security"
+  ],
+  "query_id": "RH9-003",
+  "query_reference": "getenforce 2>/dev/null || sestatus 2>/dev/null || true",
+  "result": [],
+  "row_count": 1,
+  "source_type": "predefined_query",
+  "status": "SUCCESS",
+  "technology": "Red Hat Enterprise Linux 9.x"
+}

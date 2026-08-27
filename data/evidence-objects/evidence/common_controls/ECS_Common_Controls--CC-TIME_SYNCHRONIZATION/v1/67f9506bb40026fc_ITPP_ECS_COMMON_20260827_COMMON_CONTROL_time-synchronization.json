@@ -1,0 +1,8 @@
+{
+  "collected_at": "2026-07-17T10:08:00Z",
+  "collector": "scheduler",
+  "source": "CommonControls/mock",
+  "ntp_synchronized": true,
+  "skew_seconds": 1,
+  "ntp_servers": ["ntp.demo.bank", "time.google.com"]
+}
