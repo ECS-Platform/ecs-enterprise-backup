@@ -1,0 +1,53 @@
+# Deterministic test-data seeds. Nothing here is production data. Values that must already exist in ECS
+# (framework / application names) come from ECS's demo catalogue - override per environment via env vars.
+run_prefix: ${ECS_FT_RUN_PREFIX:-FT}      # prefix on every artefact the suite creates -> traceable / cleanable
+seed: ${ECS_FT_SEED:-20260101}            # deterministic generator seed
+
+# Real ECS personas: login-form values (modules/executive_overview/templates/login.html), user names from
+# app/main.py POST /login, system_admin from the admin/scheduler routes. Only roles that exist in ECS are listed.
+personas:
+  owner:               {login_role: owner,               user: AppOwner,          label: Application Owner}
+  auditor:             {login_role: auditor,             user: Auditor,           label: Auditor}
+  cio:                 {login_role: cio,                 user: CIO,               label: CIO}
+  vertical_head:       {login_role: vertical_head,       user: VerticalHead,      label: Vertical Head (VH)}
+  compliance_head:     {login_role: compliance_head,     user: ComplianceOfficer, label: Compliance Head}
+  compliance_officer:  {login_role: compliance_officer,  user: ComplianceOfficer, label: Compliance Officer}
+  functional_head:     {login_role: functional_head,     user: FunctionalHead,    label: Functional Head (FH)}
+  security_officer:    {login_role: security_officer,    user: SecurityOfficer,   label: Security Officer}
+  operations_owner:    {login_role: operations_owner,    user: OpsOwner,          label: Operations Owner}
+  ai_governance_owner: {login_role: ai_governance_owner, user: AIGovOwner,        label: AI Governance Owner}
+  ai_sdlc_owner:       {login_role: ai_sdlc_owner,       user: SDLCOwner,         label: AI SDLC Owner}
+  framework_owner:     {login_role: framework_owner,     user: FrameworkOwner,    label: Framework Owner}
+  system_admin:        {login_role: system_admin,        user: SystemAdmin,       label: Administrator}
+
+# Expected capability matrix DERIVED FROM modules/shared/services/role_permissions.py (legacy default path) and
+# modules/frameworks/engines/framework_onboarding_engine.py (aliases: operations_owner/ai_sdlc_owner -> owner,
+# compliance_officer/security_officer/framework_owner -> compliance_head, ai_governance_owner -> cio).
+# If ECS RBAC changes (or ECS_RBAC_* flags are enabled) update this block - it is the only place it is encoded.
+rbac_expectations:
+  upload_evidence:   {allowed: [owner, operations_owner, ai_sdlc_owner],
+                      denied:  [auditor, cio, vertical_head, compliance_head, compliance_officer, functional_head]}
+  admin_platform:    {allowed: [system_admin], denied: [owner, auditor, cio, vertical_head, functional_head]}
+  manage_frameworks: {allowed: [cio, compliance_head, compliance_officer, framework_owner, system_admin],
+                      denied:  [owner, auditor, vertical_head, functional_head]}
+
+# Catalogue values (ECS demo catalogue; evidence_routes.py form defaults).
+catalog:
+  default_application: ${ECS_FT_APPLICATION:-Net Banking}
+  second_application: ${ECS_FT_APPLICATION_2:-Mobile Banking}
+  default_framework: ${ECS_FT_FRAMEWORK:-PCI DSS}
+  second_framework: ${ECS_FT_FRAMEWORK_2:-ISO 27001}
+  default_control: ${ECS_FT_CONTROL:-}
+  evidence_type: Document
+  audit_cycle: Q2 2026
+  connectors:
+    sharepoint: sharepoint
+    servicenow: servicenow
+    scheduler_default: gitea
+
+files:
+  valid_text:  {name: ft_valid_evidence.txt,  mime: text/plain}
+  valid_json:  {name: ft_valid_evidence.json, mime: application/json}
+  valid_csv:   {name: ft_valid_evidence.csv,  mime: text/csv}
+  invalid_ext: {name: ft_invalid_evidence.exe, mime: application/octet-stream}
+  empty:       {name: ft_empty.txt,           mime: text/plain}

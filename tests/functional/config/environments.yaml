@@ -1,0 +1,71 @@
+# ECS functional-automation environments.
+# Values use ${ENV_VAR:-default}. SECRETS ARE NEVER STORED HERE - only the NAME of the env var that holds them.
+# Select an environment with ECS_FT_ENV (default: local). Anything can be overridden by an env var.
+defaults: &defaults
+  # transport: "http" talks to a running ECS (base_url). "inprocess" uses fastapi TestClient(app.main:app),
+  # the same approach the existing tests/ suite uses (runner must set DEMO_MODE etc. before import).
+  transport: ${ECS_FT_TRANSPORT:-http}
+  base_url: ${ECS_FT_BASE_URL:-http://localhost:8000}
+  api_url: ${ECS_FT_API_URL:-}          # blank -> base_url (ECS serves API and UI from one FastAPI app)
+  ui_url: ${ECS_FT_UI_URL:-}            # blank -> base_url
+  verify_tls: ${ECS_FT_VERIFY_TLS:-true}
+  timeout_sec: ${ECS_FT_TIMEOUT_SEC:-30}
+  poll_interval_sec: ${ECS_FT_POLL_INTERVAL_SEC:-2}
+  long_timeout_sec: ${ECS_FT_LONG_TIMEOUT_SEC:-180}   # async collection / ingestion waits
+  # --- authentication (mirrors config/auth.yaml + app/auth/*) ---
+  auth:
+    # demo   : ECS DEMO_MODE / ECS_LOCAL_AUTH_BYPASS - identity is the role/user (query or form) pair
+    # bearer : ECS_AUTH_ENABLED=true with azure_ad/oidc/dev provider - Authorization: Bearer <token>
+    mode: ${ECS_FT_AUTH_MODE:-demo}
+    # per-persona token env var is ECS_FT_TOKEN_<PERSONA_KEY upper>, e.g. ECS_FT_TOKEN_AUDITOR
+    token_env_prefix: ECS_FT_TOKEN_
+  # --- database (config/repository.yaml: PostgreSQL system of record). Password via env only. ---
+  database:
+    enabled: ${ECS_FT_DB_ENABLED:-false}
+    host: ${ECS_REPO_PG_HOST:-localhost}
+    port: ${ECS_REPO_PG_PORT:-5432}
+    database: ${ECS_REPO_PG_DATABASE:-ecs_repository}
+    user: ${ECS_REPO_PG_USER:-ecs_user}
+    password_env: ECS_REPO_PG_PASSWORD
+    schema: ${ECS_REPO_PG_SCHEMA:-public}
+  # --- object storage (config/repository.yaml object_store; ecs_platform/storage/object_store.py) ---
+  object_store:
+    # minio | local. "local" reads ECS_EVIDENCE_OBJECT_STORE_FALLBACK (LocalObjectStore layout) directly from disk.
+    mode: ${ECS_FT_OBJECT_STORE_MODE:-local}
+    endpoint: ${MINIO_ENDPOINT:-localhost:9000}
+    bucket: ${MINIO_BUCKET:-ecs-evidence}
+    secure: ${MINIO_SECURE:-false}
+    access_key_env: MINIO_ACCESS_KEY
+    secret_key_env: MINIO_SECRET_KEY
+    local_root: ${ECS_EVIDENCE_OBJECT_STORE_FALLBACK:-./data/evidence-objects}
+  # --- UI automation (Playwright) ---
+  ui:
+    enabled: ${ECS_FT_UI_ENABLED:-false}
+    browser: ${ECS_FT_BROWSER:-chromium}
+    headless: ${ECS_FT_HEADLESS:-true}
+    slow_mo_ms: ${ECS_FT_SLOW_MO_MS:-0}
+  # --- optional hooks that let the harness drive things ECS itself does not expose over HTTP ---
+  hooks:
+    restart_command: ${ECS_FT_RESTART_CMD:-}        # restart-durability tests; blank -> those tests skip
+    log_file: ${ECS_FT_LOG_FILE:-}                  # optional path to backend.log for failure-evidence capture
+    ai_failure_ready: ${ECS_FT_AI_FAILURE_READY:-false}   # operator started ECS with LLM/vector provider disabled (AI-failure tests)
+    vector_failure_ready: ${ECS_FT_VECTOR_FAILURE_READY:-false}
+  # --- feature flags: gate groups of tests (skip reasons are reported, never silently passed) ---
+  features:
+    mutating_tests: ${ECS_FT_ALLOW_MUTATION:-false}        # tests that create/update ECS data
+    live_connectors: ${ECS_FT_LIVE_CONNECTORS:-false}      # real SharePoint/ServiceNow/etc. calls
+    ai_live: ${ECS_FT_AI_LIVE:-false}                      # tests that exercise a live LLM
+    destructive_tests: ${ECS_FT_ALLOW_DESTRUCTIVE:-false}  # retention / archival / delete / tamper
+    security_tests: ${ECS_FT_ALLOW_SECURITY_PROBES:-false} # unauthorized-manipulation probes
+    performance_tests: ${ECS_FT_ALLOW_PERFORMANCE:-false}
+    concurrency_tests: ${ECS_FT_ALLOW_CONCURRENCY:-false}
+environments:
+  local:
+    <<: *defaults
+  dev:
+    <<: *defaults
+  sit:
+    <<: *defaults
+  uat:
+    <<: *defaults
+    auth: {mode: bearer, token_env_prefix: ECS_FT_TOKEN_}

@@ -67,3 +67,7 @@ reports/audit_llm_benchmarks/*.json
 
 # Runtime generated evidence
 data/evidence-objects/evidence/unknown/
+
+# ECS functional automation run outputs (generated only when execution is enabled)
+tests/functional/reports/*
+!tests/functional/reports/.gitkeep

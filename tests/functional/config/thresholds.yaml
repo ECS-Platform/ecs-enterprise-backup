@@ -1,0 +1,19 @@
+# SLA / threshold placeholders for performance-typed functional cases ("Validate performance ..." / "Execute process under peak load").
+# The workbook only says "System performs within SLA limits" and defines NO numeric SLA.
+# Values are PLACEHOLDERS (null = not yet defined by the business). Performance cases skip until a value is set.
+# No load tool (Locust/JMeter) is used; the framework only times functional calls.
+performance:
+  default_response_p95_ms: null
+  dashboard_load_ms: null
+  report_generation_ms: null
+  bulk_upload_batch_ms: null
+  scheduler_run_completion_sec: null
+  ai_query_ms: null
+  peak_load_concurrent_users: null
+concurrency:
+  parallel_workers: 4          # used only when features.concurrency_tests is true
+  operations_per_worker: 3
+polling:
+  scheduler_run_timeout_sec: 180
+  ingestion_timeout_sec: 120
+  notification_timeout_sec: 30
